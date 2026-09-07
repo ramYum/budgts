@@ -16,9 +16,11 @@ export default defineConfig({
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: {
-    command: "npm run dev",
+    // Test against a production build — a cold `next dev` compile can exceed
+    // the per-test timeout on the first navigation.
+    command: "npm run build && npm run start",
     url: baseURL,
     reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
+    timeout: 240_000,
   },
 });

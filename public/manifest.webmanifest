@@ -1,0 +1,14 @@
+{
+  "name": "Budget Tracker",
+  "short_name": "Budget",
+  "description": "Personal budget tracking — categories, budgets vs actual, recurring bills, savings goals.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0a0a0a",
+  "icons": [
+    { "src": "/icon.svg", "type": "image/svg+xml", "sizes": "any", "purpose": "any" },
+    { "src": "/icon-maskable.svg", "type": "image/svg+xml", "sizes": "any", "purpose": "maskable" }
+  ]
+}

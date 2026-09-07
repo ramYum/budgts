@@ -1,0 +1,547 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Budgts — Brand Guidelines</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+
+:root{
+  /* primaries */
+  --volt:#B5FF00;
+  --pine:#001E16;
+  --carbon:#141918;
+  --paper:#FFFFFF;
+  --mist:#F4F6F2;
+
+  /* lime tint ramp */
+  --lime-1:#B5FF00; --lime-2:#C7FF47; --lime-3:#D8FF80; --lime-4:#E9FFB8; --lime-5:#F6FFE3;
+  /* pine / green-grey ramp */
+  --pine-1:#001E16; --pine-2:#26403A; --pine-3:#57706A; --pine-4:#8CA39D; --pine-5:#C4D1CD;
+  /* neutral grey ramp */
+  --grey-1:#141918; --grey-2:#3C4341; --grey-3:#6B716E; --grey-4:#9DA2A0; --grey-5:#D0D3D1;
+
+  /* semantic */
+  --pos:#B5FF00;      /* under budget / positive */
+  --over:#FF5C3A;     /* over budget / alert */
+  --near:#FFC24B;     /* approaching limit */
+  --info:#7FB2FF;     /* neutral information */
+
+  --measure:64ch;
+  --pad-y:62px;
+  --pad-x:120px;
+}
+
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  width:1600px;
+  background:var(--pine);
+  color:var(--paper);
+  font-family:Inter,system-ui,sans-serif;
+  font-size:17px;
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3{font-family:Poppins,system-ui,sans-serif;font-weight:700;margin:0;letter-spacing:-.02em;line-height:1.05}
+p{margin:0}
+
+.band{padding:var(--pad-y) var(--pad-x)}
+.band--pine{background:var(--pine);color:var(--paper)}
+.band--carbon{background:var(--carbon);color:var(--paper)}
+.band--mist{background:var(--mist);color:var(--pine)}
+.band--paper{background:var(--paper);color:var(--pine)}
+.band--volt{background:var(--volt);color:var(--pine)}
+
+.rule{height:3px;border:0;margin:0;background:var(--volt)}
+
+/* ---------- masthead ---------- */
+.mast{display:flex;flex-direction:column;gap:0}
+.brandline{display:flex;align-items:center;gap:14px;margin-bottom:60px}
+.brandline .wm{font-family:Poppins;font-weight:700;font-size:30px;letter-spacing:-.04em;color:var(--paper)}
+.mast h1{font-size:82px;max-width:16ch}
+.mast .sub{margin-top:26px;font-size:21px;color:var(--pine-5);max-width:52ch}
+.mast .toc{margin-top:48px;display:flex;gap:36px;font-size:15px;color:var(--pine-4);
+  font-family:Poppins;font-weight:500;letter-spacing:.01em}
+.mast .toc span{color:var(--volt)}
+
+/* section heading block */
+.head{margin-bottom:36px}
+.head h2{font-size:50px}
+.head .lead{margin-top:18px;font-size:19px;max-width:var(--measure);color:inherit;opacity:.78}
+
+/* ---------- logo ---------- */
+.logo-hero{display:flex;align-items:center;justify-content:center;gap:44px;
+  padding:64px 40px;background:var(--carbon);border-radius:24px}
+.logo-hero .mark{width:150px;height:150px;color:var(--volt)}
+.logo-hero .type{font-family:Poppins;font-weight:700;font-size:104px;letter-spacing:-.05em;color:var(--paper)}
+.logo-variants{display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px;margin-top:24px}
+.logo-variants .v{background:var(--carbon);border-radius:20px;padding:44px 28px;
+  display:flex;flex-direction:column;align-items:center;gap:26px;min-height:220px;justify-content:center}
+.logo-variants .stack{display:flex;flex-direction:column;align-items:center;gap:14px}
+.logo-variants .stack .mark{width:88px;height:88px;color:var(--volt)}
+.logo-variants .stack .type{font-family:Poppins;font-weight:700;font-size:40px;letter-spacing:-.05em;color:var(--paper)}
+.logo-variants .row{display:flex;align-items:center;gap:16px}
+.logo-variants .row .mark{width:64px;height:64px;color:var(--volt)}
+.logo-variants .row .type{font-family:Poppins;font-weight:700;font-size:52px;letter-spacing:-.05em;color:var(--paper)}
+.logo-variants .sym .mark{width:96px;height:96px;color:var(--volt)}
+.logo-variants .label{font-family:Poppins;font-weight:500;font-size:14px;color:var(--pine-4)}
+.placeholder-note{margin-top:26px;font-size:15px;color:var(--pine-4);
+  border-left:3px solid var(--volt);padding-left:18px;max-width:70ch}
+
+/* ---------- construction ---------- */
+.two{display:grid;grid-template-columns:1.2fr 1fr;gap:80px;align-items:start}
+.cs-frame{position:relative;background:var(--paper);border-radius:18px;padding:64px;display:inline-block}
+.cs-inner{position:relative;padding:44px;outline:2px dashed var(--pine-4)}
+.cs-inner .row{display:flex;align-items:center;gap:14px}
+.cs-inner .row .mark{width:70px;height:70px;color:var(--pine)}
+.cs-inner .row .type{font-family:Poppins;font-weight:700;font-size:56px;letter-spacing:-.05em;color:var(--pine)}
+.cs-tag{position:absolute;font-family:Inter;font-weight:600;font-size:13px;color:var(--pine-3);background:var(--paper);padding:0 8px}
+.cs-tag.t{top:-9px;left:50%;transform:translateX(-50%)}
+.cs-tag.l{left:-14px;top:50%;transform:translateY(-50%) rotate(-90deg)}
+.minsize{display:flex;flex-direction:column;gap:40px}
+.minsize .item{display:flex;align-items:flex-end;gap:22px}
+.minsize .chip{background:var(--pine);border-radius:12px;padding:14px;display:flex;align-items:center;gap:10px}
+.minsize .chip .mark{color:var(--volt)}
+.minsize .chip .type{font-family:Poppins;font-weight:700;letter-spacing:-.05em;color:var(--paper)}
+.minsize .m16{width:16px;height:16px}
+.minsize .m96 .mark{width:26px;height:26px}
+.minsize .m96 .type{font-size:17px}
+.minsize .desc{font-size:15px;color:var(--pine-3)}
+.minsize .desc b{color:var(--pine);font-weight:600;font-family:Poppins}
+
+/* ---------- placement tiles ---------- */
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:24px}
+.tile{aspect-ratio:1/1;border-radius:20px;display:grid;place-items:center;
+  box-shadow:inset 0 0 0 1px rgba(0,30,22,.12)}
+.tile .mark{width:52%;height:52%}
+.tilecap{margin-top:14px;font-family:Poppins;font-weight:500;font-size:14px;color:var(--pine-3)}
+.t-pine{background:var(--pine)} .t-pine .mark{color:var(--volt)}
+.t-lime{background:var(--volt)} .t-lime .mark{color:var(--pine)}
+.t-paper{background:var(--paper)} .t-paper .mark{color:var(--pine)}
+.t-carbon{background:var(--carbon)} .t-carbon .mark{color:var(--volt)}
+
+/* ---------- misuse ---------- */
+.dont{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+.dont .cell{background:var(--carbon);border-radius:18px;padding:32px;position:relative;
+  display:flex;flex-direction:column;align-items:center;gap:20px;min-height:190px;justify-content:center}
+.dont .cell .mark{width:82px;height:82px;color:var(--volt)}
+.dont .cell .cap{font-family:Poppins;font-weight:500;font-size:14px;color:var(--pine-4);text-align:center}
+.dont .no{position:absolute;top:16px;right:16px;width:24px;height:24px;border-radius:50%;
+  background:var(--over);display:grid;place-items:center;color:#fff;font-size:15px;font-weight:700;line-height:1}
+.dont .w-recolour .mark{color:var(--info)}
+.dont .w-rotate .mark{transform:rotate(24deg)}
+.dont .w-stretch .mark{transform:scaleX(1.7)}
+.dont .w-shadow .mark{filter:drop-shadow(0 9px 12px rgba(0,0,0,.75))}
+.dont .w-lowcon{background:var(--pine-3)}
+.dont .w-lowcon .cap{color:var(--pine-1)}
+.dont .w-outline .badge{font-family:Poppins;font-weight:700;font-size:38px;letter-spacing:-.05em;
+  color:transparent;-webkit-text-stroke:2px var(--pine-4)}
+
+/* ---------- colour ---------- */
+.swatches{display:grid;grid-template-columns:repeat(4,1fr);gap:22px;margin-bottom:64px}
+.sw{border-radius:18px;overflow:hidden;border:1px solid rgba(0,0,0,.08)}
+.sw .chip{height:150px}
+.sw .meta{padding:20px 22px;background:var(--paper)}
+.sw .name{font-family:Poppins;font-weight:600;font-size:19px;color:var(--pine)}
+.sw .hex{font-size:15px;color:var(--pine-3);margin-top:2px;letter-spacing:.02em}
+.sw .role{font-size:14px;color:var(--grey-3);margin-top:10px;line-height:1.45}
+.ramp{margin-bottom:24px}
+.ramp .rname{font-family:Poppins;font-weight:600;font-size:15px;color:var(--pine);margin-bottom:10px}
+.ramp .cells{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.ramp .c{border-radius:12px;overflow:hidden;border:1px solid rgba(0,0,0,.06)}
+.ramp .c .b{height:74px}
+.ramp .c .h{font-size:12px;color:var(--pine-3);padding:8px 10px;background:var(--paper)}
+.sem{display:grid;grid-template-columns:repeat(4,1fr);gap:22px;margin-top:44px}
+.sem .s{border-radius:16px;border:1px solid rgba(0,0,0,.08);overflow:hidden}
+.sem .s .b{height:56px} .sem .s .m{padding:16px 18px;background:var(--paper)}
+.sem .s .n{font-family:Poppins;font-weight:600;font-size:15px;color:var(--pine)}
+.sem .s .u{font-size:13px;color:var(--grey-3);margin-top:4px}
+.callout{margin-top:44px;background:var(--pine);color:var(--paper);border-radius:18px;
+  padding:30px 36px;font-size:18px;line-height:1.55;max-width:88ch}
+.callout b{color:var(--volt);font-family:Poppins;font-weight:600}
+
+/* ---------- type ---------- */
+.spec{border-top:2px solid var(--pine-2);padding-top:32px;margin-top:32px}
+.spec .glyphs{font-family:Poppins;font-weight:700;font-size:88px;letter-spacing:-.03em;line-height:1;color:var(--paper);font-synthesis:none}
+.spec .glyphs .sm{font-size:34px;font-weight:500;color:var(--pine-4);margin-left:18px;letter-spacing:0}
+.spec .glyphs.inter{font-family:Inter;font-weight:400}
+.spec .glyphs.inter .sm{font-weight:400}
+.spec .about{margin-top:18px;font-size:18px;color:var(--pine-5);max-width:70ch}
+.spec .about b{color:var(--paper);font-weight:600;font-family:Poppins}
+.para{margin-top:20px;font-size:18px;line-height:1.7;max-width:62ch;color:var(--pine-5)}
+.scale{width:100%;border-collapse:collapse;margin-top:40px}
+.scale th{text-align:left;font-family:Poppins;font-weight:500;font-size:13px;color:var(--pine-4);
+  padding:0 0 16px;border-bottom:2px solid var(--pine-2)}
+.scale td{padding:16px 0;border-bottom:1px solid var(--pine-2);vertical-align:baseline;color:var(--paper)}
+.scale .samp{font-family:Poppins;font-weight:700;letter-spacing:-.03em;line-height:1}
+.scale .d1{font-size:44px} .scale .d2{font-size:30px} .scale .d3{font-size:22px}
+.scale .d4{font-size:17px;font-family:Inter;font-weight:400}
+.scale .d5{font-size:14px;font-family:Inter;font-weight:400}
+.scale .meta{font-size:14px;color:var(--pine-4);font-family:Inter}
+.money{margin-top:40px;background:var(--carbon);border-radius:18px;padding:32px 40px}
+.money .big{font-family:Inter;font-weight:600;font-size:40px;color:var(--paper);font-variant-numeric:tabular-nums}
+.money .big .dim{color:var(--pine-4)}
+.money .note{margin-top:12px;font-size:15px;color:var(--pine-4)}
+
+/* ---------- voice ---------- */
+.voice-lead{font-family:Poppins;font-weight:600;font-size:38px;letter-spacing:-.02em;color:var(--pine);max-width:20ch}
+.vgrid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:40px}
+.vcard{border-radius:18px;padding:32px 34px}
+.vcard.yes{background:var(--pine);color:var(--paper)}
+.vcard.no{background:#fff;border:1px solid var(--pine-5)}
+.vcard .k{font-family:Poppins;font-weight:600;font-size:13px;margin-bottom:16px}
+.vcard.yes .k{color:var(--volt)} .vcard.no .k{color:var(--over)}
+.vcard .q{font-size:20px;line-height:1.5}
+.vcard.no .q{color:var(--grey-3)}
+.vcard .q+.q{margin-top:20px;padding-top:20px;border-top:1px solid rgba(255,255,255,.12)}
+.vcard.no .q+.q{border-top:1px solid var(--pine-5)}
+
+/* ---------- in use ---------- */
+.use{display:grid;grid-template-columns:auto 1fr;gap:64px;align-items:start}
+.appicons{display:flex;gap:24px}
+.appicon{width:132px;height:132px;border-radius:30px;display:grid;place-items:center}
+.appicon.pine{background:var(--pine);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)} .appicon.pine .mark{color:var(--volt);width:64%;height:64%}
+.appicon.lime{background:var(--volt)} .appicon.lime .mark{color:var(--pine);width:64%;height:64%}
+.iconcap{margin-top:14px;font-family:Poppins;font-weight:500;font-size:13px;color:var(--pine-4)}
+.appcard{background:var(--paper);border-radius:20px;padding:30px 34px;color:var(--pine);max-width:600px}
+.appcard .t{display:flex;justify-content:space-between;align-items:baseline}
+.appcard .cat{font-family:Poppins;font-weight:600;font-size:20px}
+.appcard .amt{font-family:Inter;font-weight:600;font-size:18px;font-variant-numeric:tabular-nums}
+.appcard .amt .dim{color:var(--grey-4)}
+.appcard .bar{height:14px;border-radius:8px;background:var(--pine-5);margin:18px 0 10px;overflow:hidden}
+.appcard .bar i{display:block;height:100%;width:85%;background:var(--volt)}
+.appcard .left{font-size:14px;color:var(--grey-3);font-variant-numeric:tabular-nums}
+.appcard.over{margin-top:20px}
+.appcard.over .bar i{width:112%;background:var(--over)}
+.appcard.over .amt{color:var(--over)}
+.sig{margin-top:36px;display:flex;align-items:center;gap:14px;color:var(--pine-4);font-size:15px}
+.sig .mark{width:34px;height:34px;color:var(--volt)}
+.sig .wm{font-family:Poppins;font-weight:700;font-size:22px;letter-spacing:-.05em;color:var(--paper)}
+.sig .u{margin-left:6px}
+
+/* ---------- footer ---------- */
+.foot{display:flex;align-items:center;justify-content:space-between}
+.foot .wm{font-family:Poppins;font-weight:700;font-size:92px;letter-spacing:-.06em;color:var(--pine)}
+.foot .right{text-align:right;font-family:Poppins;font-weight:500;font-size:15px;color:var(--pine);opacity:.7}
+.foot .strip{display:flex;margin-top:16px;border-radius:8px;overflow:hidden;width:220px;margin-left:auto}
+.foot .strip i{height:26px;flex:1}
+</style>
+</head>
+<body>
+
+<!-- reusable mark: a squared spiral, grid-built, with a 45° chamfer on the
+     outer bottom-right corner and a solid block at the centre. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="mark" viewBox="0 0 64 64">
+    <path d="M 5 5 L 59 5 L 59 46 L 46 59 L 5 59 L 5 20.5 L 43.5 20.5 L 43.5 43.5 L 20.5 43.5 L 20.5 29.03 L 31 29.03"
+      fill="none" stroke="currentColor" stroke-width="10" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4"/>
+    <rect x="27" y="27" width="10" height="10" fill="currentColor"/>
+  </symbol>
+</svg>
+
+<!-- ========== MASTHEAD ========== -->
+<section class="band band--pine mast">
+  <div class="brandline">
+    <svg class="mark" style="width:44px;height:44px;color:var(--volt)"><use href="#mark"/></svg>
+    <span class="wm">budgts</span>
+  </div>
+  <h1>Brand guidelines</h1>
+  <p class="sub">The look and language of Budgts — a personal budgeting app that stays calm, tells the truth about your money, and gets out of the way.</p>
+  <div class="toc">
+    <span>Logo</span> <span>Colour</span> <span>Type</span> <span>Voice</span> <span>In&nbsp;use</span>
+  </div>
+</section>
+<hr class="rule">
+
+<!-- ========== LOGO ========== -->
+<section class="band band--pine">
+  <div class="head">
+    <h2>Logo</h2>
+    <p class="lead">A squared spiral, built on a grid: your spending, tracked inward turn by turn to a single solid point. One corner is cut at 45° — the mark is closing on the total, not sealing shut.</p>
+  </div>
+
+  <div class="logo-hero">
+    <svg class="mark"><use href="#mark"/></svg>
+    <span class="type">budgts</span>
+  </div>
+
+  <div class="logo-variants">
+    <div class="v">
+      <div class="row">
+        <svg class="mark"><use href="#mark"/></svg>
+        <span class="type">budgts</span>
+      </div>
+      <span class="label">Primary — horizontal</span>
+    </div>
+    <div class="v">
+      <div class="stack">
+        <svg class="mark"><use href="#mark"/></svg>
+        <span class="type">budgts</span>
+      </div>
+      <span class="label">Stacked — tight spaces, square formats</span>
+    </div>
+    <div class="v sym">
+      <svg class="mark"><use href="#mark"/></svg>
+      <span class="label">Symbol — app icon, favicon, avatar</span>
+    </div>
+  </div>
+
+  <p class="placeholder-note">Reconstructed as vector from the supplied icon: stroke weight, arm spacing and the corner chamfer are all on one grid unit. Master files: <b style="color:var(--pine-5);font-weight:600">brand/budgts-mark.svg</b> and the horizontal / stacked lock-ups beside it.</p>
+</section>
+<hr class="rule">
+
+<!-- ========== CONSTRUCTION ========== -->
+<section class="band band--mist">
+  <div class="head">
+    <h2>Construction &amp; space</h2>
+    <p class="lead">Give the logo room, and never shrink it past the point where the inner turns read.</p>
+  </div>
+  <div class="two">
+    <div>
+      <div class="cs-frame">
+        <div class="cs-inner">
+          <span class="cs-tag t">clearspace = x</span>
+          <span class="cs-tag l">x</span>
+          <div class="row">
+            <svg class="mark"><use href="#mark"/></svg>
+            <span class="type">budgts</span>
+          </div>
+        </div>
+      </div>
+      <p style="margin-top:22px;font-size:15px;color:var(--pine-3);max-width:52ch">
+        <b style="font-family:Poppins;color:var(--pine);font-weight:600">x</b> is the stroke weight of the mark — the same unit the whole logo is built on. Keep that much clear space on every side. Nothing else — type, rules, photo edges — enters it.
+      </p>
+    </div>
+    <div class="minsize">
+      <div class="item">
+        <div class="chip"><svg class="mark m16"><use href="#mark"/></svg></div>
+        <span class="desc"><b>Symbol — 16&nbsp;px</b><br>minimum. Below this the arms close up.</span>
+      </div>
+      <div class="item">
+        <div class="chip m96"><svg class="mark"><use href="#mark"/></svg><span class="type">budgts</span></div>
+        <span class="desc"><b>Horizontal lock-up — 96&nbsp;px wide</b><br>minimum. Use the symbol alone below that.</span>
+      </div>
+      <div class="desc" style="max-width:46ch">Digital sizes given. For print, scale to the same visual weight and keep the clearspace rule.</div>
+    </div>
+  </div>
+</section>
+<hr class="rule">
+
+<!-- ========== PLACEMENT ========== -->
+<section class="band band--paper">
+  <div class="head">
+    <h2>Placement</h2>
+    <p class="lead">Full-strength contrast only. The lime mark needs a dark ground; the pine mark needs a light one. Nothing in between.</p>
+  </div>
+  <div class="tiles">
+    <div><div class="tile t-pine"><svg class="mark"><use href="#mark"/></svg></div><div class="tilecap">Lime on Deep&nbsp;Pine</div></div>
+    <div><div class="tile t-lime"><svg class="mark"><use href="#mark"/></svg></div><div class="tilecap">Pine on Volt&nbsp;Lime</div></div>
+    <div><div class="tile t-paper"><svg class="mark"><use href="#mark"/></svg></div><div class="tilecap">Pine on Paper</div></div>
+    <div><div class="tile t-carbon"><svg class="mark"><use href="#mark"/></svg></div><div class="tilecap">Lime on Carbon</div></div>
+  </div>
+</section>
+<hr class="rule">
+
+<!-- ========== MISUSE ========== -->
+<section class="band band--pine">
+  <div class="head">
+    <h2>Don't</h2>
+    <p class="lead">Six ways to break the mark. The stroke weight, the colours, the proportions and the orientation are fixed.</p>
+  </div>
+  <div class="dont">
+    <div class="cell w-recolour"><span class="no">&times;</span><svg class="mark"><use href="#mark"/></svg><span class="cap">Recolour it outside the palette</span></div>
+    <div class="cell w-rotate"><span class="no">&times;</span><svg class="mark"><use href="#mark"/></svg><span class="cap">Rotate, tilt or flip it</span></div>
+    <div class="cell w-stretch"><span class="no">&times;</span><svg class="mark"><use href="#mark"/></svg><span class="cap">Stretch or condense it</span></div>
+    <div class="cell w-shadow"><span class="no">&times;</span><svg class="mark"><use href="#mark"/></svg><span class="cap">Add a shadow, glow or gradient</span></div>
+    <div class="cell w-lowcon"><span class="no">&times;</span><svg class="mark"><use href="#mark"/></svg><span class="cap">Place lime on a mid-tone</span></div>
+    <div class="cell w-outline"><span class="no">&times;</span><span class="badge">budgts</span><span class="cap">Outline or re-typeset the wordmark</span></div>
+  </div>
+</section>
+<hr class="rule">
+
+<!-- ========== COLOUR ========== -->
+<section class="band band--paper">
+  <div class="head">
+    <h2>Colour</h2>
+    <p class="lead">Two colours carry the brand: an acid lime that means "you're fine", on a green so dark it reads as black. Everything else supports them.</p>
+  </div>
+
+  <div class="swatches">
+    <div class="sw">
+      <div class="chip" style="background:var(--volt)"></div>
+      <div class="meta"><div class="name">Volt Lime</div><div class="hex">#B5FF00</div>
+        <div class="role">The accent. Positive states, one key action per screen, the mark on dark. Never body text, never a fill behind paragraphs.</div></div>
+    </div>
+    <div class="sw">
+      <div class="chip" style="background:var(--pine)"></div>
+      <div class="meta"><div class="name">Deep Pine</div><div class="hex">#001E16</div>
+        <div class="role">Primary dark surface — app chrome, hero areas, the mark on light. The brand's "black".</div></div>
+    </div>
+    <div class="sw">
+      <div class="chip" style="background:var(--carbon)"></div>
+      <div class="meta"><div class="name">Carbon</div><div class="hex">#141918</div>
+        <div class="role">Ink for body text on light, and a secondary dark surface when two dark layers need to separate.</div></div>
+    </div>
+    <div class="sw">
+      <div class="chip" style="background:var(--mist);border-bottom:1px solid rgba(0,0,0,.08)"></div>
+      <div class="meta"><div class="name">Paper / Mist</div><div class="hex">#FFFFFF&nbsp;·&nbsp;#F4F6F2</div>
+        <div class="role">Light surfaces. Paper for cards and sheets, Mist for the page behind them.</div></div>
+    </div>
+  </div>
+
+  <div class="ramp">
+    <div class="rname">Lime tints — highlights, hover fills, chart series on dark</div>
+    <div class="cells">
+      <div class="c"><div class="b" style="background:var(--lime-1)"></div><div class="h">#B5FF00</div></div>
+      <div class="c"><div class="b" style="background:var(--lime-2)"></div><div class="h">#C7FF47</div></div>
+      <div class="c"><div class="b" style="background:var(--lime-3)"></div><div class="h">#D8FF80</div></div>
+      <div class="c"><div class="b" style="background:var(--lime-4)"></div><div class="h">#E9FFB8</div></div>
+      <div class="c"><div class="b" style="background:var(--lime-5)"></div><div class="h">#F6FFE3</div></div>
+    </div>
+  </div>
+  <div class="ramp">
+    <div class="rname">Pine tints — dividers, secondary text and icons on dark</div>
+    <div class="cells">
+      <div class="c"><div class="b" style="background:var(--pine-1)"></div><div class="h">#001E16</div></div>
+      <div class="c"><div class="b" style="background:var(--pine-2)"></div><div class="h">#26403A</div></div>
+      <div class="c"><div class="b" style="background:var(--pine-3)"></div><div class="h">#57706A</div></div>
+      <div class="c"><div class="b" style="background:var(--pine-4)"></div><div class="h">#8CA39D</div></div>
+      <div class="c"><div class="b" style="background:var(--pine-5)"></div><div class="h">#C4D1CD</div></div>
+    </div>
+  </div>
+  <div class="ramp">
+    <div class="rname">Neutral greys — borders, disabled states and text on light</div>
+    <div class="cells">
+      <div class="c"><div class="b" style="background:var(--grey-1)"></div><div class="h">#141918</div></div>
+      <div class="c"><div class="b" style="background:var(--grey-2)"></div><div class="h">#3C4341</div></div>
+      <div class="c"><div class="b" style="background:var(--grey-3)"></div><div class="h">#6B716E</div></div>
+      <div class="c"><div class="b" style="background:var(--grey-4)"></div><div class="h">#9DA2A0</div></div>
+      <div class="c"><div class="b" style="background:var(--grey-5)"></div><div class="h">#D0D3D1</div></div>
+    </div>
+  </div>
+
+  <div class="sem">
+    <div class="s"><div class="b" style="background:var(--pos)"></div><div class="m"><div class="n">Under budget</div><div class="u">#B5FF00 — progress bars, "on track"</div></div></div>
+    <div class="s"><div class="b" style="background:var(--over)"></div><div class="m"><div class="n">Over budget</div><div class="u">#FF5C3A — overspend, destructive actions</div></div></div>
+    <div class="s"><div class="b" style="background:var(--near)"></div><div class="m"><div class="n">Approaching</div><div class="u">#FFC24B — 80–100% of a budget used</div></div></div>
+    <div class="s"><div class="b" style="background:var(--info)"></div><div class="m"><div class="n">Information</div><div class="u">#7FB2FF — neutral notes, sync status</div></div></div>
+  </div>
+
+  <div class="callout">
+    <b>One rule that keeps the brand recognisable:</b> Volt Lime is a spark, not a surface. If a screen looks like a lot of lime, it's wrong — pull it back to one positive signal and one action.
+  </div>
+</section>
+<hr class="rule">
+
+<!-- ========== TYPE ========== -->
+<section class="band band--pine">
+  <div class="head">
+    <h2>Type</h2>
+    <p class="lead">Two families. Poppins for anything that carries the brand's voice; Inter for everything you read and every number you check.</p>
+  </div>
+
+  <div class="spec">
+    <div class="glyphs">Budgts on track<span class="sm"> Raygo 012·£3,480</span></div>
+    <p class="about"><b>Poppins</b> — SemiBold 600, Bold 700. The wordmark, headings, big balances, empty-state lines. Geometric and round, tracked slightly tight (-3 to -5%).</p>
+  </div>
+
+  <div class="spec">
+    <div class="glyphs inter">Budgts on track<span class="sm"> Raygo 012·£3,480</span></div>
+    <p class="about"><b>Inter</b> — Regular 400, Medium 500, SemiBold 600, Bold 700. Body copy, labels, buttons, tables. Every currency amount uses Inter with <b>tabular figures</b> so columns line up.</p>
+    <p class="para">Set body text at 16&nbsp;px with generous leading, measures under 64 characters, and left aligned. Sentence case everywhere — headings included. No all-caps, no letter-spaced labels.</p>
+  </div>
+
+  <table class="scale">
+    <thead><tr><th style="width:52%">Sample</th><th>Role</th><th>Size / line-height</th></tr></thead>
+    <tbody>
+      <tr><td><span class="samp d1">Money, made calm</span></td><td class="meta">Display — hero, marketing</td><td class="meta">56 / 60</td></tr>
+      <tr><td><span class="samp d2">This month's budget</span></td><td class="meta">H1 — screen title</td><td class="meta">40 / 46</td></tr>
+      <tr><td><span class="samp d3">Groceries</span></td><td class="meta">H2 — section</td><td class="meta">28 / 34</td></tr>
+      <tr><td><span class="samp d4">Add a transaction</span></td><td class="meta">Body — default</td><td class="meta">16 / 26</td></tr>
+      <tr><td><span class="samp d5">Last synced 2 minutes ago</span></td><td class="meta">Small — captions, meta</td><td class="meta">13 / 18</td></tr>
+    </tbody>
+  </table>
+
+  <div class="money">
+    <div class="big">£2,480.00 <span class="dim">left of £3,000.00</span></div>
+    <div class="note">Inter SemiBold, tabular figures. Amounts are never set in Poppins in running UI — only as a deliberate display moment.</div>
+  </div>
+</section>
+<hr class="rule">
+
+<!-- ========== VOICE ========== -->
+<section class="band band--mist">
+  <div class="head">
+    <h2>Voice</h2>
+  </div>
+  <p class="voice-lead">Clear. Calm. On your side.</p>
+  <div class="vgrid">
+    <div class="vcard yes">
+      <div class="k">We write</div>
+      <p class="q">You've got £120 left for groceries this month.</p>
+      <p class="q">Couldn't reach your bank. Nothing was lost — your manual entries are all here.</p>
+    </div>
+    <div class="vcard no">
+      <div class="k">Not</div>
+      <p class="q">Uh oh! You're about to blow your grocery budget 😬</p>
+      <p class="q">Error 502: upstream sync failure. Please try again later.</p>
+    </div>
+  </div>
+  <p style="margin-top:40px;font-size:17px;color:var(--pine-3);max-width:70ch">
+    State the number and what it means. Don't scold, don't celebrate loudly, don't apologise for the software. An empty screen says what to do next, not "nothing here yet".
+  </p>
+</section>
+<hr class="rule">
+
+<!-- ========== IN USE ========== -->
+<section class="band band--carbon">
+  <div class="head">
+    <h2>In use</h2>
+    <p class="lead" style="opacity:.8">The system on a screen: one dark surface, one accent, numbers you can scan.</p>
+  </div>
+  <div class="use">
+    <div>
+      <div class="appicons">
+        <div><div class="appicon pine"><svg class="mark"><use href="#mark"/></svg></div><div class="iconcap">App icon</div></div>
+        <div><div class="appicon lime"><svg class="mark"><use href="#mark"/></svg></div><div class="iconcap">Maskable / alt</div></div>
+      </div>
+      <div class="sig">
+        <svg class="mark"><use href="#mark"/></svg>
+        <span class="wm">budgts</span>
+        <span class="u">budgts.app</span>
+      </div>
+    </div>
+    <div>
+      <div class="appcard">
+        <div class="t"><span class="cat">Groceries</span><span class="amt">£340.00 <span class="dim">/ £400.00</span></span></div>
+        <div class="bar"><i></i></div>
+        <div class="left">£60.00 left · 6 days to go</div>
+      </div>
+      <div class="appcard over">
+        <div class="t"><span class="cat">Eating out</span><span class="amt">£280.00 <span class="dim">/ £250.00</span></span></div>
+        <div class="bar"><i></i></div>
+        <div class="left" style="color:var(--over)">£30.00 over</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== FOOTER ========== -->
+<section class="band band--volt">
+  <div class="foot">
+    <span class="wm">budgts</span>
+    <div>
+      <div class="right">Brand guidelines · v1.0 · September 2026</div>
+      <div class="strip">
+        <i style="background:var(--pine)"></i>
+        <i style="background:var(--carbon)"></i>
+        <i style="background:var(--paper)"></i>
+        <i style="background:var(--volt);box-shadow:inset 0 0 0 1px rgba(0,30,22,.25)"></i>
+      </div>
+    </div>
+  </div>
+</section>
+
+</body>
+</html>

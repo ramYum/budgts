@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Budget Tracker">
+  <rect width="512" height="512" fill="#0a0a0a"/>
+  <g fill="#4ade80">
+    <rect x="160" y="300" width="56" height="92" rx="14"/>
+    <rect x="242" y="236" width="56" height="156" rx="14"/>
+    <rect x="324" y="172" width="56" height="220" rx="14"/>
+  </g>
+</svg>

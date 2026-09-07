@@ -32,8 +32,11 @@ started. Reordering is how RLS gaps and float-money bugs get in.
      spend/income math.
 4. **Server action / route** — `src/server/*.ts`
    - Parse input with the Zod schema.
-   - Filter every query by the authenticated `user_id` — RLS is the backstop,
-     not the only guard.
+   - Use the **request-scoped `supabase` server client** (the user's session) for
+     all reads and writes. RLS enforces per-user isolation at the database — it
+     is the guard, not a backstop. Still set `user_id` explicitly on inserts
+     (the RLS `WITH CHECK` requires it to match `auth.uid()`).
+   - Drizzle is **migrations only** — never used for request-time queries.
    - Call the domain function; return typed data. No raw 500 to the client.
 5. **UI** — `src/app/**`, `src/components/**`
    - Mobile-first. Show inline Zod errors. A failed write keeps the form open
@@ -55,7 +58,7 @@ started. Reordering is how RLS gaps and float-money bugs get in.
 | Schema + migration | `src/lib/db/schema.ts` → `supabase/migrations/` | `db:generate` clean; RLS policy in the migration; applies + rolls back |
 | Zod | `src/lib/validation/` | schema unit-tested |
 | Domain | `src/lib/budget/` \| `src/lib/ingestion/` | tests written first, now green |
-| Server action | `src/server/` | filters by `user_id`; input Zod-parsed |
+| Server action | `src/server/` | uses the user's `supabase` server client (RLS-enforced); input Zod-parsed; `user_id` set on inserts |
 | UI | `src/app/`, `src/components/` | inline errors; no data loss on failure |
 | E2E | `tests/e2e/` | happy path green in CI |
 
@@ -70,7 +73,10 @@ updated if something surprised you.
 - Building the component before the domain function it calls exists and is
   tested. Build the domain layer first; the UI just renders it.
 - A new table without an RLS policy in the same migration.
-- A server action that trusts RLS alone and skips the `user_id` filter.
+- Using Drizzle (admin role — bypasses RLS) for a request-time query. Drizzle
+  is migrations only; requests use the user's `supabase` client.
+- An insert that omits `user_id` (or sets someone else's) — the RLS
+  `WITH CHECK` rejects it, but set it right the first time.
 - Float money. Store and compute in minor units; format only at the display
   edge.
 - Bucketing by `created_at` instead of `occurred_at`.
@@ -112,10 +118,12 @@ interface IngestionAdapter {
 
 ### Rules
 
-- **One insert path.** `landTransaction(userId, n: NormalizedTxn)` in
+- **One insert path.** `landTransaction(supabase, userId, n: NormalizedTxn)` in
   `src/lib/ingestion/land.ts` is the only place a transaction row is created.
-  It Zod-validates `n`, applies the `(user_id, source, source_ref)` partial
-  unique index (on conflict → no-op, return existing row), and inserts.
+  It applies the `(user_id, source, source_ref)` partial unique index (on
+  conflict → no-op, return existing row) and inserts via the user's supabase
+  client. `normalize()` stays pure and is unit-tested; `landTransaction` is a
+  thin reviewed wrapper.
 - **`status`**: `manual` and `bank` land as `confirmed`. `email` and `receipt`
   land as `pending_review` until the user confirms/fixes them in a queue.
 - **`dedupeKey`** returns `null` for `manual` (never deduped). For automatic
@@ -147,9 +155,11 @@ interface IngestionAdapter {
 
 ## Supabase specifics
 
-- **Two connection strings.** `DATABASE_URL` (pooled, port 6543) for app
-  runtime queries; `DIRECT_URL` (direct, port 5432) for `db:migrate` — the
-  pooled endpoint runs PgBouncer in transaction mode and breaks some DDL.
+- **Data access.** The app talks to Postgres only through `supabase-js` with
+  the user's session (PostgREST + RLS). Drizzle + the `DATABASE_URL` /
+  `DIRECT_URL` connection strings exist **only** for `db:generate` /
+  `db:migrate`. `DIRECT_URL` (port 5432) is what migrations use — the pooled
+  `DATABASE_URL` (6543) runs PgBouncer in transaction mode and breaks some DDL.
 - **Signup seed is a trigger.** `handle_new_user()` on `auth.users`
   (`security definer`) creates the `profiles` row, default `categories`, and a
   starter `accounts` row in one shot. Never rely on client code to seed a new

@@ -1,4 +1,8 @@
+import { config as loadEnv } from "dotenv";
 import { defineConfig, devices } from "@playwright/test";
+
+// Make .env.local (Supabase URL + secret key) available to test helpers.
+loadEnv({ path: ".env.local" });
 
 const PORT = Number(process.env.PORT ?? 3000);
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://localhost:${PORT}`;

@@ -50,8 +50,8 @@ What carries over is the **spirit**:
 | Hosting | Vercel (Hobby tier — personal/non-commercial; revisit if the app gets other users) |
 | PWA | web app manifest + service worker (app-shell caching) |
 | Data / auth / storage / realtime | Supabase (Postgres, Auth, Storage, Realtime) |
-| DB access | Drizzle ORM for typed queries + SQL migrations; `supabase-js` for auth/storage/realtime |
-| Security | Row-Level Security on **every** table, scoped to `auth.uid()` |
+| DB access | `supabase-js` with the user's session for all reads/writes; Drizzle for **migrations only** |
+| Security | Row-Level Security on **every** table, scoped to `auth.uid()` — the enforcement, not a backstop |
 | Validation | Zod schemas shared client + server |
 | Forms | React Hook Form |
 | Charts | Recharts (consult the `dataviz` skill before building any chart) |
@@ -115,16 +115,17 @@ project settings. Never commit secrets. Keep `.env.local.example` in sync.
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (`sb_publishable_…` — client-safe)
 - `NEXT_PUBLIC_SITE_URL` (base URL for magic-link + OAuth redirect callbacks)
 - `SUPABASE_SECRET_KEY` (`sb_secret_…` — server only, never exposed to the client)
-- `DATABASE_URL` (app runtime queries — transaction pooler, port 6543)
-- `DIRECT_URL` (Drizzle migrations — session pooler / direct, port 5432)
+- `DATABASE_URL` (Drizzle `db:generate` — transaction pooler, port 6543)
+- `DIRECT_URL` (Drizzle `db:migrate` — session pooler / direct, port 5432)
 - `ANTHROPIC_API_KEY` (Phases 3–4 only)
 
 ## Conventions
 
 - **Money is integer minor units** (e.g. cents) end to end. Convert to a
   display string only at the UI edge. Never store or compute with floats.
-- **Every table has RLS** scoped to the owner. Server code *also* filters by
-  the authenticated user id (defense in depth).
+- **Every table has RLS** scoped to the owner. All request-time DB access goes
+  through the user's `supabase` client, so RLS *is* the isolation guard. Set
+  `user_id` explicitly on inserts (RLS `WITH CHECK`). Drizzle = migrations only.
 - **TDD.** Domain logic in `src/lib/budget/` and adapters get failing unit
   tests first (`superpowers:test-driven-development`).
 - **Feature work follows the layer order in `docs/conventions.md`** — schema +

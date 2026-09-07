@@ -5,7 +5,7 @@ import { signOut } from "@/server/auth";
 
 const NAV = [
   { href: "/", label: "Dashboard", ready: true },
-  { href: "/transactions", label: "Transactions", ready: false },
+  { href: "/transactions", label: "Transactions", ready: true },
   { href: "/budgets", label: "Budgets", ready: false },
   { href: "/settings", label: "Settings", ready: false },
 ];

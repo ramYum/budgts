@@ -57,3 +57,6 @@ next-env.d.ts
 
 # claude code local settings
 .claude/settings.local.json
+
+# stale/scratch brand generator output
+/brand/out*/

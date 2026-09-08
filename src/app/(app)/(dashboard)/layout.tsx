@@ -7,7 +7,7 @@ import { Logo } from "@/components/logo";
 const NAV = [
   { href: "/", label: "Dashboard", ready: true },
   { href: "/transactions", label: "Transactions", ready: true },
-  { href: "/budgets", label: "Budgets", ready: false },
+  { href: "/budgets", label: "Budgets", ready: true },
   { href: "/settings", label: "Settings", ready: false },
 ];
 

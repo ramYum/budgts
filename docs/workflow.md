@@ -15,7 +15,7 @@ phase-level summary; this file is the execution tracker + decisions + change log
 | 1c | Transactions CRUD | `transactionFormSchema`, ingestion seam, server actions, `/transactions` UI, full-flow e2e | ✅ done | `88cbe5c` |
 | — | Brand pass + hardening | Budgts identity, Volt Lime + Deep Pine palette, Poppins/Inter, `Logo`, full semantic-token system in `globals.css`; plus dedupe-race recovery, `getSessionUser` request-cache, `normalizeManual`, JPY dropped + 2-decimal currency guard, onboarding missing-profile handling, first component test | ✅ done | (see commit) |
 | 1c.2 | Accounts + categories management | CRUD + archive so the seeded set can be customized | ⏳ next | — |
-| 1d | Budgets + dashboard | `setBudget`, `copyBudgetsFromPreviousMonth`, `getDashboard`, rollup tiles + budget-vs-actual bars, month switcher, realtime | ⏳ planned | — |
+| 1d | Budgets + dashboard | `budgetFormSchema` + `setBudget`/`copyBudgetsFromPreviousMonth`; `buildDashboard` view-model; `/budgets` inline editor; `/` five tiles + budget-vs-actual bars (over/near/under, brand colours) + month switcher + `RealtimeRefresh`; `?category=` transaction filter | ✅ done | (this commit) |
 | 1e | Polish + deploy | PWA service worker, CSV export, CI workflow, security review, Vercel deploy, multi-device sync check | ⏳ planned | — |
 
 Legend: ✅ done · 🔄 in progress · ⏳ planned
@@ -193,7 +193,7 @@ Developer Program ($99/yr), Google Play Console ($25 once). Target: a few months
 | **CI workflow** | Claude | Gates are run by hand. Add GitHub Actions running lint/typecheck/test/build (+ e2e) in 1e. |
 | **Security review before deploy** | Claude | Run `/security-review` in 1e — RLS policies, the service-key path, OAuth redirect allowlist. |
 | 1c.2 vs fold into 1d | both | Accounts/categories management: small standalone checkpoint (leaning) or a Settings tab during 1d. |
-| Git branch cleanup | Claude | All 4 commits are on `phase-1/core-slice`; `main` has none. Fast-forward `main` at the next commit. |
+| ~~Git branch cleanup~~ | done | `main` fast-forwarded to `dbeea74`. Work continues on `phase-1/core-slice`; `main` is ff-merged at each checkpoint. |
 | Rotate the Google client secret | owner | Shared in chat during setup. Non-urgent. |
 | Vercel project + deploy | both | Phase 1e. |
 | Apple Developer + Google Play accounts | owner | Start enrollment before Phase 6; lead time is days. |
@@ -225,3 +225,9 @@ Developer Program ($99/yr), Google Play Console ($25 once). Target: a few months
   (Plaid). Brand system landed and verified (5 gates green, 69 unit tests):
   `Branding-guidelines.png` is the reference sheet, `globals.css` implements the
   semantic roles, one Volt Lime action per screen, Poppins display / Inter body.
+- **2026-09-07 (later 4)** — 1d shipped: budgets screen + dashboard
+  (5 tiles, budget-vs-actual bars, realtime refresh). 85 unit tests, 5 e2e
+  (incl. a full set-budget -> overspend flow). Playwright now runs `workers: 1`
+  and `reuseExistingServer: false` — the suite shares one Supabase project, so
+  parallel workers tripped auth rate limits and a stale dev server served a
+  wrong build.

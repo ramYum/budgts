@@ -22,7 +22,7 @@ test("sign in, onboard, add a transaction, edit it, delete it", async ({ page })
 
     // Dashboard shows the seeded categories.
     await expect(page).toHaveURL(/\/$/);
-    await expect(page.getByText(/7 categories ready/)).toBeVisible();
+    await expect(page.getByText("so far this month")).toBeVisible();
 
     // Add a transaction.
     await page.getByRole("link", { name: "Transactions" }).click();

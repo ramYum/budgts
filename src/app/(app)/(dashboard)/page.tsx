@@ -1,33 +1,64 @@
 import { redirect } from "next/navigation";
+import { buildDashboard, type DashboardCategory } from "@/lib/budget/dashboard";
+import { monthKey } from "@/lib/budget/month";
+import type { BudgetTxn } from "@/lib/budget/types";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
+import { MonthNav } from "@/components/month-nav";
+import { DashboardView } from "@/components/dashboard-view";
+import { RealtimeRefresh } from "@/components/realtime-refresh";
 
-export default async function DashboardPage() {
-  // Pages render in parallel with their layouts, so the layout's redirect does
-  // not stop this body running — guard here too rather than asserting non-null.
+const MONTH_RE = /^\d{4}-\d{2}$/;
+
+function monthRange(m: string) {
+  const [y, mm] = m.split("-").map(Number);
+  return {
+    start: new Date(Date.UTC(y, mm - 1, 1)).toISOString(),
+    end: new Date(Date.UTC(y, mm, 1)).toISOString(),
+  };
+}
+
+export default async function DashboardPage({ searchParams }: PageProps<"/">) {
+  const sp = await searchParams;
+  const month = typeof sp.m === "string" && MONTH_RE.test(sp.m) ? sp.m : monthKey(new Date());
+  const { start, end } = monthRange(month);
+
   const user = await getSessionUser();
   if (!user) redirect("/sign-in");
-
   const supabase = await createClient();
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("currency")
-    .eq("id", user.id)
-    .single();
 
-  const { count: categoryCount } = await supabase
-    .from("categories")
-    .select("*", { count: "exact", head: true });
+  const [{ data: txnRows }, { data: categories }, { data: budgetRows }, { data: profile }] =
+    await Promise.all([
+      supabase
+        .from("transactions")
+        .select("category_id, amount, direction, occurred_at, status, is_transfer")
+        .gte("occurred_at", start)
+        .lt("occurred_at", end),
+      supabase
+        .from("categories")
+        .select("id, kind, name, color")
+        .eq("is_archived", false),
+      supabase.from("budgets").select("category_id, amount").eq("month", `${month}-01`),
+      supabase.from("profiles").select("currency").eq("id", user.id).single(),
+    ]);
+
+  const txns: BudgetTxn[] = (txnRows ?? []).map((t) => ({
+    categoryId: t.category_id,
+    amount: t.amount,
+    direction: t.direction,
+    occurredAt: new Date(t.occurred_at),
+    status: t.status,
+    isTransfer: t.is_transfer,
+  }));
+  const cats: DashboardCategory[] = (categories ?? []) as DashboardCategory[];
+  const budgets = (budgetRows ?? []).map((b) => ({ categoryId: b.category_id, amount: b.amount }));
+
+  const view = buildDashboard(txns, cats, budgets, month);
 
   return (
-    <div className="space-y-4 pt-2">
-      <h1 className="text-xl font-semibold">Dashboard</h1>
-      <p className="text-sm text-muted">
-        Signed in as {user.email} · budgeting in {profile?.currency}.
-      </p>
-      <p className="text-sm text-muted">
-        {categoryCount ?? 0} categories ready. Month tiles and budget-vs-actual bars land in
-        checkpoint&nbsp;1d.
-      </p>
+    <div className="space-y-5 pt-2">
+      <RealtimeRefresh tables={["transactions", "budgets"]} />
+      <MonthNav base="/" month={month} />
+      <DashboardView view={view} currency={profile?.currency ?? "USD"} month={month} />
     </div>
   );
 }

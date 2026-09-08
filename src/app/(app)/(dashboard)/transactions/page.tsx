@@ -33,20 +33,25 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
   const m = typeof sp.m === "string" && MONTH_RE.test(sp.m) ? sp.m : monthKey(new Date());
   const { start, end, prev, next, label } = monthBounds(m);
   const defaultDate = (monthKey(new Date()) === m ? new Date().toISOString() : `${m}-15T12:00:00Z`).slice(0, 10);
+  const categoryFilter =
+    typeof sp.category === "string" && /^[0-9a-f-]{36}$/i.test(sp.category) ? sp.category : null;
 
   const user = await getSessionUser();
   if (!user) redirect("/sign-in");
 
   const supabase = await createClient();
 
+  let txnQuery = supabase
+    .from("transactions")
+    .select(
+      "id, amount, direction, occurred_at, description, note, is_transfer, category_id, account_id, category:categories(name,color), account:accounts(name)",
+    )
+    .gte("occurred_at", start)
+    .lt("occurred_at", end);
+  if (categoryFilter) txnQuery = txnQuery.eq("category_id", categoryFilter);
+
   const [{ data: txns }, { data: accounts }, { data: categories }, { data: profile }] = await Promise.all([
-    supabase
-      .from("transactions")
-      .select(
-        "id, amount, direction, occurred_at, description, note, is_transfer, category_id, account_id, category:categories(name,color), account:accounts(name)",
-      )
-      .gte("occurred_at", start)
-      .lt("occurred_at", end)
+    txnQuery
       .order("occurred_at", { ascending: false })
       .order("created_at", { ascending: false }),
     supabase.from("accounts").select("id, name").eq("is_archived", false).order("name"),

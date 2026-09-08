@@ -57,6 +57,21 @@ started. Reordering is how RLS gaps and float-money bugs get in.
    - One Playwright test through the new UI, happy path. Add a
      multi-device/sync assertion when the feature writes shared data.
 
+### E2E against Supabase — required posture
+
+The e2e suite drives one real Supabase project, whose auth server rate-limits
+and cold-starts. Configured accordingly, and keep it this way:
+
+- `playwright.config.ts`: `workers: 1` (serial), `retries: 1`,
+  `reuseExistingServer: false` (a stale dev server serves a wrong build).
+- Tests that need a session use `tests/e2e/helpers/test-user.ts` — admin
+  `createUser` + a magic-link `token_hash` through `/auth/callback`; the
+  `finally` block deletes the user (FK cascade cleans its rows). A timed-out
+  test skips `finally`, so orphans accumulate — sweep them with a
+  `listUsers` + delete pass when the suite starts misbehaving.
+- Wait on observable state, not tight URL regexes: `page.waitForURL(u => u.pathname === "/", { timeout: 20000 })` after a server-action redirect, and
+  wait for a post-mutation UI signal (a flipped button label) before navigating.
+
 ### Quick reference
 
 | Layer | Location | Gate before moving on |

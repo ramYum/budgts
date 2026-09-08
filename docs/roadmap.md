@@ -61,9 +61,15 @@ bake-off at the start of this phase.
 
 ## Phase 5 — Bank aggregator connect
 
-Only where coverage exists. A `BankAdapter` behind the same `IngestionAdapter`
-interface (Plaid / TrueLayer / GoCardless / a regional aggregator). Pure
-add-on; nothing else changes.
+**Plaid** is the chosen provider. Plaid Link connects the bank, the cursor-based
+`/transactions/sync` endpoint pulls added / modified / removed transactions, and a
+`PlaidAdapter` maps each to a `NormalizedTxn` (`source: bank`,
+`sourceRef: transaction_id`) through the existing `landTransaction()` path. Two
+new RLS-scoped tables hold the item + account mapping; the access token stays
+server-side. Sandbox is free; Production needs an application and costs roughly
+$0.30-$1.50 per connected item per month. TrueLayer / GoCardless / a regional
+aggregator are drop-in fallbacks behind the same interface. Full design:
+`docs/workflow.md` section 4.
 
 ## Deferred / out of scope until requested
 

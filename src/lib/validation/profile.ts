@@ -1,6 +1,11 @@
 import { z } from "zod";
 
-/** Currencies offered in the picker. Any is fine for `Intl.NumberFormat`. */
+/**
+ * Currencies offered in the picker. Restricted to 2-decimal currencies because
+ * `src/lib/budget/money.ts` hardcodes a 2-decimal minor-unit exponent. Adding a
+ * 0-decimal (JPY, KRW) or 3-decimal (BHD, KWD) currency requires making that
+ * exponent currency-aware first — see the guard test in `profile.test.ts`.
+ */
 export const SUPPORTED_CURRENCIES = [
   "USD",
   "EUR",
@@ -8,7 +13,6 @@ export const SUPPORTED_CURRENCIES = [
   "CAD",
   "AUD",
   "NZD",
-  "JPY",
   "SGD",
   "PHP",
   "INR",

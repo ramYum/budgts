@@ -4,9 +4,9 @@ import { useActionState } from "react";
 import { requestMagicLink, signInWithGoogle, type MagicLinkState } from "@/server/auth";
 
 const field =
-  "w-full rounded-lg border border-black/15 bg-transparent px-3 py-2 text-sm outline-none focus:border-foreground dark:border-white/20";
+  "w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-accent";
 const button =
-  "w-full rounded-lg bg-foreground px-3 py-2 text-sm font-medium text-background disabled:opacity-50";
+  "w-full rounded-lg bg-accent px-3 py-2 text-sm font-medium text-accent-ink disabled:opacity-50";
 
 export function SignInForm({ next, initialError }: { next: string; initialError?: string }) {
   const [state, action, pending] = useActionState<MagicLinkState, FormData>(requestMagicLink, {});
@@ -16,7 +16,7 @@ export function SignInForm({ next, initialError }: { next: string; initialError?
     return (
       <div className="space-y-2">
         <h1 className="text-xl font-semibold">Check your email</h1>
-        <p className="text-sm opacity-70">
+        <p className="text-sm text-muted">
           We sent a sign-in link. Open it on this device to continue.
         </p>
       </div>
@@ -27,13 +27,13 @@ export function SignInForm({ next, initialError }: { next: string; initialError?
     <div className="space-y-6">
       <div className="space-y-1">
         <h1 className="text-xl font-semibold">Sign in</h1>
-        <p className="text-sm opacity-70">Track spending against your budget.</p>
+        <p className="text-sm text-muted">Track spending against your budget.</p>
       </div>
 
       <form action={action} className="space-y-3">
         <input type="hidden" name="next" value={next} />
         <label className="block space-y-1">
-          <span className="text-xs font-medium opacity-70">Email</span>
+          <span className="text-xs font-medium text-muted">Email</span>
           <input
             className={field}
             type="email"
@@ -43,22 +43,22 @@ export function SignInForm({ next, initialError }: { next: string; initialError?
             placeholder="you@example.com"
           />
         </label>
-        {error ? <p className="text-sm text-red-600 dark:text-red-400">{error}</p> : null}
+        {error ? <p className="text-sm text-neg">{error}</p> : null}
         <button className={button} type="submit" disabled={pending}>
           {pending ? "Sending…" : "Email me a sign-in link"}
         </button>
       </form>
 
-      <div className="flex items-center gap-3 text-xs opacity-50">
-        <span className="h-px flex-1 bg-current" />
+      <div className="flex items-center gap-3 text-xs text-muted">
+        <span className="h-px flex-1 bg-border" />
         or
-        <span className="h-px flex-1 bg-current" />
+        <span className="h-px flex-1 bg-border" />
       </div>
 
       <form action={signInWithGoogle}>
         <input type="hidden" name="next" value={next} />
         <button
-          className="w-full rounded-lg border border-black/15 px-3 py-2 text-sm font-medium dark:border-white/20"
+          className="w-full rounded-lg border border-border px-3 py-2 text-sm font-medium"
           type="submit"
         >
           Continue with Google

@@ -41,12 +41,18 @@ started. Reordering is how RLS gaps and float-money bugs get in.
 5. **UI** — `src/app/**`, `src/components/**`
    - Mobile-first. Show inline Zod errors. A failed write keeps the form open
      with its data (no loss).
-   - Light + dark theme from the start (CSS variables + `prefers-color-scheme`).
-     Labelled inputs, keyboard-reachable controls.
+   - Light + dark theme from the start. Brand tokens live in
+     `src/app/globals.css` (semantic roles: `bg`, `surface`, `text`, `muted`,
+     `border`, `accent`/`accent-ink`, `pos`/`neg`/`warn`/`info` — all flip with
+     `prefers-color-scheme`). Style with those utilities (`bg-surface`,
+     `text-muted`, `border-border`, `bg-accent`…), never raw Tailwind colours or
+     `dark:` variants. One lime `bg-accent` action per screen. Amounts get
+     `tabular-nums`. Labelled inputs, keyboard-reachable, visible focus ring.
+   - Logo: `<Logo>` / `<LogoMark>` from `src/components/logo.tsx`.
    - Subscribe to Supabase Realtime where the screen shows live shared data.
-   - Follow the brand: colour/type tokens and logo usage live in `docs/brand/`
-     (`Branding-guidelines.png` is the reference sheet). Check the result
-     visually with `npm run screenshot -- <url> <label>` (see `tools/README.md`).
+   - Reference: `Branding-guidelines.png` (repo root) — full sheet; `brand/` has
+     the source, SVG assets and `tokens.css`. Check UI visually with
+     `npm run screenshot -- <url> <label>` (see `tools/README.md`).
 6. **E2E** — `tests/e2e/*.spec.ts`
    - One Playwright test through the new UI, happy path. Add a
      multi-device/sync assertion when the feature writes shared data.

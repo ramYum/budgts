@@ -230,13 +230,12 @@ p{margin:0}
 </head>
 <body>
 
-<!-- reusable mark: a squared spiral, grid-built, with a 45° chamfer on the
-     outer bottom-right corner and a solid block at the centre. -->
+<!-- reusable mark: an interlocking square (four offset bars, corners left
+     open) around an inward-ticking bracket. Traced from brand/Logo.png. -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <symbol id="mark" viewBox="0 0 64 64">
-    <path d="M 5 5 L 59 5 L 59 46 L 46 59 L 5 59 L 5 20.5 L 43.5 20.5 L 43.5 43.5 L 20.5 43.5 L 20.5 29.03 L 31 29.03"
-      fill="none" stroke="currentColor" stroke-width="10" stroke-linecap="butt" stroke-linejoin="miter" stroke-miterlimit="4"/>
-    <rect x="27" y="27" width="10" height="10" fill="currentColor"/>
+    <path d="M12 7h40v5h-40zM7 12h5v40h-5zM52 12h5v40h-5zM12 52h40v5h-40zM19.5 17h5v22.5h-5zM24.5 17h15v5h-15zM24.5 39.5h15v7.5h-15zM39.5 22h7.5v7.5h-7.5zM32 29.5h7.5v5h-7.5zM39.5 34.5h7.5v5h-7.5z"
+      fill="currentColor"/>
   </symbol>
 </svg>
 
@@ -258,7 +257,7 @@ p{margin:0}
 <section class="band band--pine">
   <div class="head">
     <h2>Logo</h2>
-    <p class="lead">A squared spiral, built on a grid: your spending, tracked inward turn by turn to a single solid point. One corner is cut at 45° — the mark is closing on the total, not sealing shut.</p>
+    <p class="lead">An interlocking square built from four offset bars, its corners deliberately left open, around a bracket that ticks inward. A ledger that stays open — the total is always one more entry away.</p>
   </div>
 
   <div class="logo-hero">
@@ -287,7 +286,7 @@ p{margin:0}
     </div>
   </div>
 
-  <p class="placeholder-note">Reconstructed as vector from the supplied icon: stroke weight, arm spacing and the corner chamfer are all on one grid unit. Master files: <b style="color:var(--pine-5);font-weight:600">brand/budgts-mark.svg</b> and the horizontal / stacked lock-ups beside it.</p>
+  <p class="placeholder-note">Redrawn as clean vector from <b style="color:var(--pine-5);font-weight:600">brand/Logo.png</b>, every bar and block snapped to one grid unit. Master files: <b style="color:var(--pine-5);font-weight:600">brand/budgts-mark.svg</b> plus the horizontal / stacked lock-ups and <b style="color:var(--pine-5);font-weight:600">favicon.svg</b> beside it.</p>
 </section>
 <hr class="rule">
 
@@ -295,7 +294,7 @@ p{margin:0}
 <section class="band band--mist">
   <div class="head">
     <h2>Construction &amp; space</h2>
-    <p class="lead">Give the logo room, and never shrink it past the point where the inner turns read.</p>
+    <p class="lead">Give the logo room, and never shrink it past the point where the inner bracket separates from the frame.</p>
   </div>
   <div class="two">
     <div>
@@ -310,13 +309,13 @@ p{margin:0}
         </div>
       </div>
       <p style="margin-top:22px;font-size:15px;color:var(--pine-3);max-width:52ch">
-        <b style="font-family:Poppins;color:var(--pine);font-weight:600">x</b> is the stroke weight of the mark — the same unit the whole logo is built on. Keep that much clear space on every side. Nothing else — type, rules, photo edges — enters it.
+        <b style="font-family:Poppins;color:var(--pine);font-weight:600">x</b> is the bar thickness of the frame — the grid unit the whole logo is built on. Keep that much clear space on every side. Nothing else — type, rules, photo edges — enters it.
       </p>
     </div>
     <div class="minsize">
       <div class="item">
         <div class="chip"><svg class="mark m16"><use href="#mark"/></svg></div>
-        <span class="desc"><b>Symbol — 16&nbsp;px</b><br>minimum. Below this the arms close up.</span>
+        <span class="desc"><b>Symbol — 18&nbsp;px</b><br>minimum. Below this the inner blocks merge.</span>
       </div>
       <div class="item">
         <div class="chip m96"><svg class="mark"><use href="#mark"/></svg><span class="type">budgts</span></div>
@@ -347,7 +346,7 @@ p{margin:0}
 <section class="band band--pine">
   <div class="head">
     <h2>Don't</h2>
-    <p class="lead">Six ways to break the mark. The stroke weight, the colours, the proportions and the orientation are fixed.</p>
+    <p class="lead">Six ways to break the mark. The proportions, the colours, the corner offsets and the orientation are fixed.</p>
   </div>
   <div class="dont">
     <div class="cell w-recolour"><span class="no">&times;</span><svg class="mark"><use href="#mark"/></svg><span class="cap">Recolour it outside the palette</span></div>

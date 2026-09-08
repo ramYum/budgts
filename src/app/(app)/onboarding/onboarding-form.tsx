@@ -10,11 +10,11 @@ export function OnboardingForm({ defaultCurrency }: { defaultCurrency: string })
   return (
     <form action={action} className="space-y-3">
       <label className="block space-y-1">
-        <span className="text-xs font-medium opacity-70">Currency</span>
+        <span className="text-xs font-medium text-muted">Currency</span>
         <select
           name="currency"
           defaultValue={defaultCurrency}
-          className="w-full rounded-lg border border-black/15 bg-transparent px-3 py-2 text-sm outline-none focus:border-foreground dark:border-white/20"
+          className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-accent"
         >
           {SUPPORTED_CURRENCIES.map((c) => (
             <option key={c} value={c}>
@@ -23,11 +23,11 @@ export function OnboardingForm({ defaultCurrency }: { defaultCurrency: string })
           ))}
         </select>
       </label>
-      {state.error ? <p className="text-sm text-red-600 dark:text-red-400">{state.error}</p> : null}
+      {state.error ? <p className="text-sm text-neg">{state.error}</p> : null}
       <button
         type="submit"
         disabled={pending}
-        className="w-full rounded-lg bg-foreground px-3 py-2 text-sm font-medium text-background disabled:opacity-50"
+        className="w-full rounded-lg bg-accent px-3 py-2 text-sm font-medium text-accent-ink disabled:opacity-50"
       >
         {pending ? "Saving…" : "Start budgeting"}
       </button>

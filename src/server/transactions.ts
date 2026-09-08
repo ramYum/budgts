@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { ManualAdapter, landTransaction, supabaseTransactionStore } from "@/lib/ingestion";
+import { landTransaction, normalizeManual, supabaseTransactionStore } from "@/lib/ingestion";
 import { createClient } from "@/lib/supabase/server";
 import { transactionFormSchema } from "@/lib/validation/transaction";
 
@@ -11,6 +11,8 @@ export type TxnActionState = {
   fieldErrors?: Record<string, string>;
   ok?: boolean;
 };
+
+const MISSING_ROW = "That transaction no longer exists. Refresh and try again.";
 
 function fieldErrors(issues: { path: PropertyKey[]; message: string }[]): Record<string, string> {
   const out: Record<string, string> = {};
@@ -45,7 +47,11 @@ export async function createTransaction(
 
   const { supabase, user } = await requireUser();
   try {
-    await landTransaction(supabaseTransactionStore(supabase), user.id, ManualAdapter.normalize(raw));
+    await landTransaction(
+      supabaseTransactionStore(supabase),
+      user.id,
+      normalizeManual(parsed.data),
+    );
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Could not save the transaction" };
   }
@@ -65,8 +71,8 @@ export async function updateTransaction(
   if (!parsed.success) return { fieldErrors: fieldErrors(parsed.error.issues) };
 
   const { supabase } = await requireUser();
-  const n = ManualAdapter.normalize(raw);
-  const { error } = await supabase
+  const n = normalizeManual(parsed.data);
+  const { data, error } = await supabase
     .from("transactions")
     .update({
       account_id: n.accountId,
@@ -78,8 +84,12 @@ export async function updateTransaction(
       note: n.note,
       is_transfer: n.isTransfer,
     })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id");
   if (error) return { error: error.message };
+  // RLS makes another user's rows invisible rather than erroring, so a zero-row
+  // update is indistinguishable from success unless we check.
+  if (!data?.length) return { error: MISSING_ROW };
 
   revalidate();
   return { ok: true };
@@ -88,8 +98,13 @@ export async function updateTransaction(
 export async function deleteTransaction(id: string): Promise<TxnActionState> {
   if (!id) return { error: "Missing transaction id" };
   const { supabase } = await requireUser();
-  const { error } = await supabase.from("transactions").delete().eq("id", id);
+  const { data, error } = await supabase
+    .from("transactions")
+    .delete()
+    .eq("id", id)
+    .select("id");
   if (error) return { error: error.message };
+  if (!data?.length) return { error: MISSING_ROW };
   revalidate();
   return { ok: true };
 }

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { UniqueViolationError } from "./types";
 import type { NewTransactionRow, TransactionRow, TransactionSource, TransactionStore } from "./types";
 
 /** TransactionStore backed by the user's Supabase client (RLS-enforced). */
@@ -22,7 +23,11 @@ export function supabaseTransactionStore(supabase: SupabaseClient): TransactionS
         .insert(row)
         .select("*")
         .single();
-      if (error) throw new Error(error.message);
+      if (error) {
+        // 23505 = unique_violation: the (user_id, source, source_ref) index.
+        if (error.code === "23505") throw new UniqueViolationError(error.message);
+        throw new Error(error.message);
+      }
       return data as TransactionRow;
     },
   };

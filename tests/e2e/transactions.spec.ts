@@ -1,5 +1,12 @@
 import { expect, test } from "@playwright/test";
-import { createTestUser, deleteTestUser, magicTokenHash } from "./helpers/test-user";
+import {
+  createTestUser,
+  deleteTestUser,
+  hasAdminCredentials,
+  magicTokenHash,
+} from "./helpers/test-user";
+
+test.skip(!hasAdminCredentials(), "needs SUPABASE_SECRET_KEY (see .env.local)");
 
 test("sign in, onboard, add a transaction, edit it, delete it", async ({ page }) => {
   const user = await createTestUser();

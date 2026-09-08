@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { monthKey } from "@/lib/budget/month";
 import { AddTransaction } from "@/components/add-transaction";
 import { TransactionList, type TxnListItem } from "@/components/transaction-list";
@@ -13,17 +13,18 @@ const MONTH_RE = /^\d{4}-\d{2}$/;
 
 function monthBounds(m: string) {
   const [y, mm] = m.split("-").map(Number);
+  const first = new Date(Date.UTC(y, mm - 1, 1));
+  const nextFirst = new Date(Date.UTC(y, mm, 1));
   return {
-    start: new Date(Date.UTC(y, mm - 1, 1)).toISOString(),
-    end: new Date(Date.UTC(y, mm, 1)).toISOString(),
+    start: first.toISOString(),
+    end: nextFirst.toISOString(),
     prev: monthKey(new Date(Date.UTC(y, mm - 2, 1))),
-    next: monthKey(new Date(Date.UTC(y, mm, 1))),
-    label: new Date(Date.UTC(y, mm - 1, 1)).toLocaleDateString(undefined, {
+    next: monthKey(nextFirst),
+    label: first.toLocaleDateString(undefined, {
       month: "long",
       year: "numeric",
       timeZone: "UTC",
     }),
-    todayInMonth: monthKey(new Date()) === m ? monthKey(new Date()) : `${m}-15`,
   };
 }
 
@@ -33,11 +34,10 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
   const { start, end, prev, next, label } = monthBounds(m);
   const defaultDate = (monthKey(new Date()) === m ? new Date().toISOString() : `${m}-15T12:00:00Z`).slice(0, 10);
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) redirect("/sign-in");
+
+  const supabase = await createClient();
 
   const [{ data: txns }, { data: accounts }, { data: categories }, { data: profile }] = await Promise.all([
     supabase
@@ -62,11 +62,11 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
     <div className="space-y-4 pt-2">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1">
-          <Link href={`/transactions?m=${prev}`} className="px-2 py-1 text-sm opacity-60 hover:opacity-100" aria-label="Previous month">
+          <Link href={`/transactions?m=${prev}`} className="px-2 py-1 text-sm text-muted hover:text-text" aria-label="Previous month">
             ‹
           </Link>
           <h1 className="min-w-[9ch] text-center text-base font-semibold">{label}</h1>
-          <Link href={`/transactions?m=${next}`} className="px-2 py-1 text-sm opacity-60 hover:opacity-100" aria-label="Next month">
+          <Link href={`/transactions?m=${next}`} className="px-2 py-1 text-sm text-muted hover:text-text" aria-label="Next month">
             ›
           </Link>
         </div>

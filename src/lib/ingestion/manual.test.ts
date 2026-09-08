@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { ManualAdapter } from "./manual";
+import { transactionFormSchema } from "@/lib/validation/transaction";
+import { ManualAdapter, normalizeManual } from "./manual";
 
 const raw = {
   accountId: "0a2b8c1d-3e4f-4a5b-8c9d-0e1f2a3b4c5d",
@@ -34,5 +35,12 @@ describe("ManualAdapter", () => {
 
   it("never produces a dedupe key", () => {
     expect(ManualAdapter.dedupeKey(ManualAdapter.normalize(raw))).toBeNull();
+  });
+});
+
+describe("normalizeManual", () => {
+  it("maps already-validated form input without parsing again", () => {
+    const parsed = transactionFormSchema.parse(raw);
+    expect(normalizeManual(parsed)).toEqual(ManualAdapter.normalize(raw));
   });
 });

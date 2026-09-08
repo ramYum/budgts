@@ -17,5 +17,5 @@ test("serves a web app manifest", async ({ request }) => {
   const res = await request.get("/manifest.webmanifest");
   expect(res.ok()).toBeTruthy();
   const manifest = await res.json();
-  expect(manifest.name).toBe("Budget Tracker");
+  expect(manifest.name).toBe("Budgts");
 });

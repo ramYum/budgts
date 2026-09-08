@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { landTransaction, toRow } from "./land";
+import { UniqueViolationError } from "./types";
 import type { NewTransactionRow, NormalizedTxn, TransactionRow, TransactionStore } from "./types";
 
 const userId = "0a2b8c1d-3e4f-4a5b-8c9d-0e1f2a3b4c5d";
@@ -79,5 +80,47 @@ describe("landTransaction", () => {
     const b = await landTransaction(first.store, userId, normalized({ source: "email", sourceRef: "msg-1", amount: 9999 }));
     expect(b.id).toBe(a.id);
     expect(first.calls.inserts).toBe(1);
+  });
+
+  it("recovers when a concurrent insert wins the dedupe race", async () => {
+    // Another request inserted the same source_ref between our findExisting and
+    // our insert; the unique index rejects our insert with a 23505.
+    const seed = fakeStore();
+    const winner = await seed.store.insert(
+      toRow(userId, normalized({ source: "email", sourceRef: "msg-1" })),
+    );
+    let checkedOnce = false;
+    const store: TransactionStore = {
+      async findExisting() {
+        if (!checkedOnce) {
+          checkedOnce = true; // pre-insert check misses (row not visible yet)
+          return null;
+        }
+        return winner; // post-conflict re-check finds the row that landed first
+      },
+      async insert() {
+        throw new UniqueViolationError("duplicate key value violates unique constraint");
+      },
+    };
+    const row = await landTransaction(
+      store,
+      userId,
+      normalized({ source: "email", sourceRef: "msg-1", amount: 9999 }),
+    );
+    expect(row.id).toBe(winner.id);
+  });
+
+  it("rethrows a unique violation when no matching row can be found", async () => {
+    const store: TransactionStore = {
+      async findExisting() {
+        return null;
+      },
+      async insert() {
+        throw new UniqueViolationError("duplicate key");
+      },
+    };
+    await expect(
+      landTransaction(store, userId, normalized({ source: "email", sourceRef: "msg-2" })),
+    ).rejects.toBeInstanceOf(UniqueViolationError);
   });
 });

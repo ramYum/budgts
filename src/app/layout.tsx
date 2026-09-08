@@ -1,37 +1,39 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Poppins, Inter } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const poppins = Poppins({
+  variable: "--font-poppins",
+  weight: ["600", "700"],
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const inter = Inter({
+  variable: "--font-inter",
+  weight: ["400", "500", "600"],
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
   title: {
-    default: "Budget Tracker",
-    template: "%s · Budget Tracker",
+    default: "Budgts",
+    template: "%s · Budgts",
   },
   description:
     "Personal budget tracking — categories, budgets vs actual, recurring bills, savings goals.",
-  applicationName: "Budget Tracker",
+  applicationName: "Budgts",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
-    title: "Budget Tracker",
-    statusBarStyle: "default",
+    title: "Budgts",
+    statusBarStyle: "black-translucent",
   },
 };
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
+    { media: "(prefers-color-scheme: light)", color: "#f4f6f2" },
+    { media: "(prefers-color-scheme: dark)", color: "#001e16" },
   ],
 };
 
@@ -39,7 +41,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${poppins.variable} ${inter.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">{children}</body>
     </html>

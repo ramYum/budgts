@@ -1,26 +1,117 @@
 @import "tailwindcss";
 
+/* Budgts brand tokens — see brand/Branding-guidelines.png and brand/tokens.css.
+ * Raw palette values never change; components use the semantic roles, which
+ * flip with the colour scheme. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+  /* raw palette */
+  --volt: #b5ff00;
+  --pine: #001e16;
+  --carbon: #141918;
+  --paper: #ffffff;
+  --mist: #f4f6f2;
+  --lime-2: #c7ff47;
+  --lime-3: #d8ff80;
+  --pine-2: #26403a;
+  --pine-3: #57706a;
+  --pine-4: #8ca39d;
+  --pine-5: #c4d1cd;
+  --grey-3: #6b716e;
+  --grey-5: #d0d3d1;
+  --over: #ff5c3a;
+  --near: #ffc24b;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* semantic roles — LIGHT */
+  --bg: var(--mist);
+  --surface: var(--paper);
+  --surface-2: #eef1ec;
+  --text: var(--carbon);
+  --muted: #6b716e;
+  --border: #e2e5e1;
+  --accent: var(--volt);
+  --accent-ink: var(--pine);
+  --pos: #3a7d00; /* "under budget" as text needs a darker green on light */
+  --pos-fill: var(--volt); /* progress fills use full lime */
+  --neg: var(--over);
+  --warn: #b5791a;
+  --info: #2f6fd0;
+  --ring: #2f6fd0;
+
+  /* aliases so pre-existing bg-foreground / text-background utilities still work */
+  --background: var(--bg);
+  --foreground: var(--text);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --bg: var(--pine);
+    --surface: #04241c;
+    --surface-2: var(--carbon);
+    --text: var(--paper);
+    --muted: #8ca39d;
+    --border: #26403a;
+    --accent: var(--volt);
+    --accent-ink: var(--pine);
+    --pos: var(--volt);
+    --pos-fill: var(--volt);
+    --neg: var(--over);
+    --warn: var(--near);
+    --info: #7fb2ff;
+    --ring: var(--volt);
+    --background: var(--bg);
+    --foreground: var(--text);
   }
 }
 
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-pos: var(--pos);
+  --color-pos-fill: var(--pos-fill);
+  --color-neg: var(--neg);
+  --color-warn: var(--warn);
+  --color-info: var(--info);
+  --color-volt: var(--volt);
+  --color-pine: var(--pine);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* every currency amount lines up */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: var(--volt);
+  color: var(--pine);
+}
+
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
 }

@@ -20,11 +20,18 @@ export async function completeOnboarding(
   } = await supabase.auth.getUser();
   if (!user) redirect("/sign-in");
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("profiles")
     .update({ currency: parsed.data.currency, onboarded_at: new Date().toISOString() })
-    .eq("id", user.id);
+    .eq("id", user.id)
+    .select("id");
 
   if (error) return { error: error.message };
+  // No row updated means the handle_new_user() seed trigger never created the
+  // profile. Redirecting here would bounce straight back to /onboarding.
+  if (!data?.length) {
+    return { error: "We couldn't find your profile. Sign out, sign back in, and try again." };
+  }
+
   redirect("/");
 }

@@ -1,5 +1,18 @@
 import type { Direction } from "@/lib/validation/transaction";
 
+/**
+ * Thrown by `TransactionStore.insert` when the row collides with the
+ * `(user_id, source, source_ref)` partial unique index — i.e. a concurrent
+ * ingestion of the same sourced transaction won the race. `landTransaction`
+ * catches this and returns the row that landed first.
+ */
+export class UniqueViolationError extends Error {
+  constructor(message = "transaction already exists") {
+    super(message);
+    this.name = "UniqueViolationError";
+  }
+}
+
 export type TransactionSource = "manual" | "email" | "receipt" | "bank";
 export type TxnStatus = "confirmed" | "pending_review";
 

@@ -20,8 +20,8 @@ export type TransactionInitial = {
 };
 
 const field =
-  "w-full rounded-lg border border-black/15 bg-transparent px-3 py-2 text-sm outline-none focus:border-foreground dark:border-white/20";
-const label = "block space-y-1 text-xs font-medium opacity-70";
+  "w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-accent";
+const label = "block space-y-1 text-xs font-medium text-muted";
 
 function toDateInput(iso: string) {
   return iso.slice(0, 10);
@@ -79,7 +79,7 @@ export function TransactionForm({
           </select>
         </label>
       </div>
-      {fe.amount ? <p className="text-xs text-red-600 dark:text-red-400">{fe.amount}</p> : null}
+      {fe.amount ? <p className="text-xs text-neg">{fe.amount}</p> : null}
 
       <label className={label}>
         Account
@@ -91,7 +91,7 @@ export function TransactionForm({
           ))}
         </select>
       </label>
-      {fe.accountId ? <p className="text-xs text-red-600 dark:text-red-400">{fe.accountId}</p> : null}
+      {fe.accountId ? <p className="text-xs text-neg">{fe.accountId}</p> : null}
 
       <label className={label}>
         Category
@@ -116,38 +116,38 @@ export function TransactionForm({
           required
         />
       </label>
-      {fe.occurredAt ? <p className="text-xs text-red-600 dark:text-red-400">{fe.occurredAt}</p> : null}
+      {fe.occurredAt ? <p className="text-xs text-neg">{fe.occurredAt}</p> : null}
 
       <label className={label}>
         Description
         <input className={field} name="description" defaultValue={initial?.description ?? ""} maxLength={200} />
       </label>
-      {fe.description ? <p className="text-xs text-red-600 dark:text-red-400">{fe.description}</p> : null}
+      {fe.description ? <p className="text-xs text-neg">{fe.description}</p> : null}
 
       <label className={label}>
         Note (optional)
         <textarea className={field} name="note" rows={2} defaultValue={initial?.note ?? ""} maxLength={1000} />
       </label>
 
-      <label className="flex items-center gap-2 text-xs opacity-80">
-        <input type="checkbox" name="isTransfer" defaultChecked={initial?.isTransfer ?? false} />
+      <label className="flex items-center gap-2 text-xs text-muted">
+        <input type="checkbox" name="isTransfer" defaultChecked={initial?.isTransfer ?? false} className="accent-[var(--volt)]" />
         Transfer between my own accounts (excluded from spend &amp; income)
       </label>
 
-      {state.error ? <p className="text-sm text-red-600 dark:text-red-400">{state.error}</p> : null}
+      {state.error ? <p className="text-sm text-neg">{state.error}</p> : null}
 
       <div className="flex gap-2 pt-1">
         <button
           type="submit"
           disabled={pending}
-          className="flex-1 rounded-lg bg-foreground px-3 py-2 text-sm font-medium text-background disabled:opacity-50"
+          className="flex-1 rounded-lg bg-accent px-3 py-2 text-sm font-medium text-accent-ink disabled:opacity-50"
         >
           {pending ? "Saving…" : submitLabel}
         </button>
         <button
           type="button"
           onClick={onDone}
-          className="rounded-lg border border-black/15 px-3 py-2 text-sm dark:border-white/20"
+          className="rounded-lg border border-border px-3 py-2 text-sm"
         >
           Cancel
         </button>

@@ -33,6 +33,14 @@ test("sign in, onboard, add a transaction, edit it, delete it", async ({ page })
     await expect(page.getByText("Groceries test")).toBeVisible();
     await expect(page.getByText("−$12.34")).toBeVisible();
 
+    // CSV export includes the new row.
+    const csv = await page.request.get("/api/export/transactions");
+    expect(csv.ok()).toBeTruthy();
+    expect(csv.headers()["content-type"]).toContain("text/csv");
+    const body = await csv.text();
+    expect(body).toContain("date,description,note,amount");
+    expect(body).toContain("Groceries test");
+
     // Edit it.
     await page.getByRole("button", { name: "Edit" }).click();
     await page.getByLabel("Description").fill("Groceries edited");

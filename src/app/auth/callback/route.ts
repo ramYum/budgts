@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { safeNextPath } from "@/lib/safe-redirect";
 
 /**
  * Completes sign-in: exchanges the OAuth `code` (PKCE) or verifies the magic
@@ -8,8 +9,7 @@ import { createClient } from "@/lib/supabase/server";
  */
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
-  const next = searchParams.get("next") ?? "/";
-  const safeNext = next.startsWith("/") ? next : "/";
+  const safeNext = safeNextPath(searchParams.get("next"));
 
   const supabase = await createClient();
 
@@ -26,5 +26,7 @@ export async function GET(request: Request) {
     if (!error) return NextResponse.redirect(`${origin}${safeNext}`);
   }
 
-  return NextResponse.redirect(`${origin}/sign-in?error=${encodeURIComponent("Sign-in link is invalid or expired")}`);
+  return NextResponse.redirect(
+    `${origin}/sign-in?error=${encodeURIComponent("Sign-in link is invalid or expired")}`,
+  );
 }

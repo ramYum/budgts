@@ -2,10 +2,12 @@ import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/proxy";
 
 // Paths reachable without a session.
-const PUBLIC_PREFIXES = ["/sign-in", "/auth/"];
+const PUBLIC_PREFIXES = ["/sign-in", "/auth/", "/offline"];
 
 function isPublic(pathname: string) {
-  return PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(p));
+  return PUBLIC_PREFIXES.some(
+    (p) => pathname === p || pathname.startsWith(p.endsWith("/") ? p : p + "/"),
+  );
 }
 
 /** Session refresh + auth gate. (Next 16 renamed `middleware` -> `proxy`.) */

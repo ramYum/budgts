@@ -1,0 +1,50 @@
+// Budgts service worker — minimal: installable + a graceful offline page.
+// No offline data (all data is server-side, RLS-scoped).
+const CACHE = "budgts-shell-v1";
+const OFFLINE_URL = "/offline";
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches.open(CACHE).then((c) => c.add(OFFLINE_URL)).then(() => self.skipWaiting()),
+  );
+});
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches
+      .keys()
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim()),
+  );
+});
+
+self.addEventListener("fetch", (event) => {
+  const { request } = event;
+  if (request.method !== "GET") return;
+  const url = new URL(request.url);
+  if (url.origin !== self.location.origin) return;
+
+  // Static build assets, icons, fonts: cache-first.
+  if (
+    url.pathname.startsWith("/_next/static/") ||
+    /\.(?:svg|png|ico|webmanifest|woff2?)$/.test(url.pathname)
+  ) {
+    event.respondWith(
+      caches.match(request).then(
+        (hit) =>
+          hit ||
+          fetch(request).then((res) => {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put(request, copy));
+            return res;
+          }),
+      ),
+    );
+    return;
+  }
+
+  // Page navigations: network-first, fall back to the offline page.
+  if (request.mode === "navigate") {
+    event.respondWith(fetch(request).catch(() => caches.match(OFFLINE_URL)));
+  }
+});

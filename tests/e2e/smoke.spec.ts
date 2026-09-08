@@ -13,6 +13,11 @@ test("sign-in page offers magic link and Google", async ({ page }) => {
   await expect(page.getByRole("button", { name: /continue with google/i })).toBeVisible();
 });
 
+test("offline fallback page renders without a session", async ({ page }) => {
+  await page.goto("/offline");
+  await expect(page.getByRole("heading", { name: /offline/i })).toBeVisible();
+});
+
 test("serves a web app manifest", async ({ request }) => {
   const res = await request.get("/manifest.webmanifest");
   expect(res.ok()).toBeTruthy();

@@ -16,7 +16,7 @@ phase-level summary; this file is the execution tracker + decisions + change log
 | — | Brand pass + hardening | Budgts identity, Volt Lime + Deep Pine palette, Poppins/Inter, `Logo`, full semantic-token system in `globals.css`; plus dedupe-race recovery, `getSessionUser` request-cache, `normalizeManual`, JPY dropped + 2-decimal currency guard, onboarding missing-profile handling, first component test | ✅ done | (see commit) |
 | 1c.2 | Accounts + categories management | `/settings`: category + account create / rename / recolour / archive; category-name links to filtered transactions everywhere; `?category=` filter banner. Zod + e2e | ✅ done | (this commit) |
 | 1d | Budgets + dashboard | `budgetFormSchema` + `setBudget`/`copyBudgetsFromPreviousMonth`; `buildDashboard` view-model; `/budgets` inline editor; `/` five tiles + budget-vs-actual bars (over/near/under, brand colours) + month switcher + `RealtimeRefresh`; `?category=` transaction filter | ✅ done | (this commit) |
-| 1e | Polish + deploy | PWA service worker, CSV export, CI workflow, security review, Vercel deploy, multi-device sync check | ⏳ planned | — |
+| 1e | Polish + deploy | Service worker (installable + `/offline` fallback), CSV export route + Settings button, GitHub Actions CI, manual security review (3 fixes: open-redirect, CSV injection, proxy prefix), `docs/deploy.md`. **Vercel deploy is owner-run.** | ✅ code done | (this commit) |
 
 Legend: ✅ done · 🔄 in progress · ⏳ planned
 
@@ -238,3 +238,9 @@ Developer Program ($99/yr), Google Play Console ($25 once). Target: a few months
   transactions; a filter banner clears it. 94 unit tests, 6 e2e. Playwright
   `retries: 1` + patient onboarding waits for the shared-project rate-limit
   flake.
+- **2026-09-07 (later 6)** — 1e code complete: PWA service worker +
+  `/offline`, `/api/export/transactions` CSV, CI workflow, `docs/deploy.md`,
+  `docs/security.md`. Security review fixed an open-redirect in `/auth/callback`
+  (`//host`), CSV formula injection, and a loose proxy prefix match. 99 unit
+  tests, 7 e2e. Remaining for a live Phase-1: owner pushes to GitHub + imports
+  to Vercel + sets the redirect URLs (docs/deploy.md).

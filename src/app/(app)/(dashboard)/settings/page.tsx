@@ -30,6 +30,18 @@ export default async function SettingsPage() {
       <AccountManager accounts={(accounts ?? []) as AccountItem[]} />
 
       <section className="space-y-2">
+        <h2 className="text-sm font-semibold">Data</h2>
+        <p className="text-sm text-muted">Download every transaction as a CSV file.</p>
+        <a
+          href="/api/export/transactions"
+          download
+          className="inline-block rounded-lg border border-border px-3 py-2 text-sm font-medium hover:bg-surface-2"
+        >
+          Export transactions (CSV)
+        </a>
+      </section>
+
+      <section className="space-y-2">
         <h2 className="text-sm font-semibold">Preferences</h2>
         <p className="text-sm text-muted">Currency: {profile?.currency ?? "USD"}</p>
         <p className="text-xs text-muted">Signed in as {user.email}</p>

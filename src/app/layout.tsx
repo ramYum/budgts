@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Poppins, Inter } from "next/font/google";
 import "./globals.css";
+import { SwRegister } from "@/components/sw-register";
 
 const poppins = Poppins({
   variable: "--font-poppins",
@@ -43,7 +44,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${poppins.variable} ${inter.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col">{children}</body>
+      <body className="flex min-h-full flex-col">
+        {children}
+        <SwRegister />
+      </body>
     </html>
   );
 }

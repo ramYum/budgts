@@ -8,7 +8,7 @@ const NAV = [
   { href: "/", label: "Dashboard", ready: true },
   { href: "/transactions", label: "Transactions", ready: true },
   { href: "/budgets", label: "Budgets", ready: true },
-  { href: "/settings", label: "Settings", ready: false },
+  { href: "/settings", label: "Settings", ready: true },
 ];
 
 export default async function DashboardLayout({ children }: LayoutProps<"/">) {

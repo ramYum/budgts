@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { formatMoney } from "@/lib/budget/money";
 import { setBudget } from "@/server/budgets";
@@ -42,7 +43,12 @@ function Row({
   return (
     <li className="flex items-center gap-3 py-2">
       <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: row.color }} aria-hidden />
-      <span className="min-w-0 flex-1 truncate text-sm">{row.name}</span>
+      <Link
+        href={`/transactions?m=${month}&category=${row.categoryId}`}
+        className="min-w-0 flex-1 truncate text-sm hover:underline"
+      >
+        {row.name}
+      </Link>
       <div className="flex items-center gap-2">
         <input
           className="tnum w-24 rounded-lg border border-border bg-surface px-2 py-1 text-right text-sm outline-none focus:border-accent"

@@ -25,7 +25,7 @@ test("set a budget, then the dashboard shows budget-vs-actual and savings", asyn
     await expect(page).toHaveURL(/\/onboarding$/);
     await page.getByRole("combobox").selectOption("USD");
     await page.getByRole("button", { name: /start budgeting/i }).click();
-    await expect(page).toHaveURL(/\/$/);
+    await page.waitForURL((u) => u.pathname === "/", { timeout: 20000 });
 
     // Set a $400 budget for Food / Groceries.
     await page.getByRole("link", { name: "Budgets" }).click();

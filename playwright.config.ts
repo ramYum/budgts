@@ -11,7 +11,7 @@ export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  retries: 1, // shared Supabase project; auth rate limits cause the odd transient
   workers: 1, // tests share one Supabase project; serial avoids auth rate limits
   reporter: process.env.CI ? "github" : "list",
   use: {

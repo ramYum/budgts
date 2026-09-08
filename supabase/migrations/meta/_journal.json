@@ -15,6 +15,13 @@
       "when": 1788815678779,
       "tag": "0001_household_default_categories",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788828985255,
+      "tag": "0002_category_set_v2",
+      "breakpoints": true
     }
   ]
 }

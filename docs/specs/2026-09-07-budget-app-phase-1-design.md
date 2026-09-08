@@ -68,12 +68,13 @@ All tables carry `user_id uuid` and an RLS policy limiting every operation to
 | `is_archived` | boolean | default false |
 | `created_at` | timestamptz | |
 
-Seeded on first login by the `handle_new_user()` trigger, from the household's
-real spreadsheet categories: **Housing**, **Food / Groceries**,
-**Transportation**, **Date / Entertainment**, **Personal Care / Others**
-(expense); **Salary**, **Other Income** (income). Budgets are set at this level;
-the specific bill or merchant (Rent, Fuel, Uber, …) goes in the transaction
-description, not a sub-category.
+Seeded on first login by the `handle_new_user()` trigger (migration 0002):
+**Insurances**, **Personal Care**, **Housing**, **Entertainment**,
+**Transportation**, **Food / Groceries** (expense); **Salary**,
+**Other Income** (income). Editable in `/settings` (rename, recolour, add,
+archive). Budgets are per category; the specific bill or merchant (Rent, Fuel,
+Uber, …) goes in the transaction description. Tapping a category name opens its
+transactions (`?category=`).
 
 ### `transactions`
 | col | type | notes |

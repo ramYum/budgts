@@ -14,7 +14,7 @@ phase-level summary; this file is the execution tracker + decisions + change log
 | 1b | Auth + app shell | Supabase SSR clients, `src/proxy.ts`, `/auth/callback`, magic-link + Google, onboarding, `(app)` guard, nav shell | ✅ done | `e5c358a` |
 | 1c | Transactions CRUD | `transactionFormSchema`, ingestion seam, server actions, `/transactions` UI, full-flow e2e | ✅ done | `88cbe5c` |
 | — | Brand pass + hardening | Budgts identity, Volt Lime + Deep Pine palette, Poppins/Inter, `Logo`, full semantic-token system in `globals.css`; plus dedupe-race recovery, `getSessionUser` request-cache, `normalizeManual`, JPY dropped + 2-decimal currency guard, onboarding missing-profile handling, first component test | ✅ done | (see commit) |
-| 1c.2 | Accounts + categories management | CRUD + archive so the seeded set can be customized | ⏳ next | — |
+| 1c.2 | Accounts + categories management | `/settings`: category + account create / rename / recolour / archive; category-name links to filtered transactions everywhere; `?category=` filter banner. Zod + e2e | ✅ done | (this commit) |
 | 1d | Budgets + dashboard | `budgetFormSchema` + `setBudget`/`copyBudgetsFromPreviousMonth`; `buildDashboard` view-model; `/budgets` inline editor; `/` five tiles + budget-vs-actual bars (over/near/under, brand colours) + month switcher + `RealtimeRefresh`; `?category=` transaction filter | ✅ done | (this commit) |
 | 1e | Polish + deploy | PWA service worker, CSV export, CI workflow, security review, Vercel deploy, multi-device sync check | ⏳ planned | — |
 
@@ -34,7 +34,7 @@ Legend: ✅ done · 🔄 in progress · ⏳ planned
 | Auth | Magic link + Google OAuth. No password. |
 | Currency | One per user, picked at onboarding. Restricted to **2-decimal** currencies (the money layer hardcodes a 2-decimal exponent; guarded by a test). |
 | Money | Integer **minor units** end to end. Format only at the display edge. |
-| Categories | Seeded by trigger from the owner's real set: Housing, Food / Groceries, Transportation, Date / Entertainment, Personal Care / Others (expense); Salary, Other Income. Budgets are per top-level category; the bill/merchant goes in the description. |
+| Categories | Seeded by trigger (migration 0002): **Insurances, Personal Care, Housing, Entertainment, Transportation, Food / Groceries** (expense); Salary, Other Income. Editable in Settings — rename, recolour, add, archive. Budgets are per category; the bill/merchant goes in the transaction description. Tapping a category name opens its transactions. |
 | Transfers | `is_transfer` flag (manual toggle in v1). Excluded from every rollup. Paired linking to Phase 2. |
 | Refunds | A `credit` in the original expense category. Nets against that category's spend. No special type. |
 | Budget rollover | **None.** A month's budget never carries forward — next month starts at whatever you set. Unspent budget simply raises that month's Net savings. |
@@ -192,7 +192,7 @@ Developer Program ($99/yr), Google Play Console ($25 once). Target: a few months
 | ~~Expected monthly income~~ | resolved | Income comes **from the bank** (Plaid, Phase 5). No manual field, no recurring-rule entry. Plaid's recurring-transactions endpoint yields the predicted paycheck amount + cadence, which feeds a real *Projected savings* tile in Phase 5. Until then, 1d tiles read "so far this month". |
 | **CI workflow** | Claude | Gates are run by hand. Add GitHub Actions running lint/typecheck/test/build (+ e2e) in 1e. |
 | **Security review before deploy** | Claude | Run `/security-review` in 1e — RLS policies, the service-key path, OAuth redirect allowlist. |
-| 1c.2 vs fold into 1d | both | Accounts/categories management: small standalone checkpoint (leaning) or a Settings tab during 1d. |
+| ~~1c.2 vs fold into 1d~~ | done | Built as a standalone `/settings` screen after 1d. |
 | ~~Git branch cleanup~~ | done | `main` fast-forwarded to `dbeea74`. Work continues on `phase-1/core-slice`; `main` is ff-merged at each checkpoint. |
 | Rotate the Google client secret | owner | Shared in chat during setup. Non-urgent. |
 | Vercel project + deploy | both | Phase 1e. |
@@ -231,3 +231,10 @@ Developer Program ($99/yr), Google Play Console ($25 once). Target: a few months
   and `reuseExistingServer: false` — the suite shares one Supabase project, so
   parallel workers tripped auth rate limits and a stale dev server served a
   wrong build.
+- **2026-09-07 (later 5)** — 1c.2: `/settings` category + account management
+  (rename, recolour, add, archive). Default expense set changed to the six
+  Insurances / Personal Care / Housing / Entertainment / Transportation /
+  Food / Groceries (migration 0002). Category names link to their filtered
+  transactions; a filter banner clears it. 94 unit tests, 6 e2e. Playwright
+  `retries: 1` + patient onboarding waits for the shared-project rate-limit
+  flake.

@@ -21,7 +21,7 @@ test("sign in, onboard, add a transaction, edit it, delete it", async ({ page })
     await page.getByRole("button", { name: /start budgeting/i }).click();
 
     // Dashboard shows the seeded categories.
-    await expect(page).toHaveURL(/\/$/);
+    await page.waitForURL((u) => u.pathname === "/", { timeout: 20000 });
     await expect(page.getByText("so far this month")).toBeVisible();
 
     // Add a transaction.

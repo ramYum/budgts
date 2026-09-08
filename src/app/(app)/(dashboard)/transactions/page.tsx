@@ -78,6 +78,20 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
         <AddTransaction accounts={accountOpts} categories={categoryOpts} defaultDate={defaultDate} />
       </div>
 
+      {categoryFilter ? (
+        <div className="flex items-center justify-between rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm">
+          <span>
+            Showing{" "}
+            <span className="font-medium">
+              {categoryOpts.find((c) => c.id === categoryFilter)?.name ?? "category"}
+            </span>
+          </span>
+          <Link href={`/transactions?m=${m}`} className="text-xs text-muted hover:text-text">
+            Clear
+          </Link>
+        </div>
+      ) : null}
+
       <TransactionList
         items={(txns ?? []) as unknown as TxnListItem[]}
         currency={currency}

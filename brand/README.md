@@ -14,8 +14,20 @@
 
 ## Colours
 
-`#B5FF00` Volt Lime · `#001E16` Deep Pine · `#141918` Carbon · `#FFFFFF`/`#F4F6F2` Paper/Mist.
+`#B5FF00` Volt Lime · `#001E16` Deep Pine · `#141918` Carbon · `#FFFFFF` Paper ·
+`#EEF4E2` Avocado (page wash) / `#E4EDCF` Avocado-2 (soft chips).
 Semantic: over-budget `#FF5C3A`, approaching `#FFC24B`, info `#7FB2FF`. Full ramps in the PNG and `tokens.css`.
+
+**Colour budget per screen:** ~75% Avocado page + white cards · ~10% Deep Pine (primary
+buttons, the one balance card, the active tab, headings) · ~4% Volt Lime (logo mark +
+progress fills only — never a button) · ~5% Avocado-2 · rest neutral grey. One Pine block
+per screen, never two.
+
+## Logo
+
+The mark is **always** a Volt Lime symbol on a Deep Pine rounded square (`favicon.svg`
+style) — the bare lime mark vanishes on the light page. `Logo` / `LogoMark` in
+`src/components/logo.tsx` render this badge at any size.
 
 ## Type
 

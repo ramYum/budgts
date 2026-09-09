@@ -41,7 +41,9 @@ test("set a budget, then the dashboard shows budget-vs-actual and savings", asyn
     await page.getByRole("link", { name: "Dashboard" }).click();
     await expect(page.getByText("$340.00").first()).toBeVisible();
     await expect(page.getByText("Food / Groceries")).toBeVisible();
-    await expect(page.getByText("$60.00 left")).toBeVisible();
+    // "$60.00 left" now also appears as a substring of the dark header's
+    // "$60.00 left to spend · …" line; this asserts the budget-vs-actual bar row.
+    await expect(page.getByText("$60.00 left", { exact: true })).toBeVisible();
     await expect(page.getByText("-$340.00")).toBeVisible(); // net savings, no income yet
 
     // Push it over budget.

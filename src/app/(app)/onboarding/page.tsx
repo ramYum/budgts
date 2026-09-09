@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
+import { Logo } from "@/components/logo";
 import { OnboardingForm } from "./onboarding-form";
 
 export const metadata: Metadata = { title: "Welcome" };
@@ -19,12 +20,21 @@ export default async function OnboardingPage() {
   if (profile?.onboarded_at) redirect("/");
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center gap-6 p-6">
-      <div className="space-y-1">
-        <h1 className="text-xl font-semibold">Welcome to Budgts</h1>
-        <p className="text-sm text-muted">Pick the currency you budget in. You can change it later in Settings.</p>
+    <main className="flex min-h-dvh w-full flex-col items-center justify-center gap-8 bg-bg p-6">
+      <div className="w-full max-w-sm space-y-8">
+        <div className="flex justify-center">
+          <Logo size={26} />
+        </div>
+        <div className="space-y-6">
+          <div className="space-y-1">
+            <h1 className="text-xl font-semibold">Welcome to Budgts</h1>
+            <p className="text-sm text-muted">
+              Pick the currency you budget in. You can change it later in Settings.
+            </p>
+          </div>
+          <OnboardingForm defaultCurrency={profile?.currency ?? "USD"} />
+        </div>
       </div>
-      <OnboardingForm defaultCurrency={profile?.currency ?? "USD"} />
     </main>
   );
 }

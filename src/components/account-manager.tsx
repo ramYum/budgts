@@ -65,7 +65,7 @@ function AccountForm({
         <button
           type="submit"
           disabled={pending}
-          className="flex-1 rounded-lg bg-accent px-3 py-2 text-sm font-medium text-accent-ink disabled:opacity-50"
+          className="flex-1 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-on-primary disabled:opacity-50"
         >
           {pending ? "Saving…" : submitLabel}
         </button>
@@ -96,7 +96,10 @@ export function AccountManager({ accounts }: { accounts: AccountItem[] }) {
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold">Accounts</h2>
+        <h2 className="flex items-center gap-2 text-sm font-semibold">
+          <span className="h-4 w-1 shrink-0 rounded-full bg-tick" aria-hidden />
+          Accounts
+        </h2>
         <button
           type="button"
           onClick={() => setAdding(true)}
@@ -105,7 +108,7 @@ export function AccountManager({ accounts }: { accounts: AccountItem[] }) {
           + Add
         </button>
       </div>
-      <ul className="divide-y divide-border">
+      <ul className="card divide-y divide-hairline rounded-2xl border border-hairline px-4">
         {accounts.map((a) => (
           <li key={a.id} className={`flex items-center gap-3 py-2 ${a.is_archived ? "opacity-50" : ""}`}>
             <span className="min-w-0 flex-1 truncate text-sm">{a.name}</span>

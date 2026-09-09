@@ -1,9 +1,14 @@
 @import "tailwindcss";
 
-/* Budgts brand tokens — see brand/Branding-guidelines.png and brand/tokens.css.
- * Raw palette values never change; components use the semantic roles, which
- * flip with the colour scheme. */
+/* Budgts — see brand/Branding-guidelines.html and brand/tokens.css.
+ * Colour BUDGET (share of a typical screen, per the reference ratio):
+ *   ~78% white  ·  ~10% Deep Pine (primary buttons, the balance card, the
+ *   active nav item, headings)  ·  ~4% Volt Lime (logo, progress fills, tiny
+ *   sparks)  ·  ~5% pale-lime tint (soft chips / callouts)  ·  rest neutral.
+ * Raw palette values never change; components consume the semantic roles. */
 :root {
+  color-scheme: light;
+
   /* raw palette */
   --volt: #b5ff00;
   --pine: #001e16;
@@ -12,6 +17,8 @@
   --mist: #f4f6f2;
   --lime-2: #c7ff47;
   --lime-3: #d8ff80;
+  --lime-4: #e9ffb8;
+  --lime-5: #f6ffe3;
   --pine-2: #26403a;
   --pine-3: #57706a;
   --pine-4: #8ca39d;
@@ -20,47 +27,56 @@
   --grey-5: #d0d3d1;
   --over: #ff5c3a;
   --near: #ffc24b;
+  --avocado: #eef4e2; /* very light green — the page wash that warms the white */
+  --avocado-2: #e4edcf; /* a step deeper — soft chips, callouts */
 
-  /* semantic roles — LIGHT */
-  --bg: var(--mist);
+  /* semantic roles — a soft avocado canvas, white cards on top */
+  --bg: var(--avocado);
   --surface: var(--paper);
-  --surface-2: #eef1ec;
+  --surface-2: #e8efd8; /* sunken sections / row hover */
   --text: var(--carbon);
   --muted: #6b716e;
-  --border: #e2e5e1;
-  --accent: var(--volt);
+  --border: #e2e6da;
+  --accent: var(--volt); /* Volt Lime — sparks only, never a button or a fill */
   --accent-ink: var(--pine);
-  --pos: #3a7d00; /* "under budget" as text needs a darker green on light */
-  --pos-fill: var(--volt); /* progress fills use full lime */
+  --heading: var(--pine-2);
+  --hairline: var(--border);
+  --track: #e8efd8; /* progress trough */
+  --tick: var(--pine-2); /* small structural marks */
+
+  /* Deep Pine as the primary-action + balance-card colour (~10% of a screen) */
+  --primary: var(--pine);
+  --on-primary: #ffffff;
+  --tint: var(--avocado-2); /* soft fill (chips, callouts) */
+
+  --pos: #3a7d00;
+  --pos-fill: var(--volt);
   --neg: var(--over);
   --warn: #b5791a;
   --info: #2f6fd0;
   --ring: #2f6fd0;
 
-  /* aliases so pre-existing bg-foreground / text-background utilities still work */
+  /* progress-bar fills — brand semantic colours, constant in every context */
+  --fill-under: var(--volt);
+  --fill-near: #ffc24b;
+  --fill-over: #ff5c3a;
+
+  /* legacy chrome tokens — kept so the pine hero card / nav still resolve */
+  --surface-dark: var(--pine);
+  --on-dark: #ffffff;
+  --on-dark-dim: var(--pine-4);
+
   --background: var(--bg);
   --foreground: var(--text);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: var(--pine);
-    --surface: #04241c;
-    --surface-2: var(--carbon);
-    --text: var(--paper);
-    --muted: #8ca39d;
-    --border: #26403a;
-    --accent: var(--volt);
-    --accent-ink: var(--pine);
-    --pos: var(--volt);
-    --pos-fill: var(--volt);
-    --neg: var(--over);
-    --warn: var(--near);
-    --info: #7fb2ff;
-    --ring: var(--volt);
-    --background: var(--bg);
-    --foreground: var(--text);
-  }
+/* Content cards are plain white on the white canvas — separated by a hairline
+ * border, not a fill. `.card` / `.panel` are kept as no-op hooks so components
+ * that carry the class keep working. */
+.card,
+.panel {
+  background: var(--paper);
+  color: var(--text);
 }
 
 @theme inline {
@@ -81,6 +97,21 @@
   --color-info: var(--info);
   --color-volt: var(--volt);
   --color-pine: var(--pine);
+  --color-heading: var(--heading);
+  --color-hairline: var(--hairline);
+  --color-track: var(--track);
+  --color-tick: var(--tick);
+  --color-surface-dark: var(--surface-dark);
+  --color-on-dark: var(--on-dark);
+  --color-on-dark-dim: var(--on-dark-dim);
+  --color-primary: var(--primary);
+  --color-on-primary: var(--on-primary);
+  --color-tint: var(--tint);
+  --color-avocado: var(--avocado);
+  --color-avocado-2: var(--avocado-2);
+  --color-fill-under: var(--fill-under);
+  --color-fill-near: var(--fill-near);
+  --color-fill-over: var(--fill-over);
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
@@ -93,12 +124,17 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-h1,
-h2,
-h3 {
-  font-family: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+/* In @layer base so any Tailwind text-colour utility on a heading still wins
+ * (e.g. `text-on-dark` in the Deep Pine hero, `text-muted` day labels). */
+@layer base {
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--heading);
+  }
 }
 
 /* every currency amount lines up */

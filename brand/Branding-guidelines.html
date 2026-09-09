@@ -13,6 +13,8 @@
   --carbon:#141918;
   --paper:#FFFFFF;
   --mist:#F4F6F2;
+  --avocado:#EEF4E2;   /* very light green — the page wash */
+  --avocado-2:#E4EDCF; /* a step deeper — soft chips, callouts */
 
   /* lime tint ramp */
   --lime-1:#B5FF00; --lime-2:#C7FF47; --lime-3:#D8FF80; --lime-4:#E9FFB8; --lime-5:#F6FFE3;
@@ -120,6 +122,10 @@ p{margin:0}
 .t-lime{background:var(--volt)} .t-lime .mark{color:var(--pine)}
 .t-paper{background:var(--paper)} .t-paper .mark{color:var(--pine)}
 .t-carbon{background:var(--carbon)} .t-carbon .mark{color:var(--volt)}
+.t-avocado{background:var(--avocado)}
+/* the mark on its always-on Deep Pine keyline square */
+.badge-sq{width:58%;height:58%;background:var(--pine);border-radius:26%;display:grid;place-items:center}
+.badge-sq .mark{width:62%;height:62%;color:var(--volt)}
 
 /* ---------- misuse ---------- */
 .dont{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
@@ -139,13 +145,13 @@ p{margin:0}
   color:transparent;-webkit-text-stroke:2px var(--pine-4)}
 
 /* ---------- colour ---------- */
-.swatches{display:grid;grid-template-columns:repeat(4,1fr);gap:22px;margin-bottom:64px}
-.sw{border-radius:18px;overflow:hidden;border:1px solid rgba(0,0,0,.08)}
-.sw .chip{height:150px}
-.sw .meta{padding:20px 22px;background:var(--paper)}
-.sw .name{font-family:Poppins;font-weight:600;font-size:19px;color:var(--pine)}
-.sw .hex{font-size:15px;color:var(--pine-3);margin-top:2px;letter-spacing:.02em}
-.sw .role{font-size:14px;color:var(--grey-3);margin-top:10px;line-height:1.45}
+.swatches{display:grid;grid-template-columns:repeat(5,1fr);gap:18px;margin-bottom:64px}
+.sw{border-radius:16px;overflow:hidden;border:1px solid rgba(0,0,0,.08)}
+.sw .chip{height:132px}
+.sw .meta{padding:16px 18px;background:var(--paper)}
+.sw .name{font-family:Poppins;font-weight:600;font-size:17px;color:var(--pine)}
+.sw .hex{font-size:14px;color:var(--pine-3);margin-top:2px;letter-spacing:.02em}
+.sw .role{font-size:13px;color:var(--grey-3);margin-top:9px;line-height:1.45}
 .ramp{margin-bottom:24px}
 .ramp .rname{font-family:Poppins;font-weight:600;font-size:15px;color:var(--pine);margin-bottom:10px}
 .ramp .cells{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
@@ -331,13 +337,13 @@ p{margin:0}
 <section class="band band--paper">
   <div class="head">
     <h2>Placement</h2>
-    <p class="lead">Full-strength contrast only. The lime mark needs a dark ground; the pine mark needs a light one. Nothing in between.</p>
+    <p class="lead">In the running app the mark <b>always</b> sits in a Deep Pine rounded square — a lime mark on a pine keyline — so it stays legible on the Avocado page (a bare lime mark on a light ground disappears). The bare mark is only used where the ground is already dark: on Deep Pine, or reversed to Pine on a Volt Lime fill.</p>
   </div>
   <div class="tiles">
-    <div><div class="tile t-pine"><svg class="mark"><use href="#mark"/></svg></div><div class="tilecap">Lime on Deep&nbsp;Pine</div></div>
-    <div><div class="tile t-lime"><svg class="mark"><use href="#mark"/></svg></div><div class="tilecap">Pine on Volt&nbsp;Lime</div></div>
-    <div><div class="tile t-paper"><svg class="mark"><use href="#mark"/></svg></div><div class="tilecap">Pine on Paper</div></div>
-    <div><div class="tile t-carbon"><svg class="mark"><use href="#mark"/></svg></div><div class="tilecap">Lime on Carbon</div></div>
+    <div><div class="tile t-avocado"><span class="badge-sq"><svg class="mark"><use href="#mark"/></svg></span></div><div class="tilecap">App lockup — Pine square on Avocado</div></div>
+    <div><div class="tile t-paper"><span class="badge-sq"><svg class="mark"><use href="#mark"/></svg></span></div><div class="tilecap">Pine square on white</div></div>
+    <div><div class="tile t-pine"><svg class="mark"><use href="#mark"/></svg></div><div class="tilecap">Bare mark — lime on Deep&nbsp;Pine</div></div>
+    <div><div class="tile t-lime"><svg class="mark"><use href="#mark"/></svg></div><div class="tilecap">Reversed — Pine on Volt&nbsp;Lime</div></div>
   </div>
 </section>
 <hr class="rule">
@@ -363,34 +369,43 @@ p{margin:0}
 <section class="band band--paper">
   <div class="head">
     <h2>Colour</h2>
-    <p class="lead">Two colours carry the brand: an acid lime that means "you're fine", on a green so dark it reads as black. Everything else supports them.</p>
+    <p class="lead">A soft-green app. The page is Avocado — a very light green that warms the white — with white cards on top. Deep Pine does the work an accent usually does: buttons, the balance card, the live tab. Volt Lime is held back to a flicker: the mark and the progress bars, nothing else.</p>
   </div>
+
+  <p class="callout" style="margin-top:0;margin-bottom:44px">
+    <b>The colour budget — hold every screen to it:</b> about <b>75%</b> Avocado + white (Avocado page wash, white cards and chrome) · about <b>10%</b> Deep Pine (primary buttons, the one balance card, the active nav item, headings) · about <b>4%</b> Volt Lime (the mark and progress fills only) · about <b>5%</b> Avocado-2 (a soft chip or callout) · the rest neutral grey. If a screen has two Pine blocks or more than a flicker of lime, pull it back.
+  </p>
 
   <div class="swatches">
     <div class="sw">
       <div class="chip" style="background:var(--volt)"></div>
       <div class="meta"><div class="name">Volt Lime</div><div class="hex">#B5FF00</div>
-        <div class="role">The accent. Positive states, one key action per screen, the mark on dark. Never body text, never a fill behind paragraphs.</div></div>
+        <div class="role">The flicker. The logo mark and progress-bar fills — nothing else. Never a button, never body text, never a fill behind paragraphs. ~4% of a screen, at most.</div></div>
     </div>
     <div class="sw">
       <div class="chip" style="background:var(--pine)"></div>
       <div class="meta"><div class="name">Deep Pine</div><div class="hex">#001E16</div>
-        <div class="role">Primary dark surface — app chrome, hero areas, the mark on light. The brand's "black".</div></div>
+        <div class="role">The primary action. Primary buttons, the single balance card, the active tab pill, headings. About one-tenth of a screen — one Pine block per screen, no more. The brand's "black".</div></div>
+    </div>
+    <div class="sw">
+      <div class="chip" style="background:var(--avocado)"></div>
+      <div class="meta"><div class="name">Avocado</div><div class="hex">#EEF4E2&nbsp;·&nbsp;#E4EDCF</div>
+        <div class="role">The page wash — a very light green under every screen, so the white cards read against something and the app doesn't feel flat. #E4EDCF (Avocado-2) is the soft chip / callout fill.</div></div>
     </div>
     <div class="sw">
       <div class="chip" style="background:var(--carbon)"></div>
       <div class="meta"><div class="name">Carbon</div><div class="hex">#141918</div>
-        <div class="role">Ink for body text on light, and a secondary dark surface when two dark layers need to separate.</div></div>
+        <div class="role">Ink for body text. Interchangeable with Deep Pine for text; keep Pine for anything that carries brand.</div></div>
     </div>
     <div class="sw">
-      <div class="chip" style="background:var(--mist);border-bottom:1px solid rgba(0,0,0,.08)"></div>
-      <div class="meta"><div class="name">Paper / Mist</div><div class="hex">#FFFFFF&nbsp;·&nbsp;#F4F6F2</div>
-        <div class="role">Light surfaces. Paper for cards and sheets, Mist for the page behind them.</div></div>
+      <div class="chip" style="background:var(--paper);border-bottom:1px solid rgba(0,0,0,.08)"></div>
+      <div class="meta"><div class="name">Paper</div><div class="hex">#FFFFFF</div>
+        <div class="role">Cards, sheets and the top chrome sit in pure white on the Avocado page — the separation is the tint, not a heavy border.</div></div>
     </div>
   </div>
 
   <div class="ramp">
-    <div class="rname">Lime tints — highlights, hover fills, chart series on dark</div>
+    <div class="rname">Lime tints — the pale end (#EEF6DC ≈ lime-4/5) is the only lime allowed as a fill: soft chips, a gentle callout</div>
     <div class="cells">
       <div class="c"><div class="b" style="background:var(--lime-1)"></div><div class="h">#B5FF00</div></div>
       <div class="c"><div class="b" style="background:var(--lime-2)"></div><div class="h">#C7FF47</div></div>
@@ -400,7 +415,7 @@ p{margin:0}
     </div>
   </div>
   <div class="ramp">
-    <div class="rname">Pine tints — dividers, secondary text and icons on dark</div>
+    <div class="rname">Pine tints — dividers, secondary text and icons; pine-4 (#8CA39D) for muted text on white</div>
     <div class="cells">
       <div class="c"><div class="b" style="background:var(--pine-1)"></div><div class="h">#001E16</div></div>
       <div class="c"><div class="b" style="background:var(--pine-2)"></div><div class="h">#26403A</div></div>
@@ -421,14 +436,14 @@ p{margin:0}
   </div>
 
   <div class="sem">
-    <div class="s"><div class="b" style="background:var(--pos)"></div><div class="m"><div class="n">Under budget</div><div class="u">#B5FF00 — progress bars, "on track"</div></div></div>
+    <div class="s"><div class="b" style="background:var(--pos)"></div><div class="m"><div class="n">Under budget</div><div class="u">#B5FF00 — progress-bar fill only (text on white uses #3A7D00)</div></div></div>
     <div class="s"><div class="b" style="background:var(--over)"></div><div class="m"><div class="n">Over budget</div><div class="u">#FF5C3A — overspend, destructive actions</div></div></div>
     <div class="s"><div class="b" style="background:var(--near)"></div><div class="m"><div class="n">Approaching</div><div class="u">#FFC24B — 80–100% of a budget used</div></div></div>
     <div class="s"><div class="b" style="background:var(--info)"></div><div class="m"><div class="n">Information</div><div class="u">#7FB2FF — neutral notes, sync status</div></div></div>
   </div>
 
   <div class="callout">
-    <b>One rule that keeps the brand recognisable:</b> Volt Lime is a spark, not a surface. If a screen looks like a lot of lime, it's wrong — pull it back to one positive signal and one action.
+    <b>One rule that keeps the brand recognisable:</b> Volt Lime is a flicker, not a surface — the mark and the progress bars carry it, and nothing else. Deep Pine is the accent that used to be lime's job: one Pine block per screen (a button group, or the balance card), never two. Everything else is white cards on a soft Avocado page.
   </div>
 </section>
 <hr class="rule">
@@ -494,10 +509,10 @@ p{margin:0}
 <hr class="rule">
 
 <!-- ========== IN USE ========== -->
-<section class="band band--carbon">
+<section class="band band--mist">
   <div class="head">
     <h2>In use</h2>
-    <p class="lead" style="opacity:.8">The system on a screen: one dark surface, one accent, numbers you can scan.</p>
+    <p class="lead">The system on a screen: white almost everywhere, one Deep Pine block (here, the balance card), lime only inside the bars.</p>
   </div>
   <div class="use">
     <div>
@@ -505,21 +520,25 @@ p{margin:0}
         <div><div class="appicon pine"><svg class="mark"><use href="#mark"/></svg></div><div class="iconcap">App icon</div></div>
         <div><div class="appicon lime"><svg class="mark"><use href="#mark"/></svg></div><div class="iconcap">Maskable / alt</div></div>
       </div>
-      <div class="sig">
+      <div class="sig" style="color:var(--pine-3)">
         <svg class="mark"><use href="#mark"/></svg>
-        <span class="wm">budgts</span>
+        <span class="wm" style="color:var(--pine)">budgts</span>
         <span class="u">budgts.app</span>
       </div>
     </div>
     <div>
-      <div class="appcard">
+      <div style="background:var(--pine);color:var(--paper);border-radius:20px;padding:26px 34px;max-width:600px">
+        <div style="font-size:14px;color:var(--pine-4)">Available to spend</div>
+        <div style="font-family:Inter;font-weight:600;font-size:40px;font-variant-numeric:tabular-nums;margin-top:2px">£1,247.50</div>
+      </div>
+      <div class="appcard" style="border:1px solid rgba(0,30,22,.10);margin-top:20px">
         <div class="t"><span class="cat">Groceries</span><span class="amt">£340.00 <span class="dim">/ £400.00</span></span></div>
-        <div class="bar"><i></i></div>
+        <div class="bar" style="background:#eef1ec"><i></i></div>
         <div class="left">£60.00 left · 6 days to go</div>
       </div>
-      <div class="appcard over">
+      <div class="appcard over" style="border:1px solid rgba(0,30,22,.10)">
         <div class="t"><span class="cat">Eating out</span><span class="amt">£280.00 <span class="dim">/ £250.00</span></span></div>
-        <div class="bar"><i></i></div>
+        <div class="bar" style="background:#eef1ec"><i></i></div>
         <div class="left" style="color:var(--over)">£30.00 over</div>
       </div>
     </div>

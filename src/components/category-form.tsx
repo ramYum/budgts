@@ -82,7 +82,7 @@ export function CategoryForm({
         <button
           type="submit"
           disabled={pending}
-          className="flex-1 rounded-lg bg-accent px-3 py-2 text-sm font-medium text-accent-ink disabled:opacity-50"
+          className="flex-1 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-on-primary disabled:opacity-50"
         >
           {pending ? "Saving…" : submitLabel}
         </button>

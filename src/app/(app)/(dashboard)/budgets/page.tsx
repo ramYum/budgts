@@ -39,7 +39,7 @@ export default async function BudgetsPage({ searchParams }: PageProps<"/budgets"
   }));
 
   return (
-    <div className="space-y-4 pt-2">
+    <div className="space-y-4 pt-1">
       <RealtimeRefresh tables={["budgets"]} />
       <div className="flex items-center justify-between">
         <MonthNav base="/budgets" month={month} />

@@ -29,7 +29,7 @@ export function Overlay({
       role="presentation"
     >
       <div
-        className="max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-t-2xl border border-border bg-surface p-4 shadow-xl sm:rounded-2xl"
+        className="card max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-t-2xl border border-border p-4 shadow-xl sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"

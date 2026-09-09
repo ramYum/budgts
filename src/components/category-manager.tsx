@@ -76,9 +76,9 @@ export function CategoryManager({
   const expense = categories.filter((c) => c.kind === "expense");
   const income = categories.filter((c) => c.kind === "income");
   const section = (label: string, list: CategoryItem[]) => (
-    <div className="space-y-1">
+    <div className="space-y-1 px-4 py-3">
       <h3 className="text-xs font-medium text-muted">{label}</h3>
-      <ul className="divide-y divide-border">
+      <ul className="divide-y divide-hairline">
         {list.map((c) => (
           <Row key={c.id} cat={c} currentMonth={currentMonth} onEdit={setEditing} />
         ))}
@@ -89,7 +89,10 @@ export function CategoryManager({
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold">Categories</h2>
+        <h2 className="flex items-center gap-2 text-sm font-semibold">
+          <span className="h-4 w-1 shrink-0 rounded-full bg-tick" aria-hidden />
+          Categories
+        </h2>
         <button
           type="button"
           onClick={() => setAdding(true)}
@@ -100,8 +103,10 @@ export function CategoryManager({
       </div>
       <p className="text-xs text-muted">Tap a category to see its transactions.</p>
 
-      {section("Expense", expense)}
-      {income.length ? section("Income", income) : null}
+      <div className="card divide-y divide-hairline overflow-hidden rounded-2xl border border-hairline">
+        {section("Expense", expense)}
+        {income.length ? section("Income", income) : null}
+      </div>
 
       {adding ? (
         <Overlay title="Add category" onClose={() => setAdding(false)}>

@@ -33,6 +33,8 @@
   --budgts-over: #ff5c3a;
   --budgts-near: #ffc24b;
   --budgts-info: #7fb2ff;
+  --budgts-avocado: #eef4e2; /* very light green — the page wash */
+  --budgts-avocado-2: #e4edcf; /* a step deeper — soft chips, callouts */
 
   /* ---- type ---- */
   --budgts-font-display: "Poppins", ui-sans-serif, system-ui, sans-serif;
@@ -44,46 +46,35 @@
   --budgts-radius-md: 14px;
   --budgts-radius-lg: 20px;
 
-  /* ---- semantic roles: LIGHT (default) ---- */
-  --bg: var(--budgts-mist);
-  --surface: var(--budgts-paper);
-  --surface-sunken: #eef1ec;
+  /* ---- semantic roles ----
+   * Colour budget per screen: ~75% Avocado page + white cards · ~10% Deep Pine
+   * (primary buttons, the balance card, the active nav item, headings) · ~4%
+   * Volt Lime (logo mark + progress fills only) · ~5% Avocado-2 · rest neutral. */
+  --bg: var(--budgts-avocado); /* soft green page wash */
+  --surface: var(--budgts-paper); /* white cards on top */
+  --surface-sunken: #e8efd8;
   --text: var(--budgts-carbon);
   --text-muted: var(--budgts-grey-3);
-  --border: var(--budgts-grey-5);
-  --accent: var(--budgts-volt);
-  --accent-ink: var(--budgts-pine); /* text/icon that sits ON the accent */
-  --on-accent-surface: var(--budgts-pine); /* mark colour on a lime fill */
+  --border: #e2e6da;
+  --accent: var(--budgts-volt); /* Volt Lime — sparks only, never a button/fill */
+  --accent-ink: var(--budgts-pine);
+  --on-accent-surface: var(--budgts-pine);
 
-  --pos: #3a7d00; /* "under budget" as text on light needs a darker green */
-  --pos-fill: var(--budgts-volt); /* progress fill uses full lime */
+  --heading: var(--budgts-pine-2);
+  --hairline: #e2e6da;
+  --tick: var(--budgts-pine-2); /* small structural marks */
+
+  --primary: var(--budgts-pine); /* primary buttons + the balance card */
+  --on-primary: #ffffff;
+  --tint: var(--budgts-avocado-2); /* soft fill (chips, callouts) */
+
+  --pos: #3a7d00;
+  --pos-fill: var(--budgts-volt);
   --neg: var(--budgts-over);
   --warn: #b5791a;
   --info: #2f6fd0;
 
   --focus-ring: #2f6fd0;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: var(--budgts-pine);
-    --surface: #04241c;
-    --surface-sunken: var(--budgts-carbon);
-    --text: var(--budgts-paper);
-    --text-muted: var(--budgts-pine-4);
-    --border: var(--budgts-pine-2);
-    --accent: var(--budgts-volt);
-    --accent-ink: var(--budgts-pine);
-    --on-accent-surface: var(--budgts-pine);
-
-    --pos: var(--budgts-volt);
-    --pos-fill: var(--budgts-volt);
-    --neg: var(--budgts-over);
-    --warn: var(--budgts-near);
-    --info: var(--budgts-info);
-
-    --focus-ring: var(--budgts-volt);
-  }
 }
 
 /* Amounts: always tabular so columns line up. */

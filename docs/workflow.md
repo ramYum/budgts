@@ -186,7 +186,7 @@ Developer Program ($99/yr), Google Play Console ($25 once). Target: a few months
 | Item | Owner | Notes |
 | --- | --- | --- |
 | **Reorder Phase 3 vs Phase 5?** | owner | The sample spreadsheet is US (Wegmans, LVHN, Iron Pigs) where Plaid coverage is excellent. Plaid gives clean structured data; email parsing is lossy and fiddly. Consider **Plaid before email**. Trade-off: Plaid costs a few dollars/month and needs an application; email is free. |
-| Confirm Google provider enabled in Supabase | owner | Client ID/secret created; needs enabling plus the `http://localhost:3000/**` redirect URL. |
+| ~~Confirm Google provider enabled in Supabase~~ | done | **2026-09-08** — owner enabled the Google provider and confirmed the `http://localhost:3000/**` redirect URL. |
 | Brand pass reaches a stopping point | owner | Then Claude commits it and resumes 1c.2 / 1d. |
 | **CSV export / backup** | Claude | Missing from the plan and worth adding. Supabase free projects pause after 7 idle days; a one-click export is cheap insurance. Slot into 1e. |
 | ~~Expected monthly income~~ | resolved | Income comes **from the bank** (Plaid, Phase 5). No manual field, no recurring-rule entry. Plaid's recurring-transactions endpoint yields the predicted paycheck amount + cadence, which feeds a real *Projected savings* tile in Phase 5. Until then, 1d tiles read "so far this month". |
@@ -195,7 +195,7 @@ Developer Program ($99/yr), Google Play Console ($25 once). Target: a few months
 | ~~1c.2 vs fold into 1d~~ | done | Built as a standalone `/settings` screen after 1d. |
 | ~~Git branch cleanup~~ | done | `main` fast-forwarded to `dbeea74`. Work continues on `phase-1/core-slice`; `main` is ff-merged at each checkpoint. |
 | Rotate the Google client secret | owner | Shared in chat during setup. Non-urgent. |
-| Vercel project + deploy | both | Phase 1e. |
+| Vercel project + deploy | both | **2026-09-08** — owner imported `ramYum/budgts` into Vercel (`docs/deploy.md` steps 1–2 done). **Remaining:** Claude pushes the brand-pass commit to `main` (auto-triggers the deploy); owner then sets the three `NEXT_PUBLIC_*` env vars, grabs the `*.vercel.app` domain, adds `NEXT_PUBLIC_SITE_URL` + redeploys, and points Supabase URL config at the live URL (`docs/deploy.md` §3–6). |
 | Apple Developer + Google Play accounts | owner | Start enrollment before Phase 6; lead time is days. |
 | Plaid account + Production application | owner | Only when Phase 5 starts; Sandbox needs nothing. |
 
@@ -244,3 +244,20 @@ Developer Program ($99/yr), Google Play Console ($25 once). Target: a few months
   (`//host`), CSV formula injection, and a loose proxy prefix match. 99 unit
   tests, 7 e2e. Remaining for a live Phase-1: owner pushes to GitHub + imports
   to Vercel + sets the redirect URLs (docs/deploy.md).
+- **2026-09-08** — Repo already on GitHub (`ramYum/budgts`, `main` at `2468194`).
+  Owner completed deploy steps 1–2: Vercel project imported and the Supabase
+  Google provider enabled + localhost redirect confirmed. Deploy is now blocked
+  only on Claude pushing the in-progress brand pass to `main`; env vars +
+  Supabase URL config (deploy.md §3–6) follow once the `*.vercel.app` domain
+  exists. Owner is finishing the brand pass; then resumes at `deploy.md` step 3
+  (env vars) onward. Next build checkpoint after deploy is **Phase 2** (recurring
+  bills + savings goals); the Phase 3-vs-5 reorder call is still open.
+- **[pending commit]** — Brand pass (owner's visual system: mobile `BottomNav`
+  with active-tab pill, dark dashboard header, sticky blurred app header,
+  `Logo` `onDark` variant, new semantic tokens in `tokens.css` + `globals.css`,
+  restyled onboarding / auth / settings / transactions / budgets). Claude rebased
+  one e2e locator: `budgets.spec.ts` `"$60.00 left"` became ambiguous once the
+  dark header added "$60.00 left to spend · …", so it's pinned to `{ exact: true }`
+  on the budget-vs-actual bar row. 5 gates green (lint, typecheck, 99 unit,
+  build, 8 e2e). Not yet committed — working tree still moving while the owner
+  finishes styling.

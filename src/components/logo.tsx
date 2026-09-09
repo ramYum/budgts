@@ -1,4 +1,5 @@
-/** Budgts logo. Mark inherits `currentColor`; wordmark uses the display font.
+/** Budgts logo. The mark is always Volt Lime on a Deep Pine rounded square so it
+ * stays legible on any ground (the bare lime mark disappears on white).
  * See brand/Branding-guidelines.png for placement, clearspace and misuse. */
 
 const MARK_PATH =
@@ -11,36 +12,42 @@ export function LogoMark({
   size?: number;
   className?: string;
 }) {
+  const inner = Math.round(size * 0.62);
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 64 64"
+    <span
       role="img"
       aria-label="Budgts"
-      className={className}
+      className={`inline-grid shrink-0 place-items-center rounded-[28%] bg-pine text-accent ${className ?? ""}`}
+      style={{ width: size, height: size }}
     >
-      <path d={MARK_PATH} fill="currentColor" />
-    </svg>
+      <svg width={inner} height={inner} viewBox="0 0 64 64" aria-hidden>
+        <path d={MARK_PATH} fill="currentColor" />
+      </svg>
+    </span>
   );
 }
 
 export function Logo({
   size = 22,
   wordmark = true,
+  onDark = false,
   className,
 }: {
   size?: number;
   wordmark?: boolean;
+  /** `true` when the logo sits on a dark ground — flips the wordmark to white. */
+  onDark?: boolean;
   className?: string;
 }) {
   return (
-    <span
-      className={`inline-flex items-center gap-2 text-accent ${className ?? ""}`}
-    >
+    <span className={`inline-flex items-center gap-2 ${className ?? ""}`}>
       <LogoMark size={size} />
       {wordmark ? (
-        <span className="font-display text-[1.05rem] font-bold tracking-tight text-text">
+        <span
+          className={`font-display text-[1.05rem] font-bold tracking-tight ${
+            onDark ? "text-white" : "text-text"
+          }`}
+        >
           budgts
         </span>
       ) : null}

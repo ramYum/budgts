@@ -81,7 +81,7 @@ export function BudgetEditor({
 
   return (
     <div>
-      <ul className="divide-y divide-border">
+      <ul className="card divide-y divide-hairline rounded-2xl border border-hairline px-4">
         {rows.map((r) => (
           <Row key={r.categoryId} row={r} month={month} onSaved={() => router.refresh()} />
         ))}

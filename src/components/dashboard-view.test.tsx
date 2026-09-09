@@ -40,7 +40,7 @@ const view: DV = {
 };
 
 describe("DashboardView", () => {
-  it("renders the five tiles with formatted amounts", () => {
+  it("renders the headline figures with formatted amounts", () => {
     render(<DashboardView view={view} currency="USD" month="2026-09" />);
     expect(screen.getByText("Income").nextElementSibling).toHaveTextContent("$5,000.00");
     expect(screen.getByText("Spent").nextElementSibling).toHaveTextContent("$550.00");

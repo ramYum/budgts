@@ -60,3 +60,6 @@ next-env.d.ts
 
 # stale/scratch brand generator output
 /brand/out*/
+
+# local design-inspiration screenshots (reference only, not part of the repo)
+*Inspiration Reference/

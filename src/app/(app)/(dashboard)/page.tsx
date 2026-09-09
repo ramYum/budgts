@@ -3,7 +3,6 @@ import { buildDashboard, type DashboardCategory } from "@/lib/budget/dashboard";
 import { monthKey } from "@/lib/budget/month";
 import type { BudgetTxn } from "@/lib/budget/types";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
-import { MonthNav } from "@/components/month-nav";
 import { DashboardView } from "@/components/dashboard-view";
 import { RealtimeRefresh } from "@/components/realtime-refresh";
 
@@ -55,9 +54,8 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
   const view = buildDashboard(txns, cats, budgets, month);
 
   return (
-    <div className="space-y-5 pt-2">
+    <div className="pb-2">
       <RealtimeRefresh tables={["transactions", "budgets"]} />
-      <MonthNav base="/" month={month} />
       <DashboardView view={view} currency={profile?.currency ?? "USD"} month={month} />
     </div>
   );

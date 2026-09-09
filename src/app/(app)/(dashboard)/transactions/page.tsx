@@ -64,7 +64,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
   const categoryOpts = (categories ?? []) as CategoryOption[];
 
   return (
-    <div className="space-y-4 pt-2">
+    <div className="space-y-4 pt-1">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1">
           <Link href={`/transactions?m=${prev}`} className="px-2 py-1 text-sm text-muted hover:text-text" aria-label="Previous month">
@@ -79,14 +79,14 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
       </div>
 
       {categoryFilter ? (
-        <div className="flex items-center justify-between rounded-lg border border-border bg-surface-2 px-3 py-2 text-sm">
+        <div className="flex items-center justify-between rounded-lg border border-hairline bg-tint px-3 py-2 text-sm text-pine">
           <span>
             Showing{" "}
-            <span className="font-medium">
+            <span className="font-semibold">
               {categoryOpts.find((c) => c.id === categoryFilter)?.name ?? "category"}
             </span>
           </span>
-          <Link href={`/transactions?m=${m}`} className="text-xs text-muted hover:text-text">
+          <Link href={`/transactions?m=${m}`} className="text-xs font-medium text-pine/60 hover:text-pine">
             Clear
           </Link>
         </div>

@@ -86,11 +86,12 @@ export function TransactionList({
 
   return (
     <div className="space-y-4">
-      {[...groups.entries()].map(([day, rows]) => (
-        <section key={day} className="space-y-1">
-          <h3 className="text-xs font-medium text-muted">{dayLabel(day)}</h3>
-          <ul className="divide-y divide-border">
-            {rows.map((it) => (
+      <div className="card divide-y divide-hairline overflow-hidden rounded-2xl border border-hairline">
+        {[...groups.entries()].map(([day, rows]) => (
+          <section key={day} className="space-y-1 px-4 py-3">
+            <h3 className="text-xs font-medium text-muted">{dayLabel(day)}</h3>
+            <ul className="divide-y divide-hairline">
+              {rows.map((it) => (
               <li key={it.id} className="flex items-center gap-3 py-2">
                 <span
                   className="h-2 w-2 shrink-0 rounded-full"
@@ -123,10 +124,11 @@ export function TransactionList({
                   Edit
                 </button>
               </li>
-            ))}
-          </ul>
-        </section>
-      ))}
+              ))}
+            </ul>
+          </section>
+        ))}
+      </div>
 
       {editing ? (
         <Overlay

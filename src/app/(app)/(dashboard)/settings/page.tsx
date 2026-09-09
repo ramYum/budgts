@@ -20,7 +20,7 @@ export default async function SettingsPage() {
   ]);
 
   return (
-    <div className="space-y-8 pt-2">
+    <div className="space-y-8 pt-1">
       <h1 className="text-xl font-semibold">Settings</h1>
 
       <CategoryManager
@@ -29,22 +29,32 @@ export default async function SettingsPage() {
       />
       <AccountManager accounts={(accounts ?? []) as AccountItem[]} />
 
-      <section className="space-y-2">
-        <h2 className="text-sm font-semibold">Data</h2>
-        <p className="text-sm text-muted">Download every transaction as a CSV file.</p>
-        <a
-          href="/api/export/transactions"
-          download
-          className="inline-block rounded-lg border border-border px-3 py-2 text-sm font-medium hover:bg-surface-2"
-        >
-          Export transactions (CSV)
-        </a>
+      <section className="space-y-3">
+        <h2 className="flex items-center gap-2 text-sm font-semibold">
+          <span className="h-4 w-1 shrink-0 rounded-full bg-tick" aria-hidden />
+          Data
+        </h2>
+        <div className="card space-y-2 rounded-2xl border border-hairline p-4">
+          <p className="text-sm text-muted">Download every transaction as a CSV file.</p>
+          <a
+            href="/api/export/transactions"
+            download
+            className="inline-block rounded-lg border border-hairline px-3 py-2 text-sm font-medium hover:bg-surface-2"
+          >
+            Export transactions (CSV)
+          </a>
+        </div>
       </section>
 
-      <section className="space-y-2">
-        <h2 className="text-sm font-semibold">Preferences</h2>
-        <p className="text-sm text-muted">Currency: {profile?.currency ?? "USD"}</p>
-        <p className="text-xs text-muted">Signed in as {user.email}</p>
+      <section className="space-y-3">
+        <h2 className="flex items-center gap-2 text-sm font-semibold">
+          <span className="h-4 w-1 shrink-0 rounded-full bg-tick" aria-hidden />
+          Preferences
+        </h2>
+        <div className="card space-y-1 rounded-2xl border border-hairline p-4">
+          <p className="text-sm text-muted">Currency: {profile?.currency ?? "USD"}</p>
+          <p className="text-xs text-muted">Signed in as {user.email}</p>
+        </div>
       </section>
 
       <form action={signOut}>

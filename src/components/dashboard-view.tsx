@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { formatMoney } from "@/lib/budget/money";
 import type { DashboardView as DV } from "@/lib/budget/dashboard";
+import { MonthNav } from "./month-nav";
 
 function Tile({
   label,
@@ -14,8 +15,8 @@ function Tile({
   strong?: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-surface p-3">
-      <p className="text-xs text-muted">{label}</p>
+    <div className="card rounded-xl border border-hairline p-3">
+      <p className="text-xs font-medium text-heading">{label}</p>
       <p
         className={`tnum font-display ${strong ? "text-xl" : "text-lg"} font-bold ${
           strong && value < 0 ? "text-neg" : "text-text"
@@ -28,9 +29,9 @@ function Tile({
 }
 
 const FILL: Record<string, string> = {
-  under: "bg-pos-fill",
-  near: "bg-warn",
-  over: "bg-neg",
+  under: "bg-fill-under",
+  near: "bg-fill-near",
+  over: "bg-fill-over",
 };
 
 export function DashboardView({
@@ -45,29 +46,45 @@ export function DashboardView({
   const { tiles, bars } = view;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pt-1">
+      <MonthNav base="/" month={month} />
+
+      {/* the one Deep Pine card on the screen */}
+      <section className="rounded-2xl bg-primary p-4 text-on-primary">
+        <p className="text-xs text-on-dark-dim">Net savings</p>
+        <p
+          className={`tnum font-display text-[1.9rem] font-bold leading-tight ${
+            tiles.netSavings < 0 ? "text-fill-over" : "text-on-primary"
+          }`}
+        >
+          {formatMoney(tiles.netSavings, currency)}
+        </p>
+        <p className="mt-1 text-xs text-on-dark-dim">
+          {formatMoney(tiles.leftToSpend, currency)} left to spend ·{" "}
+          {formatMoney(tiles.budgeted, currency)} budgeted
+        </p>
+      </section>
+
       <section className="space-y-2">
         <p className="text-xs text-muted">so far this month</p>
         <div className="grid grid-cols-2 gap-2">
           <Tile label="Income" value={tiles.income} currency={currency} />
           <Tile label="Spent" value={tiles.spent} currency={currency} />
-          <Tile label="Net savings" value={tiles.netSavings} currency={currency} strong />
-          <Tile label="Left to spend" value={tiles.leftToSpend} currency={currency} strong />
         </div>
-        <p className="text-xs text-muted">
-          Budgeted {formatMoney(tiles.budgeted, currency)} this month.
-        </p>
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-sm font-semibold">Budget vs actual</h2>
+        <h2 className="flex items-center gap-2 text-[15px] font-semibold">
+          <span className="h-4 w-1 shrink-0 rounded-full bg-tick" aria-hidden />
+          Budget vs actual
+        </h2>
         {bars.length === 0 ? (
           <p className="text-sm text-muted">
             Set a budget on the <Link href="/budgets" className="text-text underline">Budgets</Link>{" "}
             screen to see how you&apos;re tracking.
           </p>
         ) : (
-          <ul className="space-y-3">
+          <ul className="card space-y-3.5 rounded-2xl border border-hairline p-4">
             {bars.map((b) => {
               const pct = Math.min(100, Math.max(0, b.pctUsed));
               const over = b.state === "over";
@@ -91,7 +108,7 @@ export function DashboardView({
                         {b.budget > 0 ? ` / ${formatMoney(b.budget, currency)}` : ""}
                       </span>
                     </div>
-                    <div className="h-1.5 overflow-hidden rounded-full bg-surface-2">
+                    <div className="h-2 overflow-hidden rounded-full bg-track">
                       <div
                         className={`h-full rounded-full ${FILL[b.state]}`}
                         style={{ width: `${over ? 100 : pct}%` }}

@@ -19,7 +19,7 @@ phase-level summary; this file is the execution tracker + decisions + change log
 | 1e | Polish + deploy | Service worker (installable + `/offline` fallback), CSV export route + Settings button, GitHub Actions CI, manual security review (3 fixes: open-redirect, CSV injection, proxy prefix), `docs/deploy.md`. | ✅ code done | `f31cd1a` |
 | — | Brand: final look | Iterated to: **Avocado (#EEF4E2) page wash**, white cards, **Deep Pine** primary buttons + balance card + active-tab pill, **Volt Lime** only for the logo mark (always on a pine rounded-square badge) + progress fills. `docs/deploy.md` colour budget + `brand/*` re-rendered. | ✅ done | `f31cd1a` |
 | — | Ship | Pushed `main` → `ramYum/budgts`; Vercel project `budgts` (team `tocino`) live at **https://budgts.com** (Cloudflare DNS, apex + www→apex). Supabase auth URL config + `NEXT_PUBLIC_*` env vars set. | ✅ live 2026-09-09 | `f31cd1a` |
-| — | Post-ship fix | Proxy matcher was 307-redirecting `/sw.js` → `/sign-in`, so the service worker never registered in prod (PWA not installable / no offline). Added `sw.js` to the matcher exclusion + an e2e guard. | 🔄 fixed locally, needs deploy | (uncommitted) |
+| — | Post-ship fix | Proxy matcher was 307-redirecting `/sw.js` → `/sign-in`, so the service worker never registered in prod (PWA not installable / no offline). Added `sw.js` to the matcher exclusion + an e2e guard. Deployed; `https://budgts.com/sw.js` verified `200 application/javascript`, no console errors logged out. | ✅ live 2026-09-09 | `c58b27f` |
 
 Legend: ✅ done · 🔄 in progress · ⏳ planned
 
@@ -275,11 +275,14 @@ Developer Program ($99/yr), Google Play Console ($25 once). Target: a few months
   all four redirect origins. Deploy steps 1–2 turned out never to have run
   despite a doc marking them done (obs 0017). Details in `docs/deploy.md`
   "Current deployment" + memory `deployment.md`.
-- **2026-09-09 — Post-ship: service worker fix** (uncommitted). Live-site check
-  found `GET /sw.js` returning `307 → /sign-in`: the `proxy.ts` matcher didn't
-  exclude `sw.js`, so the auth gate caught it and the browser refused to register
-  a redirected SW script — the PWA was not installable and had no offline
-  fallback in production. Added `sw.js` to the matcher negative-lookahead + a
-  `smoke.spec.ts` guard asserting `/sw.js` is `200` `*/javascript`. lint /
-  typecheck / 99 unit / 8 e2e green locally. Needs a push to `main` to reach
-  prod, after which the owner can do the real-device install check.
+- **2026-09-09 — Post-ship: service worker fix** (`c58b27f`, live). Live-site
+  check found `GET /sw.js` returning `307 → /sign-in`: the `proxy.ts` matcher
+  didn't exclude `sw.js`, so the auth gate caught it and the browser refused to
+  register a redirected SW script — the PWA was not installable and had no
+  offline fallback in production. Added `sw.js` to the matcher negative-lookahead
+  + a `smoke.spec.ts` guard asserting `/sw.js` is `200` `*/javascript`. lint /
+  typecheck / 99 unit / 8 e2e green. Pushed to `main`; Vercel auto-deployed
+  (CI + deploy webhook took ~8 min to start — slow, not broken); verified
+  `https://budgts.com/sw.js` → `200 application/javascript`, zero console
+  errors logged-out. Owner can now do the real-device PWA install check
+  (`deploy.md` step 5).

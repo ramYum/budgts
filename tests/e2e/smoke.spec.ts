@@ -24,3 +24,10 @@ test("serves a web app manifest", async ({ request }) => {
   const manifest = await res.json();
   expect(manifest.name).toBe("Budgts");
 });
+
+test("serves the service worker without an auth redirect", async ({ request }) => {
+  // The proxy must not 3xx /sw.js — a redirected SW script fails to register.
+  const res = await request.get("/sw.js", { maxRedirects: 0 });
+  expect(res.status()).toBe(200);
+  expect(res.headers()["content-type"]).toMatch(/javascript/);
+});

@@ -36,8 +36,10 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Run on everything except Next internals and static asset files.
+  // Run on everything except Next internals and static asset files. `sw.js` is
+  // excluded too — the service-worker script must not 3xx-redirect or the
+  // browser refuses to register it ("script resource is behind a redirect").
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };

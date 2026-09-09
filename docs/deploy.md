@@ -3,6 +3,19 @@
 The app is a standard Next.js 16 project; Vercel builds it with no config.
 Steps you (the owner) do — Claude can't create the accounts or push to a remote.
 
+## Current deployment (live)
+
+- **Canonical URL:** `https://budgts.com` (apex). `https://www.budgts.com`
+  308-redirects to it. `https://budgts.vercel.app` also still serves.
+- **Vercel:** team `tocino` (Hobby) / `crispyphata-5876`, project `budgts`,
+  deploys from `main` (`ramYum/budgts`).
+- **Domain DNS:** `budgts.com` is registered + DNS-hosted at Cloudflare.
+  Two records, both **DNS-only (grey cloud)**:
+  `CNAME @ → 20b64e226c444eb2.vercel-dns-017.com` and
+  `CNAME www → 20b64e226c444eb2.vercel-dns-017.com`.
+- The section below is the original from-scratch runbook; `<your-vercel-domain>`
+  now means `budgts.com`.
+
 ## 1. Push the repo to GitHub
 
 ```bash
@@ -26,7 +39,7 @@ Set for **Production** (and Preview if you want preview deploys to work):
 | --- | --- |
 | `NEXT_PUBLIC_SUPABASE_URL` | `https://wsmhstqpvbbcqpqhiqyp.supabase.co` |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | your `sb_publishable_…` key |
-| `NEXT_PUBLIC_SITE_URL` | `https://<your-vercel-domain>` (the real deployed URL) |
+| `NEXT_PUBLIC_SITE_URL` | `https://budgts.com` (Production only) |
 
 **Not needed on Vercel:** `SUPABASE_SECRET_KEY` (only the local e2e suite uses
 it), `DATABASE_URL` / `DIRECT_URL` (only `db:migrate` uses them),
@@ -37,9 +50,9 @@ user session + the publishable key.
 
 Supabase dashboard → Authentication → **URL Configuration**:
 
-- **Site URL:** `https://<your-vercel-domain>`
-- **Redirect URLs:** add `https://<your-vercel-domain>/**`
-  (keep `http://localhost:3000/**` for local dev)
+- **Site URL:** `https://budgts.com`
+- **Redirect URLs:** `https://budgts.com/**`, `https://www.budgts.com/**`,
+  `http://localhost:3000/**` (local dev), `https://budgts.vercel.app/**` (kept)
 
 Google Cloud console → your OAuth client → **Authorized redirect URIs**:
 already `https://wsmhstqpvbbcqpqhiqyp.supabase.co/auth/v1/callback` — no change
@@ -56,10 +69,9 @@ already `https://wsmhstqpvbbcqpqhiqyp.supabase.co/auth/v1/callback` — no chang
 
 ## Notes
 
-- The Supabase database password and the Google client secret were both shown
-  in chat during setup. Rotate them when convenient (Supabase → Database →
-  Reset password; Google Cloud → OAuth client → Reset secret) and update
-  `.env.local` + the Supabase provider config.
+- The Supabase database password and the Google client secret were shown in
+  chat during setup. Rotating them is **intentionally skipped** for this
+  personal project — not a pending task.
 - The free Supabase project **pauses after 7 idle days**; the dashboard has a
   one-click restore. Use the CSV export as a backup.
 - Vercel Hobby is personal / non-commercial only.

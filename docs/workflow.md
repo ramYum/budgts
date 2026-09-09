@@ -16,7 +16,10 @@ phase-level summary; this file is the execution tracker + decisions + change log
 | — | Brand pass + hardening | Budgts identity, Volt Lime + Deep Pine palette, Poppins/Inter, `Logo`, full semantic-token system in `globals.css`; plus dedupe-race recovery, `getSessionUser` request-cache, `normalizeManual`, JPY dropped + 2-decimal currency guard, onboarding missing-profile handling, first component test | ✅ done | (see commit) |
 | 1c.2 | Accounts + categories management | `/settings`: category + account create / rename / recolour / archive; category-name links to filtered transactions everywhere; `?category=` filter banner. Zod + e2e | ✅ done | (this commit) |
 | 1d | Budgets + dashboard | `budgetFormSchema` + `setBudget`/`copyBudgetsFromPreviousMonth`; `buildDashboard` view-model; `/budgets` inline editor; `/` five tiles + budget-vs-actual bars (over/near/under, brand colours) + month switcher + `RealtimeRefresh`; `?category=` transaction filter | ✅ done | (this commit) |
-| 1e | Polish + deploy | Service worker (installable + `/offline` fallback), CSV export route + Settings button, GitHub Actions CI, manual security review (3 fixes: open-redirect, CSV injection, proxy prefix), `docs/deploy.md`. **Vercel deploy is owner-run.** | ✅ code done | (this commit) |
+| 1e | Polish + deploy | Service worker (installable + `/offline` fallback), CSV export route + Settings button, GitHub Actions CI, manual security review (3 fixes: open-redirect, CSV injection, proxy prefix), `docs/deploy.md`. | ✅ code done | `f31cd1a` |
+| — | Brand: final look | Iterated to: **Avocado (#EEF4E2) page wash**, white cards, **Deep Pine** primary buttons + balance card + active-tab pill, **Volt Lime** only for the logo mark (always on a pine rounded-square badge) + progress fills. `docs/deploy.md` colour budget + `brand/*` re-rendered. | ✅ done | `f31cd1a` |
+| — | Ship | Pushed `main` → `ramYum/budgts`; Vercel project `budgts` (team `tocino`) live at **https://budgts.com** (Cloudflare DNS, apex + www→apex). Supabase auth URL config + `NEXT_PUBLIC_*` env vars set. | ✅ live 2026-09-09 | `f31cd1a` |
+| — | Post-ship fix | Proxy matcher was 307-redirecting `/sw.js` → `/sign-in`, so the service worker never registered in prod (PWA not installable / no offline). Added `sw.js` to the matcher exclusion + an e2e guard. | 🔄 fixed locally, needs deploy | (uncommitted) |
 
 Legend: ✅ done · 🔄 in progress · ⏳ planned
 
@@ -194,8 +197,9 @@ Developer Program ($99/yr), Google Play Console ($25 once). Target: a few months
 | **Security review before deploy** | Claude | Run `/security-review` in 1e — RLS policies, the service-key path, OAuth redirect allowlist. |
 | ~~1c.2 vs fold into 1d~~ | done | Built as a standalone `/settings` screen after 1d. |
 | ~~Git branch cleanup~~ | done | `main` fast-forwarded to `dbeea74`. Work continues on `phase-1/core-slice`; `main` is ff-merged at each checkpoint. |
-| Rotate the Google client secret | owner | Shared in chat during setup. Non-urgent. |
-| Vercel project + deploy | both | **2026-09-08** — owner imported `ramYum/budgts` into Vercel (`docs/deploy.md` steps 1–2 done). **Remaining:** Claude pushes the brand-pass commit to `main` (auto-triggers the deploy); owner then sets the three `NEXT_PUBLIC_*` env vars, grabs the `*.vercel.app` domain, adds `NEXT_PUBLIC_SITE_URL` + redeploys, and points Supabase URL config at the live URL (`docs/deploy.md` §3–6). |
+| ~~Rotate the DB password / Google client secret~~ | done | Intentionally skipped for this personal project (owner's call, 2026-09-09). Not a pending task. |
+| ~~Vercel project + deploy~~ | done | **2026-09-09** — `main` pushed, Vercel project live at `https://budgts.com` (custom domain via Cloudflare DNS), env vars + Supabase auth URLs set. See `docs/deploy.md` "Current deployment" + memory `deployment.md`. |
+| Verify on real devices | owner | `deploy.md` step 5 — install the PWA on a phone, sign in via magic link + Google, add a transaction, confirm it syncs to a second device. Blocked on the `/sw.js` fix reaching prod for the install check. |
 | Apple Developer + Google Play accounts | owner | Start enrollment before Phase 6; lead time is days. |
 | Plaid account + Production application | owner | Only when Phase 5 starts; Sandbox needs nothing. |
 
@@ -252,12 +256,30 @@ Developer Program ($99/yr), Google Play Console ($25 once). Target: a few months
   exists. Owner is finishing the brand pass; then resumes at `deploy.md` step 3
   (env vars) onward. Next build checkpoint after deploy is **Phase 2** (recurring
   bills + savings goals); the Phase 3-vs-5 reorder call is still open.
-- **[pending commit]** — Brand pass (owner's visual system: mobile `BottomNav`
-  with active-tab pill, dark dashboard header, sticky blurred app header,
-  `Logo` `onDark` variant, new semantic tokens in `tokens.css` + `globals.css`,
-  restyled onboarding / auth / settings / transactions / budgets). Claude rebased
-  one e2e locator: `budgets.spec.ts` `"$60.00 left"` became ambiguous once the
-  dark header added "$60.00 left to spend · …", so it's pinned to `{ exact: true }`
-  on the budget-vs-actual bar row. 5 gates green (lint, typecheck, 99 unit,
-  build, 8 e2e). Not yet committed — working tree still moving while the owner
-  finishes styling.
+- **2026-09-08/09 — Brand: final look** (`f31cd1a`). Design iterated over a
+  session from "add dark green" through several full re-themes to a settled
+  system: **Avocado `#EEF4E2` page wash** with white cards, **Deep Pine** as the
+  primary-action colour (buttons, the one balance card, the active-tab pill,
+  headings — ~10% of a screen), **Volt Lime** pulled back to the logo mark
+  (always on a Deep Pine rounded-square badge, since bare lime vanishes on light)
+  + the progress-bar fills only. `bottom-nav.tsx` added; `dashboard-view` balance
+  card; new tokens (`--avocado`, `--primary`, `--tint`, …) in `globals.css` +
+  `brand/tokens.css`; `brand/Branding-guidelines.{html,png}` + `README` re-done
+  with a documented colour budget. One e2e locator pinned `{ exact: true }`
+  (`budgets.spec.ts` "$60.00 left").
+- **2026-09-09 — Shipped.** `main` pushed to `ramYum/budgts`; Vercel project
+  `budgts` (team `tocino`, Hobby) live at **https://budgts.com** — custom domain
+  bought + DNS-hosted at Cloudflare, DNS-only CNAMEs for apex + `www` → Vercel,
+  `www` 308-redirects to apex. `NEXT_PUBLIC_*` env vars set (SITE_URL =
+  `https://budgts.com`, Production only); Supabase auth URL config updated with
+  all four redirect origins. Deploy steps 1–2 turned out never to have run
+  despite a doc marking them done (obs 0017). Details in `docs/deploy.md`
+  "Current deployment" + memory `deployment.md`.
+- **2026-09-09 — Post-ship: service worker fix** (uncommitted). Live-site check
+  found `GET /sw.js` returning `307 → /sign-in`: the `proxy.ts` matcher didn't
+  exclude `sw.js`, so the auth gate caught it and the browser refused to register
+  a redirected SW script — the PWA was not installable and had no offline
+  fallback in production. Added `sw.js` to the matcher negative-lookahead + a
+  `smoke.spec.ts` guard asserting `/sw.js` is `200` `*/javascript`. lint /
+  typecheck / 99 unit / 8 e2e green locally. Needs a push to `main` to reach
+  prod, after which the owner can do the real-device install check.

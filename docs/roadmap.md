@@ -31,12 +31,18 @@ implemented, so later phases plug in without refactoring.
 
 Full design: `docs/specs/2026-09-07-budget-app-phase-1-design.md`.
 
-## Phase 2 — Recurring bills + Savings goals
+## Phase 2 — Recurring bills + Savings goals — in progress
 
-- `recurring_rules`: cadence, next-due date, generate-or-remind. Upcoming and
-  missed bills surfaced on the dashboard.
-- `savings_goals`: target amount, optional target date, contributions,
-  progress display.
+Built as sub-checkpoints: **2a savings goals** → 2b recurring bills → 2c paired
+transfers.
+
+- **2a — Savings goals** ✅ (migration `0003`, `/goals` screen). `savings_goals`
+  + `savings_contributions`: target amount, optional target date, a standalone
+  contribution ledger (decoupled from transactions / balances), progress
+  display. "Add" and "Withdraw / correct" are separate actions.
+- 2b — `recurring_rules`: cadence, next-due date, generate-or-remind. Upcoming
+  and missed bills surfaced on the dashboard.
+- 2c — Paired transfer linking (both legs of a card payment reconcile).
 
 Completes the v1 feature set.
 

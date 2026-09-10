@@ -109,3 +109,43 @@ export const budgets = pgTable(
     index("budgets_user_month_idx").on(t.userId, t.month),
   ],
 );
+
+// Phase 2a. A named savings target with its own contribution ledger —
+// deliberately decoupled from transactions, account balances and the derived
+// "Net savings" tile.
+export const savingsGoals = pgTable(
+  "savings_goals",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull(),
+    name: text("name").notNull(),
+    // minor units, > 0 (CHECK added in the migration)
+    targetAmount: integer("target_amount").notNull(),
+    targetDate: date("target_date"),
+    isArchived: boolean("is_archived").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("savings_goals_user_idx").on(t.userId)],
+);
+
+export const savingsContributions = pgTable(
+  "savings_contributions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull(),
+    goalId: uuid("goal_id")
+      .notNull()
+      .references(() => savingsGoals.id, { onDelete: "cascade" }),
+    // minor units, non-zero (CHECK added in the migration). Positive = added,
+    // negative = withdrawn / corrected. The sign is set by the server action,
+    // never typed by the user.
+    amount: integer("amount").notNull(),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull(),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("savings_contributions_user_idx").on(t.userId),
+    index("savings_contributions_goal_idx").on(t.goalId),
+  ],
+);

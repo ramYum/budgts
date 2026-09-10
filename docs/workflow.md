@@ -20,8 +20,11 @@ phase-level summary; this file is the execution tracker + decisions + change log
 | — | Brand: final look | Iterated to: **Avocado (#EEF4E2) page wash**, white cards, **Deep Pine** primary buttons + balance card + active-tab pill, **Volt Lime** only for the logo mark (always on a pine rounded-square badge) + progress fills. `docs/deploy.md` colour budget + `brand/*` re-rendered. | ✅ done | `f31cd1a` |
 | — | Ship | Pushed `main` → `ramYum/budgts`; Vercel project `budgts` (team `tocino`) live at **https://budgts.com** (Cloudflare DNS, apex + www→apex). Supabase auth URL config + `NEXT_PUBLIC_*` env vars set. | ✅ live 2026-09-09 | `f31cd1a` |
 | — | Post-ship fix | Proxy matcher was 307-redirecting `/sw.js` → `/sign-in`, so the service worker never registered in prod (PWA not installable / no offline). Added `sw.js` to the matcher exclusion + an e2e guard. Deployed; `https://budgts.com/sw.js` verified `200 application/javascript`, no console errors logged out. | ✅ live 2026-09-09 | `c58b27f` |
+| 2a | Savings goals | `savings_goals` + `savings_contributions` (RLS, realtime, migration `0003`). Standalone contribution ledger — no transactions, no account balances. `goalProgress`/`goalsSummary` domain (TDD). Server actions incl. a separate `withdrawFromGoal` (negates) so users never type a minus. `/goals` screen + a 5th bottom-nav tab. Zod + domain + component + e2e. Spec: `docs/specs/2026-09-09-…-phase-2a-…`. | 🔄 code + migration done, gates green | (uncommitted) |
 
 Legend: ✅ done · 🔄 in progress · ⏳ planned
+
+**Phase 2 order:** 2a savings goals → 2b recurring bills → 2c paired transfers.
 
 ---
 
@@ -285,4 +288,17 @@ Developer Program ($99/yr), Google Play Console ($25 once). Target: a few months
   (CI + deploy webhook took ~8 min to start — slow, not broken); verified
   `https://budgts.com/sw.js` → `200 application/javascript`, zero console
   errors logged-out. Owner can now do the real-device PWA install check
-  (`deploy.md` step 5).
+  (`deploy.md` step 5). — Owner confirmed device sync works, 2026-09-09.
+- **2026-09-09 — Phase 2a: savings goals** (branch `phase-2/savings-goals`).
+  Two RLS-scoped tables (`savings_goals`, `savings_contributions`) + realtime,
+  migration `0003_broad_lord_hawal.sql`. A *contribution* is a standalone signed
+  number — deliberately decoupled from `transactions`, account balances and the
+  "Net savings" tile. `goalProgress` / `goalsSummary` pure domain (tests first).
+  `src/server/savings.ts` actions; `addContribution` and `withdrawFromGoal`
+  share one insert path, the withdraw variant negating the amount so the user
+  never types a minus. New `/goals` route + `<GoalsView>` / `<GoalForm>` /
+  `<ContributionForm>`; a 5th bottom-nav tab ("Goals"). No local Docker → per
+  owner's call the migration was applied to prod, *then* verified: tables
+  queryable, `goals.spec.ts` + full suite green (9 e2e), 124 unit/component,
+  lint/typecheck/build green. 2b (recurring bills) and 2c (paired transfers)
+  follow. Phase-3-vs-5 order still open.

@@ -7,6 +7,7 @@ const NAV = [
   { href: "/", label: "Dashboard" },
   { href: "/transactions", label: "Transactions" },
   { href: "/budgets", label: "Budgets" },
+  { href: "/goals", label: "Goals" },
   { href: "/settings", label: "Settings" },
 ];
 
@@ -16,7 +17,7 @@ export function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-20 mx-auto flex w-full max-w-md items-center justify-around border-t border-hairline bg-bg px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 text-xs">
+    <nav className="fixed inset-x-0 bottom-0 z-20 mx-auto flex w-full max-w-md items-center justify-around border-t border-hairline bg-bg px-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 text-xs">
       {NAV.map((item) => {
         const active =
           item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
@@ -25,7 +26,7 @@ export function BottomNav() {
             key={item.href}
             href={item.href}
             aria-current={active ? "page" : undefined}
-            className={`rounded-full px-3 py-1.5 font-medium transition-colors ${
+            className={`rounded-full px-2.5 py-1.5 font-medium transition-colors ${
               active
                 ? "bg-primary text-on-primary"
                 : "text-muted hover:text-text"

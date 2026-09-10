@@ -11,4 +11,12 @@ export {
   type DashboardTiles,
   type DashboardView,
 } from "./dashboard";
+export {
+  goalProgress,
+  goalsSummary,
+  type SavingsGoal,
+  type SavingsContribution,
+  type GoalProgress,
+  type GoalsSummary,
+} from "./savings";
 export { formatMoney, parseMoney, isMinor, type Minor } from "./money";

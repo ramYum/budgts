@@ -1,4 +1,5 @@
 import { createClient, getSessionUser } from "@/lib/supabase/server";
+import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
 
 type ExportRow = {
   occurred_at: string;
@@ -26,12 +27,15 @@ export async function GET() {
   if (!user) return new Response("Unauthorized", { status: 401 });
 
   const supabase = await createClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("transactions")
     .select(
       "occurred_at, description, note, amount, direction, is_transfer, status, source, category:categories(name), account:accounts(name)",
     )
     .order("occurred_at", { ascending: false });
+  // Skip soft-deleted bank rows. Guarded: column only exists where 0004 has run.
+  if (plaidUiEnabled()) query = query.is("removed_at", null);
+  const { data, error } = await query;
   if (error) return new Response(error.message, { status: 500 });
 
   const header = [

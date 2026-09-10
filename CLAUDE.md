@@ -32,7 +32,7 @@ What carries over is the **spirit**:
 - **Deterministic code does execution; AI does reasoning.** Domain logic,
   money math, migrations, and validation are plain typed code with tests. AI
   (Claude API) is used only where the input is genuinely unstructured — parsing
-  email notifications and receipt images (Phases 3–4).
+  email notifications and receipt images (V2).
 - **Short SOP-style docs.** Repeatable workflows and rules live in
   `docs/conventions.md`; specs in `docs/specs/`; the build order in
   `docs/roadmap.md`. (No project-specific "skills" — per
@@ -55,7 +55,7 @@ What carries over is the **spirit**:
 | Validation | Zod schemas shared client + server |
 | Forms | React Hook Form |
 | Charts | Recharts (consult the `dataviz` skill before building any chart) |
-| AI extraction (Phases 3–4) | Claude API — `claude-sonnet-5`, vision for receipts (consult the `claude-api` skill) |
+| AI extraction (V2) | Claude API — `claude-sonnet-5`, vision for receipts (consult the `claude-api` skill) |
 | Testing | Vitest + React Testing Library (unit/component), Playwright (e2e) |
 
 ## Repo layout
@@ -117,7 +117,7 @@ project settings. Never commit secrets. Keep `.env.local.example` in sync.
 - `SUPABASE_SECRET_KEY` (`sb_secret_…` — server only, never exposed to the client)
 - `DATABASE_URL` (Drizzle `db:generate` — transaction pooler, port 6543)
 - `DIRECT_URL` (Drizzle `db:migrate` — session pooler / direct, port 5432)
-- `ANTHROPIC_API_KEY` (Phases 3–4 only)
+- `ANTHROPIC_API_KEY` (V2 — email / receipt ingestion only)
 
 ## Conventions
 
@@ -154,5 +154,13 @@ project settings. Never commit secrets. Keep `.env.local.example` in sync.
 
 ## Roadmap
 
-See `docs/roadmap.md`. Current: **Phase 0 (foundation)** → next **Phase 1
-(core budgeting slice)**.
+See `docs/roadmap.md` (tier ladder) and `docs/workflow.md` (execution tracker).
+
+**Shipped:** Phase 1 (core budgeting slice — live at https://budgts.com) and
+Phase 2a (savings goals, `2d46178`).
+
+**Next:** **V1 — Plaid transaction ingestion** (the primary automatic path;
+manual entry stays as a fallback) → **V1.5** (recurring / subscription / bill
+detection over synced data + paired-transfer detection) → **V2** (email /
+receipt ingestion + spending intelligence) → **V2+** (AI financial assistant).
+Native apps are a parallel delivery track, not a numbered phase.

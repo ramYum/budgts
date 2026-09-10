@@ -3,6 +3,7 @@ import { buildDashboard, type DashboardCategory } from "@/lib/budget/dashboard";
 import { monthKey } from "@/lib/budget/month";
 import type { BudgetTxn } from "@/lib/budget/types";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
+import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
 import { DashboardView } from "@/components/dashboard-view";
 import { RealtimeRefresh } from "@/components/realtime-refresh";
 
@@ -25,13 +26,18 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
   if (!user) redirect("/sign-in");
   const supabase = await createClient();
 
+  let txnQuery = supabase
+    .from("transactions")
+    .select("category_id, amount, direction, occurred_at, status, is_transfer")
+    .gte("occurred_at", start)
+    .lt("occurred_at", end);
+  // Soft-deleted bank rows (Plaid `removed`) must not count toward spend.
+  // Guarded: the column only exists where migration 0004 has run.
+  if (plaidUiEnabled()) txnQuery = txnQuery.is("removed_at", null);
+
   const [{ data: txnRows }, { data: categories }, { data: budgetRows }, { data: profile }] =
     await Promise.all([
-      supabase
-        .from("transactions")
-        .select("category_id, amount, direction, occurred_at, status, is_transfer")
-        .gte("occurred_at", start)
-        .lt("occurred_at", end),
+      txnQuery,
       supabase
         .from("categories")
         .select("id, kind, name, color")

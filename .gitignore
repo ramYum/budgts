@@ -64,3 +64,6 @@ next-env.d.ts
 
 # local design-inspiration screenshots (reference only, not part of the repo)
 *Inspiration Reference/
+
+# Playwright MCP session artifacts
+.playwright-mcp/

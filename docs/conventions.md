@@ -165,12 +165,14 @@ interface IngestionAdapter {
 - **Tests first**: `normalize` and the `landTransaction` dedupe path get unit
   tests before implementation.
 
-### Phase status
+### Adapter status by tier
 
-- Phase 1: `ManualAdapter` only.
-- Phase 3: `EmailAdapter` + inbound-email webhook.
-- Phase 4: `ReceiptAdapter` + camera upload + confirmation popup.
-- Phase 5: `BankAdapter` + aggregator connection.
+- Shipped: `ManualAdapter` only (now the fallback path).
+- **V1:** `PlaidAdapter` — Plaid Link + `/transactions/sync`; the primary
+  automatic path.
+- **V2:** `EmailAdapter` (inbound-email webhook) and `ReceiptAdapter` (camera
+  upload + confirmation popup) for cash, split bills, and institutions Plaid
+  can't reach.
 
 ---
 
@@ -188,12 +190,12 @@ interface IngestionAdapter {
 - **Realtime respects RLS** and only fires for tables added to the
   `supabase_realtime` publication. Add `transactions` and `budgets` in a
   migration; subscriptions still filter by `user_id`.
-- **Storage** (Phase 4 receipts) uses a private bucket with per-user path
+- **Storage** (V2 receipts) uses a private bucket with per-user path
   prefixes and a policy scoped to `auth.uid()`.
 
 ---
 
-## AI extraction (Phases 3–4) — placeholder
+## AI extraction (V2 — email / receipt) — placeholder
 
 When email/receipt parsing is built, add the extraction contract here (output
 JSON schema, model, prompt structure, confidence → `pending_review` handling,

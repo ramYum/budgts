@@ -1,9 +1,11 @@
 import { sql } from "drizzle-orm";
 import {
+  type AnyPgColumn,
   boolean,
   date,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   text,
@@ -22,6 +24,20 @@ export const categoryKind = pgEnum("category_kind", ["expense", "income"]);
 export const txnDirection = pgEnum("txn_direction", ["debit", "credit"]);
 export const txnSource = pgEnum("txn_source", ["manual", "email", "receipt", "bank"]);
 export const txnStatus = pgEnum("txn_status", ["confirmed", "pending_review"]);
+
+// V1 — Plaid ingestion. New enums; existing enums are untouched.
+export const plaidItemStatus = pgEnum("plaid_item_status", [
+  "active",
+  "login_required",
+  "pending_expiration",
+  "revoked",
+  "error",
+]);
+export const plaidAccountLinkState = pgEnum("plaid_account_link_state", [
+  "mapped",
+  "ignored",
+  "unmapped",
+]);
 
 export const profiles = pgTable("profiles", {
   // equals auth.users.id (FK added in the migration)
@@ -80,6 +96,43 @@ export const transactions = pgTable(
     status: txnStatus("status").notNull().default("confirmed"),
     // between the user's own accounts; excluded from every rollup
     isTransfer: boolean("is_transfer").notNull().default(false),
+    // ---- V1 (Plaid) additive columns. Every one is nullable or has a constant
+    // default, so existing rows stay valid. See
+    // docs/specs/2026-09-09-v1-plaid-transaction-ingestion-design.md §32.5.
+    //
+    // MUST stay `onDelete: "set null"`. Disconnecting a Plaid Item deletes the
+    // plaid_items + plaid_accounts rows; SET NULL means that only clears this
+    // pointer and the imported transaction (real financial history) is kept.
+    // CASCADE here would silently turn every "disconnect bank" into a mass
+    // delete of the user's bank transactions. Deleting bank history is a
+    // separate, explicitly-confirmed path only (design §24).
+    plaidAccountId: uuid("plaid_account_id").references(() => plaidAccounts.id, {
+      onDelete: "set null",
+    }),
+    // Plaid's pending flag — distinct from `status` (imported rows are real, so
+    // status stays 'confirmed').
+    pending: boolean("pending").notNull().default(false),
+    // the posted row records which pending transaction it replaced
+    pendingPlaidTransactionId: text("pending_plaid_transaction_id"),
+    merchantName: text("merchant_name"),
+    // stable Plaid merchant id — the key feature for V1.5 recurring detection
+    merchantEntityId: text("merchant_entity_id"),
+    plaidCategoryPrimary: text("plaid_category_primary"),
+    plaidCategoryDetailed: text("plaid_category_detailed"),
+    plaidPfcConfidence: text("plaid_pfc_confidence"),
+    // true once the user sets the category → sync never overwrites it
+    userCategorized: boolean("user_categorized").notNull().default(false),
+    // soft delete for Plaid `removed` (and hard-purge later)
+    removedAt: timestamp("removed_at", { withTimezone: true }),
+    authorizedAt: timestamp("authorized_at", { withTimezone: true }),
+    // V1.5 paired-transfer leg-linking — nullable placeholder, unpopulated in V1
+    transferPairId: uuid("transfer_pair_id").references((): AnyPgColumn => transactions.id, {
+      onDelete: "set null",
+    }),
+    // V1.5 recurring-stream linkage — plain uuid, no FK (recurring_streams is V1.5)
+    recurringStreamId: uuid("recurring_stream_id"),
+    // the raw Plaid transaction payload, for offline re-processing / debugging
+    raw: jsonb("raw"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
@@ -88,6 +141,10 @@ export const transactions = pgTable(
     uniqueIndex("transactions_source_ref_uq")
       .on(t.userId, t.source, t.sourceRef)
       .where(sql`${t.sourceRef} is not null`),
+    // V1.5 recurring/subscription detection lookup
+    index("transactions_merchant_entity_idx")
+      .on(t.merchantEntityId)
+      .where(sql`${t.merchantEntityId} is not null`),
   ],
 );
 
@@ -148,4 +205,111 @@ export const savingsContributions = pgTable(
     index("savings_contributions_user_idx").on(t.userId),
     index("savings_contributions_goal_idx").on(t.goalId),
   ],
+);
+
+// ===========================================================================
+// V1 — Plaid transaction ingestion.
+// Design: docs/specs/2026-09-09-v1-plaid-transaction-ingestion-design.md
+// Plaid is the primary ingestion path; manual entry stays the fallback.
+// `access_token_enc` holds an AES-256-GCM blob and never leaves the server.
+// auth.users FKs + RLS policies are hand-appended to the migration (see
+// docs/conventions.md → "Building a feature — the layer order", step 1).
+// ===========================================================================
+
+export const plaidItems = pgTable(
+  "plaid_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull(),
+    // Plaid Item id — globally unique; the webhook handler looks up by this
+    itemId: text("item_id").notNull().unique(),
+    institutionId: text("institution_id"),
+    institutionName: text("institution_name"),
+    // AES-256-GCM: keyVersion(1B) || iv(12B) || authTag(16B) || ciphertext, base64
+    accessTokenEnc: text("access_token_enc").notNull(),
+    // /transactions/sync cursor; null = never synced
+    transactionsCursor: text("transactions_cursor"),
+    status: plaidItemStatus("status").notNull().default("active"),
+    errorCode: text("error_code"),
+    // set by the webhook, cleared by the poller
+    needsSync: boolean("needs_sync").notNull().default(false),
+    lastWebhookAt: timestamp("last_webhook_at", { withTimezone: true }),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+    // consecutive failures; drives backoff + the `error` status
+    syncFailures: integer("sync_failures").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("plaid_items_user_idx").on(t.userId),
+    // the poller scans for items that need a sync
+    index("plaid_items_needs_sync_idx").on(t.needsSync).where(sql`${t.needsSync}`),
+  ],
+);
+
+export const plaidAccounts = pgTable(
+  "plaid_accounts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull(),
+    plaidItemId: uuid("plaid_item_id")
+      .notNull()
+      .references(() => plaidItems.id, { onDelete: "cascade" }),
+    plaidAccountId: text("plaid_account_id").notNull(),
+    // the mapped Budgts account; null = unmapped or ignored. SET NULL on delete
+    // so disconnecting a bank never blocks on / cascades into account rows.
+    accountId: uuid("account_id").references(() => accounts.id, { onDelete: "set null" }),
+    linkState: plaidAccountLinkState("link_state").notNull().default("unmapped"),
+    name: text("name"),
+    officialName: text("official_name"),
+    mask: text("mask"),
+    type: text("type"),
+    subtype: text("subtype"),
+    isoCurrencyCode: text("iso_currency_code"),
+    // minor units; MAY be negative (credit / overdraft) — no CHECK constraint
+    currentBalance: integer("current_balance"),
+    availableBalance: integer("available_balance"),
+    balanceAsOf: timestamp("balance_as_of", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("plaid_accounts_user_idx").on(t.userId),
+    index("plaid_accounts_item_idx").on(t.plaidItemId),
+    // Plaid account id is stable per user — dedupe + lookup key
+    uniqueIndex("plaid_accounts_user_account_uq").on(t.userId, t.plaidAccountId),
+  ],
+);
+
+// Raw webhook log / dead-letter. Written only by the service-role client in the
+// webhook handler; not readable through the app (RLS deny-all for authenticated,
+// hand-appended). No user_id: rows are logged before the owning user is
+// resolved from item_id.
+export const plaidWebhookEvents = pgTable("plaid_webhook_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
+  verified: boolean("verified").notNull().default(false),
+  webhookType: text("webhook_type"),
+  webhookCode: text("webhook_code"),
+  itemId: text("item_id"),
+  payload: jsonb("payload"),
+  handled: boolean("handled").notNull().default(false),
+  error: text("error"),
+});
+
+// Per-merchant category memory. On a user correction, (user_id, merchant_entity_id)
+// → category_id; the categorizer consults this before the static PFC map.
+export const plaidMerchantRules = pgTable(
+  "plaid_merchant_rules",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull(),
+    merchantEntityId: text("merchant_entity_id").notNull(),
+    categoryId: uuid("category_id")
+      .notNull()
+      .references(() => categories.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("plaid_merchant_rules_user_merchant_uq").on(t.userId, t.merchantEntityId)],
 );

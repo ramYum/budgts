@@ -6,6 +6,9 @@ import { monthKey } from "@/lib/budget/month";
 import { AddTransaction } from "@/components/add-transaction";
 import { TransactionList, type TxnListItem } from "@/components/transaction-list";
 import type { AccountOption, CategoryOption } from "@/components/transaction-form";
+import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
+import { ConnectBank } from "@/components/plaid/connect-bank";
+import { NeedsCategory, type NeedsCategoryItem } from "@/components/plaid/needs-category";
 
 export const metadata: Metadata = { title: "Transactions" };
 
@@ -41,6 +44,8 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
 
   const supabase = await createClient();
 
+  const plaidOn = plaidUiEnabled();
+
   let txnQuery = supabase
     .from("transactions")
     .select(
@@ -49,6 +54,9 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
     .gte("occurred_at", start)
     .lt("occurred_at", end);
   if (categoryFilter) txnQuery = txnQuery.eq("category_id", categoryFilter);
+  // A soft-deleted bank row (Plaid `removed`) is not a transaction — keep it out
+  // of the ledger view. Guarded: the column only exists where 0004 has run.
+  if (plaidOn) txnQuery = txnQuery.is("removed_at", null);
 
   const [{ data: txns }, { data: accounts }, { data: categories }, { data: profile }] = await Promise.all([
     txnQuery
@@ -62,6 +70,36 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
   const currency = profile?.currency ?? "USD";
   const accountOpts = (accounts ?? []) as AccountOption[];
   const categoryOpts = (categories ?? []) as CategoryOption[];
+
+  // Imported bank rows with no category — the one prompt V1 shows (design §3).
+  // All-time, newest first: it's a to-do list, not a month view.
+  let needsCategory: NeedsCategoryItem[] = [];
+  if (plaidOn) {
+    const { data: nc } = await supabase
+      .from("transactions")
+      .select("id, description, merchant_name, amount, direction, occurred_at, account:accounts(name)")
+      .eq("source", "bank")
+      .is("category_id", null)
+      .is("removed_at", null)
+      .eq("is_transfer", false)
+      .order("occurred_at", { ascending: false })
+      .limit(50);
+    needsCategory = (nc ?? []).map((r) => {
+      const acc = r.account as { name: string | null } | { name: string | null }[] | null;
+      const accountName = Array.isArray(acc) ? (acc[0]?.name ?? null) : (acc?.name ?? null);
+      return {
+        id: r.id as string,
+        description: (r.description as string | null) ?? "",
+        merchant_name: (r.merchant_name as string | null) ?? null,
+        amount: r.amount as number,
+        direction: r.direction as "debit" | "credit",
+        occurred_at: r.occurred_at as string,
+        account_name: accountName,
+      };
+    });
+  }
+
+  const showConnectPrompt = plaidOn && (txns ?? []).length === 0 && !categoryFilter;
 
   return (
     <div className="space-y-4 pt-1">
@@ -89,6 +127,17 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
           <Link href={`/transactions?m=${m}`} className="text-xs font-medium text-pine/60 hover:text-pine">
             Clear
           </Link>
+        </div>
+      ) : null}
+
+      <NeedsCategory items={needsCategory} categories={categoryOpts} currency={currency} />
+
+      {showConnectPrompt ? (
+        <div className="card space-y-3 rounded-2xl border border-hairline p-4">
+          <p className="text-sm text-muted">
+            Connect a bank to fill this in automatically, or add a transaction by hand.
+          </p>
+          <ConnectBank accounts={accountOpts} tone="outline" />
         </div>
       ) : null}
 

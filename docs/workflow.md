@@ -20,11 +20,15 @@ phase-level summary; this file is the execution tracker + decisions + change log
 | — | Brand: final look | Iterated to: **Avocado (#EEF4E2) page wash**, white cards, **Deep Pine** primary buttons + balance card + active-tab pill, **Volt Lime** only for the logo mark (always on a pine rounded-square badge) + progress fills. `docs/deploy.md` colour budget + `brand/*` re-rendered. | ✅ done | `f31cd1a` |
 | — | Ship | Pushed `main` → `ramYum/budgts`; Vercel project `budgts` (team `tocino`) live at **https://budgts.com** (Cloudflare DNS, apex + www→apex). Supabase auth URL config + `NEXT_PUBLIC_*` env vars set. | ✅ live 2026-09-09 | `f31cd1a` |
 | — | Post-ship fix | Proxy matcher was 307-redirecting `/sw.js` → `/sign-in`, so the service worker never registered in prod (PWA not installable / no offline). Added `sw.js` to the matcher exclusion + an e2e guard. Deployed; `https://budgts.com/sw.js` verified `200 application/javascript`, no console errors logged out. | ✅ live 2026-09-09 | `c58b27f` |
-| 2a | Savings goals | `savings_goals` + `savings_contributions` (RLS, realtime, migration `0003`). Standalone contribution ledger — no transactions, no account balances. `goalProgress`/`goalsSummary` domain (TDD). Server actions incl. a separate `withdrawFromGoal` (negates) so users never type a minus. `/goals` screen + a 5th bottom-nav tab. Zod + domain + component + e2e. Spec: `docs/specs/2026-09-09-…-phase-2a-…`. | 🔄 code + migration done, gates green | (uncommitted) |
+| 2a | Savings goals | `savings_goals` + `savings_contributions` (RLS, realtime, migration `0003`). Standalone contribution ledger — no transactions, no account balances. `goalProgress`/`goalsSummary` domain (TDD). Server actions incl. a separate `withdrawFromGoal` (negates) so users never type a minus. `/goals` screen + a 5th bottom-nav tab. Zod + domain + component + e2e. Spec: `docs/specs/2026-09-09-…-phase-2a-…`. | ✅ done | `2d46178` |
 
 Legend: ✅ done · 🔄 in progress · ⏳ planned
 
-**Phase 2 order:** 2a savings goals → 2b recurring bills → 2c paired transfers.
+**Shipped through Phase 2a** (`2d46178`). Next tiers: **V1 — Plaid transaction
+ingestion** (primary path), then **V1.5** (recurring / subscription / bill
+detection over synced data + paired-transfer detection), **V2** (email / receipt
+ingestion + spending intelligence), **V2+** (AI assistant). Full ladder:
+`docs/roadmap.md`; working detail: §4 below.
 
 ---
 
@@ -33,7 +37,7 @@ Legend: ✅ done · 🔄 in progress · ⏳ planned
 | Area | Decision |
 | --- | --- |
 | Shape now | Installable **PWA** (Next.js). One codebase, phone + desktop. |
-| Shape later | **Phase 6:** native iOS + Android via **Expo/React Native** for App Store + Play Store. Domain logic (`src/lib/budget/*`, `src/lib/validation/*`) and the Supabase backend carry over unchanged; the Next.js frontend is rebuilt. |
+| Shape later | **Native-apps delivery track** (parallel, not a numbered tier — can start once V1 is stable): native iOS + Android via **Expo/React Native** for App Store + Play Store. Domain logic (`src/lib/budget/*`, `src/lib/validation/*`) and the Supabase backend carry over unchanged; the Next.js frontend is rebuilt. |
 | Users | Single user per account. "Add another income source" = another income transaction/category, not multi-user. Household sharing: deferred, not planned. |
 | Persistence | Supabase (Postgres + Auth + Realtime + Storage). Cloud, multi-device. |
 | Data access | `supabase-js` with the user's session for **all** reads/writes — RLS is the isolation guard. Drizzle = migrations only. |
@@ -41,12 +45,12 @@ Legend: ✅ done · 🔄 in progress · ⏳ planned
 | Currency | One per user, picked at onboarding. Restricted to **2-decimal** currencies (the money layer hardcodes a 2-decimal exponent; guarded by a test). |
 | Money | Integer **minor units** end to end. Format only at the display edge. |
 | Categories | Seeded by trigger (migration 0002): **Insurances, Personal Care, Housing, Entertainment, Transportation, Food / Groceries** (expense); Salary, Other Income. Editable in Settings — rename, recolour, add, archive. Budgets are per category; the bill/merchant goes in the transaction description. Tapping a category name opens its transactions. |
-| Transfers | `is_transfer` flag (manual toggle in v1). Excluded from every rollup. Paired linking to Phase 2. |
+| Transfers | `is_transfer` flag (manual toggle for now). Excluded from every rollup. Paired-transfer detection in **V1.5** (needs Plaid transactions to match the two legs against). |
 | Refunds | A `credit` in the original expense category. Nets against that category's spend. No special type. |
 | Budget rollover | **None.** A month's budget never carries forward — next month starts at whatever you set. Unspent budget simply raises that month's Net savings. |
-| Savings | **Two separate things, both shown.** *Net savings* = derived per month (`income − spend`), a dashboard tile in 1d. *Savings goals* = named targets with progress, own table, Phase 2. |
-| Ingestion sources | 1. Manual (done) · 2. Email purchase-notification parsing (Phase 3) · 3. Receipt photo (Phase 4) · 4. **Bank connect via Plaid** (Phase 5). All four go through one `IngestionAdapter` + `landTransaction()`. |
-| v1 feature set | Categories + spend · budgets vs actual · recurring bills · savings goals. (Recurring + goals = Phase 2.) |
+| Savings | **Two separate things, both shown.** *Net savings* = derived per month (`income − spend`), a dashboard tile in 1d. *Savings goals* = named targets with progress, own table — shipped in **Phase 2a** (`2d46178`). |
+| Ingestion sources | 1. **Bank connect via Plaid** (**V1** — the primary path) · 2. Manual (done — fallback for cash / unsupported banks) · 3. Email purchase-notification parsing (**V2**) · 4. Receipt photo (**V2**). All go through one `IngestionAdapter` + `landTransaction()`. |
+| feature set | Categories + spend · budgets vs actual · recurring/subscription/bill tracking · savings goals. Savings goals shipped (Phase 2a); recurring tracking is **automatic detection over synced transactions in V1.5**, not manual recurring-rule entry. |
 
 
 ### Dashboard tiles (checkpoint 1d)
@@ -65,7 +69,7 @@ Mirrors the summary block of the owner's spreadsheet.
 handling: not spending it *is* what makes Net savings higher. Label the 1d
 dashboard header **"so far this month"** so partial-month figures read as a
 running total, not a verdict. A true *Projected savings* tile (Income −
-Budgeted) needs an **expected** monthly income; that arrives in **Phase 5** from
+Budgeted) needs an **expected** monthly income; that arrives in **V1.5** from
 Plaid's recurring-income detection, not a typed-in field.
 
 ---
@@ -103,29 +107,20 @@ Full spec: `docs/specs/2026-09-07-budget-app-phase-1-design.md`.
 
 ---
 
-## 4. Roadmap beyond Phase 1
+## 4. Roadmap beyond Phase 2a — V1 → V2+
 
-### Phase 2 — Recurring bills + savings goals
+Phase 1 (manual core) and Phase 2a (savings goals, `2d46178`) are shipped. What
+follows is sequenced as capability tiers — **V1 → V1.5 → V2 → V2+** — Plaid
+first, because a self-filling ledger is the differentiator. Manual entry stays
+the fallback; email / receipt ingestion is deferred behind Plaid + the
+intelligence built on it. Tier overview + the at-a-glance tree: `docs/roadmap.md`.
 
-`recurring_rules` (cadence, next-due, generate-or-remind), upcoming/missed bills
-on the dashboard; `savings_goals` (target, contributions, progress). Paired
-transfer linking so both legs of a card payment reconcile.
-
-### Phase 3 — Email ingestion
-
-Per-user inbound address, provider webhook, `EmailAdapter`, Claude extraction,
-`pending_review` queue with confirm/fix UI, dedupe on `Message-ID`. User docs
-for enabling bank purchase alerts. Open: inbound-email provider, domain.
-
-### Phase 4 — Receipt capture
-
-Camera, upload to Supabase Storage, Claude vision parse, "which card/account?"
-popup, transaction with the image attached.
-
-### Phase 5 — Bank connect via **Plaid**
+### V1 — Plaid transaction ingestion (primary path)
 
 The cleanest automatic source: Plaid returns structured transactions with a
 stable `transaction_id`, so there is nothing to parse and dedupe is exact.
+**This is now the primary ingestion path**, not a late add-on; manual entry
+(`ManualAdapter`) stays as the fallback for cash and unsupported institutions.
 
 **Flow.** Plaid Link (hosted UI) produces a `public_token`; the server exchanges
 it for an `access_token`, stored per institution **server-side only and
@@ -134,33 +129,136 @@ modified and removed transactions; `PlaidAdapter.normalize()` maps each to a
 `NormalizedTxn` with `source: 'bank'` and `sourceRef: transaction_id`, then
 `landTransaction()` persists it. Plaid's `SYNC_UPDATES_AVAILABLE` webhook
 triggers a pull, with a daily cron as backstop. Plaid accounts map onto our
-`accounts` rows so the user sees familiar names.
+`accounts` rows so the user sees familiar names. Incoming transactions are
+auto-categorized (Plaid's `personal_finance_category` as the seed) and flow
+through the existing budget-vs-actual / dashboard view-models unchanged.
 
 **New tables** (both RLS-scoped; the access token never reaches the client):
 `plaid_items` (item_id, institution, access_token, sync cursor, status) and
 `plaid_accounts` (plaid account_id to our `accounts.id`).
 
-**Nothing else changes.** `IngestionAdapter`, `landTransaction`, the
+**Nothing else in the core changes.** `IngestionAdapter`, `landTransaction`, the
 `(user_id, source, source_ref)` unique index and the transfer/refund rules were
 designed for exactly this.
 
-**Cost and friction.** Sandbox is free. Production needs a Plaid account plus a
-short application, then roughly **$0.30–$1.50 per connected item per month** for
-Transactions. Coverage is strong in US / CA / UK / EU. If an institution is
-missing, TrueLayer / GoCardless / a regional aggregator drop into the same
-adapter interface with no other change.
+**Cost and friction.** Sandbox is free and needs no application — all V1 build
+happens there. Production needs a Plaid account plus a short application, then
+roughly **$0.30–$1.50 per connected item per month** for Transactions. Coverage
+is strong in US / CA / UK / EU. If an institution is missing, TrueLayer /
+GoCardless / a regional aggregator drop into the same adapter interface with no
+other change.
 
 **Removals matter.** Plaid's sync reports deleted transactions; the adapter must
 handle them (mark or remove) or the numbers silently drift.
 
-**Recurring income.** Plaid's `/transactions/recurring/get` surfaces
-`inflow_streams` — predicted paycheck amount, cadence and next date. This is the
-"expected monthly income" the dashboard needs: self-maintaining, zero input. It
-enables a real *Projected savings* tile (expected income − budgeted) and "your
-paycheck didn't arrive" alerts, the mirror of missed-bill detection.
+#### V1 — build status (milestone tracker)
 
-### Phase 6 — Native apps (App Store + Play Store)
+Design + step sequence: `docs/specs/2026-09-09-v1-plaid-transaction-ingestion-design.md`
+(§31 steps, §32 resolved decisions). Everything is built against **budgts-staging**
+(Supabase project `iwypmifvmtmkwtnxkfma`) + Plaid **Sandbox** — the production
+database (`wsmhstqpvbbcqpqhiqyp`) and Plaid Production are untouched.
 
+| M | Scope | Status |
+| --- | --- | --- |
+| 1 | Plaid foundation — `src/lib/plaid/{config,client,crypto}.ts`; AES-256-GCM at-rest `access_token` encryption (`PLAID_TOKEN_ENC_KEY`) | ✅ done |
+| 2 | Pure logic core (TDD) — `types.ts`, `adapter.ts` (`normalizePlaidTxn`), `category-map.ts` (PFC primary → category, throws on unknown), `apply-sync.ts` (added/modified/removed reducer, `user_categorized` sticky, pending→posted carry-over) | ✅ done |
+| 3 | Ingestion landing + sync engine — `land.ts`, `sync-engine.ts` (cursor page loop, mutation-during-pagination restart, cursor persisted post-commit) | ✅ done |
+| 4 | Webhook authentication — `webhook-verify.ts` (ES256 JWT, `request_body_sha256`, `iat` freshness) | ✅ done |
+| 5 | Real persistence + **DB-integration test tier** — `sync-store.ts` (atomic `applyPlan`: batch `insert … on conflict do nothing returning`, updates, soft-deletes, cursor/status write), `item-store.ts`, `merchant-rules.ts`. `npm run test:integration` → real staging Postgres, synthetic fixtures, no Plaid. Caught + fixed: a 23505 inside `db.transaction()` aborts the whole PG transaction (Drizzle wraps the code) → the single-insert retry pattern was wrong there. | ✅ done |
+| 6 | API routes — `POST /api/plaid/{link-token,exchange,webhook,sync-due}`, `DELETE /api/plaid/item`; pure `webhook-dispatch.ts` + `error-policy.ts` | ✅ done |
+| 7 | Plaid Sandbox live + **Plaid-integration test tier** — Sandbox `client_id`/`secret` in git-ignored `.env.staging`; `sync-item.ts` (`{db, client}` injected, extracted from the `server-only` `service.ts`). `npm run test:plaid` → real Sandbox → staging Postgres: real txn shapes normalize, `syncItem` lands bank rows with every Plaid column + cursor, second sync idempotent, `fire_webhook` accepted. | ✅ done |
+| 8 | Disconnect — `DELETE /api/plaid/item`: `/item/remove` + drop `plaid_items` (accounts cascade). **Imported transactions are retained** via `transactions.plaid_account_id ON DELETE SET NULL` (financial-integrity rule, design §24). `purge:true` is the only path that deletes bank rows, behind an explicit confirm. | ✅ done |
+
+**Remaining V1 workstreams.** Ordering note: `pg_net` (B) and the webhook
+round-trip (C) both call *into* a public `https://` URL, so they can only be
+**verified** once the app is deployed — M9 runs first, then B and C are wired at
+and checked against the deployed URL.
+
+| # | Workstream | Status |
+| --- | --- | --- |
+| A | **Plaid UI** — behind `NEXT_PUBLIC_PLAID_ENABLED` (off in prod). Built: `<ConnectBank>` + `<LinkHandoff>` (`react-plaid-link@5`), `<AccountMapping>` (new / existing / skip → `mapAccounts` + first sync), `<NeedsCategory>` inline categorize (`user_categorized = true` + `plaid_merchant_rules` upsert), `<ConnectedBanks>` (status, "Sync now", `<ReconnectButton>` update-mode, disconnect), shared `disconnectPlaidItem` (route + action, §24 comment). Wired into `/settings` (`BankConnections`) + `/transactions` (needs-category surface, connect prompt, `removed_at IS NULL` guard on the ledger/dashboard/export reads). 11 new component tests. typecheck · lint · test 249 · build green. | ✅ built — live verification pending M9 |
+| M9 | **Deploy V1 Beta** — an environment wired **entirely to staging** (staging Supabase URL + publishable key + auth redirect config, `DATABASE_URL` = staging pooler, Plaid Sandbox keys, `PLAID_TOKEN_ENC_KEY`, `CRON_SECRET`, `NEXT_PUBLIC_PLAID_ENABLED=1`). NOT the existing `budgts` Production env (that points at prod Supabase, which has no `0004`). Register the deploy host's `/api/plaid/webhook` in the Plaid dashboard. | ⏳ needs owner (Vercel + staging-Supabase auth) |
+| B | **Automation** — on budgts-staging: enable `pg_cron` + `pg_net`; schedule `net.http_post` to the **deployed** `POST /api/plaid/sync-due` with `Bearer CRON_SECRET`. Then **prove it fires**: flip an item's `needs_sync`, wait a tick, confirm `last_synced_at` moved and rows landed — not just that the job row exists. | ⏳ after M9 |
+| C | **E2E + webhook round-trip** — (1) Playwright against the deployed app: connect → map → transactions appear → categorize → merchant rule created → disconnect → history remains. (2) Round-trip: Plaid Sandbox `fire_webhook` → deployed `/api/plaid/webhook` → JWT verified → `needs_sync` → sync → staging Postgres updated → UI reflects it. | ⏳ after M9 |
+| — | **Owner acceptance pass** — after M9 + automated E2E green, the owner runs the full acceptance chain by hand on the domain. This is the point where we're judging *the product*, not the architecture. | ⏳ final gate |
+| D | **Docs reflect reality** — this tracker + design-doc §31 updated; `docs/deploy.md` Plaid env vars added. Full deploy runbook lands with M9. | 🔄 rolling |
+
+**M9 acceptance chain** (run against the deployed URL):
+
+```
+domain → login → Budgts UI → Connect a bank → Plaid Sandbox → account mapping
+      → transactions imported → transactions displayed → categorize transaction
+      → merchant rule remembered → disconnect → historical transactions remain
+```
+
+**V1 complete gate** — declared done only when every row is green:
+
+```
+BACKEND     unit 238 ✅   DB-integration 15 ✅   Plaid-Sandbox 5 ✅
+UI          Link · account mapping · categorization · reconnect · disconnect  ✅ built
+DEPLOY      M9 — staging-wired environment on the domain
+AUTOMATION  pg_cron · pg_net → sync-due, verified firing
+E2E         full user journey (Playwright) + webhook round-trip
+ACCEPTANCE  owner runs the chain by hand on the domain
+QUALITY     typecheck · lint · build · production-readiness
+```
+
+V1.5 (recurring / transfer intelligence) does not start until the gate is green.
+Milestone 10 = Production cutover (owner-gated, §27 / §32): Plaid Production
+keys, `PLAID_ENV = production`, link a real account.
+
+### V1.5 — Recurring & transfer intelligence
+
+Detection over the synced ledger, **not** manual rule entry. Every detected
+pattern is a suggestion the user confirms, edits or mutes.
+
+- **Recurring / subscription / bill detection.** Find repeating merchant +
+  amount + interval. Plaid's `/transactions/recurring/get` (`outflow_streams` /
+  `inflow_streams`) is the seed; our own pass covers what Plaid misses and any
+  manual / cash data. Classify outflows as subscriptions vs bills; show a
+  subscriptions list with monthly total; surface upcoming and missed bills on
+  the dashboard.
+- **Recurring income.** `inflow_streams` gives predicted paycheck amount,
+  cadence and next date — self-maintaining "expected monthly income". Enables a
+  real *projected savings* tile (expected income − budgeted) and a "your
+  paycheck didn't arrive" alert, the mirror of missed-bill detection.
+- **User confirmation / muting.** Detected streams persist only when confirmed;
+  muted streams don't re-surface. This **replaces the earlier plan of a
+  user-entered `recurring_rules` table** — no one types a cadence unless they
+  want to override.
+- **Paired transfer detection.** Match the two legs of a transfer / card
+  payment (opposite amounts, near dates, linked accounts) and link them so
+  neither counts as spend. Runs **after** Plaid ingestion because it needs both
+  legs as real transactions.
+
+### V2 — Ingestion breadth + spending intelligence
+
+Only once V1 + V1.5 are stable.
+
+- **Email / receipt ingestion.** Per-user inbound address → provider webhook →
+  `EmailAdapter` → Claude extraction → `pending_review` queue with confirm/fix
+  UI, dedupe on `Message-ID`. PWA camera capture → Supabase Storage → Claude
+  vision parse → "which card/account?" popup → transaction with the image
+  attached. Covers cash, split bills and institutions Plaid can't reach. Open:
+  inbound-email provider (Cloudflare Email Routing / Postmark / Mailgun),
+  domain; Claude vision vs dedicated OCR (small bake-off first).
+- **Spending intelligence.** Advanced insights (trends, category drift,
+  merchant breakdowns); cash-flow forecasting from recurring in/out + budgeted
+  discretionary; safe-to-spend (today's headroom after known bills + goal
+  contributions); net worth (Plaid `/accounts/balance`, assets − liabilities,
+  tracked over time).
+
+### V2+ — AI financial assistant
+
+Natural-language layer over the model; only meaningful once V1–V2 data is
+trustworthy. AI assistant (ask about spending / budgets / goals in plain
+language); purchase affordability ("can I afford this?" vs safe-to-spend +
+forecast + goals); financial recommendations (overspend, unused subscriptions,
+goal pace); advanced automation (proactive nudges, categorization learning).
+
+### Delivery track (parallel) — Native apps (App Store + Play Store)
+
+Not a capability tier — can run alongside any tier once V1 is stable.
 Expo/React Native + Expo Router; reuse domain logic + Supabase; EAS Build
 (required — owner is on Windows, cannot build iOS locally). Prereqs: Apple
 Developer Program ($99/yr), Google Play Console ($25 once). Target: a few months.
@@ -191,11 +289,11 @@ Developer Program ($99/yr), Google Play Console ($25 once). Target: a few months
 
 | Item | Owner | Notes |
 | --- | --- | --- |
-| **Reorder Phase 3 vs Phase 5?** | owner | The sample spreadsheet is US (Wegmans, LVHN, Iron Pigs) where Plaid coverage is excellent. Plaid gives clean structured data; email parsing is lossy and fiddly. Consider **Plaid before email**. Trade-off: Plaid costs a few dollars/month and needs an application; email is free. |
+| ~~Reorder email vs Plaid ingestion~~ | resolved | **2026-09-09** — decided: **Plaid is the primary ingestion path (V1)**; recurring / subscription / bill intelligence is **V1.5**, running on synced transaction data; email / receipt ingestion drops to **V2**. Rationale: a self-filling ledger is the differentiator, and pattern detection needs a transaction history to run against. Roadmap restructured to V1 / V1.5 / V2 / V2+ (`docs/roadmap.md`). |
 | ~~Confirm Google provider enabled in Supabase~~ | done | **2026-09-08** — owner enabled the Google provider and confirmed the `http://localhost:3000/**` redirect URL. |
 | Brand pass reaches a stopping point | owner | Then Claude commits it and resumes 1c.2 / 1d. |
 | **CSV export / backup** | Claude | Missing from the plan and worth adding. Supabase free projects pause after 7 idle days; a one-click export is cheap insurance. Slot into 1e. |
-| ~~Expected monthly income~~ | resolved | Income comes **from the bank** (Plaid, Phase 5). No manual field, no recurring-rule entry. Plaid's recurring-transactions endpoint yields the predicted paycheck amount + cadence, which feeds a real *Projected savings* tile in Phase 5. Until then, 1d tiles read "so far this month". |
+| ~~Expected monthly income~~ | resolved | Income comes **from the bank** (Plaid, **V1.5** recurring-income detection). No manual field, no recurring-rule entry. Plaid's recurring-transactions endpoint yields the predicted paycheck amount + cadence, which feeds a real *Projected savings* tile in V1.5. Until then, 1d tiles read "so far this month". |
 | **CI workflow** | Claude | Gates are run by hand. Add GitHub Actions running lint/typecheck/test/build (+ e2e) in 1e. |
 | **Security review before deploy** | Claude | Run `/security-review` in 1e — RLS policies, the service-key path, OAuth redirect allowlist. |
 | ~~1c.2 vs fold into 1d~~ | done | Built as a standalone `/settings` screen after 1d. |
@@ -203,8 +301,8 @@ Developer Program ($99/yr), Google Play Console ($25 once). Target: a few months
 | ~~Rotate the DB password / Google client secret~~ | done | Intentionally skipped for this personal project (owner's call, 2026-09-09). Not a pending task. |
 | ~~Vercel project + deploy~~ | done | **2026-09-09** — `main` pushed, Vercel project live at `https://budgts.com` (custom domain via Cloudflare DNS), env vars + Supabase auth URLs set. See `docs/deploy.md` "Current deployment" + memory `deployment.md`. |
 | Verify on real devices | owner | `deploy.md` step 5 — install the PWA on a phone, sign in via magic link + Google, add a transaction, confirm it syncs to a second device. Blocked on the `/sw.js` fix reaching prod for the install check. |
-| Apple Developer + Google Play accounts | owner | Start enrollment before Phase 6; lead time is days. |
-| Plaid account + Production application | owner | Only when Phase 5 starts; Sandbox needs nothing. |
+| Apple Developer + Google Play accounts | owner | Start enrollment before the native-apps delivery track; lead time is days. |
+| Plaid account + Production application | owner | Only when V1 moves to Production; all V1 build happens in Sandbox, which needs nothing. |
 
 ---
 
@@ -302,3 +400,41 @@ Developer Program ($99/yr), Google Play Console ($25 once). Target: a few months
   queryable, `goals.spec.ts` + full suite green (9 e2e), 124 unit/component,
   lint/typecheck/build green. 2b (recurring bills) and 2c (paired transfers)
   follow. Phase-3-vs-5 order still open.
+- **2026-09-09 (later) — Roadmap restructured to V1 / V1.5 / V2 / V2+**
+  (docs only, no code / schema / behaviour change). Owner's call:
+  **Plaid becomes the primary transaction-ingestion path (V1)** — link account
+  → `/transactions/sync` → `PlaidAdapter` → `landTransaction()` →
+  auto-categorize → budget/dashboard, with manual entry kept only as a fallback
+  for cash and unsupported banks. **Recurring / subscription / bill
+  intelligence moves to V1.5** and operates on *synced* transaction data
+  (detect repeating merchant + amount + interval, then confirm / edit / mute) —
+  this **replaces the planned user-entered `recurring_rules` table**;
+  paired-transfer detection stays in V1.5, after Plaid ingestion, because it
+  needs both legs as real transactions. **Email / receipt ingestion moves to
+  V2**, behind Plaid and the intelligence built on it. AI financial assistant =
+  V2+. Native apps become a parallel delivery track, not a numbered phase.
+  `docs/roadmap.md` rewritten to the tier ladder; §4 here restructured;
+  §1 / §2 / §6 here, `CLAUDE.md`, `docs/conventions.md`, `docs/deploy.md` and
+  the two design specs had their forward roadmap references synced. Reason: if
+  Plaid covers 90 %+ of routine transactions with zero user input, that passive
+  experience is the product's real differentiator.
+- **2026-09-10 — V1 Plaid backend complete (M1–M8), Plaid UI built (workstream
+  A).** M1–M8: `src/lib/plaid/*` + `src/server/plaid/*` + 6 `/api/plaid/*`
+  routes + migration `0004` (staging only) — unit 238 / DB-integration 15 /
+  Plaid-Sandbox 5 green. **UI** (this pass, behind `NEXT_PUBLIC_PLAID_ENABLED`,
+  unset in prod): `react-plaid-link@5`; `<ConnectBank>` / `<LinkHandoff>` →
+  link-token + exchange; `<AccountMapping>` (new / existing / skip →
+  `mapAccounts` action → `accounts` rows + `plaid_accounts` link_state + first
+  sync); `<NeedsCategory>` inline categorize (`user_categorized = true` +
+  `plaid_merchant_rules` upsert); `<ConnectedBanks>` (status pill, "Sync now"
+  = `syncConnection`, `<ReconnectButton>` update-mode, disconnect); shared
+  `disconnectPlaidItem` behind both `DELETE /api/plaid/item` and the
+  `disconnectBank` action — deletes `plaid_items` only, `transactions`
+  untouched, history retained via the `plaid_account_id` SET-NULL FK (§24), with
+  a separate opt-in `purge`. `/settings` gains `BankConnections`; `/transactions`
+  gains the needs-category surface + a connect prompt + a flag-guarded
+  `removed_at IS NULL` filter (also on the dashboard + CSV reads). 11 new
+  component tests; typecheck · lint · test 249 · build green; DB-integration 15
+  + Plaid-Sandbox 5 re-run green. Milestone 9 (Deployed V1 Beta on staging
+  services) added to the tracker. Remaining V1: pg_cron/pg_net (B), E2E +
+  webhook round-trip (C), the deploy (M9).

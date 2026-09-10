@@ -12,8 +12,9 @@ feature set.
 
 ## Non-goals for 2a
 
-- Recurring bills / `recurring_rules` (Phase 2b).
-- Paired transfer linking (Phase 2c).
+- Recurring / subscription / bill detection (now **V1.5**, over synced
+  transaction data — no `recurring_rules` table).
+- Paired transfer detection (now **V1.5**, after V1 Plaid ingestion).
 - Any link between a contribution and a `transactions` row, an `accounts`
   balance, or the derived monthly "Net savings" tile. Contributions are their
   own ledger, full stop.
@@ -161,5 +162,7 @@ Light + dark from brand tokens; `tabular-nums` on amounts; visible focus ring.
 
 ## Open (not 2a)
 
-- 2b recurring-bills "generate when due" mechanism.
-- Phase 3 (email) vs Phase 5 (Plaid) order.
+- V1.5 recurring-transaction detection over synced Plaid data (detect →
+  confirm / edit / mute), not a "generate when due" rule engine.
+- ~~Email vs Plaid ingestion order~~ — resolved 2026-09-09: **Plaid first (V1)**;
+  recurring intelligence V1.5; email / receipt V2. See `docs/roadmap.md`.

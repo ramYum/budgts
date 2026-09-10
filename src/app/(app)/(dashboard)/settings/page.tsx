@@ -5,6 +5,7 @@ import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { signOut } from "@/server/auth";
 import { CategoryManager, type CategoryItem } from "@/components/category-manager";
 import { AccountManager, type AccountItem } from "@/components/account-manager";
+import { BankConnections } from "@/components/plaid/bank-connections";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -28,6 +29,8 @@ export default async function SettingsPage() {
         currentMonth={monthKey(new Date())}
       />
       <AccountManager accounts={(accounts ?? []) as AccountItem[]} />
+
+      <BankConnections />
 
       <section className="space-y-3">
         <h2 className="flex items-center gap-2 text-sm font-semibold">

@@ -8,15 +8,16 @@ Status: approved (planning), not yet implemented
 Ship a thin, deployed, multi-device end-to-end slice of the budget tracking
 app: a user signs up, adds transactions by hand, organizes them into
 categories, sets a monthly budget per category, and sees budget-vs-actual for
-the current month. No email / receipt / bank ingestion yet — but the ingestion
-seam is built so Phases 3–5 plug in without refactoring.
+the current month. No automatic ingestion yet — but the ingestion seam is built
+so the later tiers (V1 Plaid, V2 email / receipt) plug in without refactoring.
 
 Success = the Phase 1 verification steps (bottom) all pass.
 
 ## Non-goals for Phase 1
 
-- Recurring bills and savings goals (Phase 2).
-- Any automatic ingestion — email, receipt, bank (Phases 3–5).
+- Recurring bills and savings goals (later tiers — savings goals shipped in
+  Phase 2a; recurring detection is V1.5).
+- Any automatic ingestion — bank (V1 Plaid), email, receipt (V2).
 - Household / shared budgets, multi-currency.
 - Rich reporting / export.
 
@@ -95,12 +96,13 @@ transactions (`?category=`).
 | `created_at` | timestamptz | |
 
 Partial unique index on `(user_id, source, source_ref)` where `source_ref is
-not null` — idempotent ingestion for Phases 3–5.
+not null` — idempotent ingestion for the automatic sources (V1 Plaid, V2
+email / receipt).
 
 **Transfers.** Moving money between the user's own accounts (paying a credit
 card, funding savings) is `is_transfer = true` and never counts as spend or
 income. Phase 1 sets the flag on a single transaction via a manual toggle;
-Phase 2 adds paired linking so both legs of a transfer reconcile.
+V1.5 adds paired-transfer detection so both legs of a transfer reconcile.
 
 **Refunds.** A refund is a `credit` in the same expense category as the
 original purchase — not a separate concept. It nets against that category's
@@ -118,8 +120,9 @@ notification or bank update, so the normal ingestion path captures them.
 
 Unique on `(user_id, category_id, month)`.
 
-> `recurring_rules` and `savings_goals` arrive in Phase 2. Schema direction is
-> noted so Phase 1 choices don't box them out.
+> `savings_goals` shipped in Phase 2a. Recurring-transaction *detection* is
+> V1.5 (over synced data — no user-entered `recurring_rules` table). Schema
+> direction was noted here so Phase 1 choices didn't box them out.
 
 ## Domain logic — `src/lib/budget/`
 

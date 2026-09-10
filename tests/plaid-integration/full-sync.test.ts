@@ -1,0 +1,116 @@
+/**
+ * Plaid-integration + DB: the whole ingestion path with real Sandbox data.
+ *   Sandbox Item  ->  encrypted plaid_items row  ->  syncItem()
+ *   ->  runSync -> adapter -> apply-sync -> PlaidSyncStore  ->  staging Postgres
+ *
+ * This is the "E2E transaction flow" minus the browser UI.
+ */
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { encryptToken } from "@/lib/plaid/crypto";
+import { findItemByPlaidItemId } from "@/lib/plaid/item-store";
+import { syncItem } from "@/lib/plaid/sync-item";
+import { loadPlaidConfig } from "@/lib/plaid/config";
+import {
+  categoryIdByName,
+  cleanupUser,
+  createSandboxItemWithTxns,
+  db,
+  mainAccountId,
+  pg,
+  plaidTestClient,
+  seedUser,
+  type SandboxItem,
+} from "./_plaid";
+
+const client = plaidTestClient();
+const tokenEncKey = loadPlaidConfig().tokenEncKey;
+
+let userId: string;
+let accountId: string;
+let itemRowId: string;
+let sandbox: SandboxItem;
+
+beforeAll(async () => {
+  userId = await seedUser();
+  accountId = await mainAccountId(userId);
+  await categoryIdByName(userId, "Food / Groceries"); // sanity: trigger seeded
+
+  sandbox = await createSandboxItemWithTxns(client);
+
+  const [item] = await pg<{ id: string }[]>`
+    insert into public.plaid_items (user_id, item_id, institution_name, access_token_enc, status, needs_sync)
+    values (${userId}, ${sandbox.itemId}, 'Sandbox (First Platypus)',
+            ${encryptToken(sandbox.accessToken, tokenEncKey)}, 'active', true)
+    returning id`;
+  itemRowId = item.id;
+
+  // Map every account to the one "Main" Budgts account (fine for the test).
+  for (const a of sandbox.accounts) {
+    await pg`
+      insert into public.plaid_accounts (user_id, plaid_item_id, plaid_account_id, account_id, link_state, name, type)
+      values (${userId}, ${itemRowId}, ${a.account_id}, ${accountId}, 'mapped', ${a.name}, ${a.type})`;
+  }
+});
+
+afterAll(async () => {
+  await client.itemRemove({ access_token: sandbox.accessToken }).catch(() => {});
+  await cleanupUser(userId);
+  await pg.end();
+});
+
+async function bankRows() {
+  return pg`select * from public.transactions where user_id = ${userId} and source = 'bank' order by occurred_at`;
+}
+
+describe("syncItem against real Sandbox data (staging Postgres)", () => {
+  it("lands real bank transactions on the first sync and advances the cursor", async () => {
+    const item = await findItemByPlaidItemId(db, sandbox.itemId);
+    expect(item).not.toBeNull();
+
+    const res = await syncItem({ db, client, item: item!, tokenEncKey });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.inserts).toBeGreaterThan(0);
+    expect(res.hasMore).toBe(false);
+    expect(res.cursor).toBeTruthy();
+
+    const rows = await bankRows();
+    expect(rows.length).toBe(res.inserts);
+    for (const r of rows) {
+      expect(r.source).toBe("bank");
+      expect(r.amount).toBeGreaterThan(0);
+      expect(["debit", "credit"]).toContain(r.direction);
+      expect(r.plaid_account_id).not.toBeNull();
+      expect(typeof r.source_ref).toBe("string");
+      expect(r.raw).toBeTruthy(); // the raw Plaid payload was stored
+      expect(r.status).toBe("confirmed"); // Sandbox is USD == user currency
+    }
+    // at least one real merchant name came through
+    expect(rows.some((r) => typeof r.merchant_name === "string" && r.merchant_name.length > 0)).toBe(true);
+
+    const [pItem] = await pg`select transactions_cursor, needs_sync, last_synced_at from public.plaid_items where item_id = ${sandbox.itemId}`;
+    expect(pItem.transactions_cursor).toBe(res.cursor);
+    expect(pItem.needs_sync).toBe(false);
+    expect(pItem.last_synced_at).not.toBeNull();
+  });
+
+  it("a second sync from the stored cursor is a no-op (idempotent)", async () => {
+    const item = await findItemByPlaidItemId(db, sandbox.itemId);
+    const before = (await bankRows()).length;
+    const res = await syncItem({ db, client, item: item!, tokenEncKey });
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.inserts).toBe(0);
+    expect((await bankRows()).length).toBe(before);
+  });
+
+  it("Sandbox accepts a SYNC_UPDATES_AVAILABLE fire_webhook for this item (delivery is E2E)", async () => {
+    const r = await client.sandboxItemFireWebhook({
+      access_token: sandbox.accessToken,
+      webhook_type: "TRANSACTIONS" as never,
+      webhook_code: "SYNC_UPDATES_AVAILABLE" as never,
+    });
+    expect(r.status).toBe(200);
+    expect(r.data.webhook_fired).toBe(true);
+  });
+});

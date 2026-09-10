@@ -177,11 +177,11 @@ and checked against the deployed URL.
 | # | Workstream | Status |
 | --- | --- | --- |
 | A | **Plaid UI** — behind `NEXT_PUBLIC_PLAID_ENABLED` (off in prod). Built: `<ConnectBank>` + `<LinkHandoff>` (`react-plaid-link@5`), `<AccountMapping>` (new / existing / skip → `mapAccounts` + first sync), `<NeedsCategory>` inline categorize (`user_categorized = true` + `plaid_merchant_rules` upsert), `<ConnectedBanks>` (status, "Sync now", `<ReconnectButton>` update-mode, disconnect), shared `disconnectPlaidItem` (route + action, §24 comment). Wired into `/settings` (`BankConnections`) + `/transactions` (needs-category surface, connect prompt, `removed_at IS NULL` guard on the ledger/dashboard/export reads). 11 new component tests. typecheck · lint · test 249 · build green. | ✅ built — live verification pending M9 |
-| M9 | **Deploy V1 Beta** — an environment wired **entirely to staging** (staging Supabase URL + publishable key + auth redirect config, `DATABASE_URL` = staging pooler, Plaid Sandbox keys, `PLAID_TOKEN_ENC_KEY`, `CRON_SECRET`, `NEXT_PUBLIC_PLAID_ENABLED=1`). NOT the existing `budgts` Production env (that points at prod Supabase, which has no `0004`). Register the deploy host's `/api/plaid/webhook` in the Plaid dashboard. | ⏳ needs owner (Vercel + staging-Supabase auth) |
-| B | **Automation** — on budgts-staging: enable `pg_cron` + `pg_net`; schedule `net.http_post` to the **deployed** `POST /api/plaid/sync-due` with `Bearer CRON_SECRET`. Then **prove it fires**: flip an item's `needs_sync`, wait a tick, confirm `last_synced_at` moved and rows landed — not just that the job row exists. | ⏳ after M9 |
-| C | **E2E + webhook round-trip** — (1) Playwright against the deployed app: connect → map → transactions appear → categorize → merchant rule created → disconnect → history remains. (2) Round-trip: Plaid Sandbox `fire_webhook` → deployed `/api/plaid/webhook` → JWT verified → `needs_sync` → sync → staging Postgres updated → UI reflects it. | ⏳ after M9 |
-| — | **Owner acceptance pass** — after M9 + automated E2E green, the owner runs the full acceptance chain by hand on the domain. This is the point where we're judging *the product*, not the architecture. | ⏳ final gate |
-| D | **Docs reflect reality** — this tracker + design-doc §31 updated; `docs/deploy.md` Plaid env vars added. Full deploy runbook lands with M9. | 🔄 rolling |
+| M9 | **Deploy V1 Beta** — new Vercel project **`budgts-staging`** (team tocino), Production branch `v1-plaid-beta`, wired **entirely to staging**: `NEXT_PUBLIC_SUPABASE_URL/PUBLISHABLE_KEY` = staging (`iwypmifvmtmkwtnxkfma`), `NEXT_PUBLIC_SITE_URL` = the deploy origin, `DATABASE_URL` = staging tx pooler, Plaid Sandbox keys, `PLAID_TOKEN_ENC_KEY`, `CRON_SECRET`, `NEXT_PUBLIC_PLAID_ENABLED=1`, `PLAID_TEST_SEED_ENABLED=1`. Staging Supabase auth: Site URL + `**` redirects set (magic link). `budgts.com` / `main` untouched. **Live at `https://budgts-staging.vercel.app`.** | ✅ deployed + acceptance chain walked (2026-09-10) |
+| B | **Automation** — on budgts-staging: enable `pg_cron` + `pg_net`; schedule `net.http_post` to the **deployed** `POST /api/plaid/sync-due` with `Bearer CRON_SECRET` (`supabase/staging-plaid-cron.sql`, `{{DEPLOY_URL}}` = `https://budgts-staging.vercel.app`). Then **prove it fires**: flip an item's `needs_sync`, wait a tick, confirm `last_synced_at` moved. | ⏳ next |
+| C | **E2E + webhook round-trip** — (1) commit a Playwright spec that drives the deployed app via `/api/plaid/test/seed` (connect → map → transactions → categorize → merchant rule → disconnect → history remains — all steps just verified by hand). (2) Round-trip: Plaid Sandbox `fire_webhook` → deployed `/api/plaid/webhook` → JWT verified → `needs_sync` → (B) sync → staging Postgres updated. | ⏳ after B |
+| — | **Owner acceptance pass** — Claude walked the full chain on `budgts-staging.vercel.app` 2026-09-10 (see change log). Owner does their own hands-on pass — judging *the product*. | ⏳ owner |
+| D | **Docs reflect reality** — this tracker + design-doc §31 + `docs/deploy.md` M9 runbook. | ✅ current |
 
 **M9 acceptance chain** (run against the deployed URL):
 
@@ -194,13 +194,14 @@ domain → login → Budgts UI → Connect a bank → Plaid Sandbox → account 
 **V1 complete gate** — declared done only when every row is green:
 
 ```
-BACKEND     unit 238 ✅   DB-integration 15 ✅   Plaid-Sandbox 5 ✅
-UI          Link · account mapping · categorization · reconnect · disconnect  ✅ built
-DEPLOY      M9 — staging-wired environment on the domain
-AUTOMATION  pg_cron · pg_net → sync-due, verified firing
-E2E         full user journey (Playwright) + webhook round-trip
-ACCEPTANCE  owner runs the chain by hand on the domain
-QUALITY     typecheck · lint · build · production-readiness
+BACKEND     unit 249 ✅   DB-integration 15 ✅   Plaid-Sandbox 5 ✅
+UI          Link · account mapping · categorization · reconnect · disconnect   ✅ built
+DEPLOY      M9 — budgts-staging.vercel.app, staging-wired                       ✅ live
+ACCEPTANCE  full chain walked on the deploy (connect→map→import→display→        ✅ Claude
+            categorize→merchant rule→disconnect→history remains)                  · owner pass ⏳
+AUTOMATION  pg_cron · pg_net → sync-due, verified firing                        ⏳ (B)
+E2E         committed Playwright journey + webhook round-trip                   ⏳ (C)
+QUALITY     typecheck · lint · build · production-readiness                     ✅ (gates green)
 ```
 
 V1.5 (recurring / transfer intelligence) does not start until the gate is green.
@@ -438,3 +439,32 @@ Developer Program ($99/yr), Google Play Console ($25 once). Target: a few months
   + Plaid-Sandbox 5 re-run green. Milestone 9 (Deployed V1 Beta on staging
   services) added to the tracker. Remaining V1: pg_cron/pg_net (B), E2E +
   webhook round-trip (C), the deploy (M9).
+- **2026-09-10 (later) — Milestone 9: V1 Beta deployed + acceptance chain
+  walked.** Work committed to branch `v1-plaid-beta` (`ramYum/budgts`, `main`
+  untouched). New Vercel project **`budgts-staging`** (team tocino) imported from
+  the repo, Production branch pinned to `v1-plaid-beta`, 11 env vars wired
+  entirely to staging (staging Supabase `iwypmifvmtmkwtnxkfma` +
+  `NEXT_PUBLIC_SITE_URL=https://budgts-staging.vercel.app` + Plaid Sandbox +
+  `NEXT_PUBLIC_PLAID_ENABLED=1` + `PLAID_TEST_SEED_ENABLED=1`). Staging Supabase
+  Auth URL config set (Site URL + `/**` redirects; magic link). Deployment
+  promoted to Production → **live at `https://budgts-staging.vercel.app`**.
+  Prod (`budgts.com` / `main` / prod Supabase) never touched — the two
+  topologies are fully separate. **Full acceptance chain walked on the deploy:**
+  login (test user `beta@budgts.test` created in staging Supabase) → Connect a
+  bank → real Plaid Link (Sandbox, First Platypus `user_good`/`pass_good`,
+  demonstrated through credential entry + account list) → account mapping (Plaid
+  Checking → new Budgts account, 13 skipped) → **first sync landed 18 bank
+  transactions** into staging Postgres → `/transactions` shows them, 9 in "Needs
+  a category" + Starbucks/McDonald's/United auto-categorised by the PFC map →
+  categorised one Uber → Transportation (count 9→8) → **`plaid_merchant_rules`
+  row confirmed by SQL** (Uber merchant_entity_id → Transportation) → plain
+  Disconnect (purge unchecked) → **SQL confirms `plaid_items`=0,
+  `plaid_accounts`=0, `bank_txns`=18 all with `plaid_account_id` NULL,
+  `user_categorized` kept, `removed_at` NULL** — the §24 financial-integrity
+  rule verified end-to-end on a real deploy. Notes: the Plaid Link final
+  "Continue" isn't scriptable via synthetic clicks (design §26), so the connect
+  step used the purpose-built `/api/plaid/test/seed`; login used a
+  password-grant + hand-set `@supabase/ssr` cookie since magic link needs an
+  inbox. Left for V1: **B** (pg_cron/pg_net firing against the deploy), **C**
+  (commit the Playwright journey + webhook round-trip), owner's own hands-on
+  pass.

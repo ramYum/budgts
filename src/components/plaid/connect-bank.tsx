@@ -96,10 +96,12 @@ export function ConnectBank({
   }, [router]);
 
   const busy = phase === "starting" || phase === "exchanging";
+  // Deliberate, owner-approved exception to brand/README.md's "Volt Lime is
+  // never a button" rule — this CTA specifically should read as the logo color.
   const btn =
     tone === "primary"
-      ? "rounded-lg bg-tint px-3 py-2 text-sm font-semibold text-pine disabled:opacity-50"
-      : "rounded-lg border border-pine/30 bg-tint px-3 py-1.5 text-sm font-semibold text-pine hover:border-pine/50 disabled:opacity-50";
+      ? "rounded-lg bg-volt px-3 py-2 text-sm font-semibold text-pine disabled:opacity-50"
+      : "rounded-lg bg-volt px-3 py-1.5 text-sm font-semibold text-pine disabled:opacity-50";
 
   return (
     <div className="space-y-2">

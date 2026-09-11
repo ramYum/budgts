@@ -1,0 +1,1 @@
+ALTER TABLE "plaid_items" ADD COLUMN "last_refresh_requested_at" timestamp with time zone;

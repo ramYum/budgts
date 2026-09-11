@@ -179,7 +179,7 @@ and checked against the deployed URL.
 | A | **Plaid UI** — behind `NEXT_PUBLIC_PLAID_ENABLED` (off in prod). Built: `<ConnectBank>` + `<LinkHandoff>` (`react-plaid-link@5`), `<AccountMapping>` (new / existing / skip → `mapAccounts` + first sync), `<NeedsCategory>` inline categorize (`user_categorized = true` + `plaid_merchant_rules` upsert), `<ConnectedBanks>` (status, "Sync now", `<ReconnectButton>` update-mode, disconnect), shared `disconnectPlaidItem` (route + action, §24 comment). Wired into `/settings` (`BankConnections`) + `/transactions` (needs-category surface, connect prompt, `removed_at IS NULL` guard on the ledger/dashboard/export reads). 11 new component tests. typecheck · lint · test 249 · build green. | ✅ built — live verification pending M9 |
 | M9 | **Deploy V1 Beta** — new Vercel project **`budgts-staging`** (team tocino), Production branch `v1-plaid-beta`, wired **entirely to staging**: `NEXT_PUBLIC_SUPABASE_URL/PUBLISHABLE_KEY` = staging (`iwypmifvmtmkwtnxkfma`), `NEXT_PUBLIC_SITE_URL` = the deploy origin, `DATABASE_URL` = staging tx pooler, Plaid Sandbox keys, `PLAID_TOKEN_ENC_KEY`, `CRON_SECRET`, `NEXT_PUBLIC_PLAID_ENABLED=1`, `PLAID_TEST_SEED_ENABLED=1`. Staging Supabase auth: Site URL + `**` redirects set (magic link). `budgts.com` / `main` untouched. **Live at `https://budgts-staging.vercel.app`.** | ✅ deployed + acceptance chain walked (2026-09-10) |
 | B | **Automation** — on budgts-staging: `pg_cron` 1.6.4 + `pg_net` 0.20.4 enabled, `plaid-sync-due` job scheduled every 30s (`supabase/staging-plaid-cron.sql` run with `{{DEPLOY_URL}}` = `https://budgts-staging.vercel.app`, `{{CRON_SECRET}}` = the Vercel env value). **Found + fixed a real bug while proving it fires:** the root proxy (`src/proxy.ts`) redirected every unauthenticated request to `/sign-in`, including Plaid's webhook and this poller — neither carries a session cookie — so `pg_net` was logging a 200 of sign-in-page HTML instead of the poller's JSON, and the item never advanced. Fixed by exempting `/api/plaid/webhook` + `/api/plaid/sync-due` (both already self-authenticate) from the session gate (`b6e3e88`, +`src/proxy.test.ts`). **Proven firing** post-deploy: `net._http_response` shows `{"ran":1,"results":[{"itemId":"...","ok":true,"inserts":2,...}]}`, `cron.job_run_details` shows consecutive `succeeded` runs ~30s apart, and the flipped item's `needs_sync` cleared with `last_synced_at` advancing to match. | ✅ done — verified firing (2026-09-11) |
-| C | **E2E + webhook round-trip** — (1) commit a Playwright spec that drives the deployed app via `/api/plaid/test/seed` (connect → map → transactions → categorize → merchant rule → disconnect → history remains — all steps just verified by hand). (2) Round-trip: Plaid Sandbox `fire_webhook` → deployed `/api/plaid/webhook` → JWT verified → `needs_sync` → (B) sync → staging Postgres updated. | ⏳ after B |
+| C | **E2E + webhook round-trip.** (2) **Webhook round-trip — fully verified, real data.** Decrypted a real staging item's Sandbox access token, called `sandboxItemFireWebhook`, and watched it land for real: `plaid_webhook_events` gained a `verified:true, webhook_type:TRANSACTIONS, webhook_code:SYNC_UPDATES_AVAILABLE, handled:true` row within 5s; `plaid_items.needs_sync` flipped `true`; the (B) poller cleared it back to `false` within 30s with `last_synced_at` advanced. (1) **`tests/e2e/plaid.spec.ts` committed** — connect (via `/api/plaid/test/seed` → `/api/plaid/exchange`, bypassing the un-scriptable Link iframe) → map → import (retries `Sync now`, Sandbox-lag tolerant) → categorize an ambiguous row → merchant-rule regression check via Re-scan → disconnect → CSV row count unchanged. Skipped unless pointed at a staging deploy **with staging Supabase Admin credentials** (`NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SECRET_KEY` for the `iwypmifvmtmkwtnxkfma` project) — not available in this session, so the spec has not yet been executed by `npx playwright test`; **owner to supply and run, or provide the credentials.** The same journey was walked live by hand on `budgts-staging.vercel.app` (real UI, real session) as a substitute: connect ✅, map ✅ (14-account picker, existing-account mapping), disconnect + history-retained ✅ — each proven twice on two separate Sandbox items. **Sandbox limitation found (not a Budgts defect):** a brand-new item's first `/transactions/sync` call can race Plaid Sandbox's own async transaction generation; once that first call returns empty, Sandbox does not deliver the canned dataset through the *same* cursor lineage afterward (confirmed: `/api/plaid/sync-due?full=1` on the affected item returns `inserts:0` on demand, repeatedly, while a fresh/cursorless call sees the full dataset). Production is unaffected — real linked banks already have history at connect time, no generation lag to race. The spec's retry loop mirrors `tests/plaid-integration/_plaid.ts`'s existing readiness-polling pattern. No production code changed for this. | 🟡 webhook done; spec committed, execution needs owner's staging Supabase Admin key |
 | — | **Owner acceptance pass** — Claude walked the full chain on `budgts-staging.vercel.app` 2026-09-10 (see change log). Owner does their own hands-on pass — judging *the product*. | ⏳ owner |
 | E | **Categorization intelligence + notification** (design §18, plan `.claude/plans/whimsical-tumbling-origami.md`) — deterministic evidence chain R1 user rule → R2 Budgts merchant knowledge (`merchant-knowledge.ts` ~115 chains + pure `merchant-name.ts` normalizer) → R3 trusted PFC `detailed` allowlist → R4 gated PFC primary (unchanged). LOW-confidence bypass for R2/R3 only. Correction backfill (blanks-only) + `rescanUncategorized` + "Re-scan" button + auto-add standard category. **Header bell** (`NeedsCategoryBell`, dashboard layout, behind `plaidUiEnabled()`) is the notification surface — count of the needs-category predicate, links to `/transactions#needs-category`; layout `RealtimeRefresh(["transactions"])` keeps it fresh. No notifications table / feed / push. **No migration.** +60 unit, +3 DB-integration, +1 Plaid-Sandbox. **Live-verified** on `budgts-staging.vercel.app` @ `182dfce` (2026-09-11, Playwright): bell shows the real count, links to `/transactions#needs-category` and lands there, resolving one row drops the count live (no reload) and the other ambiguous rows stay untouched, persists across a hard reload. No defects. **Closed.** | ✅ done — approved & closed |
 | D | **Docs reflect reality** — this tracker + design-doc §13/§18/§31 + `docs/deploy.md` M9 runbook. | ✅ current |
@@ -203,7 +203,8 @@ DEPLOY      M9 — budgts-staging.vercel.app, staging-wired                     
 ACCEPTANCE  full chain walked on the deploy (connect→map→import→display→        ✅ Claude
             categorize→merchant rule→disconnect→history remains)                  · owner pass ⏳
 AUTOMATION  pg_cron · pg_net → sync-due, verified firing                        ✅ (B)
-E2E         committed Playwright journey + webhook round-trip                   ⏳ (C)
+E2E         webhook round-trip verified ✅; Playwright journey committed,       🟡 (C)
+            execution needs owner's staging Supabase Admin key
 QUALITY     typecheck · lint · build · production-readiness                     ✅ (gates green)
 ```
 
@@ -556,3 +557,45 @@ Developer Program ($99/yr), Google Play Console ($25 once). Target: a few months
   `last_synced_at` advanced to match. **Workstream B is done.** Next:
   workstream C (Playwright E2E journey + webhook round-trip — this fix also
   unblocks the webhook half, which shared the same proxy bug).
+- **2026-09-11 (later 2) — Workstream C: webhook round-trip verified for real;
+  E2E journey walked by hand + spec committed.** **Webhook round-trip:**
+  decrypted a real staging item's Sandbox `access_token`
+  (`src/lib/plaid/crypto.ts`, staging `PLAID_TOKEN_ENC_KEY`), called
+  `sandboxItemFireWebhook`, and confirmed the full chain lands: Plaid `200
+  webhook_fired:true` → `plaid_webhook_events` gains a row within 5s
+  (`verified:true`, `TRANSACTIONS`/`SYNC_UPDATES_AVAILABLE`, `handled:true`) →
+  `plaid_items.needs_sync` set → the (B) poller clears it within 30s with
+  `last_synced_at` advanced. **E2E journey:** new `tests/e2e/plaid.spec.ts` —
+  connect (via `/api/plaid/test/seed` + `/api/plaid/exchange`, bypassing
+  Plaid Link's un-scriptable iframe per design §26) → map (real
+  `<AccountMapping>` UI) → import (retries `Sync now` for Sandbox lag,
+  mirroring `createSandboxItemWithTxns`'s existing readiness-poll pattern) →
+  categorize an ambiguous row → merchant-rule regression check (Re-scan
+  doesn't undo the correction) → disconnect → CSV row count unchanged.
+  Guarded to skip unless run against a staging deploy *with* staging Supabase
+  Admin credentials (`NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SECRET_KEY` for
+  `iwypmifvmtmkwtnxkfma`) — not available this session, so `npx playwright
+  test` has not actually been run against it; **owner action: supply those
+  two values (or run it themselves) to execute it.** In the meantime the same
+  journey was walked live, by hand, on `budgts-staging.vercel.app` using the
+  already-authenticated `beta@budgts.test` session: connect ✅ and map ✅
+  (14-account picker; "Plaid Checking" → the existing "Plaid Checking ••0000"
+  Budgts account, 13 others "Don't import this one") on two separate fresh
+  Sandbox items; disconnect ✅ with **history retained** (18 bank rows kept,
+  `plaid_account_id` nulled, `plaid_items` row gone) confirmed twice.
+  **Discovered and diagnosed a Plaid Sandbox limitation, not a Budgts defect:**
+  a brand-new item's very first `/transactions/sync` call can race Sandbox's
+  own asynchronous canned-data generation; if that first call returns empty,
+  Sandbox does not retroactively deliver the dataset through the *same* cursor
+  lineage — confirmed by calling `/api/plaid/sync-due?full=1` against the
+  affected item repeatedly (`inserts:0` every time) while a fresh, cursorless
+  `/transactions/sync` call against the same access token sees the full 19-row
+  checking history immediately. Production is immune — a real linked bank
+  already has transaction history the moment it's connected, so there is no
+  generation lag to race. No app code changed for this (Sandbox-only, already
+  mirrored by the test fixtures' own readiness-polling). Temporarily
+  unscheduled/restored `pg_cron`'s `plaid-sync-due` job while isolating the
+  race (verified re-armed and firing before moving on). **Gates:** typecheck ·
+  lint · build all green (new spec file only; no production code touched).
+  Remaining for V1: owner runs/enables the E2E spec, then the owner's own
+  hands-on acceptance pass.

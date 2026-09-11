@@ -78,7 +78,9 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
   if (plaidOn) {
     const { data: nc } = await supabase
       .from("transactions")
-      .select("id, description, merchant_name, amount, direction, occurred_at, account:accounts(name)")
+      .select(
+        "id, description, merchant_name, amount, direction, occurred_at, pending, plaid_category_primary, account:accounts(name)",
+      )
       .eq("source", "bank")
       .is("category_id", null)
       .is("removed_at", null)
@@ -96,6 +98,8 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
         direction: r.direction as "debit" | "credit",
         occurred_at: r.occurred_at as string,
         account_name: accountName,
+        pending: r.pending as boolean,
+        plaid_category_primary: (r.plaid_category_primary as string | null) ?? null,
       };
     });
   }

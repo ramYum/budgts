@@ -5,6 +5,7 @@ import { ConnectedBanks, type ConnectedBank } from "./connected-banks";
 
 const disconnectBank = vi.fn();
 const syncConnection = vi.fn();
+const mapAccounts = vi.fn();
 const refresh = vi.fn();
 
 vi.mock("next/navigation", () => ({
@@ -14,7 +15,7 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/server/plaid/actions", () => ({
   disconnectBank: (...args: unknown[]) => disconnectBank(...args),
   syncConnection: (...args: unknown[]) => syncConnection(...args),
-  mapAccounts: vi.fn(),
+  mapAccounts: (...args: unknown[]) => mapAccounts(...args),
 }));
 
 vi.mock("./reconnect-button", () => ({
@@ -29,8 +30,20 @@ function bank(over: Partial<ConnectedBank> = {}): ConnectedBank {
     status: "active",
     lastSyncedAt: new Date().toISOString(),
     accounts: [
-      { name: "Plaid Checking", mask: "0000", linkState: "mapped", mappedAccountName: "Checking" },
-      { name: "Plaid Saving", mask: "1111", linkState: "ignored", mappedAccountName: null },
+      {
+        plaidAccountId: "plaid-acc-checking",
+        name: "Plaid Checking",
+        mask: "0000",
+        linkState: "mapped",
+        mappedAccountName: "Checking",
+      },
+      {
+        plaidAccountId: "plaid-acc-saving",
+        name: "Plaid Saving",
+        mask: "1111",
+        linkState: "ignored",
+        mappedAccountName: null,
+      },
     ],
     unmappedAccounts: [],
     ...over,
@@ -103,5 +116,27 @@ describe("ConnectedBanks", () => {
     await user.click(screen.getByRole("button", { name: "Sync now" }));
 
     expect(syncConnection).toHaveBeenCalledWith("item-sandbox-1");
+  });
+
+  it("stops importing a single already-mapped account without disconnecting the bank", async () => {
+    mapAccounts.mockResolvedValue({ ok: true });
+    const user = userEvent.setup();
+
+    render(<ConnectedBanks banks={[bank()]} budgtsAccounts={[{ id: "acc-1", name: "Checking" }]} />);
+
+    await user.click(screen.getByRole("button", { name: "Stop importing" }));
+
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText(/stops importing new transactions from Plaid Checking/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/already imported stay in your history/)).toBeInTheDocument();
+
+    await user.click(within(dialog).getByRole("button", { name: "Stop importing" }));
+
+    expect(mapAccounts).toHaveBeenCalledTimes(1);
+    const fd = mapAccounts.mock.calls[0][1] as FormData;
+    expect(fd.get("plaidItemId")).toBe("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+    expect(JSON.parse(fd.get("entries") as string)).toEqual([
+      { plaidAccountId: "plaid-acc-checking", mode: "ignore" },
+    ]);
   });
 });

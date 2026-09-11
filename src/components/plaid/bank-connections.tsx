@@ -66,6 +66,7 @@ export async function BankConnections() {
   const banks: ConnectedBank[] = items.map((item) => {
     const rows = plaidAccounts.filter((a) => a.plaid_item_id === item.id);
     const accounts: ConnectedBankAccount[] = rows.map((a) => ({
+      plaidAccountId: a.plaid_account_id,
       name: a.name,
       mask: a.mask,
       linkState: a.link_state,
@@ -106,6 +107,10 @@ export async function BankConnections() {
           <p className="text-sm text-muted">
             Connect a bank and Budgts imports its transactions for you — categories filled in, ready to
             check. Manual entry still works for cash and anything your bank can&apos;t reach.
+          </p>
+          <p className="text-xs text-muted">
+            Your data is secure. Budgts can only read your account and transaction data to help you budget —
+            it cannot send money, make payments, make purchases, or transfer funds.
           </p>
           <ConnectBank accounts={budgtsAccounts} />
         </div>

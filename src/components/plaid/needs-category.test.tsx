@@ -30,6 +30,8 @@ function item(over: Partial<NeedsCategoryItem> = {}): NeedsCategoryItem {
     direction: "debit",
     occurred_at: "2026-09-07T12:00:00.000Z",
     account_name: "Checking",
+    pending: false,
+    plaid_category_primary: null,
     ...over,
   };
 }
@@ -102,6 +104,34 @@ describe("NeedsCategory", () => {
 
     expect(await screen.findByText("Could not save the category. Try again.")).toBeInTheDocument();
     expect(screen.getByText("Blue Bottle Coffee")).toBeInTheDocument();
+  });
+
+  it("shows the transaction date, pending state, and Plaid's suggested category", () => {
+    render(
+      <NeedsCategory
+        items={[item({ occurred_at: "2026-09-07T12:00:00.000Z", pending: true, plaid_category_primary: "FOOD_AND_DRINK" })]}
+        categories={categories}
+        missingStandard={[]}
+        currency="USD"
+      />,
+    );
+
+    expect(screen.getByText(/Sep 7/)).toBeInTheDocument();
+    expect(screen.getByText(/Pending/)).toBeInTheDocument();
+    expect(screen.getByText("Plaid suggests: Food and drink")).toBeInTheDocument();
+  });
+
+  it("hints that a standard category can be added when one is missing", () => {
+    render(
+      <NeedsCategory
+        items={[item()]}
+        categories={categories}
+        missingStandard={["Transportation"]}
+        currency="USD"
+      />,
+    );
+
+    expect(screen.getByText(/Add a category/)).toBeInTheDocument();
   });
 
   it("Re-scan calls the rescan action", async () => {

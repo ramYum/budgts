@@ -98,7 +98,7 @@ export function ConnectBank({
   const busy = phase === "starting" || phase === "exchanging";
   const btn =
     tone === "primary"
-      ? "rounded-lg bg-primary px-3 py-2 text-sm font-medium text-on-primary disabled:opacity-50"
+      ? "rounded-lg bg-tint px-3 py-2 text-sm font-semibold text-pine disabled:opacity-50"
       : "rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:bg-surface-2 disabled:opacity-50";
 
   return (

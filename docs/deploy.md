@@ -15,6 +15,12 @@ Steps you (the owner) do — Claude can't create the accounts or push to a remot
   `CNAME www → 20b64e226c444eb2.vercel-dns-017.com`.
 - The section below is the original from-scratch runbook; `<your-vercel-domain>`
   now means `budgts.com`.
+- **2026-09-11 — V1 promoted to production.** `main` fast-forwarded to
+  `v1-plaid-beta`'s tip (`ae92716`) after full staging acceptance; migration
+  `0004` applied to prod Supabase; `DATABASE_URL` added to prod Vercel env
+  (newly required — see §3). `NEXT_PUBLIC_PLAID_ENABLED` stays off pending
+  Plaid Production access (owner-gated, §27/Milestone 10) — see the Plaid
+  section below.
 
 ## 1. Push the repo to GitHub
 
@@ -40,19 +46,39 @@ Set for **Production** (and Preview if you want preview deploys to work):
 | `NEXT_PUBLIC_SUPABASE_URL` | `https://wsmhstqpvbbcqpqhiqyp.supabase.co` |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | your `sb_publishable_…` key |
 | `NEXT_PUBLIC_SITE_URL` | `https://budgts.com` (Production only) |
+| `DATABASE_URL` | prod **transaction** pooler (port 6543) — **required since V1**, even with Plaid off (see below) |
+
+**As of V1 (Plaid code merged), `DATABASE_URL` is a hard build-time
+requirement**, not just a `db:migrate` convenience: the `/api/plaid/*` route
+handlers import the Drizzle client (`src/lib/db/index.ts`), which throws at
+module-load if `DATABASE_URL` is missing — `next build`'s "Collecting page
+data" step imports every route module, so a prod build **fails** without it,
+even though Plaid itself is feature-flagged off. Verified by building locally
+with it unset before this was caught. Plaid's own secrets
+(`PLAID_CLIENT_ID`/`PLAID_SECRET`/`PLAID_TOKEN_ENC_KEY`/`CRON_SECRET`) are all
+lazily loaded (only read when a Plaid route actually runs) and are **not**
+needed unless `NEXT_PUBLIC_PLAID_ENABLED` is turned on.
 
 **Not needed on Vercel (current prod):** `SUPABASE_SECRET_KEY` (only the local
-e2e suite uses it), `DATABASE_URL` / `DIRECT_URL` (only `db:migrate` uses them),
+e2e suite uses it), `DIRECT_URL` (only `db:migrate` uses it, run locally),
 `ANTHROPIC_API_KEY` (V2 — email / receipt ingestion). The app talks to Supabase
 entirely through the user session + the publishable key.
 
-### Plaid (V1 — not on prod yet)
+### Plaid (V1 code live on prod since 2026-09-11; UI still off)
 
-The "Connect a bank" UI is gated by `NEXT_PUBLIC_PLAID_ENABLED`. Production
-stays **unset** until Plaid Production is approved and migration `0004` is
-applied to the prod Supabase project (design §27). The **staging** deploy
+Migration `0004` (Plaid tables/columns, additive-only — see its own file for
+the reverse) was applied to the **prod** Supabase project on 2026-09-11 as
+part of the V1 → production promotion, so the schema is ready. The "Connect a
+bank" UI itself is gated by `NEXT_PUBLIC_PLAID_ENABLED`, which **stays unset
+on prod** — flipping it on needs real Plaid **Production** API keys, which
+require completing Plaid's Production access process (business
+application/billing, design §27 — an owner-only, external step; Claude cannot
+self-serve this). Until then `/api/plaid/*` exists in the deployed bundle but
+is unreachable in practice (no UI entry point, no webhook registered against
+`budgts.com`, no cron configured) — hitting one directly 500s on missing
+Plaid config, which is expected and harmless. The **staging** deploy
 (Milestone 9 — points `NEXT_PUBLIC_SUPABASE_URL` / `DATABASE_URL` at
-`budgts-staging`) sets:
+`budgts-staging`) is where Plaid is actually live today, in Sandbox mode:
 
 | Var | Value / source |
 | --- | --- |

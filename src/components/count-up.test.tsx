@@ -31,13 +31,13 @@ describe("CountUp", () => {
     render(<CountUp value={100000} currency="USD" />);
     expect(screen.getByText("$0.00")).toBeInTheDocument();
 
-    now = 275; // halfway through the 550ms animation
+    now = 1000; // halfway through the 2000ms animation
     act(() => pending?.(now));
     const midway = Number(screen.getByText(/^\$[\d,]+\.\d\d$/).textContent!.replace(/[$,]/g, ""));
     expect(midway).toBeGreaterThan(0);
     expect(midway).toBeLessThan(1000);
 
-    now = 550; // exactly at the animation's duration
+    now = 2000; // exactly at the animation's duration
     act(() => pending?.(now));
     expect(screen.getByText("$1,000.00")).toBeInTheDocument();
   });

@@ -99,7 +99,7 @@ export function ConnectBank({
   const btn =
     tone === "primary"
       ? "rounded-lg bg-tint px-3 py-2 text-sm font-semibold text-pine disabled:opacity-50"
-      : "rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:bg-surface-2 disabled:opacity-50";
+      : "rounded-lg border border-pine/30 bg-tint px-3 py-1.5 text-sm font-semibold text-pine hover:border-pine/50 disabled:opacity-50";
 
   return (
     <div className="space-y-2">

@@ -181,7 +181,7 @@ and checked against the deployed URL.
 | B | **Automation** — on budgts-staging: enable `pg_cron` + `pg_net`; schedule `net.http_post` to the **deployed** `POST /api/plaid/sync-due` with `Bearer CRON_SECRET` (`supabase/staging-plaid-cron.sql`, `{{DEPLOY_URL}}` = `https://budgts-staging.vercel.app`). Then **prove it fires**: flip an item's `needs_sync`, wait a tick, confirm `last_synced_at` moved. | ⏳ next |
 | C | **E2E + webhook round-trip** — (1) commit a Playwright spec that drives the deployed app via `/api/plaid/test/seed` (connect → map → transactions → categorize → merchant rule → disconnect → history remains — all steps just verified by hand). (2) Round-trip: Plaid Sandbox `fire_webhook` → deployed `/api/plaid/webhook` → JWT verified → `needs_sync` → (B) sync → staging Postgres updated. | ⏳ after B |
 | — | **Owner acceptance pass** — Claude walked the full chain on `budgts-staging.vercel.app` 2026-09-10 (see change log). Owner does their own hands-on pass — judging *the product*. | ⏳ owner |
-| E | **Categorization intelligence** (design §18, plan `.claude/plans/whimsical-tumbling-origami.md`) — deterministic evidence chain R1 user rule → R2 Budgts merchant knowledge (`merchant-knowledge.ts` ~115 chains + pure `merchant-name.ts` normalizer) → R3 trusted PFC `detailed` allowlist → R4 gated PFC primary (unchanged). LOW-confidence bypass for R2/R3 only. Correction backfill (blanks-only) + `rescanUncategorized` + "Re-scan" button + auto-add standard category. **Header bell** (`NeedsCategoryBell`, dashboard layout, behind `plaidUiEnabled()`) is the notification surface — count of the needs-category predicate, links to `/transactions#needs-category`; layout `RealtimeRefresh(["transactions"])` keeps it fresh. No notifications table / feed / push. **No migration.** +60 unit, +3 DB-integration, +1 Plaid-Sandbox. | ✅ done |
+| E | **Categorization intelligence + notification** (design §18, plan `.claude/plans/whimsical-tumbling-origami.md`) — deterministic evidence chain R1 user rule → R2 Budgts merchant knowledge (`merchant-knowledge.ts` ~115 chains + pure `merchant-name.ts` normalizer) → R3 trusted PFC `detailed` allowlist → R4 gated PFC primary (unchanged). LOW-confidence bypass for R2/R3 only. Correction backfill (blanks-only) + `rescanUncategorized` + "Re-scan" button + auto-add standard category. **Header bell** (`NeedsCategoryBell`, dashboard layout, behind `plaidUiEnabled()`) is the notification surface — count of the needs-category predicate, links to `/transactions#needs-category`; layout `RealtimeRefresh(["transactions"])` keeps it fresh. No notifications table / feed / push. **No migration.** +60 unit, +3 DB-integration, +1 Plaid-Sandbox. **Live-verified** on `budgts-staging.vercel.app` @ `182dfce` (2026-09-11, Playwright): bell shows the real count, links to `/transactions#needs-category` and lands there, resolving one row drops the count live (no reload) and the other ambiguous rows stay untouched, persists across a hard reload. No defects. **Closed.** | ✅ done — approved & closed |
 | D | **Docs reflect reality** — this tracker + design-doc §13/§18/§31 + `docs/deploy.md` M9 runbook. | ✅ current |
 
 **M9 acceptance chain** (run against the deployed URL):
@@ -511,3 +511,24 @@ Developer Program ($99/yr), Google Play Console ($25 once). Target: a few months
   / standard-category behaviour untouched. **Gates:** typecheck · lint · unit
   **309** (+5, bell zero/nonzero/plural/9+/link) · build — all green;
   DB-integration + Plaid-Sandbox unaffected (no backend change).
+- **2026-09-11 — Fixed a broken deploy, then closed workstream E.** `4efd010`
+  failed on Vercel (`Module not found: '@/lib/budget/pacing'`). Root cause:
+  `git add` on `src/app/(app)/(dashboard)/page.tsx` staged that file's entire
+  working-tree diff, not just the intended `RealtimeRefresh` edit — sweeping in
+  an unrelated, uncommitted, unfinished "pacing" feature sitting in the same
+  file. `pacing.ts` itself was never staged, so the pushed commit referenced a
+  module that didn't exist; the local build had passed only because it read
+  `pacing.ts` straight off disk (untracked ≠ absent from the filesystem).
+  Fixed in `182dfce` — `page.tsx` restored to the last known-good content plus
+  only the intended change; the pacing feature stays out of this branch,
+  untouched. Verified with a true clean-clone simulation
+  (`git stash push -u --keep-index` to strip every untracked file before
+  running the gates) — typecheck · lint · unit **291** (37 files, the real
+  count without the stray pacing tests) · build, all green. Then **live
+  Playwright verification on `budgts-staging.vercel.app` @ `182dfce`**: header
+  bell showed the true count (3), tapping it landed on
+  `/transactions#needs-category`, resolving one row dropped the count to 2
+  live (no reload) via the layout's `RealtimeRefresh`, and the two remaining
+  ambiguous rows stayed untouched after a hard reload. No defects.
+  **Workstream E (categorization intelligence + notification) is approved and
+  closed.** Next: workstream B (pg_cron/pg_net automation, verify firing).

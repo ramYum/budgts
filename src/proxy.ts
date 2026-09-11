@@ -1,10 +1,20 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/proxy";
 
-// Paths reachable without a session.
-const PUBLIC_PREFIXES = ["/sign-in", "/auth/", "/offline"];
+// Paths reachable without a session. Includes the two Plaid endpoints that are
+// called server-to-server with their own auth (JWT signature / bearer secret,
+// not a user cookie) — Plaid's webhook and the pg_cron poller. Without this,
+// the proxy 307-redirects their unauthenticated request to /sign-in before the
+// route handler ever runs (design §20 / workstream B).
+const PUBLIC_PREFIXES = [
+  "/sign-in",
+  "/auth/",
+  "/offline",
+  "/api/plaid/webhook",
+  "/api/plaid/sync-due",
+];
 
-function isPublic(pathname: string) {
+export function isPublic(pathname: string) {
   return PUBLIC_PREFIXES.some(
     (p) => pathname === p || pathname.startsWith(p.endsWith("/") ? p : p + "/"),
   );

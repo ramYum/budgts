@@ -14,12 +14,25 @@ export type NeedsCategoryItem = {
   direction: "debit" | "credit";
   occurred_at: string;
   account_name: string | null;
+  pending: boolean;
+  plaid_category_primary: string | null;
 };
 
 const field =
   "rounded-lg border border-border bg-surface px-2 py-1.5 text-sm outline-none focus:border-accent";
 
 const STD_PREFIX = "std:";
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+/** "FOOD_AND_DRINK" -> "Food and drink" — Plaid's own guess, shown as a hint. */
+function humanizePfc(v: string | null): string | null {
+  if (!v) return null;
+  const s = v.toLowerCase().replace(/_/g, " ");
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
 
 /**
  * The one prompt V1 shows for imported transactions (design §3, §18): bank rows
@@ -96,16 +109,28 @@ export function NeedsCategory({
         </button>
       </div>
 
+      {missingStandard.length > 0 ? (
+        <p className="text-xs text-muted">
+          Don&apos;t see the category you want? Choose <span className="font-medium">Add a category</span> at the
+          bottom of the list below.
+        </p>
+      ) : null}
+
       <ul className="card divide-y divide-hairline rounded-2xl border border-hairline px-4">
-        {visible.map((it) => (
+        {visible.map((it) => {
+          const pfc = humanizePfc(it.plaid_category_primary);
+          return (
           <li key={it.id} className="flex items-center gap-3 py-2">
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm">{it.merchant_name || it.description || "Transaction"}</p>
               <p className="truncate text-xs text-muted">
+                {formatDate(it.occurred_at)} ·{" "}
                 {it.direction === "debit" ? "−" : "+"}
                 {formatMoney(it.amount, currency)}
                 {it.account_name ? ` · ${it.account_name}` : ""}
+                {it.pending ? " · Pending" : ""}
               </p>
+              {pfc ? <p className="truncate text-xs text-muted">Plaid suggests: {pfc}</p> : null}
             </div>
             <select
               className={field}
@@ -132,7 +157,8 @@ export function NeedsCategory({
               ) : null}
             </select>
           </li>
-        ))}
+          );
+        })}
       </ul>
 
       {error ? <p className="text-sm text-neg">{error}</p> : null}

@@ -2,6 +2,23 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { DashboardView } from "./dashboard-view";
 import type { DashboardView as DV } from "@/lib/budget/dashboard";
+import type { Pacing } from "@/lib/budget/pacing";
+
+const pacing: Pacing = {
+  month: "2026-09",
+  isCurrentMonth: true,
+  daysInMonth: 30,
+  daysElapsed: 9,
+  daysRemaining: 21,
+  monthlyBudget: 30000,
+  spentToDate: 9000,
+  remainingBudget: 21000,
+  expectedToDate: 10000,
+  paceDelta: -1000,
+  dailyAllowance: 1000,
+  weeklyAllowance: 7000,
+  pace: "on",
+};
 
 const view: DV = {
   tiles: { income: 500000, spent: 55000, netSavings: -55000, budgeted: 75000, leftToSpend: 20000 },
@@ -73,5 +90,31 @@ describe("DashboardView", () => {
       />,
     );
     expect(screen.getByText(/Set a budget/i)).toBeInTheDocument();
+  });
+
+  it("shows the daily pace card with the derived daily and weekly allowance", () => {
+    render(<DashboardView view={view} currency="USD" month="2026-09" pacing={pacing} />);
+    expect(screen.getByText("Daily pace")).toBeInTheDocument();
+    expect(screen.getByText("a day").parentElement).toHaveTextContent("$10.00 a day");
+    expect(screen.getByText(/\$70\.00 to spend this week/)).toBeInTheDocument();
+    expect(screen.getByText("21 days left")).toBeInTheDocument();
+    expect(screen.getByText("On pace")).toBeInTheDocument();
+  });
+
+  it("omits the daily pace card when no pacing data is passed", () => {
+    render(<DashboardView view={view} currency="USD" month="2026-09" />);
+    expect(screen.queryByText("Daily pace")).not.toBeInTheDocument();
+  });
+
+  it("omits the daily pace card when there is no budget to pace against", () => {
+    render(
+      <DashboardView
+        view={view}
+        currency="USD"
+        month="2026-09"
+        pacing={{ ...pacing, monthlyBudget: 0, pace: "none" }}
+      />,
+    );
+    expect(screen.queryByText("Daily pace")).not.toBeInTheDocument();
   });
 });

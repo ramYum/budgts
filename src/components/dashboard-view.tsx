@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { formatMoney } from "@/lib/budget/money";
 import type { DashboardView as DV } from "@/lib/budget/dashboard";
+import type { Pacing } from "@/lib/budget/pacing";
 import { MonthNav } from "./month-nav";
+import { PacingCard } from "./pacing-card";
 
 function Tile({
   label,
@@ -38,10 +40,12 @@ export function DashboardView({
   view,
   currency,
   month,
+  pacing,
 }: {
   view: DV;
   currency: string;
   month: string;
+  pacing?: Pacing | null;
 }) {
   const { tiles, bars } = view;
 
@@ -72,6 +76,8 @@ export function DashboardView({
           <Tile label="Spent" value={tiles.spent} currency={currency} />
         </div>
       </section>
+
+      {pacing ? <PacingCard pacing={pacing} currency={currency} /> : null}
 
       <section className="space-y-3">
         <h2 className="flex items-center gap-2 text-[15px] font-semibold">

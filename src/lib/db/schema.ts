@@ -235,6 +235,9 @@ export const plaidItems = pgTable(
     needsSync: boolean("needs_sync").notNull().default(false),
     lastWebhookAt: timestamp("last_webhook_at", { withTimezone: true }),
     lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+    // last time Budgts asked Plaid to check the institution now (design: page-open
+    // refresh nudge); throttles how often /transactions/refresh gets called
+    lastRefreshRequestedAt: timestamp("last_refresh_requested_at", { withTimezone: true }),
     // consecutive failures; drives backoff + the `error` status
     syncFailures: integer("sync_failures").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

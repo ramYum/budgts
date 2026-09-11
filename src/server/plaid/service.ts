@@ -7,7 +7,9 @@
  */
 import "server-only";
 import type { JWK } from "jose";
+import { and, eq, isNull, lt, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
+import { plaidItems } from "@/lib/db/schema";
 import { plaidClient } from "@/lib/plaid/client";
 import { loadPlaidConfig } from "@/lib/plaid/config";
 import { decryptToken } from "@/lib/plaid/crypto";
@@ -16,6 +18,53 @@ import { syncItem as runItemSync, type SyncItemResult } from "@/lib/plaid/sync-i
 
 export const plaidDb = db;
 export type { SyncItemResult };
+
+/** Throttle for {@link nudgeRefresh} — see its docstring. */
+export const REFRESH_THROTTLE_MS = 25 * 60 * 1000;
+
+/**
+ * Ask Plaid to check each of the user's active Items right now
+ * (`/transactions/refresh`), throttled to once per `REFRESH_THROTTLE_MS` per
+ * Item. Called from page loads via `after()` so it never blocks rendering —
+ * it's a nudge, not a wait: if Plaid finds anything new it arrives via the
+ * existing webhook -> needs_sync -> poller path, same as any other update.
+ *
+ * The throttle matters for two reasons, not just Plaid's own rate limits: some
+ * institutions (Item Debugger calls this "Classic" integration) refresh via a
+ * simulated login rather than a live API, so calling this too often risks
+ * tripping the bank's own fraud detection on the user's real account.
+ *
+ * The UPDATE...RETURNING is the throttle gate itself: it atomically claims
+ * only the Items actually due, so concurrent page loads (multiple tabs, or
+ * the dashboard and transactions pages both loading) can't double-fire.
+ * Never throws — a failed refresh call is logged and otherwise ignored, since
+ * it's best-effort by nature.
+ */
+export async function nudgeRefresh(userId: string): Promise<void> {
+  const cutoff = new Date(Date.now() - REFRESH_THROTTLE_MS);
+  const due = await db
+    .update(plaidItems)
+    .set({ lastRefreshRequestedAt: sql`now()` })
+    .where(
+      and(
+        eq(plaidItems.userId, userId),
+        eq(plaidItems.status, "active"),
+        or(isNull(plaidItems.lastRefreshRequestedAt), lt(plaidItems.lastRefreshRequestedAt, cutoff)),
+      ),
+    )
+    .returning({ accessTokenEnc: plaidItems.accessTokenEnc, itemId: plaidItems.itemId });
+
+  if (due.length === 0) return;
+
+  const tokenEncKey = loadPlaidConfig().tokenEncKey;
+  const client = plaidClient();
+  const results = await Promise.allSettled(
+    due.map((item) => client.transactionsRefresh({ access_token: decryptToken(item.accessTokenEnc, tokenEncKey) })),
+  );
+  results.forEach((r, i) => {
+    if (r.status === "rejected") console.error("[plaid] refresh nudge failed", due[i].itemId, r.reason);
+  });
+}
 
 /** Fetch the JWK for a webhook JWT `kid` (cached per process). */
 const keyCache = new Map<string, JWK>();

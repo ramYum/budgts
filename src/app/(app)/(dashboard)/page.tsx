@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { buildDashboard, type DashboardCategory } from "@/lib/budget/dashboard";
 import { monthKey } from "@/lib/budget/month";
+import { pacing } from "@/lib/budget/pacing";
 import type { BudgetTxn } from "@/lib/budget/types";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
@@ -58,11 +59,18 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
   const budgets = (budgetRows ?? []).map((b) => ({ categoryId: b.category_id, amount: b.amount }));
 
   const view = buildDashboard(txns, cats, budgets, month);
+  const pace = pacing(txns, cats, budgets, month, new Date());
 
   return (
     <div className="pb-2">
-      <RealtimeRefresh tables={["transactions", "budgets"]} />
-      <DashboardView view={view} currency={profile?.currency ?? "USD"} month={month} />
+      {/* `transactions` is covered by the dashboard layout's RealtimeRefresh. */}
+      <RealtimeRefresh tables={["budgets"]} />
+      <DashboardView
+        view={view}
+        currency={profile?.currency ?? "USD"}
+        month={month}
+        pacing={pace}
+      />
     </div>
   );
 }

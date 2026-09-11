@@ -79,7 +79,7 @@ export function NeedsCategory({
     });
 
   return (
-    <section className="space-y-3">
+    <section id="needs-category" className="scroll-mt-20 space-y-3">
       <div className="flex items-center justify-between gap-2">
         <h2 className="flex items-center gap-2 text-sm font-semibold">
           <span className="h-4 w-1 shrink-0 rounded-full bg-tick" aria-hidden />

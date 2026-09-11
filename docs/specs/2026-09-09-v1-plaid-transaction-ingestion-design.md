@@ -429,9 +429,13 @@ subtypes (R3); the generic primary path (R4) is untouched.
 - **No match / null** ⇒ `category_id = null`. Phase 1 rollup counts
   `category_id IS NULL` as expense-uncategorized, so budgets stay correct; the
   row shows in the **"Needs a category"** list (`source = 'bank' AND
-  category_id IS NULL AND removed_at IS NULL AND is_transfer = false`). This is
-  the *only* place the user is asked. Its `(N)` count is the in-app
-  notification.
+  category_id IS NULL AND removed_at IS NULL AND is_transfer = false`,
+  `id="needs-category"` anchor). This is the *only* place the user is asked.
+  The in-app notification is a **header bell** (`NeedsCategoryBell`, rendered by
+  the dashboard layout behind `plaidUiEnabled()`): a count of that same
+  predicate, linking to `/transactions#needs-category`. `RealtimeRefresh` in the
+  layout (`tables: ["transactions"]`) keeps the count fresh after a sync lands.
+  No notifications table, feed, or push — the bell is the whole surface.
 - **User correction** (`categorizeBankTransaction`, RLS client): writes
   `category_id` + `user_categorized = true` on the row; re-sync never overwrites
   it (§16). The picker offers the user's existing categories **or** a standard

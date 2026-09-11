@@ -4,6 +4,7 @@ import { useState } from "react";
 import { formatMoney } from "@/lib/budget/money";
 import { createTransaction } from "@/server/transactions";
 import { Overlay } from "./overlay";
+import { CountUp } from "./count-up";
 import { TransactionForm, type AccountOption, type CategoryOption } from "./transaction-form";
 
 /**
@@ -34,7 +35,9 @@ export function IncomeTile({
         className="card w-full rounded-xl border border-hairline p-3 text-left"
       >
         <p className="text-xs font-medium text-heading">Income</p>
-        <p className="tnum font-display text-lg font-bold text-text">{formatMoney(value, currency)}</p>
+        <p className="tnum font-display text-lg font-bold text-text">
+          <CountUp value={value} format={(n) => formatMoney(n, currency)} />
+        </p>
       </button>
       {open ? (
         <Overlay title="Add income" onClose={() => setOpen(false)}>

@@ -3,6 +3,7 @@ import { formatMoney } from "@/lib/budget/money";
 import type { DashboardView as DV } from "@/lib/budget/dashboard";
 import { MonthNav } from "./month-nav";
 import { IncomeTile } from "./income-tile";
+import { CountUp } from "./count-up";
 import type { AccountOption, CategoryOption } from "./transaction-form";
 
 function Tile({
@@ -24,7 +25,7 @@ function Tile({
           strong && value < 0 ? "text-neg" : "text-text"
         }`}
       >
-        {formatMoney(value, currency)}
+        <CountUp value={value} format={(n) => formatMoney(n, currency)} />
       </p>
     </div>
   );
@@ -65,7 +66,7 @@ export function DashboardView({
             tiles.netSavings < 0 ? "text-fill-over" : "text-on-primary"
           }`}
         >
-          {formatMoney(tiles.netSavings, currency)}
+          <CountUp value={tiles.netSavings} format={(n) => formatMoney(n, currency)} />
         </p>
         <p className="mt-1 text-xs text-on-dark-dim">
           {formatMoney(tiles.leftToSpend, currency)} left to spend ·{" "}

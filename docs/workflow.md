@@ -178,7 +178,7 @@ and checked against the deployed URL.
 | --- | --- | --- |
 | A | **Plaid UI** — behind `NEXT_PUBLIC_PLAID_ENABLED` (off in prod). Built: `<ConnectBank>` + `<LinkHandoff>` (`react-plaid-link@5`), `<AccountMapping>` (new / existing / skip → `mapAccounts` + first sync), `<NeedsCategory>` inline categorize (`user_categorized = true` + `plaid_merchant_rules` upsert), `<ConnectedBanks>` (status, "Sync now", `<ReconnectButton>` update-mode, disconnect), shared `disconnectPlaidItem` (route + action, §24 comment). Wired into `/settings` (`BankConnections`) + `/transactions` (needs-category surface, connect prompt, `removed_at IS NULL` guard on the ledger/dashboard/export reads). 11 new component tests. typecheck · lint · test 249 · build green. | ✅ built — live verification pending M9 |
 | M9 | **Deploy V1 Beta** — new Vercel project **`budgts-staging`** (team tocino), Production branch `v1-plaid-beta`, wired **entirely to staging**: `NEXT_PUBLIC_SUPABASE_URL/PUBLISHABLE_KEY` = staging (`iwypmifvmtmkwtnxkfma`), `NEXT_PUBLIC_SITE_URL` = the deploy origin, `DATABASE_URL` = staging tx pooler, Plaid Sandbox keys, `PLAID_TOKEN_ENC_KEY`, `CRON_SECRET`, `NEXT_PUBLIC_PLAID_ENABLED=1`, `PLAID_TEST_SEED_ENABLED=1`. Staging Supabase auth: Site URL + `**` redirects set (magic link). `budgts.com` / `main` untouched. **Live at `https://budgts-staging.vercel.app`.** | ✅ deployed + acceptance chain walked (2026-09-10) |
-| B | **Automation** — on budgts-staging: enable `pg_cron` + `pg_net`; schedule `net.http_post` to the **deployed** `POST /api/plaid/sync-due` with `Bearer CRON_SECRET` (`supabase/staging-plaid-cron.sql`, `{{DEPLOY_URL}}` = `https://budgts-staging.vercel.app`). Then **prove it fires**: flip an item's `needs_sync`, wait a tick, confirm `last_synced_at` moved. | ⏳ next |
+| B | **Automation** — on budgts-staging: `pg_cron` 1.6.4 + `pg_net` 0.20.4 enabled, `plaid-sync-due` job scheduled every 30s (`supabase/staging-plaid-cron.sql` run with `{{DEPLOY_URL}}` = `https://budgts-staging.vercel.app`, `{{CRON_SECRET}}` = the Vercel env value). **Found + fixed a real bug while proving it fires:** the root proxy (`src/proxy.ts`) redirected every unauthenticated request to `/sign-in`, including Plaid's webhook and this poller — neither carries a session cookie — so `pg_net` was logging a 200 of sign-in-page HTML instead of the poller's JSON, and the item never advanced. Fixed by exempting `/api/plaid/webhook` + `/api/plaid/sync-due` (both already self-authenticate) from the session gate (`b6e3e88`, +`src/proxy.test.ts`). **Proven firing** post-deploy: `net._http_response` shows `{"ran":1,"results":[{"itemId":"...","ok":true,"inserts":2,...}]}`, `cron.job_run_details` shows consecutive `succeeded` runs ~30s apart, and the flipped item's `needs_sync` cleared with `last_synced_at` advancing to match. | ✅ done — verified firing (2026-09-11) |
 | C | **E2E + webhook round-trip** — (1) commit a Playwright spec that drives the deployed app via `/api/plaid/test/seed` (connect → map → transactions → categorize → merchant rule → disconnect → history remains — all steps just verified by hand). (2) Round-trip: Plaid Sandbox `fire_webhook` → deployed `/api/plaid/webhook` → JWT verified → `needs_sync` → (B) sync → staging Postgres updated. | ⏳ after B |
 | — | **Owner acceptance pass** — Claude walked the full chain on `budgts-staging.vercel.app` 2026-09-10 (see change log). Owner does their own hands-on pass — judging *the product*. | ⏳ owner |
 | E | **Categorization intelligence + notification** (design §18, plan `.claude/plans/whimsical-tumbling-origami.md`) — deterministic evidence chain R1 user rule → R2 Budgts merchant knowledge (`merchant-knowledge.ts` ~115 chains + pure `merchant-name.ts` normalizer) → R3 trusted PFC `detailed` allowlist → R4 gated PFC primary (unchanged). LOW-confidence bypass for R2/R3 only. Correction backfill (blanks-only) + `rescanUncategorized` + "Re-scan" button + auto-add standard category. **Header bell** (`NeedsCategoryBell`, dashboard layout, behind `plaidUiEnabled()`) is the notification surface — count of the needs-category predicate, links to `/transactions#needs-category`; layout `RealtimeRefresh(["transactions"])` keeps it fresh. No notifications table / feed / push. **No migration.** +60 unit, +3 DB-integration, +1 Plaid-Sandbox. **Live-verified** on `budgts-staging.vercel.app` @ `182dfce` (2026-09-11, Playwright): bell shows the real count, links to `/transactions#needs-category` and lands there, resolving one row drops the count live (no reload) and the other ambiguous rows stay untouched, persists across a hard reload. No defects. **Closed.** | ✅ done — approved & closed |
@@ -195,14 +195,14 @@ domain → login → Budgts UI → Connect a bank → Plaid Sandbox → account 
 **V1 complete gate** — declared done only when every row is green:
 
 ```
-BACKEND     unit 309 ✅   DB-integration 18 ✅   Plaid-Sandbox 6 ✅
+BACKEND     unit 296 ✅   DB-integration 18 ✅   Plaid-Sandbox 6 ✅
 UI          Link · account mapping · categorization · reconnect · disconnect   ✅ built
 CATEGORIZE  evidence chain: obvious merchants auto-filed at LOW confidence,     ✅ done
             corrections backfill, only genuine ambiguity asks the user (§18)
 DEPLOY      M9 — budgts-staging.vercel.app, staging-wired                       ✅ live
 ACCEPTANCE  full chain walked on the deploy (connect→map→import→display→        ✅ Claude
             categorize→merchant rule→disconnect→history remains)                  · owner pass ⏳
-AUTOMATION  pg_cron · pg_net → sync-due, verified firing                        ⏳ (B)
+AUTOMATION  pg_cron · pg_net → sync-due, verified firing                        ✅ (B)
 E2E         committed Playwright journey + webhook round-trip                   ⏳ (C)
 QUALITY     typecheck · lint · build · production-readiness                     ✅ (gates green)
 ```
@@ -532,3 +532,27 @@ Developer Program ($99/yr), Google Play Console ($25 once). Target: a few months
   ambiguous rows stayed untouched after a hard reload. No defects.
   **Workstream E (categorization intelligence + notification) is approved and
   closed.** Next: workstream B (pg_cron/pg_net automation, verify firing).
+- **2026-09-11 (later) — Workstream B: automation wired and proven firing.**
+  Enabled `pg_cron` 1.6.4 + `pg_net` 0.20.4 on budgts-staging and scheduled
+  `plaid-sync-due` (every 30s) via `supabase/staging-plaid-cron.sql` against
+  `https://budgts-staging.vercel.app/api/plaid/sync-due`. First firing attempt
+  surfaced a real bug: the root proxy (`src/proxy.ts`) redirects every
+  unauthenticated request to `/sign-in`, and neither Plaid's webhook nor this
+  cron poller carry a session cookie — so `pg_net` was logging a 200 of the
+  sign-in page's HTML instead of the poller's JSON, and `needs_sync` never
+  cleared. Both routes already do their own strict auth (JWT signature /
+  timing-safe bearer compare), so the session gate was only breaking them, not
+  protecting anything. Fix (`b6e3e88`): added `/api/plaid/webhook` and
+  `/api/plaid/sync-due` to `PUBLIC_PREFIXES`; user-facing Plaid routes
+  (`link-token`, `exchange`, `test/seed`) untouched — they still self-check
+  `getSessionUser()`. New `src/proxy.test.ts` (5 cases: both exempted paths,
+  user-facing routes and ordinary pages still gated, pre-existing public pages
+  stay public, a same-prefix decoy path isn't accidentally matched). Verified
+  against a clean-clone simulation (`git stash push -u --keep-index`):
+  typecheck · lint · unit **296** (38 files, +5) · build, all green. Post-deploy
+  proof: `net._http_response` shows `{"ran":1,"results":[{"ok":true,
+  "inserts":2,...}]}`; `cron.job_run_details` shows consecutive `succeeded`
+  runs ~30s apart; the flipped test item's `needs_sync` cleared and
+  `last_synced_at` advanced to match. **Workstream B is done.** Next:
+  workstream C (Playwright E2E journey + webhook round-trip — this fix also
+  unblocks the webhook half, which shared the same proxy bug).

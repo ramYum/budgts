@@ -3,11 +3,12 @@
 import { useActionState, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Overlay } from "@/components/overlay";
-import { disconnectBank, syncConnection, type PlaidActionState } from "@/server/plaid/actions";
+import { disconnectBank, mapAccounts, syncConnection, type PlaidActionState } from "@/server/plaid/actions";
 import { AccountMapping, type MappableAccount } from "./account-mapping";
 import { ReconnectButton } from "./reconnect-button";
 
 export type ConnectedBankAccount = {
+  plaidAccountId: string;
   name: string | null;
   mask: string | null;
   linkState: "mapped" | "ignored" | "unmapped";
@@ -70,6 +71,7 @@ function BankCard({
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [choosing, setChoosing] = useState(false);
+  const [stopping, setStopping] = useState<ConnectedBankAccount | null>(null);
 
   const needsAttention = NEEDS_ATTENTION.includes(bank.status);
   const hasUnmapped = bank.unmappedAccounts.length > 0;
@@ -118,12 +120,21 @@ function BankCard({
               {a.name ?? "Account"}
               {a.mask ? ` ••${a.mask}` : ""}
             </span>
-            <span className="shrink-0 text-xs text-muted">
+            <span className="flex shrink-0 items-center gap-2 text-xs text-muted">
               {a.linkState === "mapped"
                 ? `→ ${a.mappedAccountName ?? "linked"}`
                 : a.linkState === "ignored"
                   ? "not imported"
                   : "not set up"}
+              {a.linkState === "mapped" ? (
+                <button
+                  type="button"
+                  onClick={() => setStopping(a)}
+                  className="rounded-md border border-border px-1.5 py-0.5 font-medium hover:bg-surface-2"
+                >
+                  Stop importing
+                </button>
+              ) : null}
             </span>
           </li>
         ))}
@@ -181,7 +192,66 @@ function BankCard({
           />
         </Overlay>
       ) : null}
+
+      {stopping ? (
+        <Overlay title={`Stop importing ${stopping.name ?? "this account"}?`} onClose={() => setStopping(null)}>
+          <StopImportingConfirm
+            plaidItemId={bank.id}
+            account={stopping}
+            onClose={() => setStopping(null)}
+          />
+        </Overlay>
+      ) : null}
     </li>
+  );
+}
+
+function StopImportingConfirm({
+  plaidItemId,
+  account,
+  onClose,
+}: {
+  plaidItemId: string;
+  account: ConnectedBankAccount;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const [state, formAction, pending] = useActionState<PlaidActionState, FormData>(mapAccounts, {});
+
+  useEffect(() => {
+    if (state.ok) {
+      onClose();
+      router.refresh();
+    }
+  }, [state.ok, onClose, router]);
+
+  const entries = [{ plaidAccountId: account.plaidAccountId, mode: "ignore" }];
+
+  return (
+    <form action={formAction} className="space-y-3">
+      <input type="hidden" name="plaidItemId" value={plaidItemId} />
+      <input type="hidden" name="entries" value={JSON.stringify(entries)} readOnly />
+
+      <p className="text-sm text-muted">
+        Budgts stops importing new transactions from {account.name ?? "this account"}. Transactions already
+        imported stay in your history and keep counting toward budgets.
+      </p>
+
+      {state.error ? <p className="text-sm text-neg">{state.error}</p> : null}
+
+      <div className="flex gap-2 pt-1">
+        <button
+          type="submit"
+          disabled={pending}
+          className="flex-1 rounded-lg bg-neg px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+        >
+          {pending ? "Saving…" : "Stop importing"}
+        </button>
+        <button type="button" onClick={onClose} className="rounded-lg border border-border px-3 py-2 text-sm">
+          Cancel
+        </button>
+      </div>
+    </form>
   );
 }
 

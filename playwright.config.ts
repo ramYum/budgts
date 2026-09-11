@@ -5,7 +5,10 @@ import { defineConfig, devices } from "@playwright/test";
 loadEnv({ path: ".env.local" });
 
 const PORT = Number(process.env.PORT ?? 3000);
-const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://localhost:${PORT}`;
+// An explicit PLAYWRIGHT_BASE_URL means "test an already-running deployment"
+// (e.g. a staging URL) — don't also spin up a local build+start against it.
+const explicitBaseURL = process.env.PLAYWRIGHT_BASE_URL;
+const baseURL = explicitBaseURL ?? `http://localhost:${PORT}`;
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -19,12 +22,16 @@ export default defineConfig({
     trace: "on-first-retry",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
-  webServer: {
-    // Test against a production build — a cold `next dev` compile can exceed
-    // the per-test timeout on the first navigation.
-    command: "npm run build && npm run start",
-    url: baseURL,
-    reuseExistingServer: false, // always a fresh build+start; a stale server serves a wrong build
-    timeout: 240_000,
-  },
+  ...(explicitBaseURL
+    ? {}
+    : {
+        webServer: {
+          // Test against a production build — a cold `next dev` compile can
+          // exceed the per-test timeout on the first navigation.
+          command: "npm run build && npm run start",
+          url: baseURL,
+          reuseExistingServer: false, // always a fresh build+start; a stale server serves a wrong build
+          timeout: 240_000,
+        },
+      }),
 });

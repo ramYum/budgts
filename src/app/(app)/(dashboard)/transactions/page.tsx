@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { monthKey } from "@/lib/budget/month";
 import { AddTransaction } from "@/components/add-transaction";
@@ -10,6 +11,7 @@ import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
 import { STANDARD_CATEGORIES } from "@/lib/categories/standard";
 import { ConnectBank } from "@/components/plaid/connect-bank";
 import { NeedsCategory, type NeedsCategoryItem } from "@/components/plaid/needs-category";
+import { nudgeRefresh } from "@/server/plaid/service";
 
 export const metadata: Metadata = { title: "Transactions" };
 
@@ -46,6 +48,10 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
   const supabase = await createClient();
 
   const plaidOn = plaidUiEnabled();
+
+  // Nudge Plaid to check for new data now that the user is looking, without
+  // holding up the response — see nudgeRefresh's docstring for the throttle.
+  if (plaidOn) after(() => nudgeRefresh(user.id));
 
   let txnQuery = supabase
     .from("transactions")

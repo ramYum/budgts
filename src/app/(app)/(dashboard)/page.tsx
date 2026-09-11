@@ -1,9 +1,11 @@
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { buildDashboard, type DashboardCategory } from "@/lib/budget/dashboard";
 import { monthKey } from "@/lib/budget/month";
 import type { BudgetTxn } from "@/lib/budget/types";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
+import { nudgeRefresh } from "@/server/plaid/service";
 import { DashboardView } from "@/components/dashboard-view";
 import { RealtimeRefresh } from "@/components/realtime-refresh";
 
@@ -25,6 +27,10 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
   const user = await getSessionUser();
   if (!user) redirect("/sign-in");
   const supabase = await createClient();
+
+  // Nudge Plaid to check for new data now that the user is looking, without
+  // holding up the response — see nudgeRefresh's docstring for the throttle.
+  if (plaidUiEnabled()) after(() => nudgeRefresh(user.id));
 
   let txnQuery = supabase
     .from("transactions")

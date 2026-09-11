@@ -23,7 +23,8 @@ export function CategoryForm({
 }: {
   action: (prev: CategoryActionState, formData: FormData) => Promise<CategoryActionState>;
   initial?: CategoryInitial;
-  onDone: () => void;
+  /** Called on success. `created` is set only for a new category (`createCategory`). */
+  onDone: (created?: { id: string; name: string }) => void;
   submitLabel: string;
 }) {
   const [state, formAction, pending] = useActionState<CategoryActionState, FormData>(action, {});
@@ -31,10 +32,10 @@ export function CategoryForm({
 
   useEffect(() => {
     if (state.ok) {
-      onDone();
+      onDone(state.id ? { id: state.id, name: state.name ?? "" } : undefined);
       router.refresh();
     }
-  }, [state.ok, onDone, router]);
+  }, [state, onDone, router]);
 
   return (
     <form action={formAction} className="space-y-3">
@@ -88,7 +89,7 @@ export function CategoryForm({
         </button>
         <button
           type="button"
-          onClick={onDone}
+          onClick={() => onDone()}
           className="rounded-lg border border-border px-3 py-2 text-sm"
         >
           Cancel

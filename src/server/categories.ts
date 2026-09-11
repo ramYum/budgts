@@ -5,7 +5,14 @@ import { redirect } from "next/navigation";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { categoryFormSchema } from "@/lib/validation/category";
 
-export type CategoryActionState = { error?: string; fieldError?: string; ok?: boolean };
+export type CategoryActionState = {
+  error?: string;
+  fieldError?: string;
+  ok?: boolean;
+  /** Set on a successful create, so callers can immediately use the new row. */
+  id?: string;
+  name?: string;
+};
 
 function revalidate() {
   for (const p of ["/", "/budgets", "/transactions", "/settings"]) revalidatePath(p);
@@ -25,10 +32,14 @@ export async function createCategory(
   if (!parsed.success) return { fieldError: parsed.error.issues[0]?.message ?? "Invalid category" };
 
   const { user, supabase } = await withUser();
-  const { error } = await supabase.from("categories").insert({ user_id: user.id, ...parsed.data });
-  if (error) return { error: error.message };
+  const { data: created, error } = await supabase
+    .from("categories")
+    .insert({ user_id: user.id, ...parsed.data })
+    .select("id, name")
+    .single();
+  if (error || !created) return { error: error?.message ?? "Could not create the category." };
   revalidate();
-  return { ok: true };
+  return { ok: true, id: created.id, name: created.name };
 }
 
 export async function updateCategory(

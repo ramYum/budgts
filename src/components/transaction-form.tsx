@@ -35,6 +35,7 @@ export function TransactionForm({
   defaultDate,
   onDone,
   submitLabel,
+  initialDirection = "debit",
 }: {
   action: (prev: TxnActionState, formData: FormData) => Promise<TxnActionState>;
   accounts: AccountOption[];
@@ -43,6 +44,8 @@ export function TransactionForm({
   defaultDate: string; // YYYY-MM-DD
   onDone: () => void;
   submitLabel: string;
+  /** Direction to preselect on a brand-new (non-`initial`) entry, e.g. "credit" for an "Add income" shortcut. */
+  initialDirection?: "debit" | "credit";
 }) {
   const [state, formAction, pending] = useActionState<TxnActionState, FormData>(action, {});
   const router = useRouter();
@@ -73,7 +76,7 @@ export function TransactionForm({
         </label>
         <label className={label}>
           Direction
-          <select className={field} name="direction" defaultValue={initial?.direction ?? "debit"}>
+          <select className={field} name="direction" defaultValue={initial?.direction ?? initialDirection}>
             <option value="debit">Money out</option>
             <option value="credit">Money in</option>
           </select>
@@ -95,7 +98,14 @@ export function TransactionForm({
 
       <label className={label}>
         Category
-        <select className={field} name="categoryId" defaultValue={initial?.categoryId ?? ""}>
+        <select
+          className={field}
+          name="categoryId"
+          defaultValue={
+            initial?.categoryId ??
+            (initialDirection === "credit" ? (categories.find((c) => c.kind === "income")?.id ?? "") : "")
+          }
+        >
           <option value="">Uncategorized</option>
           {categories.map((c) => (
             <option key={c.id} value={c.id}>

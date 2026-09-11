@@ -1,10 +1,11 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NeedsCategory, type NeedsCategoryItem } from "./needs-category";
 
 const categorizeBankTransaction = vi.fn();
 const rescanUncategorized = vi.fn();
+const createCategory = vi.fn();
 const refresh = vi.fn();
 
 vi.mock("next/navigation", () => ({
@@ -14,6 +15,10 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/server/plaid/actions", () => ({
   categorizeBankTransaction: (...args: unknown[]) => categorizeBankTransaction(...args),
   rescanUncategorized: (...args: unknown[]) => rescanUncategorized(...args),
+}));
+
+vi.mock("@/server/categories", () => ({
+  createCategory: (...args: unknown[]) => createCategory(...args),
 }));
 
 const categories = [
@@ -121,7 +126,13 @@ describe("NeedsCategory", () => {
     expect(screen.getByText("Plaid suggests: Food and drink")).toBeInTheDocument();
   });
 
-  it("hints that a standard category can be added when one is missing", () => {
+  it("always hints that a new category can be created", () => {
+    render(<NeedsCategory items={[item()]} categories={categories} missingStandard={[]} currency="USD" />);
+
+    expect(screen.getByText(/Don't see the category you want\?/)).toBeInTheDocument();
+  });
+
+  it("offers to restore a missing default category alongside the new-category option", () => {
     render(
       <NeedsCategory
         items={[item()]}
@@ -131,7 +142,49 @@ describe("NeedsCategory", () => {
       />,
     );
 
-    expect(screen.getByText(/Add a category/)).toBeInTheDocument();
+    const combobox = screen.getByRole("combobox", { name: /Category for Blue Bottle Coffee/ });
+    expect(within(combobox).getByText("Transportation")).toBeInTheDocument();
+    expect(within(combobox).getByText("+ New category…")).toBeInTheDocument();
+  });
+
+  it("creates a new category inline and uses it to categorize the transaction", async () => {
+    createCategory.mockResolvedValue({ ok: true, id: "new-cat-id", name: "Pets" });
+    categorizeBankTransaction.mockResolvedValue({ ok: true });
+    const user = userEvent.setup();
+
+    render(<NeedsCategory items={[item()]} categories={categories} missingStandard={[]} currency="USD" />);
+
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: /Category for Blue Bottle Coffee/ }),
+      "__new__",
+    );
+
+    const dialog = screen.getByRole("dialog");
+    await user.type(within(dialog).getByLabelText("Name"), "Pets");
+    await user.click(within(dialog).getByRole("button", { name: "Add & use" }));
+
+    expect(createCategory).toHaveBeenCalledTimes(1);
+    expect(categorizeBankTransaction).toHaveBeenCalledTimes(1);
+    const fd = categorizeBankTransaction.mock.calls[0][1] as FormData;
+    expect(fd.get("categoryId")).toBe("new-cat-id");
+    expect(fd.get("standardCategoryName")).toBeNull();
+  });
+
+  it("resets the picker without categorizing when the new-category dialog is cancelled", async () => {
+    const user = userEvent.setup();
+
+    render(<NeedsCategory items={[item()]} categories={categories} missingStandard={[]} currency="USD" />);
+
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: /Category for Blue Bottle Coffee/ }),
+      "__new__",
+    );
+    const dialog = screen.getByRole("dialog");
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(categorizeBankTransaction).not.toHaveBeenCalled();
+    expect(screen.getByText("Blue Bottle Coffee")).toBeInTheDocument();
   });
 
   it("Re-scan calls the rescan action", async () => {

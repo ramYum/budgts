@@ -4,6 +4,9 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatMoney } from "@/lib/budget/money";
 import { categorizeBankTransaction, rescanUncategorized } from "@/server/plaid/actions";
+import { createCategory } from "@/server/categories";
+import { CategoryForm } from "@/components/category-form";
+import { Overlay } from "@/components/overlay";
 import type { CategoryOption } from "@/components/transaction-form";
 
 export type NeedsCategoryItem = {
@@ -22,6 +25,7 @@ const field =
   "rounded-lg border border-border bg-surface px-2 py-1.5 text-sm outline-none focus:border-accent";
 
 const STD_PREFIX = "std:";
+const NEW_CATEGORY_VALUE = "__new__";
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
@@ -57,9 +61,21 @@ export function NeedsCategory({
   const [error, setError] = useState<string | null>(null);
   const [rescanning, startRescan] = useTransition();
   const [, startTransition] = useTransition();
+  const [addingFor, setAddingFor] = useState<{ id: string; label: string } | null>(null);
+  const [resetKeys, setResetKeys] = useState<Record<string, number>>({});
 
   const visible = useMemo(() => items.filter((it) => !done.has(it.id)), [items, done]);
   if (visible.length === 0) return null;
+
+  const resetSelect = (id: string) => setResetKeys((prev) => ({ ...prev, [id]: (prev[id] ?? 0) + 1 }));
+
+  const choose = (it: NeedsCategoryItem, value: string) => {
+    if (value === NEW_CATEGORY_VALUE) {
+      setAddingFor({ id: it.id, label: it.merchant_name || it.description || "this transaction" });
+      return;
+    }
+    pick(it.id, value);
+  };
 
   const pick = (id: string, value: string) => {
     if (!value) return;
@@ -109,12 +125,10 @@ export function NeedsCategory({
         </button>
       </div>
 
-      {missingStandard.length > 0 ? (
-        <p className="text-xs text-muted">
-          Don&apos;t see the category you want? Choose <span className="font-medium">Add a category</span> at the
-          bottom of the list below.
-        </p>
-      ) : null}
+      <p className="text-xs text-muted">
+        Don&apos;t see the category you want? Choose <span className="font-medium">+ New category…</span> at the
+        bottom of the list below to create one.
+      </p>
 
       <ul className="card divide-y divide-hairline rounded-2xl border border-hairline px-4">
         {visible.map((it) => {
@@ -133,10 +147,11 @@ export function NeedsCategory({
               {pfc ? <p className="truncate text-xs text-muted">Plaid suggests: {pfc}</p> : null}
             </div>
             <select
+              key={resetKeys[it.id] ?? 0}
               className={field}
               defaultValue=""
               aria-label={`Category for ${it.merchant_name || it.description || "transaction"}`}
-              onChange={(e) => pick(it.id, e.target.value)}
+              onChange={(e) => choose(it, e.target.value)}
             >
               <option value="" disabled>
                 Choose a category…
@@ -147,7 +162,7 @@ export function NeedsCategory({
                 </option>
               ))}
               {missingStandard.length > 0 ? (
-                <optgroup label="Add a category">
+                <optgroup label="Restore a default category">
                   {missingStandard.map((name) => (
                     <option key={name} value={`${STD_PREFIX}${name}`}>
                       {name}
@@ -155,6 +170,7 @@ export function NeedsCategory({
                   ))}
                 </optgroup>
               ) : null}
+              <option value={NEW_CATEGORY_VALUE}>+ New category…</option>
             </select>
           </li>
           );
@@ -162,6 +178,27 @@ export function NeedsCategory({
       </ul>
 
       {error ? <p className="text-sm text-neg">{error}</p> : null}
+
+      {addingFor ? (
+        <Overlay
+          title={`New category for ${addingFor.label}`}
+          onClose={() => {
+            resetSelect(addingFor.id);
+            setAddingFor(null);
+          }}
+        >
+          <CategoryForm
+            action={createCategory}
+            submitLabel="Add & use"
+            onDone={(created) => {
+              const id = addingFor.id;
+              setAddingFor(null);
+              if (created) pick(id, created.id);
+              else resetSelect(id);
+            }}
+          />
+        </Overlay>
+      ) : null}
     </section>
   );
 }

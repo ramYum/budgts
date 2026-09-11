@@ -1,7 +1,16 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
 import { DashboardView } from "./dashboard-view";
 import type { DashboardView as DV } from "@/lib/budget/dashboard";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }),
+}));
+
+vi.mock("@/server/transactions", () => ({
+  createTransaction: vi.fn(),
+}));
 
 const view: DV = {
   tiles: { income: 500000, spent: 55000, netSavings: -55000, budgeted: 75000, leftToSpend: 20000 },
@@ -39,39 +48,52 @@ const view: DV = {
   ],
 };
 
+const baseProps = {
+  currency: "USD",
+  month: "2026-09",
+  accounts: [{ id: "acc-1", name: "Checking" }],
+  categories: [{ id: "salary", name: "Salary", kind: "income" as const }],
+  defaultDate: "2026-09-07",
+};
+
 describe("DashboardView", () => {
   it("renders the headline figures with formatted amounts", () => {
-    render(<DashboardView view={view} currency="USD" month="2026-09" />);
+    render(<DashboardView {...baseProps} view={view} />);
     expect(screen.getByText("Income").nextElementSibling).toHaveTextContent("$5,000.00");
     expect(screen.getByText("Spent").nextElementSibling).toHaveTextContent("$550.00");
     expect(screen.getByText("Net savings").nextElementSibling).toHaveTextContent("-$550.00");
   });
 
   it("shows an over-budget category with its overspend", () => {
-    render(<DashboardView view={view} currency="USD" month="2026-09" />);
+    render(<DashboardView {...baseProps} view={view} />);
     expect(screen.getByText("Over by $50.00")).toBeInTheDocument();
   });
 
   it("shows the remaining amount for a category still within budget", () => {
-    render(<DashboardView view={view} currency="USD" month="2026-09" />);
+    render(<DashboardView {...baseProps} view={view} />);
     expect(screen.getByText("$60.00 left")).toBeInTheDocument();
     expect(screen.getByText("$190.00 left")).toBeInTheDocument();
   });
 
   it("links each bar to that category's transactions for the month", () => {
-    render(<DashboardView view={view} currency="USD" month="2026-09" />);
+    render(<DashboardView {...baseProps} view={view} />);
     const link = screen.getByRole("link", { name: /Food \/ Groceries/ });
     expect(link).toHaveAttribute("href", "/transactions?m=2026-09&category=groceries");
   });
 
   it("prompts to set a budget when there are no bars", () => {
-    render(
-      <DashboardView
-        view={{ tiles: view.tiles, bars: [] }}
-        currency="USD"
-        month="2026-09"
-      />,
-    );
+    render(<DashboardView {...baseProps} view={{ tiles: view.tiles, bars: [] }} />);
     expect(screen.getByText(/Set a budget/i)).toBeInTheDocument();
+  });
+
+  it("opens an add-income form preset to credit when the Income tile is tapped", async () => {
+    const user = userEvent.setup();
+    render(<DashboardView {...baseProps} view={view} />);
+
+    await user.click(screen.getByRole("button", { name: /Income/ }));
+
+    const dialog = screen.getByRole("dialog", { name: "Add income" });
+    expect(dialog).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Direction" })).toHaveValue("credit");
   });
 });

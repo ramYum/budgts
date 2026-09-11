@@ -2,6 +2,8 @@ import Link from "next/link";
 import { formatMoney } from "@/lib/budget/money";
 import type { DashboardView as DV } from "@/lib/budget/dashboard";
 import { MonthNav } from "./month-nav";
+import { IncomeTile } from "./income-tile";
+import type { AccountOption, CategoryOption } from "./transaction-form";
 
 function Tile({
   label,
@@ -38,10 +40,16 @@ export function DashboardView({
   view,
   currency,
   month,
+  accounts,
+  categories,
+  defaultDate,
 }: {
   view: DV;
   currency: string;
   month: string;
+  accounts: AccountOption[];
+  categories: CategoryOption[];
+  defaultDate: string;
 }) {
   const { tiles, bars } = view;
 
@@ -68,7 +76,13 @@ export function DashboardView({
       <section className="space-y-2">
         <p className="text-xs text-muted">so far this month</p>
         <div className="grid grid-cols-2 gap-2">
-          <Tile label="Income" value={tiles.income} currency={currency} />
+          <IncomeTile
+            value={tiles.income}
+            currency={currency}
+            accounts={accounts}
+            categories={categories}
+            defaultDate={defaultDate}
+          />
           <Tile label="Spent" value={tiles.spent} currency={currency} />
         </div>
       </section>

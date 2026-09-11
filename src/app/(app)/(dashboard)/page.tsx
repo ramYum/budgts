@@ -8,6 +8,7 @@ import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
 import { nudgeRefresh } from "@/server/plaid/service";
 import { DashboardView } from "@/components/dashboard-view";
 import { RealtimeRefresh } from "@/components/realtime-refresh";
+import type { AccountOption } from "@/components/transaction-form";
 
 const MONTH_RE = /^\d{4}-\d{2}$/;
 
@@ -41,7 +42,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
   // Guarded: the column only exists where migration 0004 has run.
   if (plaidUiEnabled()) txnQuery = txnQuery.is("removed_at", null);
 
-  const [{ data: txnRows }, { data: categories }, { data: budgetRows }, { data: profile }] =
+  const [{ data: txnRows }, { data: categories }, { data: budgetRows }, { data: profile }, { data: accountRows }] =
     await Promise.all([
       txnQuery,
       supabase
@@ -50,6 +51,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
         .eq("is_archived", false),
       supabase.from("budgets").select("category_id, amount").eq("month", `${month}-01`),
       supabase.from("profiles").select("currency").eq("id", user.id).single(),
+      supabase.from("accounts").select("id, name").eq("is_archived", false).order("name"),
     ]);
 
   const txns: BudgetTxn[] = (txnRows ?? []).map((t) => ({
@@ -62,6 +64,11 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
   }));
   const cats: DashboardCategory[] = (categories ?? []) as DashboardCategory[];
   const budgets = (budgetRows ?? []).map((b) => ({ categoryId: b.category_id, amount: b.amount }));
+  const accounts = (accountRows ?? []) as AccountOption[];
+  const defaultDate = (monthKey(new Date()) === month ? new Date().toISOString() : `${month}-15T12:00:00Z`).slice(
+    0,
+    10,
+  );
 
   const view = buildDashboard(txns, cats, budgets, month);
 
@@ -69,7 +76,14 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
     <div className="pb-2">
       {/* `transactions` is covered by the dashboard layout's RealtimeRefresh. */}
       <RealtimeRefresh tables={["budgets"]} />
-      <DashboardView view={view} currency={profile?.currency ?? "USD"} month={month} />
+      <DashboardView
+        view={view}
+        currency={profile?.currency ?? "USD"}
+        month={month}
+        accounts={accounts}
+        categories={cats}
+        defaultDate={defaultDate}
+      />
     </div>
   );
 }

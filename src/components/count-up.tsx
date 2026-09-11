@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { formatMoney } from "@/lib/budget/money";
 
 const DURATION_MS = 550;
 
@@ -9,21 +10,25 @@ function easeOutCubic(t: number): number {
 }
 
 /**
- * Animates a number from its previous value up to `value` on mount and on
- * every change — the dashboard's "numbers settle in" entrance (design ask:
+ * Animates a money amount from its previous value up to `value` on mount and
+ * on every change — the dashboard's "numbers settle in" entrance (design ask:
  * motion on opening/switching to the dashboard). Starts from 0 on first
  * render so the very first paint (before hydration) already reads as the
  * animation's starting frame, not a flash of the real amount.
+ *
+ * Takes `currency` rather than a format function: this renders under Server
+ * Components (the dashboard), and a function prop can't cross that boundary —
+ * only plain serializable values can.
  *
  * Respects `prefers-reduced-motion`: jumps straight to the final value
  * instead of animating.
  */
 export function CountUp({
   value,
-  format,
+  currency,
 }: {
   value: number;
-  format: (n: number) => string;
+  currency: string;
 }) {
   const [display, setDisplay] = useState(0);
   const from = useRef(0);
@@ -53,5 +58,5 @@ export function CountUp({
     return () => cancelAnimationFrame(raf);
   }, [value]);
 
-  return <>{format(display)}</>;
+  return <>{formatMoney(display, currency)}</>;
 }

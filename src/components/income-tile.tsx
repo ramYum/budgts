@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { formatMoney } from "@/lib/budget/money";
 import { createTransaction } from "@/server/transactions";
 import { Overlay } from "./overlay";
 import { CountUp } from "./count-up";
@@ -36,7 +35,7 @@ export function IncomeTile({
       >
         <p className="text-xs font-medium text-heading">Income</p>
         <p className="tnum font-display text-lg font-bold text-text">
-          <CountUp value={value} format={(n) => formatMoney(n, currency)} />
+          <CountUp value={value} currency={currency} />
         </p>
       </button>
       {open ? (

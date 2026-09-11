@@ -25,7 +25,7 @@ function Tile({
           strong && value < 0 ? "text-neg" : "text-text"
         }`}
       >
-        <CountUp value={value} format={(n) => formatMoney(n, currency)} />
+        <CountUp value={value} currency={currency} />
       </p>
     </div>
   );
@@ -66,7 +66,7 @@ export function DashboardView({
             tiles.netSavings < 0 ? "text-fill-over" : "text-on-primary"
           }`}
         >
-          <CountUp value={tiles.netSavings} format={(n) => formatMoney(n, currency)} />
+          <CountUp value={tiles.netSavings} currency={currency} />
         </p>
         <p className="mt-1 text-xs text-on-dark-dim">
           {formatMoney(tiles.leftToSpend, currency)} left to spend ·{" "}

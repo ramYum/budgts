@@ -8,8 +8,8 @@ afterEach(() => {
 
 describe("CountUp", () => {
   it("renders the final value immediately under reduced motion", () => {
-    render(<CountUp value={1234} format={(n) => `$${n}`} />);
-    expect(screen.getByText("$1234")).toBeInTheDocument();
+    render(<CountUp value={123400} currency="USD" />);
+    expect(screen.getByText("$1,234.00")).toBeInTheDocument();
   });
 
   it("animates from 0 up to the value on a controlled clock when motion is not reduced", () => {
@@ -28,17 +28,17 @@ describe("CountUp", () => {
       return 1;
     });
 
-    render(<CountUp value={1000} format={(n) => `$${n}`} />);
-    expect(screen.getByText("$0")).toBeInTheDocument();
+    render(<CountUp value={100000} currency="USD" />);
+    expect(screen.getByText("$0.00")).toBeInTheDocument();
 
     now = 275; // halfway through the 550ms animation
     act(() => pending?.(now));
-    const midway = Number(screen.getByText(/^\$\d+$/).textContent!.slice(1));
+    const midway = Number(screen.getByText(/^\$[\d,]+\.\d\d$/).textContent!.replace(/[$,]/g, ""));
     expect(midway).toBeGreaterThan(0);
     expect(midway).toBeLessThan(1000);
 
     now = 550; // exactly at the animation's duration
     act(() => pending?.(now));
-    expect(screen.getByText("$1000")).toBeInTheDocument();
+    expect(screen.getByText("$1,000.00")).toBeInTheDocument();
   });
 });

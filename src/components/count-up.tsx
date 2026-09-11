@@ -5,8 +5,14 @@ import { formatMoney } from "@/lib/budget/money";
 
 const DURATION_MS = 2000;
 
-function easeOutCubic(t: number): number {
-  return 1 - Math.pow(1 - t, 3);
+// Lower power = a gentler curve that spends more of the animation's time in
+// the tail — cubic (power 3) front-loads too much of the distance, so the
+// number is effectively done well before the animation's time is up and the
+// last stretch reads as an abrupt stop rather than a slow-down. Quadratic
+// keeps meaningfully more distance left to cover late, so it visibly keeps
+// decelerating all the way to the finish.
+function easeOut(t: number): number {
+  return 1 - Math.pow(1 - t, 2);
 }
 
 /**
@@ -51,7 +57,7 @@ export function CountUp({
     const startTime = performance.now();
     let raf = requestAnimationFrame(function tick(now) {
       const t = Math.min(1, Math.max(0, (now - startTime) / DURATION_MS));
-      setDisplay(Math.round(start + (value - start) * easeOutCubic(t)));
+      setDisplay(Math.round(start + (value - start) * easeOut(t)));
       if (t < 1) raf = requestAnimationFrame(tick);
       else from.current = value;
     });

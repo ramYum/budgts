@@ -44,6 +44,37 @@ const PRIMARY_TO_CATEGORY_NAME: Record<string, string | null> = {
 
 const LOW_CONFIDENCE = new Set(["LOW", "UNKNOWN"]);
 
+/**
+ * Plaid PFC `detailed` subtypes specific enough that the subtype alone maps 1:1
+ * to a Budgts seed category — so we trust it **regardless of Plaid's
+ * `confidence_level`** (resolver R3, design §18). This is NOT lowering the
+ * global threshold: `resolvePlaidCategory` (the primary-only fallback, R4)
+ * keeps its `LOW`/`UNKNOWN` gate. Conservative core only — deliberately omits
+ * the fuzzy ones (`FOOD_AND_DRINK_RESTAURANT`, `RENT_AND_UTILITIES_RENT`,
+ * `INCOME_WAGES`). Taxonomy pinned to Plaid-Version 2020-09-14.
+ */
+const TRUSTED_DETAILED: Record<string, string> = {
+  TRANSPORTATION_TAXIS_AND_RIDE_SHARES: "Transportation",
+  TRANSPORTATION_PUBLIC_TRANSIT: "Transportation",
+  TRANSPORTATION_GAS: "Transportation",
+  TRANSPORTATION_PARKING: "Transportation",
+  TRANSPORTATION_TOLLS: "Transportation",
+  TRANSPORTATION_BIKES_AND_SCOOTERS: "Transportation",
+  FOOD_AND_DRINK_FAST_FOOD: "Food / Groceries",
+  FOOD_AND_DRINK_COFFEE: "Food / Groceries",
+  FOOD_AND_DRINK_GROCERIES: "Food / Groceries",
+  RENT_AND_UTILITIES_GAS_AND_ELECTRICITY: "Housing",
+  RENT_AND_UTILITIES_INTERNET_AND_CABLE: "Housing",
+  RENT_AND_UTILITIES_TELEPHONE: "Housing",
+  RENT_AND_UTILITIES_WATER: "Housing",
+  RENT_AND_UTILITIES_SEWAGE_AND_WASTE: "Housing",
+  ENTERTAINMENT_TV_AND_MOVIES: "Entertainment",
+  ENTERTAINMENT_MUSIC_AND_AUDIO: "Entertainment",
+  ENTERTAINMENT_VIDEO_GAMES: "Entertainment",
+  PERSONAL_CARE_HAIR_AND_BEAUTY: "Personal Care",
+  PERSONAL_CARE_GYMS_AND_FITNESS_CENTERS: "Personal Care",
+};
+
 /** Normalise a category name for matching ("Food / Groceries" ~ "food/groceries"). */
 export function categoryKey(name: string): string {
   return name.toLowerCase().replace(/\s*\/\s*/g, "/").replace(/\s+/g, " ").trim();
@@ -83,3 +114,18 @@ export function resolvePlaidCategory(
   if (name === null) return null;
   return lookup.byKey.get(categoryKey(name)) ?? null;
 }
+
+/**
+ * Resolver R3 (design §18): resolve a **trusted** Plaid PFC `detailed` subtype
+ * to a Budgts category id, ignoring `confidence_level`. Returns `null` for an
+ * unknown / untrusted `detailed` (never throws) and for a user missing that
+ * seed category — same graceful-degrade contract as {@link resolvePlaidCategory}.
+ */
+export function resolveTrustedDetailed(detailed: string | null, lookup: CategoryLookup): string | null {
+  if (!detailed) return null;
+  const name = TRUSTED_DETAILED[detailed];
+  return name ? (lookup.byKey.get(categoryKey(name)) ?? null) : null;
+}
+
+/** The `detailed` subtypes {@link resolveTrustedDetailed} trusts — exported for tests. */
+export const TRUSTED_DETAILED_KEYS: readonly string[] = Object.keys(TRUSTED_DETAILED);

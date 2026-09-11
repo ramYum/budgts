@@ -7,6 +7,7 @@ import { AddTransaction } from "@/components/add-transaction";
 import { TransactionList, type TxnListItem } from "@/components/transaction-list";
 import type { AccountOption, CategoryOption } from "@/components/transaction-form";
 import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
+import { STANDARD_CATEGORIES } from "@/lib/categories/standard";
 import { ConnectBank } from "@/components/plaid/connect-bank";
 import { NeedsCategory, type NeedsCategoryItem } from "@/components/plaid/needs-category";
 
@@ -99,6 +100,11 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
     });
   }
 
+  // Standard categories the user doesn't currently have — offered in the
+  // "Needs a category" picker as "add this one" (auto-created on pick).
+  const haveNames = new Set(categoryOpts.map((c) => c.name));
+  const missingStandard = STANDARD_CATEGORIES.map((c) => c.name).filter((n) => !haveNames.has(n));
+
   const showConnectPrompt = plaidOn && (txns ?? []).length === 0 && !categoryFilter;
 
   return (
@@ -130,7 +136,12 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
         </div>
       ) : null}
 
-      <NeedsCategory items={needsCategory} categories={categoryOpts} currency={currency} />
+      <NeedsCategory
+        items={needsCategory}
+        categories={categoryOpts}
+        missingStandard={missingStandard}
+        currency={currency}
+      />
 
       {showConnectPrompt ? (
         <div className="card space-y-3 rounded-2xl border border-hairline p-4">

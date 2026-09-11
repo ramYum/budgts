@@ -12,7 +12,9 @@
  */
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { standardCategory } from "@/lib/categories/standard";
 import { findItemByPlaidItemId } from "@/lib/plaid/item-store";
+import { recategorizeUncategorizedBankTxns } from "@/lib/plaid/recategorize";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import {
   categorizeBankTxnSchema,
@@ -138,14 +140,44 @@ export async function categorizeBankTransaction(
   _prev: PlaidActionState,
   formData: FormData,
 ): Promise<PlaidActionState> {
+  const rawCategoryId = String(formData.get("categoryId") ?? "");
+  const rawStandard = String(formData.get("standardCategoryName") ?? "");
   const parsed = categorizeBankTxnSchema.safeParse({
     transactionId: String(formData.get("transactionId") ?? ""),
-    categoryId: String(formData.get("categoryId") ?? ""),
+    categoryId: rawCategoryId || undefined,
+    standardCategoryName: rawStandard || undefined,
   });
   if (!parsed.success) return { error: "Pick a category and try again." };
-  const { transactionId, categoryId } = parsed.data;
+  const { transactionId, standardCategoryName } = parsed.data;
 
   const { user, supabase } = await withUser();
+
+  // Resolve the target category id. If the user picked a standard category they
+  // don't currently have, add it back (un-archive, or create) — no setup screen.
+  let categoryId = parsed.data.categoryId ?? "";
+  if (standardCategoryName) {
+    const std = standardCategory(standardCategoryName);
+    if (!std) return { error: "Unknown category." };
+    const { data: existing } = await supabase
+      .from("categories")
+      .select("id, is_archived")
+      .eq("name", std.name)
+      .maybeSingle();
+    if (existing) {
+      categoryId = existing.id;
+      if (existing.is_archived) {
+        await supabase.from("categories").update({ is_archived: false }).eq("id", existing.id);
+      }
+    } else {
+      const { data: created, error: createErr } = await supabase
+        .from("categories")
+        .insert({ user_id: user.id, name: std.name, kind: std.kind, color: std.color })
+        .select("id")
+        .single();
+      if (createErr || !created) return { error: "Could not add that category. Try again." };
+      categoryId = created.id;
+    }
+  }
 
   // Set the category and mark it user-owned so re-sync never overwrites it
   // (design §18). RLS scopes the update to the caller.
@@ -159,18 +191,44 @@ export async function categorizeBankTransaction(
   if (error) return { error: "Could not save the category. Try again." };
   if (!updated) return { error: "That transaction no longer exists. Refresh and try again." };
 
-  // Remember the merchant → category rule so the next transaction from this
-  // merchant is auto-categorised.
+  // Remember the merchant → category rule, and backfill this user's other
+  // uncategorised transactions from the same merchant (design §18). Blanks only:
+  // never touch a user-set category, a removed row, or a transfer; leave
+  // `user_categorized = false` on the backfilled rows (auto, not manual).
   if (updated.merchant_entity_id) {
     await supabase.from("plaid_merchant_rules").upsert(
       { user_id: user.id, merchant_entity_id: updated.merchant_entity_id, category_id: categoryId },
       { onConflict: "user_id,merchant_entity_id" },
     );
+    await supabase
+      .from("transactions")
+      .update({ category_id: categoryId })
+      .eq("source", "bank")
+      .eq("merchant_entity_id", updated.merchant_entity_id)
+      .is("category_id", null)
+      .eq("user_categorized", false)
+      .is("removed_at", null)
+      .eq("is_transfer", false);
   }
 
   revalidatePath("/transactions");
   revalidatePath("/");
+  revalidatePath("/settings");
   return { ok: true };
+}
+
+/**
+ * "Re-scan" — run the deterministic evidence chain over every still-uncategorised
+ * bank row for the signed-in user and fill the ones it can now resolve. Safe to
+ * run repeatedly (idempotent); never touches user-set, removed, or transfer
+ * rows. For the pre-existing backlog + picking up merchant-knowledge additions.
+ */
+export async function rescanUncategorized(): Promise<PlaidActionState> {
+  const { user } = await withUser();
+  const { updated } = await recategorizeUncategorizedBankTxns(plaidDb, user.id);
+  revalidatePath("/transactions");
+  revalidatePath("/");
+  return { ok: true, warning: updated === 0 ? "Nothing new to categorise." : undefined };
 }
 
 export async function disconnectBank(

@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { NeedsCategory, type NeedsCategoryItem } from "./needs-category";
 
 const categorizeBankTransaction = vi.fn();
+const rescanUncategorized = vi.fn();
 const refresh = vi.fn();
 
 vi.mock("next/navigation", () => ({
@@ -12,6 +13,7 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/server/plaid/actions", () => ({
   categorizeBankTransaction: (...args: unknown[]) => categorizeBankTransaction(...args),
+  rescanUncategorized: (...args: unknown[]) => rescanUncategorized(...args),
 }));
 
 const categories = [
@@ -37,16 +39,16 @@ afterEach(() => vi.clearAllMocks());
 describe("NeedsCategory", () => {
   it("renders nothing when there is nothing to categorise", () => {
     const { container } = render(
-      <NeedsCategory items={[]} categories={categories} currency="USD" />,
+      <NeedsCategory items={[]} categories={categories} missingStandard={[]} currency="USD" />,
     );
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("categorises a row and removes it from the list", async () => {
+  it("categorises a row with an existing category and removes it from the list", async () => {
     categorizeBankTransaction.mockResolvedValue({ ok: true });
     const user = userEvent.setup();
 
-    render(<NeedsCategory items={[item()]} categories={categories} currency="USD" />);
+    render(<NeedsCategory items={[item()]} categories={categories} missingStandard={[]} currency="USD" />);
 
     expect(screen.getByText("Blue Bottle Coffee")).toBeInTheDocument();
 
@@ -59,16 +61,39 @@ describe("NeedsCategory", () => {
     const fd = categorizeBankTransaction.mock.calls[0][1] as FormData;
     expect(fd.get("transactionId")).toBe("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     expect(fd.get("categoryId")).toBe("11111111-1111-1111-1111-111111111111");
+    expect(fd.get("standardCategoryName")).toBeNull();
 
-    // optimistically gone
     expect(screen.queryByText("Blue Bottle Coffee")).not.toBeInTheDocument();
+  });
+
+  it("adds a standard category (sends standardCategoryName, not categoryId)", async () => {
+    categorizeBankTransaction.mockResolvedValue({ ok: true });
+    const user = userEvent.setup();
+
+    render(
+      <NeedsCategory
+        items={[item()]}
+        categories={categories}
+        missingStandard={["Transportation", "Personal Care"]}
+        currency="USD"
+      />,
+    );
+
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: /Category for Blue Bottle Coffee/ }),
+      "std:Transportation",
+    );
+
+    const fd = categorizeBankTransaction.mock.calls[0][1] as FormData;
+    expect(fd.get("standardCategoryName")).toBe("Transportation");
+    expect(fd.get("categoryId")).toBeNull();
   });
 
   it("restores the row and shows the error when the action fails", async () => {
     categorizeBankTransaction.mockResolvedValue({ error: "Could not save the category. Try again." });
     const user = userEvent.setup();
 
-    render(<NeedsCategory items={[item()]} categories={categories} currency="USD" />);
+    render(<NeedsCategory items={[item()]} categories={categories} missingStandard={[]} currency="USD" />);
 
     await user.selectOptions(
       screen.getByRole("combobox", { name: /Category for Blue Bottle Coffee/ }),
@@ -77,5 +102,15 @@ describe("NeedsCategory", () => {
 
     expect(await screen.findByText("Could not save the category. Try again.")).toBeInTheDocument();
     expect(screen.getByText("Blue Bottle Coffee")).toBeInTheDocument();
+  });
+
+  it("Re-scan calls the rescan action", async () => {
+    rescanUncategorized.mockResolvedValue({ ok: true });
+    const user = userEvent.setup();
+
+    render(<NeedsCategory items={[item()]} categories={categories} missingStandard={[]} currency="USD" />);
+    await user.click(screen.getByRole("button", { name: "Re-scan" }));
+
+    expect(rescanUncategorized).toHaveBeenCalledTimes(1);
   });
 });

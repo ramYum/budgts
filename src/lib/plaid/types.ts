@@ -96,12 +96,19 @@ export interface NormalizeCtx {
   currency: string;
   /**
    * Resolve a transaction to a Budgts category id, or null for "leave
-   * uncategorized". Consults per-merchant memory (`merchant_entity_id`) first,
-   * then the static PFC map. Throws {@link UnknownPfcPrimaryError} on an
-   * unrecognised primary; the adapter catches that and returns null.
+   * uncategorized". Runs the deterministic evidence chain (design §18):
+   * R1 per-user merchant rule (`merchant_entity_id`) → R2 Budgts merchant
+   * knowledge (`normalizeMerchantName(merchantName ?? description)`) → R3 trusted
+   * Plaid PFC `detailed` subtype → R4 gated PFC primary. First non-null wins.
+   * Throws {@link UnknownPfcPrimaryError} on an unrecognised primary; the
+   * adapter catches that and returns null.
    */
   resolveCategory: (args: {
     merchantEntityId: string | null;
+    /** Plaid `merchant_name` — the R2 name-match input (preferred). */
+    merchantName: string | null;
+    /** Plaid `name` (raw descriptor) — R2 fallback when `merchantName` is null. */
+    description: string | null;
     primary: string | null;
     detailed: string | null;
     confidence: string | null;

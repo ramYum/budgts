@@ -15,8 +15,10 @@ function ctx(over: Partial<NormalizeCtx> = {}): NormalizeCtx {
   return {
     accountMap,
     currency: "USD",
-    resolveCategory: ({ merchantEntityId, primary }) => {
+    resolveCategory: ({ merchantEntityId, merchantName, description, primary }) => {
       if (merchantEntityId === "ent-remembered") return "cat-remembered";
+      // stand-in for the R2 merchant-knowledge layer
+      if ((merchantName ?? description ?? "").toLowerCase().includes("netflix")) return "cat-entertainment";
       if (primary === "FOOD_AND_DRINK") return "cat-food";
       if (primary === "INCOME") return "cat-salary";
       if (primary === "WEIRD_NEW") throw new UnknownPfcPrimaryError("WEIRD_NEW");
@@ -180,6 +182,32 @@ describe("normalizePlaidTxn", () => {
   it("per-merchant memory wins over the PFC map", () => {
     const t = expectTxn(normalizePlaidTxn(txn({ merchant_entity_id: "ent-remembered" }), ctx()));
     expect(t.categoryId).toBe("cat-remembered");
+  });
+
+  it("passes merchant_name + name into resolveCategory (drives name-based categorization)", () => {
+    const t = expectTxn(
+      normalizePlaidTxn(
+        txn({
+          merchant_entity_id: null,
+          merchant_name: "Netflix",
+          name: "NETFLIX.COM",
+          personal_finance_category: {
+            primary: "GENERAL_MERCHANDISE",
+            detailed: "GENERAL_MERCHANDISE_ONLINE_MARKETPLACES",
+            confidence_level: "LOW",
+          },
+        }),
+        ctx(),
+      ),
+    );
+    expect(t.categoryId).toBe("cat-entertainment");
+  });
+
+  it("falls back to `name` when merchant_name is null", () => {
+    const t = expectTxn(
+      normalizePlaidTxn(txn({ merchant_entity_id: null, merchant_name: null, name: "NETFLIX.COM" }), ctx()),
+    );
+    expect(t.categoryId).toBe("cat-entertainment");
   });
 
   it("handles a transaction with no personal_finance_category", () => {

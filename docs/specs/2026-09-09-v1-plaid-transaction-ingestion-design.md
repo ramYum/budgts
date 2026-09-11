@@ -332,7 +332,7 @@ runSync(item):
 | `date` / `authorized_date` / `datetime` | `occurred_at` (timestamptz) / `authorized_at` | `occurred_at = datetime ?? date` (Plaid `date` is date-only → treat as UTC midnight). `authorized_at = authorized_datetime ?? authorized_date` when present. Rollup keys by month of `occurred_at` (unchanged). |
 | `name` / `merchant_name` | `description` / `merchant_name` | `description = merchant_name ?? name`. Store `merchant_name` separately for V1.5. |
 | `merchant_entity_id` | `merchant_entity_id` | stored verbatim — stable key for recurring detection. |
-| `personal_finance_category` {primary, detailed, confidence_level} | `category_id` + `plaid_category_*` | `category_id = categoryMap(primary)` (deterministic — §18); store primary/detailed/confidence for audit + re-mapping. |
+| `personal_finance_category` {primary, detailed, confidence_level} | `category_id` + `plaid_category_*` | `category_id =` the deterministic **evidence chain** (§18: user rule → Budgts merchant knowledge → trusted `detailed` subtype → gated PFC primary). Store primary/detailed/confidence verbatim for audit + re-scan. |
 | `pending` | `pending` | stored; `status` is still `'confirmed'` (it is a real event). |
 | `pending_transaction_id` | `pendingSourceRef` (adapter) → carry-over (§16) | |
 | PFC primary ∈ {`TRANSFER_IN`,`TRANSFER_OUT`} | `is_transfer = true`, `category_id = null` | Conservative. `LOAN_PAYMENTS` → transfer only if the counterparty is another linked Budgts account; else leave as expense. Leg-linking is V1.5. |
@@ -407,25 +407,53 @@ now() - 90d`.
 
 ## 18. Automatic categorization & user corrections
 
-- **Mapping**: `categoryMap(plaidPfcPrimary) → Budgts category id | null`. A
-  static, versioned table in `src/lib/plaid/category-map.ts` keyed by the ~16
-  PFC primary values, resolved per-user to the user's category rows by name
-  (the 6 seeded expense categories + Salary / Other Income). Unknown primary ⇒
-  the mapper **throws** (a new Plaid taxonomy value must not silently
-  mis-file). Low `confidence_level` (`LOW` / `UNKNOWN`) ⇒ `category_id = null`
-  regardless of mapping.
-- **No match / null** ⇒ row lands with `category_id = null`. Phase 1 rollup
-  already counts `category_id IS NULL` as expense-uncategorized, so budgets stay
-  correct; the row shows in a **"Needs a category"** filter (`source = 'bank'
-  AND category_id IS NULL AND removed_at IS NULL`).
-- **User correction**: setting the category writes `category_id` +
-  `user_categorized = true`. Re-sync never overwrites it (§16).
-- **Optional V1 nicety (decision §30.7): per-merchant memory.** On a correction,
-  upsert `(user_id, merchant_entity_id) → category_id` into a small
-  `plaid_merchant_rules` table; the mapper consults it first. Turns the second
-  "Starbucks" and every one after into a silent auto-categorize. Cheap, high
-  leverage, and a natural seed for V1.5. If deferred, the correction is still
-  sticky per-transaction.
+> **Implemented 2026-09-10** as a deterministic evidence chain (no ML). Plan:
+> `.claude/plans/whimsical-tumbling-origami.md`. The chain lives in
+> `buildResolveCategory` (`src/lib/plaid/merchant-rules.ts`), is called by
+> `normalizePlaidTxn` (§13), and is pure — the DB only supplies its deps.
+
+**Evidence chain — first non-null wins** (runs *after* the adapter's
+`TRANSFER_IN/OUT → is_transfer, no category` short-circuit):
+
+| # | Resolver | LOW-confidence gate |
+| --- | --- | --- |
+| **R1** | **User merchant rule** — `plaid_merchant_rules[merchant_entity_id] → category_id`. Always wins, even an unusual choice (Uber→Groceries). | n/a |
+| **R2** | **Budgts merchant knowledge** — `MERCHANT_KNOWLEDGE[normalizeMerchantName(merchant_name ?? name)] → seed category name → user's category id`. Static, hand-curated (`src/lib/plaid/merchant-knowledge.ts`, ~115 household-name chains; strict inclusion bar — marketplaces / payment rails excluded). `normalizeMerchantName` (`src/lib/plaid/merchant-name.ts`) is pure, exact-equality only, no fuzzy/substring. | **bypassed** |
+| **R3** | **Trusted PFC `detailed` subtype** — `TRUSTED_DETAILED[detailed]` (`category-map.ts`): a conservative-core allowlist of specific-enough subtypes (ride-share, gas, fast food, coffee, groceries, utility subtypes, streaming, hair/beauty, gyms). Omits the fuzzy ones (`FOOD_AND_DRINK_RESTAURANT`, `RENT_AND_UTILITIES_RENT`, `INCOME_WAGES`). Unknown `detailed` → `null` (never throws). | **bypassed** |
+| **R4** | **PFC primary fallback** — `resolvePlaidCategory(primary, detailed, confidence)`, **unchanged**: keeps the `LOW`/`UNKNOWN` → `null` gate; still **throws** `UnknownPfcPrimaryError` on an unknown primary (adapter catches → `null`); INCOME split by `detailed`. | **kept** |
+
+Requirement: **do not globally lower the Plaid confidence threshold.** The gate
+is bypassed only for merchant-specific evidence (R2) and specific-enough
+subtypes (R3); the generic primary path (R4) is untouched.
+
+- **No match / null** ⇒ `category_id = null`. Phase 1 rollup counts
+  `category_id IS NULL` as expense-uncategorized, so budgets stay correct; the
+  row shows in the **"Needs a category"** list (`source = 'bank' AND
+  category_id IS NULL AND removed_at IS NULL AND is_transfer = false`). This is
+  the *only* place the user is asked. Its `(N)` count is the in-app
+  notification.
+- **User correction** (`categorizeBankTransaction`, RLS client): writes
+  `category_id` + `user_categorized = true` on the row; re-sync never overwrites
+  it (§16). The picker offers the user's existing categories **or** a standard
+  category they no longer have — Budgts re-adds it (un-archive / recreate from
+  `src/lib/categories/standard.ts`, name+kind+colour from migration 0002) with
+  no setup screen.
+- **Per-merchant memory + backfill.** On a correction where the row has a
+  `merchant_entity_id`: upsert `(user_id, merchant_entity_id) → category_id`
+  into `plaid_merchant_rules` (R1 for the future), **and** run one blanks-only
+  `UPDATE`: sibling `source='bank'` rows with the same `merchant_entity_id`,
+  `category_id IS NULL AND user_categorized = false AND removed_at IS NULL AND
+  is_transfer = false` get `category_id` set (only `category_id`;
+  `user_categorized` stays `false` — auto, not manual). Never re-points a row
+  that already carries a category.
+- **Re-scan** — `recategorizeUncategorizedBankTxns(db, userId)` +
+  `rescanUncategorized` action + a "Re-scan" button: runs the chain over stored
+  row fields for every still-uncategorised bank row; idempotent; same guards.
+  For the pre-existing backlog and future `MERCHANT_KNOWLEDGE` additions
+  (no migration needed).
+- **Deferred to V1.5:** name-keyed user rules (merchants with no
+  `merchant_entity_id`); a `transactions.category_source` audit column;
+  account-type / transaction-history signals; cron-driven re-scan.
 
 ## 19. How imported transactions update budgets & the dashboard
 

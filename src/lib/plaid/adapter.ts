@@ -61,6 +61,8 @@ export function normalizePlaidTxn(input: PlaidTxnInput, ctx: NormalizeCtx): Norm
     try {
       categoryId = ctx.resolveCategory({
         merchantEntityId: input.merchant_entity_id ?? null,
+        merchantName: input.merchant_name ?? null,
+        description: input.name ?? null,
         primary,
         detailed,
         confidence,

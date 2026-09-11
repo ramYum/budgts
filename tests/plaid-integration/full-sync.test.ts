@@ -10,6 +10,8 @@ import { encryptToken } from "@/lib/plaid/crypto";
 import { findItemByPlaidItemId } from "@/lib/plaid/item-store";
 import { syncItem } from "@/lib/plaid/sync-item";
 import { loadPlaidConfig } from "@/lib/plaid/config";
+import { MERCHANT_KNOWLEDGE } from "@/lib/plaid/merchant-knowledge";
+import { normalizeMerchantName } from "@/lib/plaid/merchant-name";
 import {
   categoryIdByName,
   cleanupUser,
@@ -92,6 +94,34 @@ describe("syncItem against real Sandbox data (staging Postgres)", () => {
     expect(pItem.transactions_cursor).toBe(res.cursor);
     expect(pItem.needs_sync).toBe(false);
     expect(pItem.last_synced_at).not.toBeNull();
+  });
+
+  it("categorizes obvious merchants on first import — even at LOW / no Plaid confidence (design §18)", async () => {
+    const rows = await bankRows();
+
+    // (a) the LOW-confidence bypass actually fires on live Sandbox data:
+    //     at least one row Plaid was NOT confident about is still categorized.
+    const lowConfCategorized = rows.filter(
+      (r) =>
+        (r.plaid_pfc_confidence == null || ["LOW", "UNKNOWN"].includes(r.plaid_pfc_confidence)) &&
+        r.category_id != null,
+    );
+    expect(lowConfCategorized.length).toBeGreaterThan(0);
+
+    // (b) nothing whose normalized merchant name is in the knowledge table is
+    //     left in "Needs a category".
+    const knownButUncategorized = rows.filter(
+      (r) =>
+        typeof r.merchant_name === "string" &&
+        MERCHANT_KNOWLEDGE.has(normalizeMerchantName(r.merchant_name)) &&
+        r.category_id == null,
+    );
+    expect(knownButUncategorized.map((r) => r.merchant_name)).toEqual([]);
+
+    // (c) transfers are never categorized.
+    for (const r of rows.filter((x) => x.is_transfer)) {
+      expect(r.category_id).toBeNull();
+    }
   });
 
   it("a second sync from the stored cursor is a no-op (idempotent)", async () => {

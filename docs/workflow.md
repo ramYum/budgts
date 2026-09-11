@@ -181,7 +181,8 @@ and checked against the deployed URL.
 | B | **Automation** — on budgts-staging: enable `pg_cron` + `pg_net`; schedule `net.http_post` to the **deployed** `POST /api/plaid/sync-due` with `Bearer CRON_SECRET` (`supabase/staging-plaid-cron.sql`, `{{DEPLOY_URL}}` = `https://budgts-staging.vercel.app`). Then **prove it fires**: flip an item's `needs_sync`, wait a tick, confirm `last_synced_at` moved. | ⏳ next |
 | C | **E2E + webhook round-trip** — (1) commit a Playwright spec that drives the deployed app via `/api/plaid/test/seed` (connect → map → transactions → categorize → merchant rule → disconnect → history remains — all steps just verified by hand). (2) Round-trip: Plaid Sandbox `fire_webhook` → deployed `/api/plaid/webhook` → JWT verified → `needs_sync` → (B) sync → staging Postgres updated. | ⏳ after B |
 | — | **Owner acceptance pass** — Claude walked the full chain on `budgts-staging.vercel.app` 2026-09-10 (see change log). Owner does their own hands-on pass — judging *the product*. | ⏳ owner |
-| D | **Docs reflect reality** — this tracker + design-doc §31 + `docs/deploy.md` M9 runbook. | ✅ current |
+| E | **Categorization intelligence** (design §18, plan `.claude/plans/whimsical-tumbling-origami.md`) — deterministic evidence chain R1 user rule → R2 Budgts merchant knowledge (`merchant-knowledge.ts` ~115 chains + pure `merchant-name.ts` normalizer) → R3 trusted PFC `detailed` allowlist → R4 gated PFC primary (unchanged). LOW-confidence bypass for R2/R3 only. Correction backfill (blanks-only) + `rescanUncategorized` + "Re-scan" button + auto-add standard category. **No migration.** +73 unit, +3 DB-integration, +1 Plaid-Sandbox. | ✅ done |
+| D | **Docs reflect reality** — this tracker + design-doc §13/§18/§31 + `docs/deploy.md` M9 runbook. | ✅ current |
 
 **M9 acceptance chain** (run against the deployed URL):
 
@@ -194,8 +195,10 @@ domain → login → Budgts UI → Connect a bank → Plaid Sandbox → account 
 **V1 complete gate** — declared done only when every row is green:
 
 ```
-BACKEND     unit 249 ✅   DB-integration 15 ✅   Plaid-Sandbox 5 ✅
+BACKEND     unit 304 ✅   DB-integration 18 ✅   Plaid-Sandbox 6 ✅
 UI          Link · account mapping · categorization · reconnect · disconnect   ✅ built
+CATEGORIZE  evidence chain: obvious merchants auto-filed at LOW confidence,     ✅ done
+            corrections backfill, only genuine ambiguity asks the user (§18)
 DEPLOY      M9 — budgts-staging.vercel.app, staging-wired                       ✅ live
 ACCEPTANCE  full chain walked on the deploy (connect→map→import→display→        ✅ Claude
             categorize→merchant rule→disconnect→history remains)                  · owner pass ⏳
@@ -468,3 +471,30 @@ Developer Program ($99/yr), Google Play Console ($25 once). Target: a few months
   inbox. Left for V1: **B** (pg_cron/pg_net firing against the deploy), **C**
   (commit the Playwright journey + webhook round-trip), owner's own hands-on
   pass.
+- **2026-09-10 (later 2) — Categorization intelligence** (workstream E, design
+  §18, plan `.claude/plans/whimsical-tumbling-origami.md`). The deployed beta's
+  first import dumped ~50 rows into "Needs a category" — obvious merchants
+  (Uber, McDonald's) uncategorised because Plaid reports LOW confidence — and a
+  correction didn't backfill sibling rows. Fix (deterministic, no AI, **no
+  migration**): `buildResolveCategory` becomes an ordered evidence chain — R1
+  per-user `plaid_merchant_rules` (unchanged) → R2 **Budgts merchant knowledge**
+  (`src/lib/plaid/merchant-knowledge.ts`, ~115 hand-curated household-name
+  chains → seed category; keyed by the new pure `src/lib/plaid/merchant-name.ts`
+  normalizer, exact-equality only) → R3 **trusted PFC `detailed`** allowlist
+  (`TRUSTED_DETAILED` in `category-map.ts`, conservative core) → R4 the existing
+  gated `resolvePlaidCategory` primary path (untouched — `LOW`/`UNKNOWN` still
+  null, still throws on unknown primary). The LOW-confidence gate is bypassed
+  **only** for R2/R3, never globally. `categorizeBankTransaction` now also runs
+  a **blanks-only** backfill `UPDATE` (same `merchant_entity_id`,
+  `category_id IS NULL AND user_categorized=false AND removed_at IS NULL AND
+  is_transfer=false`; sets `category_id` only — auto stays `user_categorized
+  = false`) and can **add a standard category** the user no longer has
+  (`src/lib/categories/standard.ts`, no setup screen). New
+  `recategorizeUncategorizedBankTxns` + `rescanUncategorized` action + a
+  "Re-scan" button clear a pre-existing backlog idempotently. Adapter now passes
+  `merchant_name` + `name` into the resolver; `apply-sync` / `sync-store`
+  untouched; idempotency, transfer short-circuit, pending→posted, and
+  `user_categorized` semantics all preserved. **Gates:** typecheck · lint ·
+  unit **304** (+55) · build · DB-integration **18** (+3) · Plaid-Sandbox **6**
+  (+1) — all green. Deferred to V1.5: name-keyed rules (no-entity-id merchants),
+  a `category_source` audit column, history/account-type signals, cron re-scan.

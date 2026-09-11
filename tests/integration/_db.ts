@@ -51,3 +51,63 @@ export async function mainAccountId(userId: string): Promise<string> {
   if (!row) throw new Error(`no account for ${userId}`);
   return row.id;
 }
+
+/** Insert a synthetic `source='bank'` transaction; returns its id. */
+export async function insertBankTxn(
+  userId: string,
+  accountId: string,
+  over: Partial<{
+    sourceRef: string;
+    categoryId: string | null;
+    userCategorized: boolean;
+    removedAt: string | null;
+    isTransfer: boolean;
+    merchantEntityId: string | null;
+    merchantName: string | null;
+    description: string;
+    primary: string | null;
+    detailed: string | null;
+    confidence: string | null;
+    amount: number;
+  }> = {},
+): Promise<string> {
+  const v = {
+    sourceRef: `itest-${crypto.randomUUID()}`,
+    categoryId: null as string | null,
+    userCategorized: false,
+    removedAt: null as string | null,
+    isTransfer: false,
+    merchantEntityId: null as string | null,
+    merchantName: null as string | null,
+    description: "itest txn",
+    primary: null as string | null,
+    detailed: null as string | null,
+    confidence: null as string | null,
+    amount: 1234,
+    ...over,
+  };
+  const [row] = await client<{ id: string }[]>`
+    insert into public.transactions
+      (user_id, account_id, category_id, amount, direction, occurred_at, description,
+       source, source_ref, is_transfer, user_categorized, removed_at,
+       merchant_entity_id, merchant_name, plaid_category_primary, plaid_category_detailed, plaid_pfc_confidence)
+    values
+      (${userId}, ${accountId}, ${v.categoryId}, ${v.amount}, 'debit', now(), ${v.description},
+       'bank', ${v.sourceRef}, ${v.isTransfer}, ${v.userCategorized}, ${v.removedAt},
+       ${v.merchantEntityId}, ${v.merchantName}, ${v.primary}, ${v.detailed}, ${v.confidence})
+    returning id`;
+  return row.id;
+}
+
+/** Read the fields the categorization tests assert on. */
+export async function readTxn(id: string): Promise<{
+  category_id: string | null;
+  user_categorized: boolean;
+  removed_at: string | null;
+  is_transfer: boolean;
+}> {
+  const [row] = await client<
+    { category_id: string | null; user_categorized: boolean; removed_at: string | null; is_transfer: boolean }[]
+  >`select category_id, user_categorized, removed_at, is_transfer from public.transactions where id = ${id}`;
+  return row;
+}

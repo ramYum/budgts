@@ -3,6 +3,8 @@ import {
   buildCategoryLookup,
   categoryKey,
   resolvePlaidCategory,
+  resolveTrustedDetailed,
+  TRUSTED_DETAILED_KEYS,
   UnknownPfcPrimaryError,
 } from "./category-map";
 
@@ -82,5 +84,37 @@ describe("resolvePlaidCategory", () => {
     const sparse = buildCategoryLookup([["Entertainment", "e"]]);
     expect(resolvePlaidCategory("FOOD_AND_DRINK", null, "HIGH", sparse)).toBeNull();
     expect(resolvePlaidCategory("ENTERTAINMENT", null, "HIGH", sparse)).toBe("e");
+  });
+});
+
+describe("resolveTrustedDetailed", () => {
+  it("resolves a trusted detailed subtype ignoring confidence", () => {
+    expect(resolveTrustedDetailed("TRANSPORTATION_TAXIS_AND_RIDE_SHARES", lookup)).toBe("cat-tx");
+    expect(resolveTrustedDetailed("TRANSPORTATION_GAS", lookup)).toBe("cat-tx");
+    expect(resolveTrustedDetailed("FOOD_AND_DRINK_FAST_FOOD", lookup)).toBe("cat-food");
+    expect(resolveTrustedDetailed("RENT_AND_UTILITIES_INTERNET_AND_CABLE", lookup)).toBe("cat-house");
+    expect(resolveTrustedDetailed("ENTERTAINMENT_MUSIC_AND_AUDIO", lookup)).toBe("cat-ent");
+    expect(resolveTrustedDetailed("PERSONAL_CARE_GYMS_AND_FITNESS_CENTERS", lookup)).toBe("cat-pc");
+  });
+
+  it("returns null for an unknown / untrusted detailed (never throws)", () => {
+    expect(resolveTrustedDetailed("FOOD_AND_DRINK_RESTAURANT", lookup)).toBeNull(); // deliberately not trusted
+    expect(resolveTrustedDetailed("RENT_AND_UTILITIES_RENT", lookup)).toBeNull();
+    expect(resolveTrustedDetailed("INCOME_WAGES", lookup)).toBeNull();
+    expect(resolveTrustedDetailed("SOME_NEW_TAXONOMY_VALUE", lookup)).toBeNull();
+    expect(resolveTrustedDetailed(null, lookup)).toBeNull();
+    expect(resolveTrustedDetailed("", lookup)).toBeNull();
+  });
+
+  it("degrades to null when the user lacks that seed category", () => {
+    const sparse = buildCategoryLookup([["Transportation", "cat-tx"]]);
+    expect(resolveTrustedDetailed("TRANSPORTATION_GAS", sparse)).toBe("cat-tx");
+    expect(resolveTrustedDetailed("FOOD_AND_DRINK_COFFEE", sparse)).toBeNull();
+  });
+
+  it("every trusted detailed maps to a seed category name", () => {
+    for (const key of TRUSTED_DETAILED_KEYS) {
+      expect(resolveTrustedDetailed(key, lookup)).not.toBeNull();
+    }
   });
 });

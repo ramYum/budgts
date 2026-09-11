@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { STANDARD_CATEGORY_NAMES } from "@/lib/categories/standard";
 import { ACCOUNT_TYPES } from "./account";
 
 /**
@@ -34,10 +35,21 @@ export const mapAccountsSchema = z.object({
   entries: z.array(accountMapEntrySchema).min(1),
 });
 
-export const categorizeBankTxnSchema = z.object({
-  transactionId: z.string().uuid(),
-  categoryId: z.string().uuid(),
-});
+/**
+ * Categorize a bank transaction. The user picks EITHER one of their existing
+ * categories (`categoryId`) OR a standard category they don't currently have
+ * (`standardCategoryName` — Budgts re-adds it). Exactly one.
+ */
+export const categorizeBankTxnSchema = z
+  .object({
+    transactionId: z.string().uuid(),
+    categoryId: z.string().uuid().optional(),
+    standardCategoryName: z.enum(STANDARD_CATEGORY_NAMES).optional(),
+  })
+  .refine((v) => !!v.categoryId !== !!v.standardCategoryName, {
+    message: "Pick a category",
+    path: ["categoryId"],
+  });
 
 export const disconnectBankSchema = z.object({
   /** Plaid `item_id` (text) — the connection to tear down. */

@@ -56,6 +56,9 @@ export async function buildNormalizeCtx(
   return {
     accountMap,
     currency: prof[0]?.currency ?? "USD",
+    // Pure deterministic evidence chain (design §18): user rule → Budgts
+    // merchant knowledge → trusted PFC detailed → gated PFC primary. The DB only
+    // supplies the deps (rules + the user's categories).
     resolveCategory: buildResolveCategory({
       merchantRules: rules,
       categoryLookup: buildCategoryLookup(cats.map((c) => [c.name, c.id] as const)),

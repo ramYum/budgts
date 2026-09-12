@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { UnknownPfcPrimaryError } from "./category-map";
 import { computeContentFingerprint } from "./content-fingerprint";
 import { type SyncPlan } from "./apply-sync";
-import { MIN_EVIDENCE_SAMPLES } from "./sign-convention";
+import { AMBIGUOUS_REVIEW_SAMPLE_THRESHOLD, MIN_EVIDENCE_SAMPLES } from "./sign-convention";
 import {
   ANOMALY_REVIEW_THRESHOLD,
   type PlaidSyncPage,
@@ -381,6 +381,31 @@ describe("runSync", () => {
       transactionsSync: async () => page({ added: [pTxn()], next_cursor: "c2" }),
       store,
       normalizeCtx,
+    });
+
+    expect(calls.finalizedSignConventions).toEqual([]);
+    expect(calls.flags).toEqual([]);
+  });
+
+  it("does nothing yet when an unknown account has insufficient evidence (below both sample thresholds)", async () => {
+    // Below MIN_EVIDENCE_SAMPLES too, so detectSignConvention hits its early
+    // "unknown" return, not just the ambiguous-vote-fraction branch.
+    const evidence = Array.from({ length: MIN_EVIDENCE_SAMPLES - 1 }, () => ({
+      rawAmount: -100,
+      primary: "FOOD_AND_DRINK",
+    }));
+    expect(evidence.length).toBeLessThan(AMBIGUOUS_REVIEW_SAMPLE_THRESHOLD);
+    const unknownMap = new Map(accountMap);
+    unknownMap.set(ACCT, { ...unknownMap.get(ACCT)!, signConvention: "unknown" });
+    const { store, calls } = fakeStore([], {}, { "b-acct-1": evidence });
+
+    await runSync({
+      userId: "u1",
+      itemId: "item1",
+      initialCursor: null,
+      transactionsSync: async () => page({ added: [pTxn()], next_cursor: "c2" }),
+      store,
+      normalizeCtx: { ...normalizeCtx, accountMap: unknownMap },
     });
 
     expect(calls.finalizedSignConventions).toEqual([]);

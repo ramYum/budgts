@@ -38,6 +38,11 @@ export const plaidAccountLinkState = pgEnum("plaid_account_link_state", [
   "ignored",
   "unmapped",
 ]);
+export const plaidSignConvention = pgEnum("plaid_sign_convention", [
+  "unknown",
+  "standard",
+  "inverted",
+]);
 
 export const profiles = pgTable("profiles", {
   // equals auth.users.id (FK added in the migration)
@@ -152,6 +157,12 @@ export const transactions = pgTable(
     duplicateOfId: uuid("duplicate_of_id").references((): AnyPgColumn => transactions.id, {
       onDelete: "set null",
     }),
+    // Why this row is pending_review, if it is — disambiguates the reason so
+    // a later resolution (e.g. sign-convention finalization) only touches
+    // rows it's actually responsible for, never a different pending reason
+    // (design: 2026-09-12 North Star Architecture §2). Null whenever status
+    // is 'confirmed'.
+    pendingReason: text("pending_reason"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
@@ -305,6 +316,13 @@ export const plaidAccounts = pgTable(
     needsReview: boolean("needs_review").notNull().default(false),
     reviewReason: text("review_reason"),
     reviewFlaggedAt: timestamp("review_flagged_at", { withTimezone: true }),
+    // Sign-convention detection (design: 2026-09-12 North Star Architecture
+    // §2). Defaults to 'unknown' for every account, including pre-existing
+    // ones — never 'standard'. While 'unknown', every new transaction for
+    // this account lands as pending_review (see adapter.ts) rather than
+    // assuming Plaid's documented sign convention holds. Finalized by
+    // runSync once enough evidence resolves it one way or the other.
+    signConvention: plaidSignConvention("sign_convention").notNull().default("unknown"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

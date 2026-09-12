@@ -10,6 +10,7 @@
  */
 import { parseMoney } from "@/lib/budget/money";
 import { UnknownPfcPrimaryError } from "./category-map";
+import { resolveEventRole } from "./event-role";
 import type {
   NormalizeCtx,
   NormalizeResult,
@@ -79,6 +80,8 @@ export function normalizePlaidTxn(input: PlaidTxnInput, ctx: NormalizeCtx): Norm
     }
   }
 
+  const eventRole = resolveEventRole({ primary, detailed, isTransfer, direction });
+
   // Currency: Plaid amounts are already in the account's currency. If that
   // account's currency isn't the user's, the row is real but its amount can't
   // be summed with the rest — land it as `pending_review` so it's excluded from
@@ -101,6 +104,7 @@ export function normalizePlaidTxn(input: PlaidTxnInput, ctx: NormalizeCtx): Norm
     description: input.merchant_name || input.name,
     note: null,
     isTransfer,
+    eventRole,
     source: "bank",
     sourceRef: input.transaction_id,
     userCategorized: false,

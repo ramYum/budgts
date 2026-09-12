@@ -265,4 +265,75 @@ describe("normalizePlaidTxn", () => {
     expect(t.status).toBe("pending_review");
     expect(t.pendingReason).toBe("currency_mismatch");
   });
+
+  describe("eventRole", () => {
+    it("resolves LOAN_PAYMENTS/LOAN_PAYMENTS_CREDIT_CARD_PAYMENT to CARD_PAYMENT, independent of category resolution", () => {
+      const t = expectTxn(
+        normalizePlaidTxn(
+          txn({
+            personal_finance_category: {
+              primary: "LOAN_PAYMENTS",
+              detailed: "LOAN_PAYMENTS_CREDIT_CARD_PAYMENT",
+              confidence_level: "HIGH",
+            },
+          }),
+          ctx({
+            resolveCategory: ({ primary }) => (primary === "LOAN_PAYMENTS" ? "cat-loan-payment" : null),
+          }),
+        ),
+      );
+      expect(t.eventRole).toBe("CARD_PAYMENT");
+      // categoryId still comes from the normal category-resolution path — the
+      // two computations run independently and don't interfere.
+      expect(t.categoryId).toBe("cat-loan-payment");
+    });
+
+    it("resolves TRANSFER_IN to TRANSFER without changing isTransfer's own value", () => {
+      const t = expectTxn(
+        normalizePlaidTxn(
+          txn({
+            personal_finance_category: {
+              primary: "TRANSFER_IN",
+              detailed: "TRANSFER_IN_ACCOUNT_TRANSFER",
+              confidence_level: "HIGH",
+            },
+          }),
+          ctx(),
+        ),
+      );
+      expect(t.eventRole).toBe("TRANSFER");
+      expect(t.isTransfer).toBe(true);
+    });
+
+    it("resolves INCOME to INCOME using the already sign-corrected direction on an inverted account", () => {
+      const invertedMap = new Map(accountMap);
+      invertedMap.set(CHECKING, { ...invertedMap.get(CHECKING)!, signConvention: "inverted" });
+      const t = expectTxn(
+        normalizePlaidTxn(
+          txn({
+            amount: -2000,
+            personal_finance_category: { primary: "INCOME", detailed: "INCOME_WAGES", confidence_level: "HIGH" },
+          }),
+          ctx({ accountMap: invertedMap }),
+        ),
+      );
+      expect(t.eventRole).toBe("INCOME");
+    });
+
+    it("computes a non-null eventRole even for a currency-mismatched pending_review row", () => {
+      const t = expectTxn(normalizePlaidTxn(txn({ iso_currency_code: "EUR" }), ctx())); // FOOD_AND_DRINK, debit
+      expect(t.status).toBe("pending_review");
+      expect(t.pendingReason).toBe("currency_mismatch");
+      expect(t.eventRole).toBe("PURCHASE");
+      expect(t.eventRole).not.toBeNull();
+    });
+
+    it("never reaches event-role resolution on the zero-amount / unknown-account skip paths", () => {
+      const zero = normalizePlaidTxn(txn({ amount: 0 }), ctx());
+      expect(zero).toEqual({ kind: "skip", reason: "zero-amount", transactionId: "txn-1" });
+
+      const unknown = normalizePlaidTxn(txn({ account_id: "nope" }), ctx());
+      expect(unknown).toMatchObject({ kind: "skip", reason: "unknown-account" });
+    });
+  });
 });

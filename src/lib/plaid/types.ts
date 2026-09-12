@@ -9,6 +9,18 @@
 import type { NormalizedTxn } from "@/lib/ingestion/types";
 import type { SignConvention } from "./sign-convention";
 
+export type EventRole =
+  | "PURCHASE"
+  | "REFUND"
+  | "INCOME"
+  | "CARD_PAYMENT"
+  | "TRANSFER"
+  | "P2P_PAYMENT"
+  | "FEE"
+  | "INTEREST"
+  | "CASH_ADVANCE"
+  | "ADJUSTMENT";
+
 /** The subset of a Plaid `Transaction` the adapter reads. */
 export interface PlaidTxnInput {
   transaction_id: string;
@@ -71,6 +83,8 @@ export interface PlaidNormalizedTxn extends NormalizedTxn {
   raw: unknown;
   /** Why this row landed as pending_review; null when it's confirmed immediately. */
   pendingReason: "currency_mismatch" | "sign_convention_unknown" | null;
+  /** The resolved event role for this transaction, or null if unresolved. */
+  eventRole: EventRole | null;
 }
 
 /** Why a Plaid transaction was not turned into a ledger row. */

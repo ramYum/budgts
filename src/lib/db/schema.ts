@@ -163,6 +163,12 @@ export const transactions = pgTable(
     // (design: 2026-09-12 North Star Architecture §2). Null whenever status
     // is 'confirmed'.
     pendingReason: text("pending_reason"),
+    // Classification of what kind of financial event this transaction is
+    // (PURCHASE, REFUND, INCOME, CARD_PAYMENT, TRANSFER, P2P_PAYMENT, FEE,
+    // INTEREST, CASH_ADVANCE, ADJUSTMENT) — resolved from Plaid PFC signals,
+    // never guessed; null = unresolved (design: 2026-09-12 Event Role §3/§4).
+    // Plain text, no enum, same additive treatment as pendingReason above.
+    eventRole: text("event_role"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

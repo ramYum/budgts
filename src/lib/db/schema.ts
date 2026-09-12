@@ -133,6 +133,12 @@ export const transactions = pgTable(
     recurringStreamId: uuid("recurring_stream_id"),
     // the raw Plaid transaction payload, for offline re-processing / debugging
     raw: jsonb("raw"),
+    // sha256 of the raw Plaid payload minus transaction_id — an ANOMALY-DETECTION
+    // aid only, never an identity/dedupe key (design: 2026-09-12 duplicate-feed
+    // investigation). Used solely to count suspiciously repetitive content per
+    // account and flag the account for review; never used to suppress, merge,
+    // or exclude a transaction from financial totals.
+    contentFingerprint: text("content_fingerprint"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
@@ -145,6 +151,10 @@ export const transactions = pgTable(
     index("transactions_merchant_entity_idx")
       .on(t.merchantEntityId)
       .where(sql`${t.merchantEntityId} is not null`),
+    // anomaly-detection lookup: count same-content rows per account
+    index("transactions_account_fingerprint_idx")
+      .on(t.accountId, t.contentFingerprint)
+      .where(sql`${t.contentFingerprint} is not null`),
   ],
 );
 
@@ -273,6 +283,15 @@ export const plaidAccounts = pgTable(
     currentBalance: integer("current_balance"),
     availableBalance: integer("available_balance"),
     balanceAsOf: timestamp("balance_as_of", { withTimezone: true }),
+    // Anomaly review flag (design: 2026-09-12 duplicate-feed investigation).
+    // Set when this account's Plaid feed shows extreme, byte-identical
+    // transaction repetition — evidence of a broken upstream feed, not proof
+    // of duplication. NEVER used to suppress, merge, or exclude transactions;
+    // it only drives an owner-facing warning that totals may be unreliable
+    // until reviewed. No automatic clearing — an owner action is required.
+    needsReview: boolean("needs_review").notNull().default(false),
+    reviewReason: text("review_reason"),
+    reviewFlaggedAt: timestamp("review_flagged_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

@@ -18,6 +18,7 @@ import { recategorizeUncategorizedBankTxns } from "@/lib/plaid/recategorize";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import {
   categorizeBankTxnSchema,
+  clearAccountReviewSchema,
   disconnectBankSchema,
   mapAccountsSchema,
 } from "@/lib/validation/plaid";
@@ -131,6 +132,32 @@ export async function mapAccounts(
     }
     return { ok: true };
   }
+
+  revalidateSynced();
+  return { ok: true };
+}
+
+/**
+ * Clear an account's anomaly-review flag (design: 2026-09-12). Deliberately an
+ * explicit, one-account-at-a-time owner action — never automatic, and never
+ * something a stray tap on the read-only warning banner can trigger. Clearing
+ * the flag does not touch any transaction row; it only stops the warning.
+ */
+export async function clearAccountReview(
+  _prev: PlaidActionState,
+  formData: FormData,
+): Promise<PlaidActionState> {
+  const parsed = clearAccountReviewSchema.safeParse({
+    plaidAccountRowId: String(formData.get("plaidAccountRowId") ?? ""),
+  });
+  if (!parsed.success) return { error: "Something went wrong. Refresh and try again." };
+
+  const { supabase } = await withUser();
+  const { error } = await supabase
+    .from("plaid_accounts")
+    .update({ needs_review: false, review_reason: null, review_flagged_at: null })
+    .eq("id", parsed.data.plaidAccountRowId);
+  if (error) return { error: "Could not update the review status. Try again." };
 
   revalidateSynced();
   return { ok: true };

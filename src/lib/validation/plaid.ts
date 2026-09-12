@@ -61,5 +61,11 @@ export const disconnectBankSchema = z.object({
   purge: z.boolean().optional().default(false),
 });
 
+/** Clear an account's anomaly-review flag (design: 2026-09-12) — owner action only. */
+export const clearAccountReviewSchema = z.object({
+  /** `plaid_accounts.id` (row uuid). */
+  plaidAccountRowId: z.string().uuid(),
+});
+
 export type AccountMapEntryInput = z.infer<typeof accountMapEntrySchema>;
 export type MapAccountsInput = z.infer<typeof mapAccountsSchema>;

@@ -6,6 +6,7 @@ import { Logo } from "@/components/logo";
 import { BottomNav } from "@/components/bottom-nav";
 import { NeedsCategoryBell } from "@/components/needs-category-bell";
 import { RealtimeRefresh } from "@/components/realtime-refresh";
+import { ReviewBanner } from "@/components/plaid/review-banner";
 
 export default async function DashboardLayout({ children }: LayoutProps<"/">) {
   const user = await getSessionUser();
@@ -53,6 +54,8 @@ export default async function DashboardLayout({ children }: LayoutProps<"/">) {
           </form>
         </div>
       </header>
+
+      {plaidOn ? <ReviewBanner /> : null}
 
       <main className="flex-1 px-4 py-4 pb-24">{children}</main>
 

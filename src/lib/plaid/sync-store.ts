@@ -10,10 +10,10 @@
  * Constructed with an injected `db` so the DB-integration tests point it at
  * `budgts-staging` and unit code never imports it.
  */
-import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql, type SQL } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import type * as schema from "@/lib/db/schema";
-import { plaidItems, transactions } from "@/lib/db/schema";
+import { plaidAccounts, plaidItems, transactions } from "@/lib/db/schema";
 import type { SyncPlan, TxnPatch } from "./apply-sync";
 import { plaidToInsert } from "./land";
 import type { PlaidSyncStore, PlaidTxnRow } from "./sync-engine";
@@ -144,6 +144,47 @@ export function createPlaidSyncStore(db: PlaidDb): PlaidSyncStore {
 
         return { inserts, updates: plan.updates.length, softDeletes: plan.softDeletes.length };
       });
+    },
+
+    // Anomaly detection only (design: 2026-09-12) — never used to decide what
+    // to insert or to exclude a row from financial totals. Chunked for the
+    // same reason as the batches above: a large historical sync can carry
+    // thousands of distinct (account, fingerprint) pairs in one pass.
+    async countByAccountFingerprint(pairs) {
+      if (pairs.length === 0) return new Map();
+      const out = new Map<string, number>();
+      for (const batch of chunk(pairs, BATCH_SIZE)) {
+        const valuesList = sql.join(
+          batch.map((p) => sql`(${p.accountId}::uuid, ${p.contentFingerprint}::text)`),
+          sql`, `,
+        ) as SQL;
+        const rows = await db.execute<{ account_id: string; content_fingerprint: string; n: number }>(sql`
+          select t.account_id, t.content_fingerprint, count(*)::int as n
+          from transactions t
+          join (values ${valuesList}) as pair(account_id, content_fingerprint)
+            on t.account_id = pair.account_id and t.content_fingerprint = pair.content_fingerprint
+          where t.removed_at is null
+          group by t.account_id, t.content_fingerprint
+        `);
+        for (const r of rows) out.set(`${r.account_id}:${r.content_fingerprint}`, Number(r.n));
+      }
+      return out;
+    },
+
+    async flagAccountForReview(accountId, reason) {
+      // `accountId` here is the Budgts `accounts.id` (PlaidNormalizedTxn's own
+      // account reference) — match plaid_accounts by its FK, not by PK.
+      await db
+        .update(plaidAccounts)
+        .set({
+          needsReview: true,
+          reviewReason: reason,
+          // Only stamp the FIRST detection time — repeated flags (the anomaly
+          // keeps growing on later syncs) refresh the reason, not "when".
+          reviewFlaggedAt: sql`coalesce(${plaidAccounts.reviewFlaggedAt}, now())`,
+          updatedAt: sql`now()`,
+        })
+        .where(eq(plaidAccounts.accountId, accountId));
     },
   };
 }

@@ -10,6 +10,7 @@
  */
 import { normalizePlaidTxn } from "./adapter";
 import { applyPlaidSync, type ExistingPlaidRow, type SyncPlan } from "./apply-sync";
+import { computeContentFingerprint } from "./content-fingerprint";
 import type {
   NormalizeCtx,
   NormalizeSkipReason,
@@ -17,6 +18,17 @@ import type {
   PlaidRemovedTxn,
   PlaidTxnInput,
 } from "./types";
+
+/**
+ * Review-only anomaly trigger (design: 2026-09-12 duplicate-feed
+ * investigation, "Phase 14"). NOT an identity or dedupe rule — crossing this
+ * count only flags the account for owner review; it never changes which
+ * transactions land, their direction/amount, or whether they count toward
+ * financial totals. Set deliberately far above any plausible legitimate
+ * same-day repeat purchase (the confirmed real-world defect this defends
+ * against replicated at 50x; legitimate repeats are essentially always 1-2).
+ */
+export const ANOMALY_REVIEW_THRESHOLD = 10;
 
 /** One page of `/transactions/sync`. */
 export interface PlaidSyncPage {
@@ -56,6 +68,17 @@ export interface PlaidSyncStore {
     plan: SyncPlan,
     meta: { itemId: string; cursor: string },
   ): Promise<{ inserts: number; updates: number; softDeletes: number }>;
+  /**
+   * Current live (non-removed) row count per (accountId, contentFingerprint)
+   * pair, AFTER this sync's inserts have landed — so it naturally captures
+   * both same-sync and cross-sync accumulation with one query. Anomaly
+   * detection only; never used to decide what to insert.
+   */
+  countByAccountFingerprint(
+    pairs: { accountId: string; contentFingerprint: string }[],
+  ): Promise<Map<string, number>>;
+  /** Flag an account for owner review. Never suppresses/alters transactions. */
+  flagAccountForReview(accountId: string, reason: string): Promise<void>;
 }
 
 export interface SyncDeps {
@@ -178,6 +201,29 @@ export async function runSync(deps: SyncDeps): Promise<SyncOutcome> {
   // Always persist: even a no-change incremental sync advances the cursor.
   const finalCursor = cursor ?? initialCursor ?? "";
   const applied = await store.applyPlan(userId, plan, { itemId, cursor: finalCursor });
+
+  // Anomaly detection (design: 2026-09-12, "Phase 14") — review-only. Runs
+  // AFTER the insert above, never gates or alters it. Counting live rows per
+  // (account, fingerprint) post-insert naturally covers both a same-sync
+  // cluster (many inserted together) and cross-sync accumulation (a few now,
+  // more already landed from an earlier sync) with one check.
+  if (plan.inserts.length > 0) {
+    const candidates = new Map<string, { accountId: string; contentFingerprint: string }>();
+    for (const n of plan.inserts) {
+      const contentFingerprint = computeContentFingerprint(n.raw);
+      candidates.set(`${n.accountId}:${contentFingerprint}`, { accountId: n.accountId, contentFingerprint });
+    }
+    const counts = await store.countByAccountFingerprint([...candidates.values()]);
+    for (const [key, { accountId }] of candidates) {
+      const count = counts.get(key) ?? 0;
+      if (count >= ANOMALY_REVIEW_THRESHOLD) {
+        await store.flagAccountForReview(
+          accountId,
+          `${count} transactions with identical content (differing only by Plaid's own transaction ID) — this connection's data may be unreliable until reviewed.`,
+        );
+      }
+    }
+  }
 
   return {
     cursor: finalCursor,

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { computeContentFingerprint } from "./content-fingerprint";
 import { plaidToInsert } from "./land";
 import type { PlaidNormalizedTxn } from "./types";
 
@@ -53,7 +54,14 @@ describe("plaidToInsert", () => {
       userCategorized: false,
       authorizedAt: new Date("2026-09-07T22:00:00.000Z"),
       raw: { transaction_id: "txn-1" },
+      contentFingerprint: computeContentFingerprint({ transaction_id: "txn-1" }),
     });
+  });
+
+  it("computes the content fingerprint from raw, excluding transaction_id", () => {
+    const row = plaidToInsert("u", n);
+    const rowWithDifferentId = plaidToInsert("u", { ...n, raw: { transaction_id: "txn-2" } });
+    expect(row.contentFingerprint).toBe(rowWithDifferentId.contentFingerprint);
   });
 
   it("passes a currency-mismatch row through as pending_review", () => {

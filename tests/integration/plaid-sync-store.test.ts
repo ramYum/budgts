@@ -226,3 +226,116 @@ describe("PlaidSyncStore.applyPlan (staging Postgres)", () => {
     expect(stillThere.every((r) => r.removed_at !== null)).toBe(true);
   });
 });
+
+// Design: 2026-09-12 duplicate-feed investigation, "Phase 14" — review-only
+// anomaly detection against real Postgres. These never assert that any
+// transaction was suppressed, merged, or excluded from a count; the whole
+// point of the mechanism is that financial data is untouched.
+describe("PlaidSyncStore anomaly review flagging (staging Postgres)", () => {
+  let accountId2: string;
+
+  beforeAll(async () => {
+    // A second Budgts account + plaid_accounts row under the SAME item, for
+    // cross-account isolation checks.
+    const [acct] = await client<{ id: string }[]>`
+      insert into public.accounts (user_id, name, type) values (${userId}, 'Second Account', 'checking') returning id`;
+    accountId2 = acct.id;
+    const [item] = await client<{ id: string }[]>`select id from public.plaid_items where item_id = ${ITEM_ID}`;
+    await client`
+      insert into public.plaid_accounts (user_id, plaid_item_id, plaid_account_id, account_id, link_state, name)
+      values (${userId}, ${item.id}, 'itest-pa-2', ${accountId2}, 'mapped', 'Second')`;
+  });
+
+  async function reviewState(acctId: string) {
+    const [row] = await client<
+      { needs_review: boolean; review_reason: string | null; review_flagged_at: string | null }[]
+    >`select needs_review, review_reason, review_flagged_at from public.plaid_accounts where account_id = ${acctId}`;
+    return row;
+  }
+
+  it("countByAccountFingerprint counts only live rows sharing the exact (account, fingerprint) pair", async () => {
+    const rows = [
+      txn({ sourceRef: "itest-fp-1", raw: { transaction_id: "itest-fp-1", note: "same-content" } }),
+      txn({ sourceRef: "itest-fp-2", raw: { transaction_id: "itest-fp-2", note: "same-content" } }),
+      txn({ sourceRef: "itest-fp-3", raw: { transaction_id: "itest-fp-3", note: "different-content" } }),
+    ];
+    await store.applyPlan(userId, plan({ inserts: rows }), meta("cursor-fp-1"));
+
+    const fpSame = (await txnRow("itest-fp-1")).content_fingerprint;
+    const fpDiff = (await txnRow("itest-fp-3")).content_fingerprint;
+    expect(fpSame).toBe((await txnRow("itest-fp-2")).content_fingerprint);
+    expect(fpSame).not.toBe(fpDiff);
+
+    const counts = await store.countByAccountFingerprint([
+      { accountId, contentFingerprint: fpSame },
+      { accountId, contentFingerprint: fpDiff },
+    ]);
+    expect(counts.get(`${accountId}:${fpSame}`)).toBe(2);
+    expect(counts.get(`${accountId}:${fpDiff}`)).toBe(1);
+  });
+
+  it("does not count a soft-deleted (removed) row toward the fingerprint total", async () => {
+    const rows = [
+      txn({ sourceRef: "itest-fp-rm-1", raw: { transaction_id: "itest-fp-rm-1", note: "rm-group" } }),
+      txn({ sourceRef: "itest-fp-rm-2", raw: { transaction_id: "itest-fp-rm-2", note: "rm-group" } }),
+    ];
+    await store.applyPlan(userId, plan({ inserts: rows }), meta("cursor-fp-rm-1"));
+    const removedRow = await txnRow("itest-fp-rm-1");
+    await store.applyPlan(userId, plan({ softDeletes: [removedRow.id] }), meta("cursor-fp-rm-2"));
+
+    const fp = removedRow.content_fingerprint;
+    const counts = await store.countByAccountFingerprint([{ accountId, contentFingerprint: fp }]);
+    expect(counts.get(`${accountId}:${fp}`)).toBe(1); // only the non-removed sibling counts
+  });
+
+  it("flagAccountForReview sets needs_review/reason, and preserves the FIRST flagged_at across repeats", async () => {
+    expect(await reviewState(accountId)).toMatchObject({ needs_review: false, review_reason: null });
+
+    await store.flagAccountForReview(accountId, "12 identical transactions detected");
+    const first = await reviewState(accountId);
+    expect(first.needs_review).toBe(true);
+    expect(first.review_reason).toBe("12 identical transactions detected");
+    expect(first.review_flagged_at).not.toBeNull();
+
+    // Simulate the anomaly growing on a later sync: reason updates, but the
+    // ORIGINAL detection time is preserved (coalesce), not overwritten.
+    await new Promise((r) => setTimeout(r, 10));
+    await store.flagAccountForReview(accountId, "18 identical transactions detected");
+    const second = await reviewState(accountId);
+    expect(second.review_reason).toBe("18 identical transactions detected");
+    expect(second.review_flagged_at).toBe(first.review_flagged_at);
+  });
+
+  it("flagging one account never touches another account's review state (cross-account isolation)", async () => {
+    expect(await reviewState(accountId2)).toMatchObject({ needs_review: false });
+    await store.flagAccountForReview(accountId, "flag for account 1 only");
+    expect((await reviewState(accountId2)).needs_review).toBe(false);
+  });
+
+  it("a pending transaction and its posted replacement never share a content fingerprint", async () => {
+    // Real Plaid shape: the pending row and its posted successor differ in
+    // `pending` (and typically amount precision) — verified here against
+    // actual stored fingerprints, not just reasoning about the raw shape.
+    const pendingRaw = { transaction_id: "itest-pend-1", pending: true, amount: -20.0, name: "Restaurant" };
+    const postedRaw = {
+      transaction_id: "itest-post-1",
+      pending: false,
+      pending_transaction_id: "itest-pend-1",
+      amount: -24.5, // tip added once posted — a real, documented Plaid behavior
+      name: "Restaurant",
+    };
+    await store.applyPlan(
+      userId,
+      plan({
+        inserts: [
+          txn({ sourceRef: "itest-pend-1", pending: true, raw: pendingRaw }),
+          txn({ sourceRef: "itest-post-1", pendingSourceRef: "itest-pend-1", raw: postedRaw }),
+        ],
+      }),
+      meta("cursor-pending-1"),
+    );
+    const pendingRow = await txnRow("itest-pend-1");
+    const postedRow = await txnRow("itest-post-1");
+    expect(pendingRow.content_fingerprint).not.toBe(postedRow.content_fingerprint);
+  });
+});

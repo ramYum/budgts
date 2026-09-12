@@ -8,6 +8,7 @@
  * never set here — they belong to V1.5 / the soft-delete path, not an insert.
  */
 import type { transactions } from "@/lib/db/schema";
+import { computeContentFingerprint } from "./content-fingerprint";
 import type { PlaidNormalizedTxn } from "./types";
 
 type TxnInsert = typeof transactions.$inferInsert;
@@ -38,6 +39,7 @@ export type PlaidTxnInsert = Pick<
   | "userCategorized"
   | "authorizedAt"
   | "raw"
+  | "contentFingerprint"
 >;
 
 export function plaidToInsert(userId: string, n: PlaidNormalizedTxn): PlaidTxnInsert {
@@ -65,5 +67,7 @@ export function plaidToInsert(userId: string, n: PlaidNormalizedTxn): PlaidTxnIn
     userCategorized: n.userCategorized,
     authorizedAt: n.authorizedAt ? new Date(n.authorizedAt) : null,
     raw: n.raw,
+    // Anomaly-detection aid only — see content-fingerprint.ts's docstring.
+    contentFingerprint: computeContentFingerprint(n.raw),
   };
 }

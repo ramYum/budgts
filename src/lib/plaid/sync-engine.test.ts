@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { UnknownPfcPrimaryError } from "./category-map";
+import { computeContentFingerprint } from "./content-fingerprint";
 import { type SyncPlan } from "./apply-sync";
 import {
+  ANOMALY_REVIEW_THRESHOLD,
   type PlaidSyncPage,
   type PlaidSyncStore,
   type PlaidTxnRow,
@@ -48,11 +50,18 @@ function page(over: Partial<PlaidSyncPage> = {}): PlaidSyncPage {
   return { added: [], modified: [], removed: [], next_cursor: "c1", has_more: false, ...over };
 }
 
-function fakeStore(existing: PlaidTxnRow[] = []) {
-  const calls: { findRefs: string[][]; plans: Array<{ plan: SyncPlan; meta: unknown }> } = {
-    findRefs: [],
-    plans: [],
-  };
+function fakeStore(existing: PlaidTxnRow[] = [], initialFingerprintCounts: Record<string, number> = {}) {
+  const calls: {
+    findRefs: string[][];
+    plans: Array<{ plan: SyncPlan; meta: unknown }>;
+    flags: Array<{ accountId: string; reason: string }>;
+  } = { findRefs: [], plans: [], flags: [] };
+  // Simulates "live rows per (accountId:fingerprint), post-insert" — the same
+  // semantics the real Drizzle-backed store computes with one query after the
+  // insert transaction commits. Persists across calls on the SAME fakeStore
+  // instance, so a test can call runSync twice to exercise cross-sync
+  // accumulation.
+  const fingerprintCounts = new Map(Object.entries(initialFingerprintCounts));
   const store: PlaidSyncStore = {
     async findBySourceRefs(_u, refs) {
       calls.findRefs.push(refs);
@@ -60,7 +69,22 @@ function fakeStore(existing: PlaidTxnRow[] = []) {
     },
     async applyPlan(_u, plan, meta) {
       calls.plans.push({ plan, meta });
+      for (const n of plan.inserts) {
+        const key = `${n.accountId}:${computeContentFingerprint(n.raw)}`;
+        fingerprintCounts.set(key, (fingerprintCounts.get(key) ?? 0) + 1);
+      }
       return { inserts: plan.inserts.length, updates: plan.updates.length, softDeletes: plan.softDeletes.length };
+    },
+    async countByAccountFingerprint(pairs) {
+      const out = new Map<string, number>();
+      for (const p of pairs) {
+        const key = `${p.accountId}:${p.contentFingerprint}`;
+        out.set(key, fingerprintCounts.get(key) ?? 0);
+      }
+      return out;
+    },
+    async flagAccountForReview(accountId, reason) {
+      calls.flags.push({ accountId, reason });
     },
   };
   return { store, calls };
@@ -201,5 +225,89 @@ describe("runSync", () => {
     expect(out.applied).toEqual({ inserts: 0, updates: 0, softDeletes: 0, skipped: 0 });
     expect(calls.plans).toHaveLength(1);
     expect(calls.plans[0].meta).toEqual({ itemId: "item-1", cursor: "new" });
+  });
+
+  describe("anomaly review flagging (design: 2026-09-12 — review-only, never suppresses)", () => {
+    it("does NOT flag a legitimate small repeat (2 identical-content transactions)", async () => {
+      const { store, calls } = fakeStore();
+      const out = await runSync(
+        deps({
+          store,
+          transactionsSync: async () =>
+            page({
+              added: [pTxn({ transaction_id: "r1" }), pTxn({ transaction_id: "r2" })],
+            }),
+        }),
+      );
+      expect(out.applied.inserts).toBe(2); // both land, fully counted
+      expect(calls.flags).toEqual([]);
+    });
+
+    it("flags the account when a single sync batch reaches the threshold, but still lands every row", async () => {
+      const { store, calls } = fakeStore();
+      const added = Array.from({ length: ANOMALY_REVIEW_THRESHOLD }, (_, i) => pTxn({ transaction_id: `dup-${i}` }));
+      const out = await runSync(deps({ store, transactionsSync: async () => page({ added }) }));
+
+      expect(out.applied.inserts).toBe(ANOMALY_REVIEW_THRESHOLD); // nothing suppressed
+      expect(calls.flags).toHaveLength(1);
+      expect(calls.flags[0].accountId).toBe("b-acct-1");
+      expect(calls.flags[0].reason).toContain(String(ANOMALY_REVIEW_THRESHOLD));
+    });
+
+    it("flags via CROSS-SYNC accumulation — a lone transaction now, then enough later syncs cross the threshold", async () => {
+      const { store, calls } = fakeStore();
+
+      // First sync: 1 copy. Below threshold, no flag yet.
+      const first = await runSync(
+        deps({ store, transactionsSync: async () => page({ added: [pTxn({ transaction_id: "seed" })] }) }),
+      );
+      expect(first.applied.inserts).toBe(1);
+      expect(calls.flags).toEqual([]);
+
+      // Second, separate sync call: enough MORE identical-content arrivals to
+      // cross the threshold when combined with the one already landed.
+      const more = Array.from({ length: ANOMALY_REVIEW_THRESHOLD - 1 }, (_, i) => pTxn({ transaction_id: `more-${i}` }));
+      const second = await runSync(deps({ store, transactionsSync: async () => page({ added: more }) }));
+
+      expect(second.applied.inserts).toBe(ANOMALY_REVIEW_THRESHOLD - 1); // all land — no suppression
+      expect(calls.flags).toHaveLength(1); // flagged only once the cumulative total crossed the line
+    });
+
+    it("never combines two different accounts' identical-content transactions into one anomaly", async () => {
+      const acctMap2 = new Map(accountMap);
+      acctMap2.set("plaid-acct-2", { plaidAccountRowId: "pa-2", budgtsAccountId: "b-acct-2", ignored: false });
+      const ctx2: NormalizeCtx = { ...normalizeCtx, accountMap: acctMap2 };
+
+      const { store, calls } = fakeStore();
+      const half = Math.floor(ANOMALY_REVIEW_THRESHOLD / 2);
+      const added = [
+        ...Array.from({ length: half }, (_, i) => pTxn({ transaction_id: `a-${i}` })),
+        ...Array.from({ length: half }, (_, i) => pTxn({ transaction_id: `b-${i}`, account_id: "plaid-acct-2" })),
+      ];
+      const out = await runSync(deps({ store, normalizeCtx: ctx2, transactionsSync: async () => page({ added }) }));
+
+      expect(out.applied.inserts).toBe(half * 2);
+      // Neither account alone reaches the threshold — combining them would be
+      // the exact cross-account bug this design forbids.
+      expect(calls.flags).toEqual([]);
+    });
+
+    it("flagging never changes a transaction's financial semantics (direction/amount/category unaffected)", async () => {
+      const { store, calls } = fakeStore();
+      const added = Array.from({ length: ANOMALY_REVIEW_THRESHOLD }, (_, i) =>
+        pTxn({ transaction_id: `sem-${i}`, amount: 33.5 }),
+      );
+      await runSync(deps({ store, transactionsSync: async () => page({ added }) }));
+
+      expect(calls.flags).toHaveLength(1); // confirms the anomaly path really ran
+      const inserted = calls.plans[0].plan.inserts;
+      expect(inserted).toHaveLength(ANOMALY_REVIEW_THRESHOLD);
+      for (const txn of inserted) {
+        expect(txn.direction).toBe("debit");
+        expect(txn.amount).toBe(3350);
+        expect(txn.categoryId).toBe("cat-food");
+        expect(txn.isTransfer).toBe(false);
+      }
+    });
   });
 });

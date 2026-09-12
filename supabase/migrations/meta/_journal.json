@@ -43,6 +43,13 @@
       "when": 1789163283272,
       "tag": "0005_grey_namora",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789183210391,
+      "tag": "0006_glorious_quicksilver",
+      "breakpoints": true
     }
   ]
 }

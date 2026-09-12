@@ -3,16 +3,25 @@
 import { useActionState, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Overlay } from "@/components/overlay";
-import { disconnectBank, mapAccounts, syncConnection, type PlaidActionState } from "@/server/plaid/actions";
+import {
+  clearAccountReview,
+  disconnectBank,
+  mapAccounts,
+  syncConnection,
+  type PlaidActionState,
+} from "@/server/plaid/actions";
 import { AccountMapping, type MappableAccount } from "./account-mapping";
 import { ReconnectButton } from "./reconnect-button";
 
 export type ConnectedBankAccount = {
+  rowId: string;
   plaidAccountId: string;
   name: string | null;
   mask: string | null;
   linkState: "mapped" | "ignored" | "unmapped";
   mappedAccountName: string | null;
+  needsReview: boolean;
+  reviewReason: string | null;
 };
 
 export type ConnectedBank = {
@@ -115,27 +124,30 @@ function BankCard({
 
       <ul className="space-y-1 text-sm">
         {bank.accounts.map((a, i) => (
-          <li key={i} className="flex items-center justify-between gap-2">
-            <span className="truncate text-muted">
-              {a.name ?? "Account"}
-              {a.mask ? ` ••${a.mask}` : ""}
-            </span>
-            <span className="flex shrink-0 items-center gap-2 text-xs text-muted">
-              {a.linkState === "mapped"
-                ? `→ ${a.mappedAccountName ?? "linked"}`
-                : a.linkState === "ignored"
-                  ? "not imported"
-                  : "not set up"}
-              {a.linkState === "mapped" ? (
-                <button
-                  type="button"
-                  onClick={() => setStopping(a)}
-                  className="rounded-md border border-border px-1.5 py-0.5 font-medium hover:bg-surface-2"
-                >
-                  Stop importing
-                </button>
-              ) : null}
-            </span>
+          <li key={i} className="space-y-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="truncate text-muted">
+                {a.name ?? "Account"}
+                {a.mask ? ` ••${a.mask}` : ""}
+              </span>
+              <span className="flex shrink-0 items-center gap-2 text-xs text-muted">
+                {a.linkState === "mapped"
+                  ? `→ ${a.mappedAccountName ?? "linked"}`
+                  : a.linkState === "ignored"
+                    ? "not imported"
+                    : "not set up"}
+                {a.linkState === "mapped" ? (
+                  <button
+                    type="button"
+                    onClick={() => setStopping(a)}
+                    className="rounded-md border border-border px-1.5 py-0.5 font-medium hover:bg-surface-2"
+                  >
+                    Stop importing
+                  </button>
+                ) : null}
+              </span>
+            </div>
+            {a.needsReview ? <AccountReviewNotice account={a} /> : null}
           </li>
         ))}
       </ul>
@@ -203,6 +215,38 @@ function BankCard({
         </Overlay>
       ) : null}
     </li>
+  );
+}
+
+/**
+ * Per-account anomaly-review warning (design: 2026-09-12). Never hidden by
+ * default — the reason and a "Mark reviewed" action are the ONLY way this
+ * goes away, so the owner always sees why totals might be off before
+ * dismissing it. Clearing the flag never touches any transaction row.
+ */
+function AccountReviewNotice({ account }: { account: ConnectedBankAccount }) {
+  const router = useRouter();
+  const [state, formAction, pending] = useActionState<PlaidActionState, FormData>(clearAccountReview, {});
+
+  useEffect(() => {
+    if (state.ok) router.refresh();
+  }, [state.ok, router]);
+
+  return (
+    <div className="space-y-1.5 rounded-lg border border-warn/40 bg-warn/10 p-2.5 text-xs text-warn">
+      <p>{account.reviewReason}</p>
+      {state.error ? <p className="text-neg">{state.error}</p> : null}
+      <form action={formAction}>
+        <input type="hidden" name="plaidAccountRowId" value={account.rowId} />
+        <button
+          type="submit"
+          disabled={pending}
+          className="rounded-md border border-warn/50 px-1.5 py-0.5 font-medium hover:bg-warn/10 disabled:opacity-50"
+        >
+          {pending ? "Saving…" : "Mark reviewed"}
+        </button>
+      </form>
+    </div>
   );
 }
 

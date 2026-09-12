@@ -6,6 +6,7 @@ import { ConnectedBanks, type ConnectedBank } from "./connected-banks";
 const disconnectBank = vi.fn();
 const syncConnection = vi.fn();
 const mapAccounts = vi.fn();
+const clearAccountReview = vi.fn();
 const refresh = vi.fn();
 
 vi.mock("next/navigation", () => ({
@@ -16,6 +17,7 @@ vi.mock("@/server/plaid/actions", () => ({
   disconnectBank: (...args: unknown[]) => disconnectBank(...args),
   syncConnection: (...args: unknown[]) => syncConnection(...args),
   mapAccounts: (...args: unknown[]) => mapAccounts(...args),
+  clearAccountReview: (...args: unknown[]) => clearAccountReview(...args),
 }));
 
 vi.mock("./reconnect-button", () => ({
@@ -31,18 +33,24 @@ function bank(over: Partial<ConnectedBank> = {}): ConnectedBank {
     lastSyncedAt: new Date().toISOString(),
     accounts: [
       {
+        rowId: "row-checking",
         plaidAccountId: "plaid-acc-checking",
         name: "Plaid Checking",
         mask: "0000",
         linkState: "mapped",
         mappedAccountName: "Checking",
+        needsReview: false,
+        reviewReason: null,
       },
       {
+        rowId: "row-saving",
         plaidAccountId: "plaid-acc-saving",
         name: "Plaid Saving",
         mask: "1111",
         linkState: "ignored",
         mappedAccountName: null,
+        needsReview: false,
+        reviewReason: null,
       },
     ],
     unmappedAccounts: [],
@@ -138,5 +146,55 @@ describe("ConnectedBanks", () => {
     expect(JSON.parse(fd.get("entries") as string)).toEqual([
       { plaidAccountId: "plaid-acc-checking", mode: "ignore" },
     ]);
+  });
+
+  it("shows a review warning for a flagged account and never hides it silently", () => {
+    const flagged = bank({
+      accounts: [
+        {
+          rowId: "row-checking",
+          plaidAccountId: "plaid-acc-checking",
+          name: "Plaid Checking",
+          mask: "0000",
+          linkState: "mapped",
+          mappedAccountName: "Checking",
+          needsReview: true,
+          reviewReason: "50 transactions with identical content — this connection's data may be unreliable.",
+        },
+      ],
+    });
+
+    render(<ConnectedBanks banks={[flagged]} budgtsAccounts={[{ id: "acc-1", name: "Checking" }]} />);
+
+    expect(screen.getByText(/50 transactions with identical content/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Mark reviewed" })).toBeInTheDocument();
+  });
+
+  it("clears a review flag only through the explicit Mark reviewed action", async () => {
+    clearAccountReview.mockResolvedValue({ ok: true });
+    const user = userEvent.setup();
+    const flagged = bank({
+      accounts: [
+        {
+          rowId: "row-checking",
+          plaidAccountId: "plaid-acc-checking",
+          name: "Plaid Checking",
+          mask: "0000",
+          linkState: "mapped",
+          mappedAccountName: "Checking",
+          needsReview: true,
+          reviewReason: "Suspicious repetition detected.",
+        },
+      ],
+    });
+
+    render(<ConnectedBanks banks={[flagged]} budgtsAccounts={[{ id: "acc-1", name: "Checking" }]} />);
+
+    await user.click(screen.getByRole("button", { name: "Mark reviewed" }));
+
+    expect(clearAccountReview).toHaveBeenCalledTimes(1);
+    const fd = clearAccountReview.mock.calls[0][1] as FormData;
+    expect(fd.get("plaidAccountRowId")).toBe("row-checking");
+    expect(refresh).toHaveBeenCalled();
   });
 });

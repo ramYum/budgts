@@ -42,7 +42,7 @@ describe("real Sandbox transactions", () => {
 
   it("every real transaction normalizes to a txn or a typed skip (never throws)", () => {
     const accountMap = new Map<string, AccountMapEntry>(
-      item.accounts.map((a) => [a.account_id, { plaidAccountRowId: `pa-${a.account_id}`, budgtsAccountId: "b-acct", ignored: false }]),
+      item.accounts.map((a) => [a.account_id, { plaidAccountRowId: `pa-${a.account_id}`, budgtsAccountId: "b-acct", ignored: false, signConvention: "standard" }]),
     );
     const ctx: NormalizeCtx = {
       accountMap,

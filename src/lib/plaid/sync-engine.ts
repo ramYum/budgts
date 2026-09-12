@@ -11,6 +11,7 @@
 import { normalizePlaidTxn } from "./adapter";
 import { applyPlaidSync, type ExistingPlaidRow, type SyncPlan } from "./apply-sync";
 import { computeContentFingerprint } from "./content-fingerprint";
+import { AMBIGUOUS_REVIEW_SAMPLE_THRESHOLD, detectSignConvention } from "./sign-convention";
 import type { SignEvidenceTxn } from "./sign-convention";
 import type {
   NormalizeCtx,
@@ -234,6 +235,36 @@ export async function runSync(deps: SyncDeps): Promise<SyncOutcome> {
         await store.flagAccountForReview(
           accountId,
           `${count} transactions with identical content (differing only by Plaid's own transaction ID) — this connection's data may be unreliable until reviewed.`,
+        );
+      }
+    }
+  }
+
+  // Sign-convention resolution (design: 2026-09-12 North Star Architecture
+  // §2) — runs after the insert above, for every account touched this sync
+  // that is still `unknown`. Gathers cumulative evidence (not just this
+  // sync's rows, same reasoning as the anomaly check above); an account
+  // that resolves gets every one of its pending rows finalized in one pass;
+  // an account that stays genuinely ambiguous past a larger sample gets
+  // flagged for review instead of left silently stuck forever.
+  const conventionByBudgtsAccountId = new Map(
+    [...normalizeCtx.accountMap.values()].map((a) => [a.budgtsAccountId, a.signConvention]),
+  );
+  const touchedAccountIds = new Set(plan.inserts.map((n) => n.accountId));
+  const unknownAccountIds = [...touchedAccountIds].filter(
+    (id) => conventionByBudgtsAccountId.get(id) === "unknown",
+  );
+  if (unknownAccountIds.length > 0) {
+    const evidenceByAccount = await store.getSignConventionEvidence(unknownAccountIds);
+    for (const accountId of unknownAccountIds) {
+      const evidence = evidenceByAccount.get(accountId) ?? [];
+      const verdict = detectSignConvention(evidence);
+      if (verdict === "standard" || verdict === "inverted") {
+        await store.finalizeSignConvention(accountId, verdict);
+      } else if (evidence.length >= AMBIGUOUS_REVIEW_SAMPLE_THRESHOLD) {
+        await store.flagAccountForReview(
+          accountId,
+          `Budgts can't confidently determine this account's transaction sign convention after ${evidence.length} transactions — some data may be miscategorized until reviewed.`,
         );
       }
     }

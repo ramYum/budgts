@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { UnknownPfcPrimaryError } from "./category-map";
 import { computeContentFingerprint } from "./content-fingerprint";
 import { type SyncPlan } from "./apply-sync";
+import { MIN_EVIDENCE_SAMPLES } from "./sign-convention";
 import {
   ANOMALY_REVIEW_THRESHOLD,
   type PlaidSyncPage,
@@ -15,7 +16,7 @@ import type { AccountMapEntry, NormalizeCtx, PlaidTxnInput } from "./types";
 
 const ACCT = "plaid-acct-1";
 const accountMap = new Map<string, AccountMapEntry>([
-  [ACCT, { plaidAccountRowId: "pa-1", budgtsAccountId: "b-acct-1", ignored: false }],
+  [ACCT, { plaidAccountRowId: "pa-1", budgtsAccountId: "b-acct-1", ignored: false, signConvention: "standard" }],
 ]);
 
 const normalizeCtx: NormalizeCtx = {
@@ -50,18 +51,26 @@ function page(over: Partial<PlaidSyncPage> = {}): PlaidSyncPage {
   return { added: [], modified: [], removed: [], next_cursor: "c1", has_more: false, ...over };
 }
 
-function fakeStore(existing: PlaidTxnRow[] = [], initialFingerprintCounts: Record<string, number> = {}) {
+function fakeStore(
+  existing: PlaidTxnRow[] = [],
+  initialFingerprintCounts: Record<string, number> = {},
+  initialSignEvidence: Record<string, { rawAmount: number; primary: string | null }[]> = {},
+) {
   const calls: {
     findRefs: string[][];
     plans: Array<{ plan: SyncPlan; meta: unknown }>;
     flags: Array<{ accountId: string; reason: string }>;
-  } = { findRefs: [], plans: [], flags: [] };
+    finalizedSignConventions: Array<{ accountId: string; convention: "standard" | "inverted" }>;
+  } = { findRefs: [], plans: [], flags: [], finalizedSignConventions: [] };
   // Simulates "live rows per (accountId:fingerprint), post-insert" — the same
   // semantics the real Drizzle-backed store computes with one query after the
   // insert transaction commits. Persists across calls on the SAME fakeStore
   // instance, so a test can call runSync twice to exercise cross-sync
   // accumulation.
   const fingerprintCounts = new Map(Object.entries(initialFingerprintCounts));
+  const signEvidence = new Map(
+    Object.entries(initialSignEvidence).map(([k, v]) => [k, [...v]]),
+  );
   const store: PlaidSyncStore = {
     async findBySourceRefs(_u, refs) {
       calls.findRefs.push(refs);
@@ -85,6 +94,14 @@ function fakeStore(existing: PlaidTxnRow[] = [], initialFingerprintCounts: Recor
     },
     async flagAccountForReview(accountId, reason) {
       calls.flags.push({ accountId, reason });
+    },
+    async getSignConventionEvidence(accountIds) {
+      const out = new Map<string, { rawAmount: number; primary: string | null }[]>();
+      for (const id of accountIds) out.set(id, signEvidence.get(id) ?? []);
+      return out;
+    },
+    async finalizeSignConvention(accountId, convention) {
+      calls.finalizedSignConventions.push({ accountId, convention });
     },
   };
   return { store, calls };
@@ -275,7 +292,7 @@ describe("runSync", () => {
 
     it("never combines two different accounts' identical-content transactions into one anomaly", async () => {
       const acctMap2 = new Map(accountMap);
-      acctMap2.set("plaid-acct-2", { plaidAccountRowId: "pa-2", budgtsAccountId: "b-acct-2", ignored: false });
+      acctMap2.set("plaid-acct-2", { plaidAccountRowId: "pa-2", budgtsAccountId: "b-acct-2", ignored: false, signConvention: "standard" });
       const ctx2: NormalizeCtx = { ...normalizeCtx, accountMap: acctMap2 };
 
       const { store, calls } = fakeStore();
@@ -309,5 +326,64 @@ describe("runSync", () => {
         expect(txn.isTransfer).toBe(false);
       }
     });
+  });
+
+  it("finalizes an account's sign convention once enough consistent evidence has accumulated", async () => {
+    const evidence = Array.from({ length: MIN_EVIDENCE_SAMPLES }, () => ({ rawAmount: -100, primary: "FOOD_AND_DRINK" }));
+    const unknownMap = new Map(accountMap);
+    unknownMap.set(ACCT, { ...unknownMap.get(ACCT)!, signConvention: "unknown" });
+    const { store, calls } = fakeStore([], {}, { "b-acct-1": evidence });
+
+    await runSync({
+      userId: "u1",
+      itemId: "item1",
+      initialCursor: null,
+      transactionsSync: async () => page({ added: [pTxn()], next_cursor: "c2" }),
+      store,
+      normalizeCtx: { ...normalizeCtx, accountMap: unknownMap },
+    });
+
+    expect(calls.finalizedSignConventions).toEqual([{ accountId: "b-acct-1", convention: "inverted" }]);
+  });
+
+  it("flags an account for review once ambiguous evidence exceeds the sample threshold, without finalizing it", async () => {
+    const evidence = [
+      ...Array.from({ length: 16 }, () => ({ rawAmount: 100, primary: "FOOD_AND_DRINK" })),
+      ...Array.from({ length: 15 }, () => ({ rawAmount: -100, primary: "FOOD_AND_DRINK" })),
+    ]; // 31 samples, ~52% inverted — ambiguous, past AMBIGUOUS_REVIEW_SAMPLE_THRESHOLD
+    const unknownMap = new Map(accountMap);
+    unknownMap.set(ACCT, { ...unknownMap.get(ACCT)!, signConvention: "unknown" });
+    const { store, calls } = fakeStore([], {}, { "b-acct-1": evidence });
+
+    await runSync({
+      userId: "u1",
+      itemId: "item1",
+      initialCursor: null,
+      transactionsSync: async () => page({ added: [pTxn()], next_cursor: "c2" }),
+      store,
+      normalizeCtx: { ...normalizeCtx, accountMap: unknownMap },
+    });
+
+    expect(calls.finalizedSignConventions).toEqual([]);
+    expect(calls.flags).toHaveLength(1);
+    expect(calls.flags[0].accountId).toBe("b-acct-1");
+    expect(calls.flags[0].reason).toMatch(/sign convention/i);
+  });
+
+  it("does not check sign-convention evidence for an account that already has a resolved convention", async () => {
+    // accountMap fixture already has signConvention: "standard" for ACCT
+    const { store, calls } = fakeStore([], {}, { "b-acct-1": [{ rawAmount: -999999, primary: "FOOD_AND_DRINK" }] });
+
+    await runSync({
+      userId: "u1",
+      itemId: "item1",
+      initialCursor: null,
+      transactionsSync: async () => page({ added: [pTxn()], next_cursor: "c2" }),
+      store,
+      normalizeCtx,
+    });
+
+    expect(calls.finalizedSignConventions).toEqual([]);
+    expect(calls.flags).toEqual([]);
   });
 });

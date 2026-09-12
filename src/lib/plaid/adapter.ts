@@ -45,7 +45,11 @@ export function normalizePlaidTxn(input: PlaidTxnInput, ctx: NormalizeCtx): Norm
 
   if (input.amount === 0) return skip("zero-amount");
 
-  const direction: "debit" | "credit" = input.amount > 0 ? "debit" : "credit";
+  // Plaid's documented convention: amount > 0 = outflow. An `inverted`
+  // account's feed contradicts that convention, so the outflow test flips.
+  const rawIsOutflow = input.amount > 0;
+  const isOutflow = acct.signConvention === "inverted" ? !rawIsOutflow : rawIsOutflow;
+  const direction: "debit" | "credit" = isOutflow ? "debit" : "credit";
   // `.toFixed(2)` kills float artifacts (Plaid sends clean 2dp numbers, but be safe).
   const amount = parseMoney(Math.abs(input.amount).toFixed(2));
 
@@ -81,6 +85,11 @@ export function normalizePlaidTxn(input: PlaidTxnInput, ctx: NormalizeCtx): Norm
   // rollups (qualify.countsForMonth) and surfaced for the user to deal with.
   const txnCurrency = input.iso_currency_code ?? input.unofficial_currency_code ?? null;
   const currencyMismatch = txnCurrency != null && txnCurrency !== ctx.currency;
+  const pendingReason: "currency_mismatch" | "sign_convention_unknown" | null = currencyMismatch
+    ? "currency_mismatch"
+    : acct.signConvention === "unknown"
+      ? "sign_convention_unknown"
+      : null;
 
   const txn: PlaidNormalizedTxn = {
     accountId: acct.budgtsAccountId,
@@ -95,7 +104,8 @@ export function normalizePlaidTxn(input: PlaidTxnInput, ctx: NormalizeCtx): Norm
     source: "bank",
     sourceRef: input.transaction_id,
     userCategorized: false,
-    status: currencyMismatch ? "pending_review" : "confirmed",
+    status: pendingReason ? "pending_review" : "confirmed",
+    pendingReason,
     pending: input.pending === true,
     pendingSourceRef: input.pending_transaction_id ?? null,
     merchantName: input.merchant_name ?? null,

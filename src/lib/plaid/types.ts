@@ -7,6 +7,7 @@
  * Design: docs/specs/2026-09-09-v1-plaid-transaction-ingestion-design.md §12–17.
  */
 import type { NormalizedTxn } from "@/lib/ingestion/types";
+import type { SignConvention } from "./sign-convention";
 
 /** The subset of a Plaid `Transaction` the adapter reads. */
 export interface PlaidTxnInput {
@@ -68,6 +69,8 @@ export interface PlaidNormalizedTxn extends NormalizedTxn {
   authorizedAt: string | null;
   /** The raw Plaid transaction payload, stored on `transactions.raw`. */
   raw: unknown;
+  /** Why this row landed as pending_review; null when it's confirmed immediately. */
+  pendingReason: "currency_mismatch" | "sign_convention_unknown" | null;
 }
 
 /** Why a Plaid transaction was not turned into a ledger row. */
@@ -88,6 +91,10 @@ export interface AccountMapEntry {
   budgtsAccountId: string;
   /** `link_state = 'ignored'` — skip this account's transactions entirely. */
   ignored: boolean;
+  /** Design: 2026-09-12 North Star Architecture §2 — corrects the raw Plaid
+   * sign at ingestion; `"unknown"` routes the row to pending_review instead
+   * of guessing. */
+  signConvention: SignConvention;
 }
 
 export interface NormalizeCtx {

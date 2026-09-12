@@ -33,6 +33,7 @@ export interface TxnPatch {
   occurredAt: string;
   description: string;
   status: "confirmed" | "pending_review";
+  pendingReason: "currency_mismatch" | "sign_convention_unknown" | null;
   pending: boolean;
   merchantName: string | null;
   merchantEntityId: string | null;
@@ -72,6 +73,7 @@ function patchFrom(n: PlaidNormalizedTxn, ex: ExistingPlaidRow | undefined): Txn
     occurredAt: n.occurredAt,
     description: n.description,
     status: n.status as TxnPatch["status"],
+    pendingReason: n.pendingReason,
     pending: n.pending,
     merchantName: n.merchantName,
     merchantEntityId: n.merchantEntityId,

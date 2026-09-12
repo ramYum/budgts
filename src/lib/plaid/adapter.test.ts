@@ -7,8 +7,8 @@ const CHECKING = "acct-plaid-1";
 const BUDGTS_ACCT = "budgts-acct-1";
 
 const accountMap = new Map<string, AccountMapEntry>([
-  [CHECKING, { plaidAccountRowId: "pa-row-1", budgtsAccountId: BUDGTS_ACCT, ignored: false }],
-  ["acct-ignored", { plaidAccountRowId: "pa-row-2", budgtsAccountId: "x", ignored: true }],
+  [CHECKING, { plaidAccountRowId: "pa-row-1", budgtsAccountId: BUDGTS_ACCT, ignored: false, signConvention: "standard" }],
+  ["acct-ignored", { plaidAccountRowId: "pa-row-2", budgtsAccountId: "x", ignored: true, signConvention: "standard" }],
 ]);
 
 function ctx(over: Partial<NormalizeCtx> = {}): NormalizeCtx {
@@ -225,5 +225,44 @@ describe("normalizePlaidTxn", () => {
   ])("converts amount %s -> %d minor units", (amt, minor) => {
     const t = expectTxn(normalizePlaidTxn(txn({ amount: Number(amt) }), ctx()));
     expect(t.amount).toBe(minor);
+  });
+
+  it("flips direction for an account with an inverted sign convention", () => {
+    const invertedMap = new Map(accountMap);
+    invertedMap.set(CHECKING, { ...invertedMap.get(CHECKING)!, signConvention: "inverted" });
+    // Plaid says amount > 0 = outflow; under an inverted feed that's actually inflow.
+    const input = txn({ amount: 12.34 });
+    const t = expectTxn(normalizePlaidTxn(input, ctx({ accountMap: invertedMap })));
+    expect(t.direction).toBe("credit");
+    expect(t.status).toBe("confirmed");
+    expect(t.pendingReason).toBeNull();
+  });
+
+  it("keeps direction unchanged for an account with a standard sign convention", () => {
+    const input = txn({ amount: 12.34 });
+    const t = expectTxn(normalizePlaidTxn(input, ctx()));
+    expect(t.direction).toBe("debit");
+    expect(t.pendingReason).toBeNull();
+  });
+
+  it("lands as pending_review with reason sign_convention_unknown while the account's convention is unresolved", () => {
+    const unknownMap = new Map(accountMap);
+    unknownMap.set(CHECKING, { ...unknownMap.get(CHECKING)!, signConvention: "unknown" });
+    const input = txn({ amount: 12.34 });
+    const t = expectTxn(normalizePlaidTxn(input, ctx({ accountMap: unknownMap })));
+    expect(t.status).toBe("pending_review");
+    expect(t.pendingReason).toBe("sign_convention_unknown");
+    // Direction still reflects the raw (uncorrected) mapping while unknown —
+    // finalization is responsible for flipping it later if warranted.
+    expect(t.direction).toBe("debit");
+  });
+
+  it("prefers currency_mismatch as the pending reason over sign_convention_unknown when both apply", () => {
+    const unknownMap = new Map(accountMap);
+    unknownMap.set(CHECKING, { ...unknownMap.get(CHECKING)!, signConvention: "unknown" });
+    const input = txn({ amount: 12.34, iso_currency_code: "EUR" });
+    const t = expectTxn(normalizePlaidTxn(input, ctx({ accountMap: unknownMap })));
+    expect(t.status).toBe("pending_review");
+    expect(t.pendingReason).toBe("currency_mismatch");
   });
 });

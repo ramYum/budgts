@@ -42,6 +42,7 @@ function patchToSet(patch: TxnPatch): Record<string, unknown> {
     occurredAt: new Date(patch.occurredAt),
     description: patch.description,
     status: patch.status,
+    pendingReason: patch.pendingReason,
     pending: patch.pending,
     merchantName: patch.merchantName,
     merchantEntityId: patch.merchantEntityId,

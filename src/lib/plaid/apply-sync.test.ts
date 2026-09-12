@@ -26,6 +26,7 @@ function norm(over: Partial<PlaidNormalizedTxn> = {}): PlaidNormalizedTxn {
     plaidPfcConfidence: "HIGH",
     authorizedAt: null,
     raw: {},
+    pendingReason: null,
     ...over,
   };
 }
@@ -75,6 +76,31 @@ describe("applyPlaidSync", () => {
       }),
     );
     expect(plan.updates[0].patch).toMatchObject({ amount: 5000, description: "Blue Bottle (adj)", categoryId: "cat-food", isTransfer: false });
+  });
+
+  it("modified carries pendingReason through a patch, the same way status does", () => {
+    const plan = applyPlaidSync(
+      input({
+        modified: [norm({ status: "pending_review", pendingReason: "sign_convention_unknown" })],
+        existing: new Map([["txn-1", existingRow()]]),
+      }),
+    );
+    expect(plan.updates[0].patch).toMatchObject({
+      status: "pending_review",
+      pendingReason: "sign_convention_unknown",
+    });
+  });
+
+  it("modified clears a stale pendingReason when the re-normalized row is confirmed", () => {
+    // Guards against a modified row landing with a contradictory
+    // pending_reason left over from a prior pending_review state.
+    const plan = applyPlaidSync(
+      input({
+        modified: [norm({ status: "confirmed", pendingReason: null })],
+        existing: new Map([["txn-1", existingRow()]]),
+      }),
+    );
+    expect(plan.updates[0].patch).toMatchObject({ status: "confirmed", pendingReason: null });
   });
 
   it("modified for an unknown row → recovered as an insert", () => {

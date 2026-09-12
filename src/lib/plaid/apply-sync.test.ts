@@ -40,6 +40,8 @@ function existingRow(over: Partial<ExistingPlaidRow> = {}): ExistingPlaidRow {
     note: null,
     isTransfer: false,
     removedAt: null,
+    status: "confirmed",
+    pendingReason: null,
     ...over,
   };
 }
@@ -82,13 +84,25 @@ describe("applyPlaidSync", () => {
     const plan = applyPlaidSync(
       input({
         modified: [norm({ status: "pending_review", pendingReason: "sign_convention_unknown" })],
-        existing: new Map([["txn-1", existingRow()]]),
+        existing: new Map([
+          ["txn-1", existingRow({ status: "pending_review", pendingReason: "sign_convention_unknown" })],
+        ]),
       }),
     );
     expect(plan.updates[0].patch).toMatchObject({
       status: "pending_review",
       pendingReason: "sign_convention_unknown",
     });
+  });
+
+  it("modified → never demotes an already-confirmed row into sign-unknown pending review", () => {
+    const plan = applyPlaidSync(
+      input({
+        modified: [norm({ pendingReason: "sign_convention_unknown", status: "pending_review" })],
+        existing: new Map([["txn-1", existingRow({ status: "confirmed", pendingReason: null })]]),
+      }),
+    );
+    expect(plan.updates[0].patch).toMatchObject({ status: "confirmed", pendingReason: null });
   });
 
   it("modified clears a stale pendingReason when the re-normalized row is confirmed", () => {

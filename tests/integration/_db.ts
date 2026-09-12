@@ -73,6 +73,10 @@ export async function insertBankTxn(
     direction: "debit" | "credit";
     status: "confirmed" | "pending_review";
     pendingReason: "currency_mismatch" | "sign_convention_unknown" | null;
+    plaidAccountId: string | null;
+    /** The stored Plaid payload. Sign-convention evidence reads `raw.amount`
+     *  from here — it is the immutable original, unlike `direction`. */
+    raw: unknown;
   }> = {},
 ): Promise<string> {
   const v = {
@@ -92,6 +96,8 @@ export async function insertBankTxn(
     direction: "debit" as "debit" | "credit",
     status: "confirmed" as "confirmed" | "pending_review",
     pendingReason: null as "currency_mismatch" | "sign_convention_unknown" | null,
+    plaidAccountId: null as string | null,
+    raw: null as unknown,
     ...over,
   };
   const [row] = await client<{ id: string }[]>`
@@ -99,12 +105,13 @@ export async function insertBankTxn(
       (user_id, account_id, category_id, amount, direction, occurred_at, description,
        source, source_ref, is_transfer, user_categorized, removed_at,
        merchant_entity_id, merchant_name, plaid_category_primary, plaid_category_detailed, plaid_pfc_confidence,
-       duplicate_of_id, status, pending_reason)
+       duplicate_of_id, status, pending_reason, plaid_account_id, raw)
     values
       (${userId}, ${accountId}, ${v.categoryId}, ${v.amount}, ${v.direction}, now(), ${v.description},
        'bank', ${v.sourceRef}, ${v.isTransfer}, ${v.userCategorized}, ${v.removedAt},
        ${v.merchantEntityId}, ${v.merchantName}, ${v.primary}, ${v.detailed}, ${v.confidence},
-       ${v.duplicateOfId}, ${v.status}, ${v.pendingReason})
+       ${v.duplicateOfId}, ${v.status}, ${v.pendingReason}, ${v.plaidAccountId},
+       ${v.raw === null ? null : JSON.stringify(v.raw)}::jsonb)
     returning id`;
   return row.id;
 }

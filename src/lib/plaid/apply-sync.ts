@@ -24,6 +24,8 @@ export interface ExistingPlaidRow {
   note: string | null;
   isTransfer: boolean;
   removedAt: string | null;
+  status: "confirmed" | "pending_review";
+  pendingReason: "currency_mismatch" | "sign_convention_unknown" | null;
 }
 
 /** Fields a `modified` re-normalization may change (camelCase; landing maps to columns). */
@@ -67,13 +69,23 @@ export interface SyncPlan {
 }
 
 function patchFrom(n: PlaidNormalizedTxn, ex: ExistingPlaidRow | undefined): TxnPatch {
+  // Never demote an already-confirmed row into sign-unknown pending review —
+  // this feature only gates rows landing after it ships; it must never
+  // silently pull an already-trusted, already-counted row out of the
+  // financial totals just because the account's sign_convention currently
+  // reads 'unknown' (which is also the default for every pre-existing
+  // account, not just genuinely new ones). A row that's already confirmed
+  // keeps its confirmed status regardless of what the fresh normalization
+  // computed.
+  const demotingConfirmedToSignUnknown =
+    n.pendingReason === "sign_convention_unknown" && ex?.status === "confirmed";
   const p: TxnPatch = {
     amount: n.amount,
     direction: n.direction,
     occurredAt: n.occurredAt,
     description: n.description,
-    status: n.status as TxnPatch["status"],
-    pendingReason: n.pendingReason,
+    status: demotingConfirmedToSignUnknown ? "confirmed" : (n.status as TxnPatch["status"]),
+    pendingReason: demotingConfirmedToSignUnknown ? null : n.pendingReason,
     pending: n.pending,
     merchantName: n.merchantName,
     merchantEntityId: n.merchantEntityId,

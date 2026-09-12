@@ -59,6 +59,8 @@ export interface PlaidTxnRow {
   note: string | null;
   is_transfer: boolean;
   removed_at: string | null;
+  status: "confirmed" | "pending_review";
+  pending_reason: "currency_mismatch" | "sign_convention_unknown" | null;
 }
 
 export interface PlaidSyncStore {
@@ -82,18 +84,24 @@ export interface PlaidSyncStore {
   /** Flag an account for owner review. Never suppresses/alters transactions. */
   flagAccountForReview(accountId: string, reason: string): Promise<void>;
   /**
-   * Evidence for the given Budgts account ids — every live row still
+   * Evidence for the given `plaid_accounts.id` values — every live row still
    * pending review for the sign-unknown reason, across every prior sync
-   * (cumulative, same reasoning as `countByAccountFingerprint`).
+   * (cumulative). Keyed by the specific connected Plaid account, never the
+   * Budgts account — a user can map multiple Plaid accounts to one Budgts
+   * account, and evidence from two different institutions' feeds must never
+   * be pooled together.
    */
-  getSignConventionEvidence(accountIds: string[]): Promise<Map<string, SignEvidenceTxn[]>>;
+  getSignConventionEvidence(plaidAccountRowIds: string[]): Promise<Map<string, SignEvidenceTxn[]>>;
   /**
-   * Records a resolved sign convention for one account and confirms every
+   * Records a resolved sign convention for one specific Plaid-connected
+   * account (`plaid_accounts.id`, not the Budgts account) and confirms every
    * row still pending review for the sign-unknown reason on that account —
    * flipping `direction` too when the resolved convention is `inverted`.
-   * Never touches a row pending review for a different reason.
+   * Never touches a row pending review for a different reason, and never
+   * touches a different Plaid account even if it maps to the same Budgts
+   * account.
    */
-  finalizeSignConvention(accountId: string, convention: "standard" | "inverted"): Promise<void>;
+  finalizeSignConvention(plaidAccountRowId: string, convention: "standard" | "inverted"): Promise<void>;
 }
 
 export interface SyncDeps {
@@ -207,6 +215,8 @@ export async function runSync(deps: SyncDeps): Promise<SyncOutcome> {
         note: r.note,
         isTransfer: r.is_transfer,
         removedAt: r.removed_at,
+        status: r.status,
+        pendingReason: r.pending_reason,
       },
     ]),
   );
@@ -241,31 +251,42 @@ export async function runSync(deps: SyncDeps): Promise<SyncOutcome> {
   }
 
   // Sign-convention resolution (design: 2026-09-12 North Star Architecture
-  // §2) — runs after the insert above, for every account touched this sync
-  // that is still `unknown`. Gathers cumulative evidence (not just this
+  // §2) — runs after the insert above, for every PLAID-CONNECTED account
+  // (`plaid_accounts.id`) touched this sync that is still `unknown`. Keyed on
+  // the Plaid account, never the Budgts account: two Plaid accounts can map
+  // to one Budgts account, and pooling two institutions' feeds would let a
+  // majority feed sign-invert a minority feed's correct transactions. Only
+  // the (purely advisory) review flag stays Budgts-account-scoped, since
+  // that's what the owner-facing UI hangs off. Gathers cumulative evidence (not just this
   // sync's rows, same reasoning as the anomaly check above); an account
   // that resolves gets every one of its pending rows finalized in one pass;
   // an account that stays genuinely ambiguous past a larger sample gets
   // flagged for review instead of left silently stuck forever.
-  const conventionByBudgtsAccountId = new Map(
-    [...normalizeCtx.accountMap.values()].map((a) => [a.budgtsAccountId, a.signConvention]),
+  const conventionByPlaidAccountRowId = new Map(
+    [...normalizeCtx.accountMap.values()].map((a) => [a.plaidAccountRowId, a.signConvention]),
   );
-  const touchedAccountIds = new Set(plan.inserts.map((n) => n.accountId));
-  const unknownAccountIds = [...touchedAccountIds].filter(
-    (id) => conventionByBudgtsAccountId.get(id) === "unknown",
+  const budgtsAccountIdByPlaidAccountRowId = new Map(
+    [...normalizeCtx.accountMap.values()].map((a) => [a.plaidAccountRowId, a.budgtsAccountId]),
   );
-  if (unknownAccountIds.length > 0) {
-    const evidenceByAccount = await store.getSignConventionEvidence(unknownAccountIds);
-    for (const accountId of unknownAccountIds) {
-      const evidence = evidenceByAccount.get(accountId) ?? [];
+  const touchedPlaidAccountRowIds = new Set(plan.inserts.map((n) => n.plaidAccountRowId));
+  const unknownPlaidAccountRowIds = [...touchedPlaidAccountRowIds].filter(
+    (id) => conventionByPlaidAccountRowId.get(id) === "unknown",
+  );
+  if (unknownPlaidAccountRowIds.length > 0) {
+    const evidenceByAccount = await store.getSignConventionEvidence(unknownPlaidAccountRowIds);
+    for (const plaidAccountRowId of unknownPlaidAccountRowIds) {
+      const evidence = evidenceByAccount.get(plaidAccountRowId) ?? [];
       const verdict = detectSignConvention(evidence);
       if (verdict === "standard" || verdict === "inverted") {
-        await store.finalizeSignConvention(accountId, verdict);
+        await store.finalizeSignConvention(plaidAccountRowId, verdict);
       } else if (evidence.length >= AMBIGUOUS_REVIEW_SAMPLE_THRESHOLD) {
-        await store.flagAccountForReview(
-          accountId,
-          `Budgts can't confidently determine this account's transaction sign convention after ${evidence.length} transactions — some data may be miscategorized until reviewed.`,
-        );
+        const budgtsAccountId = budgtsAccountIdByPlaidAccountRowId.get(plaidAccountRowId);
+        if (budgtsAccountId) {
+          await store.flagAccountForReview(
+            budgtsAccountId,
+            `Budgts can't confidently determine this account's transaction sign convention after ${evidence.length} transactions — some data may be miscategorized until reviewed.`,
+          );
+        }
       }
     }
   }

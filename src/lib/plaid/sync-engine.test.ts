@@ -60,7 +60,8 @@ function fakeStore(
     findRefs: string[][];
     plans: Array<{ plan: SyncPlan; meta: unknown }>;
     flags: Array<{ accountId: string; reason: string }>;
-    finalizedSignConventions: Array<{ accountId: string; convention: "standard" | "inverted" }>;
+    // keyed by `plaid_accounts.id` — the connected feed, NOT the Budgts account
+    finalizedSignConventions: Array<{ plaidAccountRowId: string; convention: "standard" | "inverted" }>;
   } = { findRefs: [], plans: [], flags: [], finalizedSignConventions: [] };
   // Simulates "live rows per (accountId:fingerprint), post-insert" — the same
   // semantics the real Drizzle-backed store computes with one query after the
@@ -95,13 +96,13 @@ function fakeStore(
     async flagAccountForReview(accountId, reason) {
       calls.flags.push({ accountId, reason });
     },
-    async getSignConventionEvidence(accountIds) {
+    async getSignConventionEvidence(plaidAccountRowIds) {
       const out = new Map<string, { rawAmount: number; primary: string | null }[]>();
-      for (const id of accountIds) out.set(id, signEvidence.get(id) ?? []);
+      for (const id of plaidAccountRowIds) out.set(id, signEvidence.get(id) ?? []);
       return out;
     },
-    async finalizeSignConvention(accountId, convention) {
-      calls.finalizedSignConventions.push({ accountId, convention });
+    async finalizeSignConvention(plaidAccountRowId, convention) {
+      calls.finalizedSignConventions.push({ plaidAccountRowId, convention });
     },
   };
   return { store, calls };
@@ -191,7 +192,7 @@ describe("runSync", () => {
 
   it("loads existing rows by source_ref + pending refs, then applies the reducer", async () => {
     const existing: PlaidTxnRow[] = [
-      { id: "row-pend", source_ref: "pend-1", user_categorized: true, category_id: "cat-user", note: null, is_transfer: false, removed_at: null },
+      { id: "row-pend", source_ref: "pend-1", user_categorized: true, category_id: "cat-user", note: null, is_transfer: false, removed_at: null, status: "confirmed", pending_reason: null },
     ];
     const { store, calls } = fakeStore(existing);
     const out = await runSync(
@@ -332,7 +333,7 @@ describe("runSync", () => {
     const evidence = Array.from({ length: MIN_EVIDENCE_SAMPLES }, () => ({ rawAmount: -100, primary: "FOOD_AND_DRINK" }));
     const unknownMap = new Map(accountMap);
     unknownMap.set(ACCT, { ...unknownMap.get(ACCT)!, signConvention: "unknown" });
-    const { store, calls } = fakeStore([], {}, { "b-acct-1": evidence });
+    const { store, calls } = fakeStore([], {}, { "pa-1": evidence });
 
     await runSync({
       userId: "u1",
@@ -343,7 +344,7 @@ describe("runSync", () => {
       normalizeCtx: { ...normalizeCtx, accountMap: unknownMap },
     });
 
-    expect(calls.finalizedSignConventions).toEqual([{ accountId: "b-acct-1", convention: "inverted" }]);
+    expect(calls.finalizedSignConventions).toEqual([{ plaidAccountRowId: "pa-1", convention: "inverted" }]);
   });
 
   it("flags an account for review once ambiguous evidence exceeds the sample threshold, without finalizing it", async () => {
@@ -353,7 +354,7 @@ describe("runSync", () => {
     ]; // 31 samples, ~52% inverted — ambiguous, past AMBIGUOUS_REVIEW_SAMPLE_THRESHOLD
     const unknownMap = new Map(accountMap);
     unknownMap.set(ACCT, { ...unknownMap.get(ACCT)!, signConvention: "unknown" });
-    const { store, calls } = fakeStore([], {}, { "b-acct-1": evidence });
+    const { store, calls } = fakeStore([], {}, { "pa-1": evidence });
 
     await runSync({
       userId: "u1",
@@ -372,7 +373,7 @@ describe("runSync", () => {
 
   it("does not check sign-convention evidence for an account that already has a resolved convention", async () => {
     // accountMap fixture already has signConvention: "standard" for ACCT
-    const { store, calls } = fakeStore([], {}, { "b-acct-1": [{ rawAmount: -999999, primary: "FOOD_AND_DRINK" }] });
+    const { store, calls } = fakeStore([], {}, { "pa-1": [{ rawAmount: -999999, primary: "FOOD_AND_DRINK" }] });
 
     await runSync({
       userId: "u1",
@@ -397,7 +398,7 @@ describe("runSync", () => {
     expect(evidence.length).toBeLessThan(AMBIGUOUS_REVIEW_SAMPLE_THRESHOLD);
     const unknownMap = new Map(accountMap);
     unknownMap.set(ACCT, { ...unknownMap.get(ACCT)!, signConvention: "unknown" });
-    const { store, calls } = fakeStore([], {}, { "b-acct-1": evidence });
+    const { store, calls } = fakeStore([], {}, { "pa-1": evidence });
 
     await runSync({
       userId: "u1",

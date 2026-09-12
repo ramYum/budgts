@@ -73,6 +73,8 @@ export function createPlaidSyncStore(db: PlaidDb): PlaidSyncStore {
               note: transactions.note,
               is_transfer: transactions.isTransfer,
               removed_at: transactions.removedAt,
+              status: transactions.status,
+              pending_reason: transactions.pendingReason,
             })
             .from(transactions)
             .where(
@@ -92,6 +94,10 @@ export function createPlaidSyncStore(db: PlaidDb): PlaidSyncStore {
         note: r.note,
         is_transfer: r.is_transfer,
         removed_at: r.removed_at ? r.removed_at.toISOString() : null,
+        status: r.status,
+        // `pending_reason` is a plain text column; the reducer's union is the
+        // only set of values this pipeline ever writes to it.
+        pending_reason: r.pending_reason as PlaidTxnRow["pending_reason"],
       }));
     },
 
@@ -189,43 +195,53 @@ export function createPlaidSyncStore(db: PlaidDb): PlaidSyncStore {
         .where(eq(plaidAccounts.accountId, accountId));
     },
 
-    async getSignConventionEvidence(accountIds) {
-      if (accountIds.length === 0) return new Map();
+    // Keyed on `plaid_accounts.id` — the specific connected feed — never the
+    // Budgts `accounts.id`. Two Plaid accounts can map to one Budgts account,
+    // and pooling their evidence is a path to sign-inverting a minority
+    // feed's genuinely-correct transactions.
+    //
+    // The raw sign is read from the stored Plaid payload (`raw->'amount'`),
+    // never reconstructed from the `direction` column: `direction` is
+    // user-editable, so deriving evidence from it would let a user's manual
+    // "correction" vote in the detector and then be silently reverted by the
+    // finalize that vote helped trigger. `raw` is the immutable original.
+    async getSignConventionEvidence(plaidAccountRowIds) {
+      if (plaidAccountRowIds.length === 0) return new Map();
       const out = new Map<string, SignEvidenceTxn[]>();
-      for (const batch of chunk(accountIds, BATCH_SIZE)) {
+      for (const batch of chunk(plaidAccountRowIds, BATCH_SIZE)) {
         const rows = await db
           .select({
-            accountId: transactions.accountId,
-            direction: transactions.direction,
+            plaidAccountId: transactions.plaidAccountId,
+            raw: transactions.raw,
             primary: transactions.plaidCategoryPrimary,
           })
           .from(transactions)
           .where(
             and(
-              inArray(transactions.accountId, batch),
+              inArray(transactions.plaidAccountId, batch),
               eq(transactions.source, "bank"),
               eq(transactions.status, "pending_review"),
               eq(transactions.pendingReason, "sign_convention_unknown"),
             ),
           );
         for (const r of rows) {
-          const list = out.get(r.accountId) ?? [];
-          // direction was derived from the raw (uncorrected) sign while this
-          // account was unknown (see adapter.ts) — reconstruct that raw sign
-          // from it: 'debit' means the raw amount was positive.
-          list.push({ rawAmount: r.direction === "debit" ? 1 : -1, primary: r.primary });
-          out.set(r.accountId, list);
+          if (!r.plaidAccountId) continue;
+          const rawObj = r.raw as { amount?: unknown } | null;
+          const rawAmount = typeof rawObj?.amount === "number" ? rawObj.amount : 0;
+          const list = out.get(r.plaidAccountId) ?? [];
+          list.push({ rawAmount, primary: r.primary });
+          out.set(r.plaidAccountId, list);
         }
       }
       return out;
     },
 
-    async finalizeSignConvention(accountId, convention) {
+    async finalizeSignConvention(plaidAccountRowId, convention) {
       await db.transaction(async (tx) => {
         await tx
           .update(plaidAccounts)
           .set({ signConvention: convention, updatedAt: sql`now()` })
-          .where(eq(plaidAccounts.accountId, accountId));
+          .where(eq(plaidAccounts.id, plaidAccountRowId));
 
         const set: Record<string, unknown> = { status: "confirmed", pendingReason: null };
         if (convention === "inverted") {
@@ -239,7 +255,7 @@ export function createPlaidSyncStore(db: PlaidDb): PlaidSyncStore {
           .set(set)
           .where(
             and(
-              eq(transactions.accountId, accountId),
+              eq(transactions.plaidAccountId, plaidAccountRowId),
               eq(transactions.source, "bank"),
               eq(transactions.status, "pending_review"),
               eq(transactions.pendingReason, "sign_convention_unknown"),

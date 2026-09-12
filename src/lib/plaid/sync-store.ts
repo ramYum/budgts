@@ -20,6 +20,21 @@ import type { PlaidSyncStore, PlaidTxnRow } from "./sync-engine";
 
 export type PlaidDb = PostgresJsDatabase<typeof schema>;
 
+// A single sync pass can aggregate thousands of touched refs/rows across many
+// Plaid pages before ever touching the DB (design: runSync collects up to
+// maxPagesPerRun pages first). Passing an unbounded array to `inArray`/a bulk
+// insert blows Drizzle's SQL-builder recursion for large-enough batches
+// (confirmed in production: ~9,000 refs threw "Maximum call stack size
+// exceeded") and risks Postgres's own hard 65,535-bound-parameter limit for
+// wide multi-row inserts. Chunk every batch operation instead.
+const BATCH_SIZE = 500;
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
+
 function patchToSet(patch: TxnPatch): Record<string, unknown> {
   const set: Record<string, unknown> = {
     amount: patch.amount,
@@ -45,25 +60,29 @@ export function createPlaidSyncStore(db: PlaidDb): PlaidSyncStore {
   return {
     async findBySourceRefs(userId: string, refs: string[]): Promise<PlaidTxnRow[]> {
       if (refs.length === 0) return [];
-      const rows = await db
-        .select({
-          id: transactions.id,
-          source_ref: transactions.sourceRef,
-          user_categorized: transactions.userCategorized,
-          category_id: transactions.categoryId,
-          note: transactions.note,
-          is_transfer: transactions.isTransfer,
-          removed_at: transactions.removedAt,
-        })
-        .from(transactions)
-        .where(
-          and(
-            eq(transactions.userId, userId),
-            eq(transactions.source, "bank"),
-            inArray(transactions.sourceRef, refs),
-          ),
-        );
-      return rows.map((r) => ({
+      const batches = await Promise.all(
+        chunk(refs, BATCH_SIZE).map((batch) =>
+          db
+            .select({
+              id: transactions.id,
+              source_ref: transactions.sourceRef,
+              user_categorized: transactions.userCategorized,
+              category_id: transactions.categoryId,
+              note: transactions.note,
+              is_transfer: transactions.isTransfer,
+              removed_at: transactions.removedAt,
+            })
+            .from(transactions)
+            .where(
+              and(
+                eq(transactions.userId, userId),
+                eq(transactions.source, "bank"),
+                inArray(transactions.sourceRef, batch),
+              ),
+            ),
+        ),
+      );
+      return batches.flat().map((r) => ({
         id: r.id,
         source_ref: r.source_ref ?? "",
         user_categorized: r.user_categorized,
@@ -81,13 +100,13 @@ export function createPlaidSyncStore(db: PlaidDb): PlaidSyncStore {
         // partial unique index (user_id,'bank',source_ref) is the guard;
         // `returning` tells us how many rows were actually new.
         let inserts = 0;
-        if (plan.inserts.length > 0) {
+        for (const batch of chunk(plan.inserts, BATCH_SIZE)) {
           const landed = await tx
             .insert(transactions)
-            .values(plan.inserts.map((n) => plaidToInsert(userId, n)))
+            .values(batch.map((n) => plaidToInsert(userId, n)))
             .onConflictDoNothing()
             .returning({ id: transactions.id });
-          inserts = landed.length;
+          inserts += landed.length;
         }
 
         for (const u of plan.updates) {
@@ -97,14 +116,14 @@ export function createPlaidSyncStore(db: PlaidDb): PlaidSyncStore {
             .where(and(eq(transactions.id, u.id), eq(transactions.userId, userId)));
         }
 
-        if (plan.softDeletes.length > 0) {
+        for (const batch of chunk(plan.softDeletes, BATCH_SIZE)) {
           await tx
             .update(transactions)
             .set({ removedAt: sql`now()` })
             .where(
               and(
                 eq(transactions.userId, userId),
-                inArray(transactions.id, plan.softDeletes),
+                inArray(transactions.id, batch),
                 isNull(transactions.removedAt),
               ),
             );

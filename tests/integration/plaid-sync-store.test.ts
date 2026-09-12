@@ -199,4 +199,30 @@ describe("PlaidSyncStore.applyPlan (staging Postgres)", () => {
       await cleanupUser(other);
     }
   });
+
+  // Regression: production hit "RangeError: Maximum call stack size exceeded"
+  // from Drizzle's inArray() query builder when a single sync pass aggregated
+  // ~9,000 touched refs before ever calling the DB (a Plaid institution with
+  // heavy pending/posted churn). BATCH_SIZE is 500, so 1,200 rows forces 3
+  // batches through insert, findBySourceRefs, and soft-delete alike.
+  const BIG_N = 1200;
+
+  it("handles a batch far larger than one Plaid page without crashing (insert, find, soft-delete)", async () => {
+    const bigRefs = Array.from({ length: BIG_N }, (_, i) => `itest-big-${i}`);
+    const bigInserts = bigRefs.map((sourceRef, i) => txn({ sourceRef, amount: 100 + i }));
+
+    const insertRes = await store.applyPlan(userId, plan({ inserts: bigInserts }), meta("cursor-big-1"));
+    expect(insertRes.inserts).toBe(BIG_N);
+    expect(await txnCount()).toBeGreaterThanOrEqual(BIG_N);
+
+    const found = await store.findBySourceRefs(userId, [...bigRefs, "does-not-exist"]);
+    expect(found).toHaveLength(BIG_N);
+
+    const ids = found.map((r) => r.id);
+    const deleteRes = await store.applyPlan(userId, plan({ softDeletes: ids }), meta("cursor-big-2"));
+    expect(deleteRes.softDeletes).toBe(BIG_N);
+
+    const stillThere = await store.findBySourceRefs(userId, bigRefs);
+    expect(stillThere.every((r) => r.removed_at !== null)).toBe(true);
+  });
 });

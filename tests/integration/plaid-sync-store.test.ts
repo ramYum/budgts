@@ -44,6 +44,7 @@ function txn(over: Partial<PlaidNormalizedTxn> = {}): PlaidNormalizedTxn {
     authorizedAt: "2026-09-07T22:00:00.000Z",
     raw: { synthetic: true, transaction_id: "itest-txn-1" },
     pendingReason: null,
+    eventRole: null,
     ...over,
   };
 }
@@ -149,6 +150,7 @@ describe("PlaidSyncStore.applyPlan (staging Postgres)", () => {
               categoryId: entCat,
               isTransfer: false,
               pendingReason: "sign_convention_unknown",
+              eventRole: "CARD_PAYMENT",
             },
           },
         ],
@@ -161,6 +163,9 @@ describe("PlaidSyncStore.applyPlan (staging Postgres)", () => {
     expect(after.category_id).toBe(entCat);
     expect(after.authorized_at).toBeNull();
     expect(after.pending_reason).toBe("sign_convention_unknown");
+    // event_role must round-trip through the real Postgres UPDATE, not just
+    // survive in the in-memory patch object.
+    expect(after.event_role).toBe("CARD_PAYMENT");
   });
 
   it("soft-deletes by stamping removed_at, and never twice", async () => {

@@ -52,6 +52,7 @@ function patchToSet(patch: TxnPatch): Record<string, unknown> {
     plaidPfcConfidence: patch.plaidPfcConfidence,
     authorizedAt: patch.authorizedAt ? new Date(patch.authorizedAt) : null,
     raw: patch.raw,
+    eventRole: patch.eventRole,
   };
   if ("categoryId" in patch) set.categoryId = patch.categoryId;
   if ("isTransfer" in patch) set.isTransfer = patch.isTransfer;

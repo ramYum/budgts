@@ -4,6 +4,7 @@ import {
   categoryKey,
   resolvePlaidCategory,
   resolveTrustedDetailed,
+  suggestPlaidCategory,
   TRUSTED_DETAILED_KEYS,
   UnknownPfcPrimaryError,
 } from "./category-map";
@@ -116,5 +117,25 @@ describe("resolveTrustedDetailed", () => {
     for (const key of TRUSTED_DETAILED_KEYS) {
       expect(resolveTrustedDetailed(key, lookup)).not.toBeNull();
     }
+  });
+});
+
+describe("suggestPlaidCategory", () => {
+  it("suggests a mapped primary even at LOW/UNKNOWN confidence", () => {
+    expect(suggestPlaidCategory("FOOD_AND_DRINK", null, lookup)).toBe("cat-food");
+    expect(suggestPlaidCategory("ENTERTAINMENT", null, lookup)).toBe("cat-ent");
+  });
+
+  it("still returns null for primaries that map to null regardless of confidence", () => {
+    expect(suggestPlaidCategory("GENERAL_MERCHANDISE", null, lookup)).toBeNull();
+    expect(suggestPlaidCategory("TRANSFER_IN", null, lookup)).toBeNull();
+  });
+
+  it("returns null instead of throwing for an unrecognised primary", () => {
+    expect(suggestPlaidCategory("CRYPTO_MOONSHOTS", null, lookup)).toBeNull();
+  });
+
+  it("returns null when primary is null", () => {
+    expect(suggestPlaidCategory(null, null, lookup)).toBeNull();
   });
 });

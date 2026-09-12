@@ -12,6 +12,7 @@ import { STANDARD_CATEGORIES } from "@/lib/categories/standard";
 import { ConnectBank } from "@/components/plaid/connect-bank";
 import { NeedsCategory, type NeedsCategoryItem } from "@/components/plaid/needs-category";
 import { nudgeRefresh } from "@/server/plaid/service";
+import { buildCategoryLookup, suggestPlaidCategory } from "@/lib/plaid/category-map";
 
 export const metadata: Metadata = { title: "Transactions" };
 
@@ -79,33 +80,40 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
   const categoryOpts = (categories ?? []) as CategoryOption[];
 
   // Imported bank rows with no category — the one prompt V1 shows (design §3).
-  // All-time, newest first: it's a to-do list, not a month view.
+  // All-time, newest first: it's a to-do list, not a month view. Grouped by
+  // merchant in the component, so this cap is against raw rows, not the
+  // (much smaller) number of unique merchants a person actually has to act on.
   let needsCategory: NeedsCategoryItem[] = [];
   if (plaidOn) {
     const { data: nc } = await supabase
       .from("transactions")
       .select(
-        "id, description, merchant_name, amount, direction, occurred_at, pending, plaid_category_primary, account:accounts(name)",
+        "id, description, merchant_name, merchant_entity_id, amount, direction, occurred_at, pending, plaid_category_primary, plaid_category_detailed, account:accounts(name)",
       )
       .eq("source", "bank")
       .is("category_id", null)
       .is("removed_at", null)
       .eq("is_transfer", false)
       .order("occurred_at", { ascending: false })
-      .limit(50);
+      .limit(500);
+    const categoryLookup = buildCategoryLookup(categoryOpts.map((c) => [c.name, c.id] as const));
     needsCategory = (nc ?? []).map((r) => {
       const acc = r.account as { name: string | null } | { name: string | null }[] | null;
       const accountName = Array.isArray(acc) ? (acc[0]?.name ?? null) : (acc?.name ?? null);
+      const primary = (r.plaid_category_primary as string | null) ?? null;
+      const detailed = (r.plaid_category_detailed as string | null) ?? null;
       return {
         id: r.id as string,
         description: (r.description as string | null) ?? "",
         merchant_name: (r.merchant_name as string | null) ?? null,
+        merchant_entity_id: (r.merchant_entity_id as string | null) ?? null,
         amount: r.amount as number,
         direction: r.direction as "debit" | "credit",
         occurred_at: r.occurred_at as string,
         account_name: accountName,
         pending: r.pending as boolean,
-        plaid_category_primary: (r.plaid_category_primary as string | null) ?? null,
+        plaid_category_primary: primary,
+        suggested_category_id: suggestPlaidCategory(primary, detailed, categoryLookup),
       };
     });
   }

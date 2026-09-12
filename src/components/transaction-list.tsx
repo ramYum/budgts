@@ -35,6 +35,16 @@ function dayLabel(iso: string) {
   });
 }
 
+function fullDateLabel(iso: string) {
+  return new Date(iso).toLocaleDateString(undefined, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
 export function TransactionList({
   items,
   currency,
@@ -47,6 +57,7 @@ export function TransactionList({
   categories: CategoryOption[];
 }) {
   const router = useRouter();
+  const [viewing, setViewing] = useState<TxnListItem | null>(null);
   const [editing, setEditing] = useState<TxnListItem | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -91,44 +102,78 @@ export function TransactionList({
           <section key={day} className="space-y-1 px-4 py-3">
             <h3 className="text-xs font-medium text-muted">{dayLabel(day)}</h3>
             <ul className="divide-y divide-hairline">
-              {rows.map((it) => (
-              <li key={it.id} className="flex items-center gap-3 py-2">
-                <span
-                  className="h-2 w-2 shrink-0 rounded-full"
-                  style={{
-                    background: it.is_transfer
-                      ? "var(--pine-4)"
-                      : (it.category?.color ?? "var(--grey-5)"),
-                  }}
-                  aria-hidden
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm">{it.description || it.category?.name || "Transaction"}</p>
-                  <p className="truncate text-xs text-muted">
-                    {it.is_transfer ? "Transfer" : (it.category?.name ?? "Uncategorized")} · {it.account?.name}
-                  </p>
-                </div>
-                <span
-                  className={`shrink-0 text-sm tabular-nums ${
-                    it.direction === "credit" ? "font-medium text-pos" : ""
-                  }`}
-                >
-                  {it.direction === "debit" ? "−" : "+"}
-                  {formatMoney(it.amount, currency)}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setEditing(it)}
-                  className="shrink-0 text-xs text-muted hover:text-text"
-                >
-                  Edit
-                </button>
-              </li>
-              ))}
+              {rows.map((it) => {
+                const pillColor = it.is_transfer ? "var(--pine-4)" : (it.category?.color ?? "var(--grey-5)");
+                return (
+                <li key={it.id} className="py-2">
+                  <button
+                    type="button"
+                    onClick={() => setViewing(it)}
+                    className="block w-full truncate text-left text-sm hover:text-pine"
+                  >
+                    {it.description || it.category?.name || "Transaction"}
+                  </button>
+                  <div className="mt-1 flex items-center justify-between gap-2">
+                    <span className="inline-flex min-w-0 max-w-[65%] items-center gap-1.5 truncate rounded-full bg-surface-2 px-2 py-0.5 text-xs text-muted">
+                      <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: pillColor }} aria-hidden />
+                      <span className="truncate">
+                        {it.is_transfer ? "Transfer" : (it.category?.name ?? "Uncategorized")}
+                      </span>
+                    </span>
+                    <span
+                      className={`shrink-0 text-sm tabular-nums ${
+                        it.direction === "credit" ? "font-medium text-pos" : ""
+                      }`}
+                    >
+                      {it.direction === "debit" ? "−" : "+"}
+                      {formatMoney(it.amount, currency)}
+                    </span>
+                  </div>
+                </li>
+                );
+              })}
             </ul>
           </section>
         ))}
       </div>
+
+      {viewing ? (
+        <Overlay title="Transaction" onClose={() => setViewing(null)}>
+          <p className="text-sm">{viewing.description || viewing.category?.name || "Transaction"}</p>
+          {viewing.note ? <p className="mt-1 text-sm text-muted">{viewing.note}</p> : null}
+          <dl className="mt-3 space-y-1.5 text-sm">
+            <div className="flex justify-between gap-3">
+              <dt className="text-muted">Date</dt>
+              <dd className="text-right">{fullDateLabel(viewing.occurred_at)}</dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-muted">Category</dt>
+              <dd className="text-right">{viewing.is_transfer ? "Transfer" : (viewing.category?.name ?? "Uncategorized")}</dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-muted">Account</dt>
+              <dd className="text-right">{viewing.account?.name}</dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-muted">Amount</dt>
+              <dd className={`text-right tabular-nums ${viewing.direction === "credit" ? "font-medium text-pos" : ""}`}>
+                {viewing.direction === "debit" ? "−" : "+"}
+                {formatMoney(viewing.amount, currency)}
+              </dd>
+            </div>
+          </dl>
+          <button
+            type="button"
+            onClick={() => {
+              setEditing(viewing);
+              setViewing(null);
+            }}
+            className="mt-4 w-full rounded-lg border border-border px-3 py-2 text-sm font-medium hover:bg-surface-2"
+          >
+            Edit
+          </button>
+        </Overlay>
+      ) : null}
 
       {editing ? (
         <Overlay

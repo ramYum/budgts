@@ -31,12 +31,14 @@ function item(over: Partial<NeedsCategoryItem> = {}): NeedsCategoryItem {
     id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
     description: "SQ *BLUE BOTTLE",
     merchant_name: "Blue Bottle Coffee",
+    merchant_entity_id: "ent-blue-bottle",
     amount: 650,
     direction: "debit",
     occurred_at: "2026-09-07T12:00:00.000Z",
     account_name: "Checking",
     pending: false,
     plaid_category_primary: null,
+    suggested_category_id: null,
     ...over,
   };
 }
@@ -51,13 +53,41 @@ describe("NeedsCategory", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("categorises a row with an existing category and removes it from the list", async () => {
+  it("groups transactions from the same merchant into one card", () => {
+    render(
+      <NeedsCategory
+        items={[
+          item({ id: "a" }),
+          item({ id: "b" }),
+          item({ id: "c", merchant_entity_id: "ent-other", merchant_name: "Other Shop" }),
+        ]}
+        categories={categories}
+        missingStandard={[]}
+        currency="USD"
+      />,
+    );
+
+    expect(screen.getByText("Blue Bottle Coffee")).toBeInTheDocument();
+    expect(screen.getByText(/2 txns/)).toBeInTheDocument();
+    expect(screen.getByText("Other Shop")).toBeInTheDocument();
+    expect(screen.getByText(/^1 txn/)).toBeInTheDocument();
+  });
+
+  it("categorizes a merchant group using its most recent transaction as the anchor, and removes the card", async () => {
     categorizeBankTransaction.mockResolvedValue({ ok: true });
     const user = userEvent.setup();
 
-    render(<NeedsCategory items={[item()]} categories={categories} missingStandard={[]} currency="USD" />);
-
-    expect(screen.getByText("Blue Bottle Coffee")).toBeInTheDocument();
+    render(
+      <NeedsCategory
+        items={[
+          item({ id: "old", occurred_at: "2026-09-01T00:00:00.000Z" }),
+          item({ id: "new", occurred_at: "2026-09-07T00:00:00.000Z" }),
+        ]}
+        categories={categories}
+        missingStandard={[]}
+        currency="USD"
+      />,
+    );
 
     await user.selectOptions(
       screen.getByRole("combobox", { name: /Category for Blue Bottle Coffee/ }),
@@ -66,11 +96,47 @@ describe("NeedsCategory", () => {
 
     expect(categorizeBankTransaction).toHaveBeenCalledTimes(1);
     const fd = categorizeBankTransaction.mock.calls[0][1] as FormData;
-    expect(fd.get("transactionId")).toBe("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+    expect(fd.get("transactionId")).toBe("new");
     expect(fd.get("categoryId")).toBe("11111111-1111-1111-1111-111111111111");
     expect(fd.get("standardCategoryName")).toBeNull();
 
     expect(screen.queryByText("Blue Bottle Coffee")).not.toBeInTheDocument();
+  });
+
+  it("offers a one-tap suggested chip and applies it on click", async () => {
+    categorizeBankTransaction.mockResolvedValue({ ok: true });
+    const user = userEvent.setup();
+
+    render(
+      <NeedsCategory
+        items={[item({ suggested_category_id: "11111111-1111-1111-1111-111111111111" })]}
+        categories={categories}
+        missingStandard={[]}
+        currency="USD"
+      />,
+    );
+
+    const chip = screen.getByRole("button", { name: "Groceries" });
+    await user.click(chip);
+
+    expect(categorizeBankTransaction).toHaveBeenCalledTimes(1);
+    const fd = categorizeBankTransaction.mock.calls[0][1] as FormData;
+    expect(fd.get("categoryId")).toBe("11111111-1111-1111-1111-111111111111");
+    expect(screen.queryByText("Blue Bottle Coffee")).not.toBeInTheDocument();
+  });
+
+  it("does not show a suggested chip when there is no confident suggestion", () => {
+    render(
+      <NeedsCategory
+        items={[item({ suggested_category_id: null, plaid_category_primary: "FOOD_AND_DRINK" })]}
+        categories={categories}
+        missingStandard={[]}
+        currency="USD"
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Groceries" })).not.toBeInTheDocument();
+    expect(screen.getByText("Plaid suggests: Food and drink")).toBeInTheDocument();
   });
 
   it("adds a standard category (sends standardCategoryName, not categoryId)", async () => {
@@ -96,7 +162,7 @@ describe("NeedsCategory", () => {
     expect(fd.get("categoryId")).toBeNull();
   });
 
-  it("restores the row and shows the error when the action fails", async () => {
+  it("restores the card and shows the error when the action fails", async () => {
     categorizeBankTransaction.mockResolvedValue({ error: "Could not save the category. Try again." });
     const user = userEvent.setup();
 
@@ -111,10 +177,31 @@ describe("NeedsCategory", () => {
     expect(screen.getByText("Blue Bottle Coffee")).toBeInTheDocument();
   });
 
-  it("shows the transaction date, pending state, and Plaid's suggested category", () => {
+  it("expands to show every transaction in a multi-transaction group, in full", async () => {
+    const user = userEvent.setup();
     render(
       <NeedsCategory
-        items={[item({ occurred_at: "2026-09-07T12:00:00.000Z", pending: true, plaid_category_primary: "FOOD_AND_DRINK" })]}
+        items={[
+          item({ id: "a", description: "A long uncut merchant description that used to get truncated" }),
+          item({ id: "b", description: "Second visit" }),
+        ]}
+        categories={categories}
+        missingStandard={[]}
+        currency="USD"
+      />,
+    );
+
+    await user.click(screen.getByText("Show 2 transactions"));
+    expect(
+      screen.getByText("A long uncut merchant description that used to get truncated"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Second visit")).toBeInTheDocument();
+  });
+
+  it("shows the pending state for a single-transaction group", () => {
+    render(
+      <NeedsCategory
+        items={[item({ occurred_at: "2026-09-07T12:00:00.000Z", pending: true })]}
         categories={categories}
         missingStandard={[]}
         currency="USD"
@@ -123,13 +210,12 @@ describe("NeedsCategory", () => {
 
     expect(screen.getByText(/Sep 7/)).toBeInTheDocument();
     expect(screen.getByText(/Pending/)).toBeInTheDocument();
-    expect(screen.getByText("Plaid suggests: Food and drink")).toBeInTheDocument();
   });
 
   it("always hints that a new category can be created", () => {
     render(<NeedsCategory items={[item()]} categories={categories} missingStandard={[]} currency="USD" />);
 
-    expect(screen.getByText(/Don't see the category you want\?/)).toBeInTheDocument();
+    expect(screen.getAllByText(/New category…/).length).toBeGreaterThan(0);
   });
 
   it("offers to restore a missing default category alongside the new-category option", () => {
@@ -147,7 +233,7 @@ describe("NeedsCategory", () => {
     expect(within(combobox).getByText("+ New category…")).toBeInTheDocument();
   });
 
-  it("creates a new category inline and uses it to categorize the transaction", async () => {
+  it("creates a new category inline and uses it to categorize the merchant group", async () => {
     createCategory.mockResolvedValue({ ok: true, id: "new-cat-id", name: "Pets" });
     categorizeBankTransaction.mockResolvedValue({ ok: true });
     const user = userEvent.setup();

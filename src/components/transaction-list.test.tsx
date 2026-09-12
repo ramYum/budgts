@@ -42,7 +42,35 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("TransactionList delete", () => {
+describe("TransactionList", () => {
+  it("opens a detail popup with the full description when the row title is clicked", async () => {
+    const user = userEvent.setup();
+    render(
+      <TransactionList
+        items={[item({ description: "A long uncut description that used to get truncated", note: "extra note" })]}
+        {...props}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "A long uncut description that used to get truncated" }),
+    );
+
+    const dialog = screen.getByRole("dialog", { name: "Transaction" });
+    expect(dialog).toBeInTheDocument();
+    expect(screen.getByText("extra note")).toBeInTheDocument();
+  });
+
+  it("moves from the detail popup into the edit form via its Edit button", async () => {
+    const user = userEvent.setup();
+    render(<TransactionList items={[item()]} {...props} />);
+
+    await user.click(screen.getByRole("button", { name: "Groceries" }));
+    await user.click(screen.getByRole("button", { name: "Edit" }));
+
+    expect(screen.getByRole("dialog", { name: "Edit transaction" })).toBeInTheDocument();
+  });
+
   it("surfaces the error and keeps the editor open when a delete fails", async () => {
     deleteTransaction.mockResolvedValue({ error: "That transaction no longer exists." });
     vi.stubGlobal("confirm", () => true);
@@ -50,6 +78,7 @@ describe("TransactionList delete", () => {
 
     render(<TransactionList items={[item()]} {...props} />);
 
+    await user.click(screen.getByRole("button", { name: "Groceries" }));
     await user.click(screen.getByRole("button", { name: "Edit" }));
     await user.click(screen.getByRole("button", { name: "Delete transaction" }));
 

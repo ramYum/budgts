@@ -41,15 +41,18 @@ test("sign in, onboard, add a transaction, edit it, delete it", async ({ page })
     expect(body).toContain("date,description,note,amount");
     expect(body).toContain("Groceries test");
 
-    // Edit it.
-    await page.getByRole("button", { name: "Edit" }).click();
+    // Open the detail popup, then edit from there.
+    await page.getByRole("button", { name: "Groceries test" }).click();
+    await expect(page.getByRole("dialog", { name: "Transaction" })).toBeVisible();
+    await page.getByRole("button", { name: "Edit", exact: true }).click();
     await page.getByLabel("Description").fill("Groceries edited");
     await page.getByRole("button", { name: "Save changes" }).click();
     await expect(page.getByText("Groceries edited")).toBeVisible();
 
     // Delete it.
     page.on("dialog", (d) => d.accept());
-    await page.getByRole("button", { name: "Edit" }).click();
+    await page.getByRole("button", { name: "Groceries edited" }).click();
+    await page.getByRole("button", { name: "Edit", exact: true }).click();
     await page.getByRole("button", { name: "Delete transaction" }).click();
     await expect(page.getByText("No transactions this month yet.")).toBeVisible();
   } finally {

@@ -129,3 +129,24 @@ export function resolveTrustedDetailed(detailed: string | null, lookup: Category
 
 /** The `detailed` subtypes {@link resolveTrustedDetailed} trusts — exported for tests. */
 export const TRUSTED_DETAILED_KEYS: readonly string[] = Object.keys(TRUSTED_DETAILED);
+
+/**
+ * A **suggestion**, not a resolution: reuses {@link resolvePlaidCategory}'s own
+ * mapping table but ignores `confidence_level` entirely, so it can surface a
+ * category for a merchant Plaid flagged too weakly to auto-apply. Callers MUST
+ * still require the user to confirm — this never writes a category on its own.
+ * Returns `null` for a primary the table doesn't map to any category (e.g.
+ * `GENERAL_MERCHANDISE`) — those stay genuinely ambiguous regardless of
+ * confidence, so no suggestion is better than a guess.
+ */
+export function suggestPlaidCategory(
+  primary: string | null,
+  detailed: string | null,
+  lookup: CategoryLookup,
+): string | null {
+  try {
+    return resolvePlaidCategory(primary, detailed, null, lookup);
+  } catch {
+    return null;
+  }
+}

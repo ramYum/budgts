@@ -68,14 +68,28 @@ describe("MERCHANT_KNOWLEDGE table", () => {
       "affirm",
       "delta",
       "wm",
+      // financial institutions that sell more than one product line (bank +
+      // insurance + investments) — a transaction there could be any of them
+      "usaa",
+      "nationwide",
+      "aaa",
+      // bare tokens too short/generic to safely exact-match (collide with
+      // unrelated merchants, place names, or common words)
+      "hartford",
+      "metro",
+      "rogers",
+      "bt",
+      "three",
+      "sky",
+      "ee",
     ]) {
       expect(MERCHANT_KNOWLEDGE.has(banned), banned).toBe(false);
     }
   });
 
   it("stays within a sane size (strict inclusion bar, not a catch-all)", () => {
-    expect(MERCHANT_KNOWLEDGE.size).toBeGreaterThan(60);
-    expect(MERCHANT_KNOWLEDGE.size).toBeLessThan(200);
+    expect(MERCHANT_KNOWLEDGE.size).toBeGreaterThan(300);
+    expect(MERCHANT_KNOWLEDGE.size).toBeLessThan(450);
   });
 });
 

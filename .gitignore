@@ -59,6 +59,9 @@ next-env.d.ts
 # claude code local settings
 .claude/settings.local.json
 
+# git worktrees (isolated agent workspaces)
+/.worktrees/
+
 # stale/scratch brand generator output
 /brand/out*/
 

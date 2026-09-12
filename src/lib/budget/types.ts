@@ -10,6 +10,12 @@ export interface BudgetTxn {
   occurredAt: Date;
   status: TxnStatus;
   isTransfer: boolean;
+  /**
+   * Set only by a one-time, human-reviewed remediation (design: 2026-09-12
+   * Phase 15) — never by sync, never automatically. Non-null means "a
+   * confirmed duplicate of another row"; countsForMonth excludes it.
+   */
+  duplicateOfId: string | null;
 }
 
 export interface BudgetCategory {

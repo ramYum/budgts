@@ -31,7 +31,10 @@ export default async function DashboardLayout({ children }: LayoutProps<"/">) {
       .eq("source", "bank")
       .is("category_id", null)
       .is("removed_at", null)
-      .eq("is_transfer", false);
+      .eq("is_transfer", false)
+      // A confirmed duplicate (design: 2026-09-12 Phase 15) is never real work
+      // to do — exclude it, matching the query in transactions/page.tsx.
+      .is("duplicate_of_id", null);
     needsCategoryCount = count ?? 0;
   }
 

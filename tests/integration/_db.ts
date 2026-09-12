@@ -69,6 +69,7 @@ export async function insertBankTxn(
     detailed: string | null;
     confidence: string | null;
     amount: number;
+    duplicateOfId: string | null;
   }> = {},
 ): Promise<string> {
   const v = {
@@ -84,17 +85,20 @@ export async function insertBankTxn(
     detailed: null as string | null,
     confidence: null as string | null,
     amount: 1234,
+    duplicateOfId: null as string | null,
     ...over,
   };
   const [row] = await client<{ id: string }[]>`
     insert into public.transactions
       (user_id, account_id, category_id, amount, direction, occurred_at, description,
        source, source_ref, is_transfer, user_categorized, removed_at,
-       merchant_entity_id, merchant_name, plaid_category_primary, plaid_category_detailed, plaid_pfc_confidence)
+       merchant_entity_id, merchant_name, plaid_category_primary, plaid_category_detailed, plaid_pfc_confidence,
+       duplicate_of_id)
     values
       (${userId}, ${accountId}, ${v.categoryId}, ${v.amount}, 'debit', now(), ${v.description},
        'bank', ${v.sourceRef}, ${v.isTransfer}, ${v.userCategorized}, ${v.removedAt},
-       ${v.merchantEntityId}, ${v.merchantName}, ${v.primary}, ${v.detailed}, ${v.confidence})
+       ${v.merchantEntityId}, ${v.merchantName}, ${v.primary}, ${v.detailed}, ${v.confidence},
+       ${v.duplicateOfId})
     returning id`;
   return row.id;
 }

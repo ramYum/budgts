@@ -1,0 +1,2 @@
+ALTER TABLE "transactions" ADD COLUMN "duplicate_of_id" uuid;--> statement-breakpoint
+ALTER TABLE "transactions" ADD CONSTRAINT "transactions_duplicate_of_id_transactions_id_fk" FOREIGN KEY ("duplicate_of_id") REFERENCES "public"."transactions"("id") ON DELETE set null ON UPDATE no action;

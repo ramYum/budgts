@@ -94,6 +94,10 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
       .is("category_id", null)
       .is("removed_at", null)
       .eq("is_transfer", false)
+      // A confirmed duplicate (design: 2026-09-12 Phase 15) is never real work
+      // to do — it doesn't route through countsForMonth, so it must be
+      // excluded here explicitly.
+      .is("duplicate_of_id", null)
       .order("occurred_at", { ascending: false })
       .limit(500);
     const categoryLookup = buildCategoryLookup(categoryOpts.map((c) => [c.name, c.id] as const));

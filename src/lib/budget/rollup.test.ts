@@ -15,6 +15,7 @@ function txn(over: Partial<BudgetTxn>): BudgetTxn {
     occurredAt: new Date("2026-09-10T12:00:00Z"),
     status: "confirmed",
     isTransfer: false,
+    duplicateOfId: null,
     ...over,
   };
 }
@@ -45,6 +46,22 @@ describe("rollup", () => {
       "2026-09",
     );
     expect(r.spend).toBe(3000);
+  });
+
+  it("excludes a confirmed-duplicate row from spend and income (design: 2026-09-12 Phase 15)", () => {
+    const r = rollup(
+      [
+        txn({ amount: 3000 }),
+        txn({ amount: 999999, duplicateOfId: "canonical-1" }),
+        txn({ categoryId: "salary", direction: "credit", amount: 500000 }),
+        txn({ categoryId: "salary", direction: "credit", amount: 888888, duplicateOfId: "canonical-2" }),
+      ],
+      cats,
+      [],
+      "2026-09",
+    );
+    expect(r.spend).toBe(3000);
+    expect(r.income).toBe(500000);
   });
 
   it("counts uncategorized debits as spend", () => {

@@ -10,6 +10,7 @@ function txn(over: Partial<BudgetTxn>): BudgetTxn {
     occurredAt: new Date("2026-09-10T12:00:00Z"),
     status: "confirmed",
     isTransfer: false,
+    duplicateOfId: null,
     ...over,
   };
 }
@@ -53,6 +54,14 @@ describe("monthlyActuals", () => {
   it("excludes non-confirmed transactions", () => {
     const result = monthlyActuals(
       [txn({ amount: 900, status: "pending_review" }), txn({ amount: 100 })],
+      "2026-09",
+    );
+    expect(result.get("groceries")).toBe(100);
+  });
+
+  it("excludes a confirmed-duplicate row (design: 2026-09-12 Phase 15)", () => {
+    const result = monthlyActuals(
+      [txn({ amount: 900, duplicateOfId: "canonical-1" }), txn({ amount: 100 })],
       "2026-09",
     );
     expect(result.get("groceries")).toBe(100);

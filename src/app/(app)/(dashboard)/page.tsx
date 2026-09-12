@@ -35,7 +35,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
 
   let txnQuery = supabase
     .from("transactions")
-    .select("category_id, amount, direction, occurred_at, status, is_transfer")
+    .select("category_id, amount, direction, occurred_at, status, is_transfer, duplicate_of_id")
     .gte("occurred_at", start)
     .lt("occurred_at", end);
   // Soft-deleted bank rows (Plaid `removed`) must not count toward spend.
@@ -61,6 +61,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
     occurredAt: new Date(t.occurred_at),
     status: t.status,
     isTransfer: t.is_transfer,
+    duplicateOfId: t.duplicate_of_id,
   }));
   const cats: DashboardCategory[] = (categories ?? []) as DashboardCategory[];
   const budgets = (budgetRows ?? []).map((b) => ({ categoryId: b.category_id, amount: b.amount }));

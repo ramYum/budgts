@@ -17,6 +17,7 @@ function txn(over: Partial<BudgetTxn>): BudgetTxn {
     occurredAt: new Date("2026-09-10T12:00:00Z"),
     status: "confirmed",
     isTransfer: false,
+    duplicateOfId: null,
     ...over,
   };
 }

@@ -139,6 +139,19 @@ export const transactions = pgTable(
     // account and flag the account for review; never used to suppress, merge,
     // or exclude a transaction from financial totals.
     contentFingerprint: text("content_fingerprint"),
+    // Confirmed-duplicate containment (design: 2026-09-12 Phase 15). NULL for
+    // every row by default — only ever set by a one-time, human-reviewed
+    // remediation script against an explicit row-id list, never by sync or by
+    // any automatic rule. Points at the canonical row this one duplicates.
+    // INVARIANT: any row with duplicateOfId set MUST contribute zero to every
+    // financial aggregate (see qualify.ts's countsForMonth, the single choke
+    // point) while still being kept forever for audit — never deleted, never
+    // merged. Non-financial consumers (e.g. the "needs a category" queue)
+    // must also explicitly exclude it, since they don't route through
+    // countsForMonth.
+    duplicateOfId: uuid("duplicate_of_id").references((): AnyPgColumn => transactions.id, {
+      onDelete: "set null",
+    }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

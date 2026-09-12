@@ -791,7 +791,9 @@ with:
     returning id`;
 ```
 
-- [ ] **Step 8: Fix `plaid-sync-store.test.ts`'s fixture for the new required field**
+- [ ] **Step 8: Fix `plaid-sync-store.test.ts`'s fixture and inline patch object for the new required fields**
+
+This file constructs `PlaidNormalizedTxn` two ways: the `txn()` builder (used for inserts) and one inline literal `TxnPatch` object (used in the "applies a field patch by row id" test, for the update path). Both need `pendingReason` added — and the patch-object test is also the natural place to prove Task 3's `sync-store.ts` `patchToSet` fix (carrying `pendingReason` into the real UPDATE) actually works end-to-end, since that line otherwise has no test of its own.
 
 In `tests/integration/plaid-sync-store.test.ts`, add `pendingReason: null,` to the `txn()` fixture builder's returned object (after `raw: { synthetic: true, transaction_id: "itest-txn-1" },`, before the `...over`):
 
@@ -801,7 +803,22 @@ In `tests/integration/plaid-sync-store.test.ts`, add `pendingReason: null,` to t
     ...over,
 ```
 
-Run: `npm run test:integration -- plaid-sync-store` to confirm this file alone still passes after the fixture fix.
+In the "applies a field patch by row id" test, add `pendingReason: "sign_convention_unknown",` to the inline `patch: {...}` object (after `isTransfer: false,`):
+
+```ts
+              categoryId: entCat,
+              isTransfer: false,
+              pendingReason: "sign_convention_unknown",
+            },
+```
+
+And add one assertion after the existing ones in that same test (after `expect(after.authorized_at).toBeNull();`):
+
+```ts
+    expect(after.pending_reason).toBe("sign_convention_unknown");
+```
+
+Run: `npm run test:integration -- plaid-sync-store` to confirm this file alone still passes after both fixes.
 
 - [ ] **Step 9: Write the DB-integration test**
 
@@ -1183,30 +1200,46 @@ git commit -m "feat(plaid): load sign_convention into the sync normalize context
 
 ### Task 7: Full verification
 
-**Files:** none (verification only)
+**Files:**
+- Modify: `tests/plaid-integration/api-shapes.test.ts` (one-line compile fix — see Step 1)
 
-- [ ] **Step 1: Run the full unit/component suite**
+- [ ] **Step 1: Fix a stray `AccountMapEntry` literal in `tests/plaid-integration/api-shapes.test.ts`**
+
+This file lives in the Plaid-Sandbox-credentialed integration layer (`tests/plaid-integration/`, needs live `PLAID_CLIENT_ID`/`PLAID_SECRET` — not runnable in this environment) but it still must typecheck. It constructs an `AccountMapEntry` literal missing `signConvention`, which is now a required field (added in Task 3). Add `signConvention: "standard",` to the object (after `ignored: false`):
+
+```ts
+      item.accounts.map((a) => [a.account_id, { plaidAccountRowId: `pa-${a.account_id}`, budgtsAccountId: "b-acct", ignored: false, signConvention: "standard" }]),
+```
+
+This is a compile-only fix — the test itself can't run here, so there's no command to verify it beyond typecheck (Step 4 below).
+
+- [ ] **Step 2: Run the full unit/component suite**
 
 Run: `npm run test`
 Expected: PASS — no regressions in any previously-green test.
 
-- [ ] **Step 2: Run the DB-integration suite**
+- [ ] **Step 3: Run the DB-integration suite**
 
 Run: `npm run test:integration`
 Expected: PASS.
 
-- [ ] **Step 3: Typecheck, lint, build**
+- [ ] **Step 4: Typecheck, lint, build**
 
 Run: `npm run typecheck && npm run lint && npm run build`
 Expected: all three PASS.
 
-- [ ] **Step 4: Confirm no direct-query gap was introduced**
+- [ ] **Step 5: Confirm no direct-query gap was introduced**
 
 Grep the codebase for any other place besides `qualify.ts`/`rollup.ts`/`actuals.ts` that reads `transactions.status` or filters on it directly (`grep -rn "status.*confirmed\|status.*pending_review" src/`). For each hit outside the domain layer, confirm it already excludes `pending_review` correctly (most should — this task doesn't change `status`'s meaning, only adds a new reason rows can have it) or note it for the separate direct-query audit called out in the North Star doc §13 checklist. This is a verification/reporting step — if the audit finds a real gap, stop and report it rather than silently patching it inline (it's out of this plan's scope, which is detection/finalization, not a general audit).
 
-- [ ] **Step 5: Final commit (if Step 4 required no code changes, this is a no-op — skip)**
+- [ ] **Step 6: Commit the Step 1 fix**
 
-If Step 4 surfaced nothing to commit, this task ends at Step 4.
+```bash
+git add tests/plaid-integration/api-shapes.test.ts
+git commit -m "fix(plaid): add signConvention to a stray AccountMapEntry fixture"
+```
+
+If Step 5 surfaced nothing further to commit beyond Step 1's fix, this task ends here.
 
 ---
 

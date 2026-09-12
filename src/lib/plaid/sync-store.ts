@@ -227,9 +227,9 @@ export function createPlaidSyncStore(db: PlaidDb): PlaidSyncStore {
         for (const r of rows) {
           if (!r.plaidAccountId) continue;
           const rawObj = r.raw as { amount?: unknown } | null;
-          const rawAmount = typeof rawObj?.amount === "number" ? rawObj.amount : 0;
+          if (typeof rawObj?.amount !== "number") continue;
           const list = out.get(r.plaidAccountId) ?? [];
-          list.push({ rawAmount, primary: r.primary });
+          list.push({ rawAmount: rawObj.amount, primary: r.primary });
           out.set(r.plaidAccountId, list);
         }
       }

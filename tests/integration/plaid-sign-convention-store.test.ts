@@ -176,4 +176,43 @@ describe("getSignConventionEvidence / finalizeSignConvention", () => {
     expect(untouched.pending_reason).toBe("sign_convention_unknown");
     expect(await readConvention(otherPlaidAccountRowId)).toBe("unknown");
   });
+
+  it("excludes malformed raw.amount (non-numeric or missing) from evidence — abstaining rather than defaulting to 0", async () => {
+    // Insert a row with raw.amount as a string (malformed, should be excluded)
+    const malformedString = await insertBankTxn(userId, accountId, {
+      plaidAccountId: plaidAccountRowId,
+      status: "pending_review",
+      pendingReason: "sign_convention_unknown",
+      direction: "debit",
+      primary: "FOOD_AND_DRINK",
+      raw: { amount: "not-a-number" }, // wrong type — should not contribute
+    });
+
+    // Insert a row with missing raw.amount (malformed, should be excluded)
+    const malformedMissing = await insertBankTxn(userId, accountId, {
+      plaidAccountId: plaidAccountRowId,
+      status: "pending_review",
+      pendingReason: "sign_convention_unknown",
+      direction: "debit",
+      primary: "FOOD_AND_DRINK",
+      raw: {}, // amount key missing — should not contribute
+    });
+
+    // Insert a valid row to prove the method still returns real evidence
+    const valid = await insertBankTxn(userId, accountId, {
+      plaidAccountId: plaidAccountRowId,
+      status: "pending_review",
+      pendingReason: "sign_convention_unknown",
+      direction: "debit",
+      primary: "FOOD_AND_DRINK",
+      raw: { amount: 42.5 }, // valid numeric amount
+    });
+
+    const evidence = await store.getSignConventionEvidence([plaidAccountRowId]);
+    // Only the valid row should be in the evidence array — malformed rows abstain
+    expect(evidence.get(plaidAccountRowId)).toEqual([{ rawAmount: 42.5, primary: "FOOD_AND_DRINK" }]);
+
+    // Cleanup
+    await client`delete from public.transactions where id in (${malformedString}, ${malformedMissing}, ${valid})`;
+  });
 });

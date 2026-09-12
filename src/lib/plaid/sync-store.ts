@@ -16,6 +16,7 @@ import type * as schema from "@/lib/db/schema";
 import { plaidAccounts, plaidItems, transactions } from "@/lib/db/schema";
 import type { SyncPlan, TxnPatch } from "./apply-sync";
 import { plaidToInsert } from "./land";
+import type { SignEvidenceTxn } from "./sign-convention";
 import type { PlaidSyncStore, PlaidTxnRow } from "./sync-engine";
 
 export type PlaidDb = PostgresJsDatabase<typeof schema>;
@@ -186,6 +187,65 @@ export function createPlaidSyncStore(db: PlaidDb): PlaidSyncStore {
           updatedAt: sql`now()`,
         })
         .where(eq(plaidAccounts.accountId, accountId));
+    },
+
+    async getSignConventionEvidence(accountIds) {
+      if (accountIds.length === 0) return new Map();
+      const out = new Map<string, SignEvidenceTxn[]>();
+      for (const batch of chunk(accountIds, BATCH_SIZE)) {
+        const rows = await db
+          .select({
+            accountId: transactions.accountId,
+            direction: transactions.direction,
+            primary: transactions.plaidCategoryPrimary,
+          })
+          .from(transactions)
+          .where(
+            and(
+              inArray(transactions.accountId, batch),
+              eq(transactions.source, "bank"),
+              eq(transactions.status, "pending_review"),
+              eq(transactions.pendingReason, "sign_convention_unknown"),
+            ),
+          );
+        for (const r of rows) {
+          const list = out.get(r.accountId) ?? [];
+          // direction was derived from the raw (uncorrected) sign while this
+          // account was unknown (see adapter.ts) — reconstruct that raw sign
+          // from it: 'debit' means the raw amount was positive.
+          list.push({ rawAmount: r.direction === "debit" ? 1 : -1, primary: r.primary });
+          out.set(r.accountId, list);
+        }
+      }
+      return out;
+    },
+
+    async finalizeSignConvention(accountId, convention) {
+      await db.transaction(async (tx) => {
+        await tx
+          .update(plaidAccounts)
+          .set({ signConvention: convention, updatedAt: sql`now()` })
+          .where(eq(plaidAccounts.accountId, accountId));
+
+        const set: Record<string, unknown> = { status: "confirmed", pendingReason: null };
+        if (convention === "inverted") {
+          // Explicit cast: the CASE expression is text by default, but
+          // `direction` is the `txn_direction` Postgres enum — an
+          // uncast text value can't be assigned to it in an UPDATE SET.
+          set.direction = sql`(CASE WHEN ${transactions.direction} = 'debit' THEN 'credit' ELSE 'debit' END)::txn_direction`;
+        }
+        await tx
+          .update(transactions)
+          .set(set)
+          .where(
+            and(
+              eq(transactions.accountId, accountId),
+              eq(transactions.source, "bank"),
+              eq(transactions.status, "pending_review"),
+              eq(transactions.pendingReason, "sign_convention_unknown"),
+            ),
+          );
+      });
     },
   };
 }

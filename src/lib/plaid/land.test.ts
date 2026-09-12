@@ -26,6 +26,7 @@ const n: PlaidNormalizedTxn = {
   plaidPfcConfidence: "HIGH",
   authorizedAt: "2026-09-07T22:00:00.000Z",
   raw: { transaction_id: "txn-1" },
+  pendingReason: null,
 };
 
 describe("plaidToInsert", () => {
@@ -55,6 +56,7 @@ describe("plaidToInsert", () => {
       authorizedAt: new Date("2026-09-07T22:00:00.000Z"),
       raw: { transaction_id: "txn-1" },
       contentFingerprint: computeContentFingerprint({ transaction_id: "txn-1" }),
+      pendingReason: null,
     });
   });
 
@@ -66,6 +68,11 @@ describe("plaidToInsert", () => {
 
   it("passes a currency-mismatch row through as pending_review", () => {
     expect(plaidToInsert("u", { ...n, status: "pending_review" }).status).toBe("pending_review");
+  });
+
+  it("carries pendingReason through to the insert row", () => {
+    const row = plaidToInsert("u", { ...n, pendingReason: "sign_convention_unknown", status: "pending_review" });
+    expect(row.pendingReason).toBe("sign_convention_unknown");
   });
 
   it("nulls authorizedAt when absent, and never sets V1.5 / soft-delete columns", () => {

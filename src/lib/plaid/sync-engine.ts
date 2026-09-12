@@ -11,6 +11,7 @@
 import { normalizePlaidTxn } from "./adapter";
 import { applyPlaidSync, type ExistingPlaidRow, type SyncPlan } from "./apply-sync";
 import { computeContentFingerprint } from "./content-fingerprint";
+import type { SignEvidenceTxn } from "./sign-convention";
 import type {
   NormalizeCtx,
   NormalizeSkipReason,
@@ -79,6 +80,19 @@ export interface PlaidSyncStore {
   ): Promise<Map<string, number>>;
   /** Flag an account for owner review. Never suppresses/alters transactions. */
   flagAccountForReview(accountId: string, reason: string): Promise<void>;
+  /**
+   * Evidence for the given Budgts account ids — every live row still
+   * pending review for the sign-unknown reason, across every prior sync
+   * (cumulative, same reasoning as `countByAccountFingerprint`).
+   */
+  getSignConventionEvidence(accountIds: string[]): Promise<Map<string, SignEvidenceTxn[]>>;
+  /**
+   * Records a resolved sign convention for one account and confirms every
+   * row still pending review for the sign-unknown reason on that account —
+   * flipping `direction` too when the resolved convention is `inverted`.
+   * Never touches a row pending review for a different reason.
+   */
+  finalizeSignConvention(accountId: string, convention: "standard" | "inverted"): Promise<void>;
 }
 
 export interface SyncDeps {

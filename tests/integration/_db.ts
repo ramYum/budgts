@@ -70,6 +70,9 @@ export async function insertBankTxn(
     confidence: string | null;
     amount: number;
     duplicateOfId: string | null;
+    direction: "debit" | "credit";
+    status: "confirmed" | "pending_review";
+    pendingReason: "currency_mismatch" | "sign_convention_unknown" | null;
   }> = {},
 ): Promise<string> {
   const v = {
@@ -86,6 +89,9 @@ export async function insertBankTxn(
     confidence: null as string | null,
     amount: 1234,
     duplicateOfId: null as string | null,
+    direction: "debit" as "debit" | "credit",
+    status: "confirmed" as "confirmed" | "pending_review",
+    pendingReason: null as "currency_mismatch" | "sign_convention_unknown" | null,
     ...over,
   };
   const [row] = await client<{ id: string }[]>`
@@ -93,12 +99,12 @@ export async function insertBankTxn(
       (user_id, account_id, category_id, amount, direction, occurred_at, description,
        source, source_ref, is_transfer, user_categorized, removed_at,
        merchant_entity_id, merchant_name, plaid_category_primary, plaid_category_detailed, plaid_pfc_confidence,
-       duplicate_of_id)
+       duplicate_of_id, status, pending_reason)
     values
-      (${userId}, ${accountId}, ${v.categoryId}, ${v.amount}, 'debit', now(), ${v.description},
+      (${userId}, ${accountId}, ${v.categoryId}, ${v.amount}, ${v.direction}, now(), ${v.description},
        'bank', ${v.sourceRef}, ${v.isTransfer}, ${v.userCategorized}, ${v.removedAt},
        ${v.merchantEntityId}, ${v.merchantName}, ${v.primary}, ${v.detailed}, ${v.confidence},
-       ${v.duplicateOfId})
+       ${v.duplicateOfId}, ${v.status}, ${v.pendingReason})
     returning id`;
   return row.id;
 }

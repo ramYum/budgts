@@ -43,6 +43,7 @@ function txn(over: Partial<PlaidNormalizedTxn> = {}): PlaidNormalizedTxn {
     plaidPfcConfidence: "HIGH",
     authorizedAt: "2026-09-07T22:00:00.000Z",
     raw: { synthetic: true, transaction_id: "itest-txn-1" },
+    pendingReason: null,
     ...over,
   };
 }
@@ -147,6 +148,7 @@ describe("PlaidSyncStore.applyPlan (staging Postgres)", () => {
               raw: { synthetic: true, v: 2 },
               categoryId: entCat,
               isTransfer: false,
+              pendingReason: "sign_convention_unknown",
             },
           },
         ],
@@ -158,6 +160,7 @@ describe("PlaidSyncStore.applyPlan (staging Postgres)", () => {
     expect(after.description).toBe("Synthetic Coffee (adj)");
     expect(after.category_id).toBe(entCat);
     expect(after.authorized_at).toBeNull();
+    expect(after.pending_reason).toBe("sign_convention_unknown");
   });
 
   it("soft-deletes by stamping removed_at, and never twice", async () => {

@@ -40,6 +40,7 @@ export type PlaidTxnInsert = Pick<
   | "authorizedAt"
   | "raw"
   | "pendingReason"
+  | "eventRole"
   | "contentFingerprint"
 >;
 
@@ -69,6 +70,7 @@ export function plaidToInsert(userId: string, n: PlaidNormalizedTxn): PlaidTxnIn
     authorizedAt: n.authorizedAt ? new Date(n.authorizedAt) : null,
     raw: n.raw,
     pendingReason: n.pendingReason,
+    eventRole: n.eventRole,
     // Anomaly-detection aid only — see content-fingerprint.ts's docstring.
     contentFingerprint: computeContentFingerprint(n.raw),
   };

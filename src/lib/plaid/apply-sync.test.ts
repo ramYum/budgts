@@ -27,6 +27,7 @@ function norm(over: Partial<PlaidNormalizedTxn> = {}): PlaidNormalizedTxn {
     authorizedAt: null,
     raw: {},
     pendingReason: null,
+    eventRole: null,
     ...over,
   };
 }
@@ -117,6 +118,16 @@ describe("applyPlaidSync", () => {
     expect(plan.updates[0].patch).toMatchObject({ status: "confirmed", pendingReason: null });
   });
 
+  it("modified carries eventRole through a patch, the same way status does", () => {
+    const plan = applyPlaidSync(
+      input({
+        modified: [norm({ eventRole: "REFUND" })],
+        existing: new Map([["txn-1", existingRow()]]),
+      }),
+    );
+    expect(plan.updates[0].patch).toMatchObject({ eventRole: "REFUND" });
+  });
+
   it("modified for an unknown row → recovered as an insert", () => {
     const plan = applyPlaidSync(input({ modified: [norm({ sourceRef: "ghost" })] }));
     expect(plan.inserts.map((i) => i.sourceRef)).toEqual(["ghost"]);
@@ -133,6 +144,19 @@ describe("applyPlaidSync", () => {
     expect(patch.amount).toBe(9999); // non-category fields still update
     expect("categoryId" in patch).toBe(false);
     expect("isTransfer" in patch).toBe(false);
+  });
+
+  it("modified still updates eventRole when the existing row is userCategorized, unlike categoryId/isTransfer", () => {
+    const plan = applyPlaidSync(
+      input({
+        modified: [norm({ eventRole: "TRANSFER", categoryId: "cat-plaid-guess", isTransfer: true })],
+        existing: new Map([["txn-1", existingRow({ userCategorized: true, categoryId: "cat-user", isTransfer: false })]]),
+      }),
+    );
+    const patch = plan.updates[0].patch;
+    expect(patch.eventRole).toBe("TRANSFER"); // eventRole updates unconditionally
+    expect("categoryId" in patch).toBe(false); // ...unlike categoryId
+    expect("isTransfer" in patch).toBe(false); // ...and isTransfer
   });
 
   it("modified never resurrects a soft-deleted row", () => {

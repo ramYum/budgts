@@ -13,7 +13,7 @@
  *  - A soft-deleted row is never resurrected.
  *  - The ledger only ever holds real Plaid events — no predicted / future rows.
  */
-import type { PlaidNormalizedTxn, PlaidRemovedTxn } from "./types";
+import type { EventRole, PlaidNormalizedTxn, PlaidRemovedTxn } from "./types";
 
 /** The existing-row fields the reducer needs, keyed by `source_ref`. */
 export interface ExistingPlaidRow {
@@ -44,6 +44,7 @@ export interface TxnPatch {
   plaidPfcConfidence: string | null;
   authorizedAt: string | null;
   raw: unknown;
+  eventRole: EventRole | null;
   /** Omitted when the existing row is `userCategorized` (don't clobber a user choice). */
   categoryId?: string | null;
   isTransfer?: boolean;
@@ -94,6 +95,7 @@ function patchFrom(n: PlaidNormalizedTxn, ex: ExistingPlaidRow | undefined): Txn
     plaidPfcConfidence: n.plaidPfcConfidence,
     authorizedAt: n.authorizedAt,
     raw: n.raw,
+    eventRole: n.eventRole,
   };
   // Only touch category / transfer flag when the user hasn't claimed the row.
   if (!ex?.userCategorized) {

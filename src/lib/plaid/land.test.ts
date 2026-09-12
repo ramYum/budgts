@@ -27,6 +27,7 @@ const n: PlaidNormalizedTxn = {
   authorizedAt: "2026-09-07T22:00:00.000Z",
   raw: { transaction_id: "txn-1" },
   pendingReason: null,
+  eventRole: null,
 };
 
 describe("plaidToInsert", () => {
@@ -57,6 +58,7 @@ describe("plaidToInsert", () => {
       raw: { transaction_id: "txn-1" },
       contentFingerprint: computeContentFingerprint({ transaction_id: "txn-1" }),
       pendingReason: null,
+      eventRole: null,
     });
   });
 
@@ -73,6 +75,11 @@ describe("plaidToInsert", () => {
   it("carries pendingReason through to the insert row", () => {
     const row = plaidToInsert("u", { ...n, pendingReason: "sign_convention_unknown", status: "pending_review" });
     expect(row.pendingReason).toBe("sign_convention_unknown");
+  });
+
+  it("carries eventRole through to the insert row", () => {
+    const row = plaidToInsert("u", { ...n, eventRole: "PURCHASE" });
+    expect(row.eventRole).toBe("PURCHASE");
   });
 
   it("nulls authorizedAt when absent, and never sets V1.5 / soft-delete columns", () => {

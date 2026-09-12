@@ -21,6 +21,19 @@ import { buildResolveCategory, loadMerchantRules } from "./merchant-rules";
 import type { PlaidDb } from "./sync-store";
 import { UnknownPfcPrimaryError } from "./category-map";
 
+// A user's uncategorized backlog can run into the thousands (confirmed in
+// production: 7,000+ rows after a large historical import landed). One
+// sequential awaited UPDATE per row at that scale risks the server action
+// timing out. Each row's resolve+update is independent, so bound the
+// concurrency instead of running them one at a time.
+const CONCURRENCY = 25;
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
+
 export async function recategorizeUncategorizedBankTxns(
   db: PlaidDb,
   userId: string,
@@ -58,36 +71,41 @@ export async function recategorizeUncategorizedBankTxns(
     );
 
   let updated = 0;
-  for (const r of rows) {
-    let categoryId: string | null = null;
-    try {
-      categoryId = resolveCategory({
-        merchantEntityId: r.merchantEntityId,
-        merchantName: r.merchantName,
-        description: r.description,
-        primary: r.primary,
-        detailed: r.detailed,
-        confidence: r.confidence,
-      });
-    } catch (e) {
-      if (!(e instanceof UnknownPfcPrimaryError)) throw e;
-      categoryId = null;
-    }
-    if (!categoryId) continue;
+  for (const batch of chunk(rows, CONCURRENCY)) {
+    const counts = await Promise.all(
+      batch.map(async (r) => {
+        let categoryId: string | null = null;
+        try {
+          categoryId = resolveCategory({
+            merchantEntityId: r.merchantEntityId,
+            merchantName: r.merchantName,
+            description: r.description,
+            primary: r.primary,
+            detailed: r.detailed,
+            confidence: r.confidence,
+          });
+        } catch (e) {
+          if (!(e instanceof UnknownPfcPrimaryError)) throw e;
+          categoryId = null;
+        }
+        if (!categoryId) return 0;
 
-    const done = await db
-      .update(transactions)
-      .set({ categoryId })
-      .where(
-        and(
-          eq(transactions.id, r.id),
-          eq(transactions.userId, userId),
-          isNull(transactions.categoryId),
-          eq(transactions.userCategorized, false),
-        ),
-      )
-      .returning({ id: transactions.id });
-    updated += done.length;
+        const done = await db
+          .update(transactions)
+          .set({ categoryId })
+          .where(
+            and(
+              eq(transactions.id, r.id),
+              eq(transactions.userId, userId),
+              isNull(transactions.categoryId),
+              eq(transactions.userCategorized, false),
+            ),
+          )
+          .returning({ id: transactions.id });
+        return done.length;
+      }),
+    );
+    updated += counts.reduce((a, b) => a + b, 0);
   }
 
   return { updated };

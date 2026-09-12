@@ -1022,9 +1022,13 @@ made.**
    sets `needs_sync = true` on Vercel (service-role). Adds a **Supabase
    Dashboard step** (enable `pg_cron` + `pg_net`, create two schedules: ~3 min
    incremental, 1×/day full) to Step 10 and to `docs/deploy.md`. No Vercel Pro.
-2. **Set `days_requested: 730`** in `/link/token/create` transactions options
-   (default 90). Gives V1.5 detection a real history seed. *(new decision
-   §32.4.13 — recommend 730.)*
+2. **`days_requested: 90`** in `/link/token/create` transactions options (Plaid's
+   own default). *(2026-09-12 — revised down from an earlier 730-day decision.
+   Owner's app-store-readiness goal favors data minimization and fast
+   onboarding over maximum history depth. Enough for 2-3 cycles of a *monthly*
+   recurring charge once V1.5 lands, but won't catch quarterly/annual bills
+   until they've recurred live post-signup — revisit if that gap matters more
+   than the tradeoff suggests.)*
 3. **Tighten the mutation-during-pagination wording** in §14–15: restart from
    the run's starting (last-committed) cursor, per Plaid's "cursor for the
    first page of the update".
@@ -1077,7 +1081,7 @@ made.**
 | 10 | Owner: create/confirm a post-2026-04-15 **US** Plaid account, enable **Trial**, set `PLAID_COUNTRY_CODES=['US']`, hand over Sandbox keys now | owner action |
 | 11 | **Yes** — opportunistically store account balances on `plaid_accounts` during sync (seeds a future Net Worth tile) | recommended |
 | 12 | **Yes** — a manual "Refresh now" button (`/transactions/refresh` then `runSync`), used sparingly | recommended |
-| 13 | *(new)* `days_requested: **730**` in the Link token | 90-day default is too short for V1.5 detection |
+| 13 | *(superseded 2026-09-12)* `days_requested: **90**` (Plaid's default) in the Link token | app-store-readiness / data-minimization goal outweighs the deeper V1.5 history seed a 730-day pull would give |
 
 ### 32.5 Exact Step 1 scope
 

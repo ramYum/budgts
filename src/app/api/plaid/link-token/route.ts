@@ -37,7 +37,11 @@ export async function POST(request: Request) {
       if (!accessToken) return NextResponse.json({ error: "unknown item" }, { status: 404 });
       params = { ...base, access_token: accessToken };
     } else {
-      params = { ...base, products: cfg.products, transactions: { days_requested: 730 } };
+      // 90 days (~3 months): enough for meaningful budget-vs-actual context and
+      // a head start on recurring-transaction detection, without holding more
+      // financial history than the app needs — data minimization matters for
+      // app-store privacy review, not just server load (owner decision 2026-09-12).
+      params = { ...base, products: cfg.products, transactions: { days_requested: 90 } };
     }
     const res = await plaidClient().linkTokenCreate(params);
     return NextResponse.json({ link_token: res.data.link_token, expiration: res.data.expiration });

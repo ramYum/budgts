@@ -75,4 +75,28 @@ describe("recategorizeUncategorizedBankTxns (staging Postgres)", () => {
     const second = await recategorizeUncategorizedBankTxns(db, userId);
     expect(second.updated).toBe(0);
   });
+
+  // Regression: production had a user with 7,000+ uncategorized rows after a
+  // large historical import — the original one-row-at-a-time sequential loop
+  // risked timing out the server action at that scale. 600 rows (24x the
+  // concurrency batch size of 25) proves the batched version still resolves
+  // and updates every row correctly, not just quickly.
+  it("resolves a large backlog correctly under bounded concurrency", async () => {
+    const refs = Array.from({ length: 600 }, (_, i) => `itest-bulk-${i}-${crypto.randomUUID()}`);
+    await client`
+      insert into public.transactions
+        (user_id, account_id, amount, direction, occurred_at, description, source, source_ref, merchant_name)
+      select ${userId}, ${acct}, 1234, 'debit', now(), 'MCDONALDS #99', 'bank', s.ref, ${"McDonald's"}
+      from unnest(${refs}::text[]) as s(ref)
+    `;
+
+    const res = await recategorizeUncategorizedBankTxns(db, userId);
+    expect(res.updated).toBe(600);
+
+    const rows = await client<{ category_id: string }[]>`
+      select category_id from public.transactions where user_id = ${userId} and source_ref = any(${refs})
+    `;
+    expect(rows).toHaveLength(600);
+    expect(rows.every((r) => r.category_id === food)).toBe(true);
+  });
 });

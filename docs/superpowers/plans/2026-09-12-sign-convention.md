@@ -65,6 +65,8 @@ already-completed `duplicate_of_id` containment work).
 | `src/lib/plaid/types.ts` | `AccountMapEntry` gains `signConvention`; `PlaidNormalizedTxn` gains `pendingReason` |
 | `src/lib/plaid/adapter.ts` | Corrects `direction` for `inverted` accounts; sets `pendingReason`/`status` for `unknown` accounts |
 | `src/lib/plaid/adapter.test.ts` | New cases for the above; existing fixtures updated for the new required field |
+| `src/lib/plaid/apply-sync.ts` | `TxnPatch`/`patchFrom` carry `pendingReason` through on the modified/pending→posted update path, mirroring `status` |
+| `src/lib/plaid/apply-sync.test.ts` | Fixture updated for the new required field; new case proving `pendingReason` survives a modified-row update |
 | `src/lib/plaid/land.ts` | `plaidToInsert` carries `pendingReason` through to the DB row |
 | `src/lib/plaid/land.test.ts` | New case: `pendingReason` lands on the insert |
 | `src/lib/plaid/sync-engine.ts` | `PlaidSyncStore` gains two methods; `runSync` gains a sign-resolution step after the existing anomaly-detection step |
@@ -504,11 +506,68 @@ to:
 Run: `npx vitest run src/lib/plaid/adapter.test.ts`
 Expected: PASS — all existing cases plus the 4 new ones.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 6: Carry `pendingReason` through the modified/pending→posted update path**
+
+`adapter.ts`/`land.ts` only cover the INSERT path. `apply-sync.ts`'s `TxnPatch`/`patchFrom` build the UPDATE path for a `modified` Plaid event (including a pending→posted transition) — it already carries `status` through but not `pendingReason`, which would leave a stale `pending_reason` in the DB after an update that changes `status`. Fix this in the same task, since it's the same field.
+
+First, write the failing test. In `src/lib/plaid/apply-sync.test.ts`, add `pendingReason: null,` to the `norm()` fixture's returned object (after `raw: {},`, before `...over,`):
+
+```ts
+    raw: {},
+    pendingReason: null,
+    ...over,
+```
+
+Add a new test after the existing "modified → update the matching row" test:
+
+```ts
+  it("modified → carries pendingReason through to the patch", () => {
+    const plan = applyPlaidSync(
+      input({
+        modified: [norm({ pendingReason: "sign_convention_unknown", status: "pending_review" })],
+        existing: new Map([["txn-1", existingRow()]]),
+      }),
+    );
+    expect(plan.updates[0].patch).toMatchObject({ pendingReason: "sign_convention_unknown", status: "pending_review" });
+  });
+```
+
+Run: `npx vitest run src/lib/plaid/apply-sync.test.ts`
+Expected: FAIL — `pendingReason` missing from `TxnPatch`/`patchFrom`'s output (and the file won't compile until the fixture fix above is also applied).
+
+Now implement it. In `src/lib/plaid/apply-sync.ts`, add to the `TxnPatch` interface (after `status: "confirmed" | "pending_review";`):
+
+```ts
+  pendingReason: "currency_mismatch" | "sign_convention_unknown" | null;
+```
+
+Add to `patchFrom`'s returned object (after `status: n.status as TxnPatch["status"],`):
+
+```ts
+    pendingReason: n.pendingReason,
+```
+
+Run: `npx vitest run src/lib/plaid/apply-sync.test.ts`
+Expected: PASS — all existing cases plus the new one.
+
+- [ ] **Step 7: Carry `pendingReason` into the actual UPDATE statement**
+
+`sync-store.ts`'s `patchToSet` builds the SQL `SET` clause from a `TxnPatch` — it needs to include `pendingReason` too, or the fix in Step 6 has no effect on the real database. This edit lives here (not deferred to Task 4) since it's one line and belongs with the `TxnPatch` field it sets. In `src/lib/plaid/sync-store.ts`'s `patchToSet` function, add to the returned `set` object (after `status: patch.status,`):
+
+```ts
+    pendingReason: patch.pendingReason,
+```
+
+This one line has no dedicated unit test of its own (`patchToSet` is a private, untested-in-isolation helper today — matching the existing pattern, where none of its other fields have one either) — it's covered end-to-end by Task 4's DB-integration test once that lands.
+
+Run: `npm run typecheck`
+Expected: PASS — `PlaidSyncStore` doesn't gain its two new methods until Task 4, so `sync-store.ts`'s implementation isn't required to have them yet; this change is a pure, isolated addition to `patchToSet`.
+
+- [ ] **Step 8: Commit**
 
 ```bash
-git add src/lib/plaid/types.ts src/lib/plaid/adapter.ts src/lib/plaid/adapter.test.ts
-git commit -m "feat(plaid): correct direction and gate pending_review on sign convention"
+git add src/lib/plaid/types.ts src/lib/plaid/adapter.ts src/lib/plaid/adapter.test.ts src/lib/plaid/apply-sync.ts src/lib/plaid/apply-sync.test.ts src/lib/plaid/sync-store.ts
+git commit -m "feat(plaid): correct direction, gate pending_review on sign convention, and carry pendingReason through updates"
 ```
 
 ---

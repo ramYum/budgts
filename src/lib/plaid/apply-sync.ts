@@ -26,6 +26,7 @@ export interface ExistingPlaidRow {
   removedAt: string | null;
   status: "confirmed" | "pending_review";
   pendingReason: "currency_mismatch" | "sign_convention_unknown" | null;
+  transferUserSet: boolean;
 }
 
 /** Fields a `modified` re-normalization may change (camelCase; landing maps to columns). */
@@ -97,9 +98,15 @@ function patchFrom(n: PlaidNormalizedTxn, ex: ExistingPlaidRow | undefined): Txn
     raw: n.raw,
     eventRole: n.eventRole,
   };
-  // Only touch category / transfer flag when the user hasn't claimed the row.
+  // Only touch category when the user hasn't claimed the row.
   if (!ex?.userCategorized) {
     p.categoryId = n.categoryId;
+  }
+  // The transfer flag has its own, narrower protection: a user's explicit
+  // "this is a transfer" edit (transferUserSet) must survive a later
+  // machine-derived classification even if userCategorized is unset (e.g. a
+  // transfer marked without ever touching category), and vice versa.
+  if (!ex?.userCategorized && !ex?.transferUserSet) {
     p.isTransfer = n.isTransfer;
   }
   return p;

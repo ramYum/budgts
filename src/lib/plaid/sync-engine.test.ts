@@ -192,7 +192,7 @@ describe("runSync", () => {
 
   it("loads existing rows by source_ref + pending refs, then applies the reducer", async () => {
     const existing: PlaidTxnRow[] = [
-      { id: "row-pend", source_ref: "pend-1", user_categorized: true, category_id: "cat-user", note: null, is_transfer: false, removed_at: null, status: "confirmed", pending_reason: null },
+      { id: "row-pend", source_ref: "pend-1", user_categorized: true, category_id: "cat-user", note: null, is_transfer: false, removed_at: null, status: "confirmed", pending_reason: null, transfer_user_set: false },
     ];
     const { store, calls } = fakeStore(existing);
     const out = await runSync(

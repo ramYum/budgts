@@ -5,10 +5,11 @@
  * cursor / item-status write.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import type { SyncPlan } from "@/lib/plaid/apply-sync";
+import { applyPlaidSync } from "@/lib/plaid/apply-sync";
+import type { ExistingPlaidRow, SyncPlan } from "@/lib/plaid/apply-sync";
 import { createPlaidSyncStore } from "@/lib/plaid/sync-store";
 import type { PlaidNormalizedTxn } from "@/lib/plaid/types";
-import { categoryIdByName, cleanupUser, client, db, mainAccountId, seedUser } from "./_db";
+import { categoryIdByName, cleanupUser, client, db, insertBankTxn, mainAccountId, readTxn, seedUser } from "./_db";
 
 const store = createPlaidSyncStore(db);
 const ITEM_ID = `itest-item-${Date.now()}`;
@@ -232,6 +233,59 @@ describe("PlaidSyncStore.applyPlan (staging Postgres)", () => {
 
     const stillThere = await store.findBySourceRefs(userId, bigRefs);
     expect(stillThere.every((r) => r.removed_at !== null)).toBe(true);
+  });
+});
+
+// Design: 2026-09-12 transfer-ownership corrective design. Proves
+// transfer_user_set travels through the REAL loading path — the actual
+// findBySourceRefs select/map — not a hand-constructed ExistingPlaidRow (every
+// unit test in apply-sync.test.ts builds one directly and would pass even if
+// sync-store.ts/sync-engine.ts never populated the field at all).
+describe("PlaidSyncStore transfer_user_set travels through the real loading path (staging Postgres)", () => {
+  it("findBySourceRefs returns transfer_user_set from real Postgres, and a patch built from it never overwrites is_transfer end to end", async () => {
+    const sourceRef = "itest-transfer-user-set-1";
+    const rowId = await insertBankTxn(userId, accountId, {
+      sourceRef,
+      isTransfer: false,
+      transferUserSet: true,
+    });
+
+    // Real loading path: the actual findBySourceRefs query + mapping.
+    const rows = await store.findBySourceRefs(userId, [sourceRef]);
+    const row = rows.find((r) => r.source_ref === sourceRef);
+    expect(row).toBeDefined();
+    expect(row!.transfer_user_set).toBe(true);
+
+    // Mirror runSync's construction of the `existing` Map from a PlaidTxnRow
+    // (sync-engine.ts) exactly, so this exercises the same shape the real
+    // sync path builds — not a shortcut that bypasses it.
+    const existing: ExistingPlaidRow = {
+      id: row!.id,
+      sourceRef: row!.source_ref,
+      userCategorized: row!.user_categorized,
+      categoryId: row!.category_id,
+      note: row!.note,
+      isTransfer: row!.is_transfer,
+      removedAt: row!.removed_at,
+      status: row!.status,
+      pendingReason: row!.pending_reason,
+      transferUserSet: row!.transfer_user_set,
+    };
+
+    const plan = applyPlaidSync({
+      added: [],
+      removed: [],
+      modified: [txn({ sourceRef, isTransfer: true })],
+      existing: new Map([[sourceRef, existing]]),
+    });
+    expect(plan.updates).toHaveLength(1);
+    expect("isTransfer" in plan.updates[0].patch).toBe(false);
+
+    // Apply through the real store against real Postgres and re-fetch — the
+    // protection must hold in the actual row, not just the in-memory patch.
+    await store.applyPlan(userId, plan, meta("cursor-transfer-user-set-1"));
+    const after = await readTxn(rowId);
+    expect(after.is_transfer).toBe(false);
   });
 });
 

@@ -61,6 +61,7 @@ export interface PlaidTxnRow {
   removed_at: string | null;
   status: "confirmed" | "pending_review";
   pending_reason: "currency_mismatch" | "sign_convention_unknown" | null;
+  transfer_user_set: boolean;
 }
 
 export interface PlaidSyncStore {
@@ -217,6 +218,7 @@ export async function runSync(deps: SyncDeps): Promise<SyncOutcome> {
         removedAt: r.removed_at,
         status: r.status,
         pendingReason: r.pending_reason,
+        transferUserSet: r.transfer_user_set,
       },
     ]),
   );

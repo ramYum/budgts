@@ -43,6 +43,7 @@ function existingRow(over: Partial<ExistingPlaidRow> = {}): ExistingPlaidRow {
     removedAt: null,
     status: "confirmed",
     pendingReason: null,
+    transferUserSet: false,
     ...over,
   };
 }
@@ -144,6 +145,52 @@ describe("applyPlaidSync", () => {
     expect(patch.amount).toBe(9999); // non-category fields still update
     expect("categoryId" in patch).toBe(false);
     expect("isTransfer" in patch).toBe(false);
+  });
+
+  it("modified never overwrites isTransfer when the existing row has transferUserSet, even if userCategorized is true", () => {
+    const plan = applyPlaidSync(
+      input({
+        modified: [norm({ amount: 9999, isTransfer: true })],
+        existing: new Map([["txn-1", existingRow({ transferUserSet: true, isTransfer: false })]]),
+      }),
+    );
+    const patch = plan.updates[0].patch;
+    expect(patch.amount).toBe(9999); // non-transfer fields still update
+    expect("isTransfer" in patch).toBe(false);
+  });
+
+  it("modified never overwrites isTransfer when transferUserSet alone is true, even with userCategorized false", () => {
+    const plan = applyPlaidSync(
+      input({
+        modified: [norm({ isTransfer: true })],
+        existing: new Map([["txn-1", existingRow({ transferUserSet: true, userCategorized: false, isTransfer: false })]]),
+      }),
+    );
+    const patch = plan.updates[0].patch;
+    expect("isTransfer" in patch).toBe(false);
+  });
+
+  it("modified still updates isTransfer as today when both transferUserSet and userCategorized are false", () => {
+    const plan = applyPlaidSync(
+      input({
+        modified: [norm({ isTransfer: true })],
+        existing: new Map([["txn-1", existingRow({ transferUserSet: false, userCategorized: false, isTransfer: false })]]),
+      }),
+    );
+    const patch = plan.updates[0].patch;
+    expect(patch.isTransfer).toBe(true);
+  });
+
+  it("modified still updates eventRole unconditionally regardless of transferUserSet", () => {
+    const plan = applyPlaidSync(
+      input({
+        modified: [norm({ eventRole: "TRANSFER", isTransfer: true })],
+        existing: new Map([["txn-1", existingRow({ transferUserSet: true, isTransfer: false })]]),
+      }),
+    );
+    const patch = plan.updates[0].patch;
+    expect(patch.eventRole).toBe("TRANSFER"); // eventRole updates unconditionally
+    expect("isTransfer" in patch).toBe(false); // ...unlike isTransfer, gated by transferUserSet
   });
 
   it("modified still updates eventRole when the existing row is userCategorized, unlike categoryId/isTransfer", () => {

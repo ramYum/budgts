@@ -76,6 +76,7 @@ export function createPlaidSyncStore(db: PlaidDb): PlaidSyncStore {
               removed_at: transactions.removedAt,
               status: transactions.status,
               pending_reason: transactions.pendingReason,
+              transfer_user_set: transactions.transferUserSet,
             })
             .from(transactions)
             .where(
@@ -99,6 +100,7 @@ export function createPlaidSyncStore(db: PlaidDb): PlaidSyncStore {
         // `pending_reason` is a plain text column; the reducer's union is the
         // only set of values this pipeline ever writes to it.
         pending_reason: r.pending_reason as PlaidTxnRow["pending_reason"],
+        transfer_user_set: r.transfer_user_set,
       }));
     },
 

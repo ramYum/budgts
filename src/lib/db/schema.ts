@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import {
   type AnyPgColumn,
   boolean,
+  check,
   date,
   index,
   integer,
@@ -191,6 +192,16 @@ export const transactions = pgTable(
     index("transactions_account_fingerprint_idx")
       .on(t.accountId, t.contentFingerprint)
       .where(sql`${t.contentFingerprint} is not null`),
+    // Defense-in-depth for qualify.ts's Important #2 finding (design:
+    // 2026-09-12 qualify-integration final review) — event_role stays
+    // plain nullable text (no enum type), but a malformed value can never
+    // reach the table in the first place. countsForMonth's isEventRole
+    // runtime guard is the other half: it protects rows written before
+    // this constraint existed.
+    check(
+      "transactions_event_role_valid",
+      sql`${t.eventRole} is null or ${t.eventRole} in ('PURCHASE','REFUND','INCOME','CARD_PAYMENT','TRANSFER','P2P_PAYMENT','FEE','INTEREST','CASH_ADVANCE','ADJUSTMENT')`,
+    ),
   ],
 );
 

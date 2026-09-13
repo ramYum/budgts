@@ -1,0 +1,1 @@
+ALTER TABLE "transactions" ADD CONSTRAINT "transactions_event_role_valid" CHECK ("transactions"."event_role" is null or "transactions"."event_role" in ('PURCHASE','REFUND','INCOME','CARD_PAYMENT','TRANSFER','P2P_PAYMENT','FEE','INTEREST','CASH_ADVANCE','ADJUSTMENT'));

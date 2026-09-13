@@ -26,6 +26,15 @@ export function formatMoney(minor: Minor, currency: string, locale?: string): st
 }
 
 /**
+ * Format a savings rate (a fraction, e.g. 0.3 for 30%) as a rounded
+ * percentage string. Never clamped — a negative or >100% rate is shown as-is
+ * (design: 2026-09-13 Money Left / Savings Rate §8).
+ */
+export function formatSavingsRate(rate: number): string {
+  return `${Math.round(rate * 100)}%`;
+}
+
+/**
  * Parse a user-entered major-unit string ("12", "12.3", "1,234.50", "-0.99")
  * into integer minor units. Throws on anything it can't parse cleanly.
  */

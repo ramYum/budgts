@@ -61,7 +61,7 @@ describe("DashboardView", () => {
     render(<DashboardView {...baseProps} view={view} />);
     expect(screen.getByText("Income").nextElementSibling).toHaveTextContent("$5,000.00");
     expect(screen.getByText("Spent").nextElementSibling).toHaveTextContent("$550.00");
-    expect(screen.getByText("Net savings").nextElementSibling).toHaveTextContent("-$550.00");
+    expect(screen.getByText("Money Left").nextElementSibling).toHaveTextContent("-$550.00");
   });
 
   it("shows an over-budget category with its overspend", () => {
@@ -95,5 +95,54 @@ describe("DashboardView", () => {
     const dialog = screen.getByRole("dialog", { name: "Add income" });
     expect(dialog).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Direction" })).toHaveValue("credit");
+  });
+
+  it("shows the disclaimer that this is cash flow, not an account balance", () => {
+    render(<DashboardView {...baseProps} view={view} />);
+    expect(
+      screen.getByText(/Based on income minus spending/i),
+    ).toHaveTextContent("Based on income minus spending — doesn't measure savings-account balances.");
+  });
+});
+
+describe("DashboardView savings rate presentation", () => {
+  it("shows a positive savings rate plainly", () => {
+    const positive: DV = {
+      ...view,
+      tiles: { ...view.tiles, netSavings: 350000, savingsRate: 0.3 },
+    };
+    render(<DashboardView {...baseProps} view={positive} />);
+    expect(screen.getByText("Savings rate").nextElementSibling).toHaveTextContent("30%");
+  });
+
+  it("clearly indicates a negative savings rate as overspending", () => {
+    const negative: DV = {
+      ...view,
+      tiles: { ...view.tiles, netSavings: -55000, savingsRate: -0.11 },
+    };
+    render(<DashboardView {...baseProps} view={negative} />);
+    const rateEl = screen.getByText("Savings rate").nextElementSibling;
+    expect(rateEl).toHaveTextContent("-11%");
+    expect(rateEl).toHaveTextContent(/spent more than you earned/i);
+  });
+
+  it("shows a savings rate over 100% without clamping it", () => {
+    const over: DV = {
+      ...view,
+      tiles: { ...view.tiles, netSavings: 750000, savingsRate: 1.5 },
+    };
+    render(<DashboardView {...baseProps} view={over} />);
+    expect(screen.getByText("Savings rate").nextElementSibling).toHaveTextContent("150%");
+  });
+
+  it('shows "No income this month" instead of 0% or blank when savingsRate is null', () => {
+    const noIncome: DV = {
+      ...view,
+      tiles: { ...view.tiles, income: 0, savingsRate: null },
+    };
+    render(<DashboardView {...baseProps} view={noIncome} />);
+    const rateEl = screen.getByText("Savings rate").nextElementSibling;
+    expect(rateEl).toHaveTextContent("No income this month");
+    expect(rateEl).not.toHaveTextContent("0%");
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatMoney, isMinor, parseMoney } from "./money";
+import { formatMoney, formatSavingsRate, isMinor, parseMoney } from "./money";
 
 describe("parseMoney", () => {
   it("parses whole amounts", () => expect(parseMoney("12")).toBe(1200));
@@ -18,6 +18,16 @@ describe("formatMoney", () => {
   it("formats negative amounts", () =>
     expect(formatMoney(-99, "USD", "en-US")).toBe("-$0.99"));
   it("rejects non-integer input", () => expect(() => formatMoney(12.5, "USD")).toThrow());
+});
+
+describe("formatSavingsRate", () => {
+  it("formats a positive rate as a rounded percentage", () =>
+    expect(formatSavingsRate(0.3)).toBe("30%"));
+  it("formats a negative rate without clamping to zero", () =>
+    expect(formatSavingsRate(-0.11)).toBe("-11%"));
+  it("formats a rate over 100% without clamping", () =>
+    expect(formatSavingsRate(1.5)).toBe("150%"));
+  it("formats an exact-zero rate as 0%", () => expect(formatSavingsRate(0)).toBe("0%"));
 });
 
 describe("isMinor", () => {

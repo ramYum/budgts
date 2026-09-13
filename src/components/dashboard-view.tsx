@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { formatMoney } from "@/lib/budget/money";
+import { formatMoney, formatSavingsRate } from "@/lib/budget/money";
 import type { DashboardView as DV } from "@/lib/budget/dashboard";
 import { MonthNav } from "./month-nav";
 import { IncomeTile } from "./income-tile";
@@ -60,7 +60,7 @@ export function DashboardView({
 
       {/* the one Deep Pine card on the screen */}
       <section className="rounded-2xl bg-primary p-4 text-on-primary">
-        <p className="text-xs text-on-dark-dim">Net savings</p>
+        <p className="text-xs text-on-dark-dim">Money Left</p>
         <p
           className={`tnum font-display text-[1.9rem] font-bold leading-tight ${
             tiles.netSavings < 0 ? "text-fill-over" : "text-on-primary"
@@ -71,6 +71,22 @@ export function DashboardView({
         <p className="mt-1 text-xs text-on-dark-dim">
           {formatMoney(tiles.leftToSpend, currency)} left to spend ·{" "}
           {formatMoney(tiles.budgeted, currency)} budgeted
+        </p>
+        <p className="mt-3 text-xs text-on-dark-dim">Savings rate</p>
+        <p
+          className={`tnum font-display text-lg font-bold ${
+            tiles.savingsRate !== null && tiles.savingsRate < 0 ? "text-fill-over" : "text-on-primary"
+          }`}
+        >
+          {tiles.savingsRate === null
+            ? "No income this month"
+            : formatSavingsRate(tiles.savingsRate)}
+          {tiles.savingsRate !== null && tiles.savingsRate < 0 ? (
+            <span className="ml-1 text-xs font-medium">— spent more than you earned</span>
+          ) : null}
+        </p>
+        <p className="mt-2 text-xs text-on-dark-dim">
+          Based on income minus spending — doesn&apos;t measure savings-account balances.
         </p>
       </section>
 

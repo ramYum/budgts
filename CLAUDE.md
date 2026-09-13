@@ -159,6 +159,12 @@ See `docs/roadmap.md` (tier ladder) and `docs/workflow.md` (execution tracker).
 **Shipped:** Phase 1 (core budgeting slice — live at https://budgts.com) and
 Phase 2a (savings goals, `2d46178`).
 
+**In progress:** **UI redesign** — the "Budgt" brand (mascot, warm-white/
+yellow/orange/blue palette, Nunito Sans) and a Home-first, Money-Left-led
+information architecture across every screen. Presentation-layer only; see
+`docs/specs/2026-09-13-ui-redesign-brand-guidelines-spec.md` and
+`docs/roadmap.md`'s "UI Redesign" section for what's done vs. deferred.
+
 **Next:** **V1 — Plaid transaction ingestion** (the primary automatic path;
 manual entry stays as a fallback) → **V1.5** (recurring / subscription / bill
 detection over synced data + paired-transfer detection) → **V2** (email /

@@ -102,7 +102,7 @@ export function DashboardView({
 }) {
   const { tiles, bars } = view;
   const spendChangePct = pctChange(tiles.spent, prevView.tiles.spent);
-  const name = userEmail.split("@")[0];
+  const name = (userEmail.split("@")[0] ?? "").split(/[+._-]/)[0];
   const mood = tiles.savingsRate !== null && tiles.savingsRate < 0 ? "curious" : "happy";
 
   const biggestMover = bars

@@ -17,6 +17,11 @@ BUDGTS
 │
 ├── Phase 2a  Savings Goals ...................................... ✅  (2d46178)
 │
+├── UI Redesign  Budgt brand + information architecture .......... 🔄  design system, app shell, Home,
+│                                                                       Budgets/Category Detail, Activity done;
+│                                                                       onboarding wizard + top-merchant/net-worth
+│                                                                       insights deferred (see §"UI Redesign" below)
+│
 ├── V1        Plaid transaction ingestion  (primary path) ....... 🔄  code+schema live in prod (`4590520`); Plaid UI flag off
 │   ├── Plaid Sandbox ............................................ ✅
 │   ├── PlaidAdapter ............................................. ✅
@@ -74,6 +79,34 @@ display. "Add" and "Withdraw / correct" are separate actions so the user never
 types a minus.
 
 Spec: `docs/specs/2026-09-09-…-phase-2a-…`.
+
+## UI Redesign — Budgt brand + information architecture 🔄
+
+Presentation-layer redesign around the supplied brand guideline ("Budgts" →
+"Budgt": black-cat mascot, warm-white/yellow/orange/blue palette, Nunito
+Sans) and a new screen hierarchy (Home leads with Money Left → Savings Rate →
+Spending → Where it went → What can I change → Save more, not a transaction
+ledger). Explicitly does not touch financial semantics, Plaid ingestion,
+categorization, or any domain math — every screen reuses existing
+selectors/server actions.
+
+Done: shared design system (buttons, progress bar, segmented control,
+category icons, empty states); responsive app shell (bottom nav on mobile,
+persistent desktop sidebar — not a stretched mobile layout); Home rework;
+Budgets as category cards + a Category Detail drill-in; Activity search +
+kind filter; a one-tap transfer toggle on Transaction Detail; new
+More/Insights/Accounts/Connected-Banks/Help/About screens and a
+reorganized, menu-based Settings.
+
+Deferred (see the spec's own §"remaining issues" classification): the
+3-screen onboarding wizard (Welcome → Connect Bank → All Set) — the existing
+single-screen onboarding was reskinned but not restructured, since Plaid UI
+is flag-gated off in every environment this was built against; a Net Worth
+tab on Insights (spec explicitly forbids faking it before the feature
+exists); per-category "top merchants" in Category Detail; a real
+Notifications settings screen (no backend exists for it).
+
+Spec: `docs/specs/2026-09-13-ui-redesign-brand-guidelines-spec.md`.
 
 ## V1 — Plaid transaction ingestion (the primary path)
 

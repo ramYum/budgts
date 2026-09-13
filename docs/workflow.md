@@ -24,6 +24,7 @@ phase-level summary; this file is the execution tracker + decisions + change log
 | V1 | Plaid ingestion — built + staging-accepted | See §4 milestone tracker M1–M9 + workstreams A–E. | ✅ done (staging) | see §4 |
 | V1+ | Budget-correctness chain + Money Left / Savings Rate / account-exclusion | Sign-convention → event-role → budget-effect → `qualify.ts` integration → transfer-ownership; Money Left + Savings Rate dashboard tiles; account calculation-exclusion safety valve. See §7 change log. | ✅ done | `4590520` |
 | — | **V1 → production promotion** | `main` fast-forwarded `5b668b2→4590520`; migration `0012` applied directly to the production Supabase project (`wsmhstqpvbbcqpqhiqyp`); deployed via the existing `budgts` Vercel project. Plaid UI stays flag-gated off in prod (unchanged — Milestone 10 still owner-gated). | ✅ live 2026-09-13 | `4590520` |
+| — | **UI redesign — Budgt brand + IA overhaul** | Design system, responsive app shell (sidebar/bottom-nav), Home hierarchy, Budgets category cards + Category Detail, Activity search/filter, transfer toggle, new More/Insights/Accounts/Connected-Banks/Help/About + reorganized Settings. Presentation-layer only — no financial-semantics changes. See §"UI redesign" below and `docs/roadmap.md`. | 🔄 phased, not deployed | `d469d4b`, `05d4a1d` |
 
 Legend: ✅ done · 🔄 in progress · ⏳ planned
 
@@ -724,3 +725,78 @@ Developer Program ($99/yr), Google Play Console ($25 once). Target: a few months
   `drizzle.__drizzle_migrations`) — left untouched per instruction not to
   repair unrelated bookkeeping; noted here so a future session doesn't
   mistake it for a fresh problem.
+- **2026-09-13 — UI redesign: Budgt brand + information architecture**
+  (`d469d4b`, `05d4a1d`). Implements
+  `docs/specs/2026-09-13-ui-redesign-brand-guidelines-spec.md` against the
+  supplied `New Assets.svg` / `New Branding guidelines.png` (the brand-token
+  work itself — palette, Nunito Sans, mascot extraction into
+  `public/brand/*.png` — predates this entry, done uncommitted in an earlier
+  session; this pass committed it for the first time alongside the
+  screen-level rebuild). Presentation-layer only, per the spec's own
+  constraint: no change to Plaid ingestion, categorization, event-role/
+  budget-effect classification, Money Left, Savings Rate, transfer ownership,
+  or account-exclusion — every new screen composes the existing pure
+  `buildDashboard`/`monthlyActuals`/`goalsSummary` functions and existing
+  server actions (`setBudget`, `updateTransaction`, etc.), never a
+  reimplementation of qualification logic. One real bug this caught: the
+  first draft of the new `/insights` page fetched transactions without
+  `event_role`/`transfer_user_set`/account-exclusion columns, which would
+  have let it disagree with Home for the same month — fixed to mirror the
+  dashboard page's exact query before it shipped.
+  - **Design system**: `src/components/ui.tsx` (buttons, `ProgressBar`,
+    `SegmentedControl`, `CategoryIcon`, `EmptyState`, `CatMessage`) and
+    `nav-icons.tsx` (one glyph set shared by bottom nav, sidebar, and Settings/
+    More rows).
+  - **App shell**: `BottomNav` reordered to Home/Budgets/Activity/More;
+    `DesktopSidebar` replaces it entirely at the `md` breakpoint (persistent
+    sidebar + a wider multi-column `main`, not a stretched mobile layout).
+    Settings and Goals moved out of primary nav into a new `/more` hub.
+  - **New routes**, each a thin wrapper around an existing component/query:
+    `/more`, `/insights`, `/accounts`, `/connected-banks`, `/help`, `/about`,
+    `/settings/{profile,categories,security,appearance}`. `Settings` itself
+    is now a menu, not a kitchen-sink page.
+  - **Home**: greeting header (mascot mood keyed off sign of `savingsRate`);
+    kept Money Left/Savings Rate as-is; Spending gained a month-over-month
+    delta; new "What can I change?" card (biggest month-over-month category
+    mover — two `buildDashboard` calls, current + previous month, no new
+    domain code); new Savings-progress card (`goalsSummary`, links to
+    Goals); new Recent Activity list.
+  - **Budgets**: replaced the inline blur-to-save editor with category cards
+    (icon + progress, click → Category Detail overlay: spend/budget/
+    remaining/trend, "Change budget" via the existing `setBudget`, "See
+    transactions"); a "+" Add Budget flow for un-budgeted categories; This
+    month/All time toggle (all-time sums `monthlyActuals` — unchanged —
+    across every month present, rather than a new aggregator). Deleted the
+    now-dead `BudgetEditor`.
+  - **Activity**: client-side search + Spending/Income/Transfers filter over
+    the already-loaded month (no new query). Transaction Detail gained a
+    one-tap "Mark as transfer"/"Remove transfer" action reusing
+    `updateTransaction` with the same fields the edit form submits, isTransfer
+    flipped — no new server code.
+  - **Overlay** (used by every detail/edit screen in the app, not just new
+    ones) gained a visible close button — it previously relied on
+    backdrop-click/Escape only, which didn't satisfy the spec's "clear back
+    affordance" rule.
+  - Updated `tests/e2e/{smoke,budgets,transactions,goals,settings}.spec.ts`
+    for the new nav paths/brand name/interaction flow; added component tests
+    for the new search filter and transfer toggle.
+  - Verified: typecheck, `eslint src/`, `npm run build`, Vitest (476 passing;
+    the pre-existing `needs-category.test.tsx` full-suite-load flake
+    reproduced once, confirmed unrelated by running it in isolation), and the
+    9 runnable Playwright e2e specs (twice — `goals.spec.ts` hit the
+    project's own documented shared-Supabase auth-rate-limit flake once,
+    reproduced clean in isolation). A manual pass through a throwaway
+    Supabase test user (created + deleted via the same admin API the e2e
+    helpers use) confirmed Home, Budgets → Category Detail → Change budget,
+    More, Settings, and Insights render and function correctly at both
+    mobile (390px) and desktop widths.
+  - **Deferred** (see the spec's own remaining-issues classification, not
+    silently dropped): the 3-screen onboarding wizard (Welcome → Connect
+    Bank → All Set) — Plaid UI is flag-gated off in every environment this
+    was built against, so there was nothing real for a "Connect Your Bank"
+    step to do; a Net Worth tab on Insights (spec explicitly forbids faking
+    it); per-category "top merchants" in Category Detail; a Notifications
+    settings screen (no backend exists for it — spec's own rule is not to
+    show a fake option). None of these touch financial correctness.
+  - Not committed to `main`; not pushed; not deployed. Still needs the
+    owner's own visual/product pass before merging.

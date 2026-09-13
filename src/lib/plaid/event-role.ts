@@ -1,5 +1,31 @@
 import type { EventRole } from "./types";
 
+/** Every value `resolveEventRole` can produce — the DB CHECK constraint's mirror. */
+export const EVENT_ROLES: readonly EventRole[] = [
+  "PURCHASE",
+  "REFUND",
+  "INCOME",
+  "CARD_PAYMENT",
+  "TRANSFER",
+  "P2P_PAYMENT",
+  "FEE",
+  "INTEREST",
+  "CASH_ADVANCE",
+  "ADJUSTMENT",
+];
+const EVENT_ROLE_SET = new Set<string>(EVENT_ROLES);
+
+/**
+ * Runtime membership check, not just a type-level one — `event_role` comes
+ * from the DB as a plain string, and a value that predates the CHECK
+ * constraint (or otherwise bypasses it) must be treated as unresolved
+ * rather than silently misread as a known role (design: 2026-09-12
+ * qualify-integration final review, Important #2).
+ */
+export function isEventRole(value: string): value is EventRole {
+  return EVENT_ROLE_SET.has(value);
+}
+
 export interface EventRoleInput {
   primary: string | null;
   detailed: string | null;
@@ -50,6 +76,9 @@ export function resolveEventRole(input: EventRoleInput): EventRole | null {
   }
 
   // Row 3: BANK_FEES + BANK_FEES_INTEREST_CHARGE → INTEREST
+  // V1 invariant: this is the only path that assigns INTEREST — interest
+  // *charged*, never interest *earned*. budget-effect.ts's INTEREST →
+  // EXPENSE mapping depends on that (design: 2026-09-12 Budget Effect §3).
   if (primary === "BANK_FEES" && detailed === "BANK_FEES_INTEREST_CHARGE") {
     return "INTEREST";
   }

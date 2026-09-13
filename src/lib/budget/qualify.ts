@@ -1,3 +1,4 @@
+import { isEventRole } from "@/lib/plaid/event-role";
 import { budgetEffectOf } from "./budget-effect";
 import { monthKey, type MonthKey } from "./month";
 import type { BudgetTxn } from "./types";
@@ -5,11 +6,14 @@ import type { BudgetTxn } from "./types";
 /**
  * Whether a transaction counts toward a month's spend/income math: it must be
  * `confirmed`, not a confirmed duplicate, have occurred in `month` (UTC), and
- * then either (a) have a resolved `eventRole`, in which case its
+ * then either (a) have a *recognized* `eventRole`, in which case its
  * `budgetEffectOf` decides — `EXPENSE`/`EXPENSE_REVERSAL`/`INCOME` qualify,
  * `NONE`/`UNKNOWN` don't — or (b) fall back to the legacy `!isTransfer` check
- * when `eventRole` is `null` (manual/email/receipt rows, and any
- * Plaid-sourced row the resolver left unresolved).
+ * when `eventRole` is `null` (manual/email/receipt rows, any Plaid-sourced
+ * row the resolver left unresolved) **or unrecognized** (a value outside the
+ * defined role set — never guess which role it meant; treat it exactly like
+ * unresolved rather than silently excluding it, design: 2026-09-12
+ * qualify-integration final review, Important #2).
  *
  * INVARIANT (design: 2026-09-12 Phase 15): this is the single financial-metric
  * choke point. Every module that computes a dollar total from transactions —
@@ -33,7 +37,7 @@ export function countsForMonth(txn: BudgetTxn, month: MonthKey): boolean {
   if (txn.status !== "confirmed") return false;
   if (txn.duplicateOfId != null) return false;
 
-  if (txn.eventRole != null) {
+  if (txn.eventRole != null && isEventRole(txn.eventRole)) {
     const effect = budgetEffectOf(txn.eventRole, txn.direction);
     return effect === "EXPENSE" || effect === "EXPENSE_REVERSAL" || effect === "INCOME";
   }

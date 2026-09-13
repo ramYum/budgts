@@ -123,4 +123,25 @@ describe("countsForMonth", () => {
   it("qualifies a PURCHASE-role transaction even with isTransfer true — is_transfer is never consulted once a role resolves", () => {
     expect(countsForMonth(txn({ eventRole: "PURCHASE", isTransfer: true }), "2026-09")).toBe(true);
   });
+
+  // Reviewer finding (qualify-integration final review, Important #2): a
+  // malformed/unrecognized event_role must never silently make a row
+  // disappear from every total the way a deliberately-excluded role
+  // (CARD_PAYMENT/TRANSFER/CASH_ADVANCE/ADJUSTMENT) does. `as EventRole`
+  // simulates data that bypassed the DB CHECK constraint and the TS type
+  // boundary (e.g. a pre-constraint row, or any future writer that skips
+  // validation) — countsForMonth must treat it as unresolved, falling
+  // back to the same legacy `!isTransfer` path a null role takes, not as
+  // a silent exclusion.
+  it("falls back to the legacy !isTransfer path for an unrecognized event_role — never silently drops the row", () => {
+    expect(
+      countsForMonth(txn({ eventRole: "BOGUS_ROLE" as BudgetTxn["eventRole"], isTransfer: false }), "2026-09"),
+    ).toBe(true);
+  });
+
+  it("an unrecognized event_role still excludes via the legacy path when isTransfer is true", () => {
+    expect(
+      countsForMonth(txn({ eventRole: "BOGUS_ROLE" as BudgetTxn["eventRole"], isTransfer: true }), "2026-09"),
+    ).toBe(false);
+  });
 });

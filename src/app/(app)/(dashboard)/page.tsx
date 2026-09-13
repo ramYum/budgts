@@ -4,7 +4,9 @@ import { buildDashboard, type DashboardCategory } from "@/lib/budget/dashboard";
 import { monthKey } from "@/lib/budget/month";
 import type { BudgetTxn } from "@/lib/budget/types";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
+import type { Database } from "@/lib/supabase/database.types";
 import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
+import { isEventRole } from "@/lib/plaid/event-role";
 import { nudgeRefresh } from "@/server/plaid/service";
 import { DashboardView } from "@/components/dashboard-view";
 import { RealtimeRefresh } from "@/components/realtime-refresh";
@@ -33,6 +35,10 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
   // holding up the response — see nudgeRefresh's docstring for the throttle.
   if (plaidUiEnabled()) after(() => nudgeRefresh(user.id));
 
+  type TxnRow = Pick<
+    Database["public"]["Tables"]["transactions"]["Row"],
+    "category_id" | "amount" | "direction" | "occurred_at" | "status" | "is_transfer" | "duplicate_of_id" | "event_role"
+  >;
   let txnQuery = supabase
     .from("transactions")
     .select("category_id, amount, direction, occurred_at, status, is_transfer, duplicate_of_id, event_role")
@@ -44,7 +50,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
 
   const [{ data: txnRows }, { data: categories }, { data: budgetRows }, { data: profile }, { data: accountRows }] =
     await Promise.all([
-      txnQuery,
+      txnQuery.returns<TxnRow[]>(),
       supabase
         .from("categories")
         .select("id, kind, name, color")
@@ -62,7 +68,11 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
     status: t.status,
     isTransfer: t.is_transfer,
     duplicateOfId: t.duplicate_of_id,
-    eventRole: t.event_role,
+    // event_role is `text` (DB CHECK-constrained, not a real enum — see
+    // database.types.ts), so it isn't already narrowed to EventRole here.
+    // Same "never guess" boundary guard countsForMonth uses (design:
+    // 2026-09-12 qualify-integration final review, Important #2).
+    eventRole: t.event_role != null && isEventRole(t.event_role) ? t.event_role : null,
   }));
   const cats: DashboardCategory[] = (categories ?? []) as DashboardCategory[];
   const budgets = (budgetRows ?? []).map((b) => ({ categoryId: b.category_id, amount: b.amount }));

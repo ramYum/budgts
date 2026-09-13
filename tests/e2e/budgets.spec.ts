@@ -27,12 +27,15 @@ test("set a budget, then the dashboard shows budget-vs-actual and savings", asyn
     await page.getByRole("button", { name: /start budgeting/i }).click();
     await page.waitForURL((u) => u.pathname === "/", { timeout: 20000 });
 
-    // Set a $400 budget for Food / Groceries.
+    // Set a $400 budget for Food / Groceries via its category card.
     await page.getByRole("link", { name: "Budgets" }).click();
-    const grocery = page.getByLabel("Food / Groceries budget");
-    await grocery.fill("400");
-    await grocery.blur();
-    await expect(page.getByText(/Budgeted \$400\.00 this month/)).toBeVisible();
+    await page.getByRole("button", { name: /Food \/ Groceries/ }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByRole("button", { name: "Change budget" }).click();
+    await dialog.getByLabel("Monthly budget").fill("400");
+    await dialog.getByRole("button", { name: "Save" }).click();
+    await expect(dialog.getByText("of $400.00 budget")).toBeVisible();
+    await dialog.getByRole("button", { name: "Close" }).click();
 
     // Spend $340 in that category.
     await addTransaction(page, "340.00", "Food / Groceries");

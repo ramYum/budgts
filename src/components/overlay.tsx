@@ -45,7 +45,25 @@ export function Overlay({
         aria-modal="true"
         aria-label={title}
       >
-        <h2 className="mb-3 text-base font-semibold">{title}</h2>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h2 className="text-base font-semibold">{title}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="-mr-1.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted hover:bg-surface-2 hover:text-text"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden className="h-4 w-4">
+              <path
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2.2}
+                strokeLinecap="round"
+                d="m6 6 12 12M18 6 6 18"
+              />
+            </svg>
+          </button>
+        </div>
         {children}
       </div>
     </div>

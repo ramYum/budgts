@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatMoney } from "@/lib/budget/money";
 import { deleteTransaction, updateTransaction } from "@/server/transactions";
 import { Overlay } from "./overlay";
 import { Mascot } from "./mascot";
+import { SegmentedControl } from "./ui";
 import {
   TransactionForm,
   type AccountOption,
@@ -61,7 +62,51 @@ export function TransactionList({
   const [viewing, setViewing] = useState<TxnListItem | null>(null);
   const [editing, setEditing] = useState<TxnListItem | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [transferError, setTransferError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [transferPending, startTransferTransition] = useTransition();
+  const [search, setSearch] = useState("");
+  const [kindFilter, setKindFilter] = useState<"all" | "spending" | "income" | "transfers">("all");
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return items.filter((it) => {
+      if (q) {
+        const haystack = `${it.description} ${it.category?.name ?? ""}`.toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      if (kindFilter === "transfers") return it.is_transfer;
+      if (kindFilter === "income") return !it.is_transfer && it.direction === "credit";
+      if (kindFilter === "spending") return !it.is_transfer && it.direction === "debit";
+      return true;
+    });
+  }, [items, search, kindFilter]);
+
+  /** Flips `isTransfer` via the same `updateTransaction` action the edit form
+   * uses — a one-tap toggle from the Detail view (design spec §22) rather than
+   * requiring a full edit-form round trip for this one field. */
+  const toggleTransfer = (item: TxnListItem) => {
+    setTransferError(null);
+    startTransferTransition(async () => {
+      const fd = new FormData();
+      fd.set("accountId", item.account_id);
+      fd.set("categoryId", item.category_id ?? "");
+      fd.set("amount", (item.amount / 100).toFixed(2));
+      fd.set("direction", item.direction);
+      fd.set("occurredAt", item.occurred_at.slice(0, 10));
+      fd.set("description", item.description);
+      fd.set("note", item.note ?? "");
+      fd.set("isTransfer", item.is_transfer ? "" : "on");
+      fd.set("id", item.id);
+      const res = await updateTransaction({}, fd);
+      if (res.error || res.fieldErrors) {
+        setTransferError(res.error ?? "Could not update this transaction.");
+        return;
+      }
+      setViewing({ ...item, is_transfer: !item.is_transfer });
+      router.refresh();
+    });
+  };
 
   if (items.length === 0) {
     return (
@@ -75,8 +120,50 @@ export function TransactionList({
     );
   }
 
+  const searchBar = (
+    <div className="space-y-2">
+      <div className="relative">
+        <svg
+          viewBox="0 0 24 24"
+          aria-hidden
+          className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted"
+        >
+          <circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" strokeWidth={2} />
+          <path d="m20 20-4.3-4.3" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
+        </svg>
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search transactions..."
+          aria-label="Search transactions"
+          className="w-full rounded-full border border-border bg-surface py-2 pr-3 pl-9 text-sm outline-none focus:border-accent"
+        />
+      </div>
+      <SegmentedControl
+        value={kindFilter}
+        onChange={setKindFilter}
+        options={[
+          { value: "all", label: "All" },
+          { value: "spending", label: "Spending" },
+          { value: "income", label: "Income" },
+          { value: "transfers", label: "Transfers" },
+        ]}
+      />
+    </div>
+  );
+
+  if (filtered.length === 0) {
+    return (
+      <div className="space-y-4">
+        {searchBar}
+        <p className="py-6 text-center text-sm text-muted">No matching transactions.</p>
+      </div>
+    );
+  }
+
   const groups = new Map<string, TxnListItem[]>();
-  for (const it of items) {
+  for (const it of filtered) {
     const key = it.occurred_at.slice(0, 10);
     const bucket = groups.get(key);
     if (bucket) bucket.push(it);
@@ -101,6 +188,7 @@ export function TransactionList({
 
   return (
     <div className="space-y-4">
+      {searchBar}
       <div className="card divide-y divide-hairline overflow-hidden rounded-2xl border border-hairline">
         {[...groups.entries()].map(([day, rows]) => (
           <section key={day} className="space-y-1 px-4 py-3">
@@ -166,16 +254,27 @@ export function TransactionList({
               </dd>
             </div>
           </dl>
-          <button
-            type="button"
-            onClick={() => {
-              setEditing(viewing);
-              setViewing(null);
-            }}
-            className="mt-4 w-full rounded-full border border-border px-3 py-2 text-sm font-medium hover:bg-surface-2"
-          >
-            Edit
-          </button>
+          {transferError ? <p className="mt-2 text-sm text-neg">{transferError}</p> : null}
+          <div className="mt-4 flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setEditing(viewing);
+                setViewing(null);
+              }}
+              className="flex-1 rounded-full border border-border px-3 py-2 text-sm font-medium hover:bg-surface-2"
+            >
+              Edit
+            </button>
+            <button
+              type="button"
+              disabled={transferPending}
+              onClick={() => toggleTransfer(viewing)}
+              className="flex-1 rounded-full border border-border px-3 py-2 text-sm font-medium hover:bg-surface-2 disabled:opacity-50"
+            >
+              {viewing.is_transfer ? "Remove transfer" : "Mark as transfer"}
+            </button>
+          </div>
         </Overlay>
       ) : null}
 

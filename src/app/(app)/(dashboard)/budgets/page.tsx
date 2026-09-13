@@ -1,54 +1,153 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { buildDashboard, type DashboardCategory } from "@/lib/budget/dashboard";
+import { monthlyActuals } from "@/lib/budget/actuals";
 import { monthKey } from "@/lib/budget/month";
+import type { BudgetTxn } from "@/lib/budget/types";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
-import { MonthNav } from "@/components/month-nav";
-import { BudgetEditor, type BudgetRow } from "@/components/budget-editor";
-import { CopyBudgets } from "@/components/copy-budgets";
+import type { Database } from "@/lib/supabase/database.types";
+import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
+import { isEventRole } from "@/lib/plaid/event-role";
 import { RealtimeRefresh } from "@/components/realtime-refresh";
+import { BudgetsView, type AllTimeRow } from "@/components/budgets-view";
 
 export const metadata: Metadata = { title: "Budgets" };
 
 const MONTH_RE = /^\d{4}-\d{2}$/;
 
+function monthRangeOf(m: string) {
+  const [y, mm] = m.split("-").map(Number);
+  return {
+    start: new Date(Date.UTC(y, mm - 1, 1)).toISOString(),
+    end: new Date(Date.UTC(y, mm, 1)).toISOString(),
+  };
+}
+
+function prevMonthKey(m: string): string {
+  const [y, mm] = m.split("-").map(Number);
+  return monthKey(new Date(Date.UTC(y, mm - 2, 1)));
+}
+
+type TxnRow = Pick<
+  Database["public"]["Tables"]["transactions"]["Row"],
+  | "category_id"
+  | "amount"
+  | "direction"
+  | "occurred_at"
+  | "status"
+  | "is_transfer"
+  | "duplicate_of_id"
+  | "event_role"
+  | "transfer_user_set"
+  | "plaid_account_id"
+>;
+
 export default async function BudgetsPage({ searchParams }: PageProps<"/budgets">) {
   const sp = await searchParams;
   const month = typeof sp.m === "string" && MONTH_RE.test(sp.m) ? sp.m : monthKey(new Date());
+  const range = sp.range === "all" ? "all" : "month";
 
   const user = await getSessionUser();
   if (!user) redirect("/sign-in");
   const supabase = await createClient();
+  const plaidOn = plaidUiEnabled();
 
-  const [{ data: categories }, { data: budgets }, { data: profile }] = await Promise.all([
-    supabase
-      .from("categories")
-      .select("id, name, color")
-      .eq("kind", "expense")
-      .eq("is_archived", false)
-      .order("name"),
-    supabase.from("budgets").select("category_id, amount").eq("month", `${month}-01`),
+  const { data: excludedPlaidAccounts } = plaidOn
+    ? await supabase.from("plaid_accounts").select("id").eq("excluded_from_calculations", true)
+    : { data: [] as { id: string }[] };
+  const excludedPlaidAccountIds = new Set((excludedPlaidAccounts ?? []).map((a) => a.id));
+
+  const toBudgetTxn = (t: TxnRow): BudgetTxn => ({
+    categoryId: t.category_id,
+    amount: t.amount,
+    direction: t.direction,
+    occurredAt: new Date(t.occurred_at),
+    status: t.status,
+    isTransfer: t.is_transfer,
+    duplicateOfId: t.duplicate_of_id,
+    eventRole: t.event_role != null && isEventRole(t.event_role) ? t.event_role : null,
+    transferUserSet: t.transfer_user_set,
+    accountExcluded: t.plaid_account_id != null && excludedPlaidAccountIds.has(t.plaid_account_id),
+  });
+
+  const cols =
+    "category_id, amount, direction, occurred_at, status, is_transfer, duplicate_of_id, event_role, transfer_user_set, plaid_account_id";
+
+  const [{ data: categories }, { data: profile }] = await Promise.all([
+    supabase.from("categories").select("id, kind, name, color").eq("is_archived", false).order("name"),
     supabase.from("profiles").select("currency").eq("id", user.id).single(),
   ]);
+  const cats: DashboardCategory[] = (categories ?? []) as DashboardCategory[];
+  const currency = profile?.currency ?? "USD";
 
-  const byCategory = new Map((budgets ?? []).map((b) => [b.category_id, b.amount]));
-  const rows: BudgetRow[] = (categories ?? []).map((c) => ({
-    categoryId: c.id,
-    name: c.name,
-    color: c.color,
-    amount: byCategory.get(c.id) ?? 0,
-  }));
+  if (range === "all") {
+    let allQuery = supabase.from("transactions").select(cols);
+    if (plaidOn) allQuery = allQuery.is("removed_at", null);
+    const { data: allRows } = await allQuery.returns<TxnRow[]>();
+    const allTxns = (allRows ?? []).map(toBudgetTxn);
+
+    const months = new Set(allTxns.map((t) => monthKey(t.occurredAt)));
+    const totals = new Map<string, number>();
+    for (const mk of months) {
+      const actuals = monthlyActuals(allTxns, mk);
+      for (const c of cats.filter((c) => c.kind === "expense")) {
+        totals.set(c.id, (totals.get(c.id) ?? 0) + Math.max(0, actuals.get(c.id) ?? 0));
+      }
+    }
+    const rows: AllTimeRow[] = cats
+      .filter((c) => c.kind === "expense")
+      .map((c) => ({ categoryId: c.id, name: c.name, color: c.color, total: totals.get(c.id) ?? 0 }))
+      .filter((r) => r.total > 0)
+      .sort((a, b) => b.total - a.total);
+
+    return (
+      <div className="pt-1">
+        <BudgetsView range="all" month={month} currency={currency} allTimeRows={rows} categories={cats} />
+      </div>
+    );
+  }
+
+  const { start, end } = monthRangeOf(month);
+  const prevMonth = prevMonthKey(month);
+  const { start: prevStart, end: prevEnd } = monthRangeOf(prevMonth);
+
+  let curQuery = supabase.from("transactions").select(cols).gte("occurred_at", start).lt("occurred_at", end);
+  let prevQuery = supabase
+    .from("transactions")
+    .select(cols)
+    .gte("occurred_at", prevStart)
+    .lt("occurred_at", prevEnd);
+  if (plaidOn) {
+    curQuery = curQuery.is("removed_at", null);
+    prevQuery = prevQuery.is("removed_at", null);
+  }
+
+  const [{ data: curRows }, { data: prevRows }, { data: budgetRows }] = await Promise.all([
+    curQuery.returns<TxnRow[]>(),
+    prevQuery.returns<TxnRow[]>(),
+    supabase.from("budgets").select("category_id, amount").eq("month", `${month}-01`),
+  ]);
+
+  const budgets = (budgetRows ?? []).map((b) => ({ categoryId: b.category_id, amount: b.amount }));
+  const view = buildDashboard((curRows ?? []).map(toBudgetTxn), cats, budgets, month);
+  const prevView = buildDashboard((prevRows ?? []).map(toBudgetTxn), cats, [], prevMonth);
+
+  const unbudgeted = cats.filter(
+    (c) => c.kind === "expense" && !view.bars.some((b) => b.categoryId === c.id && b.budget > 0),
+  );
 
   return (
-    <div className="space-y-4 pt-1">
+    <div className="pt-1">
       <RealtimeRefresh tables={["budgets"]} />
-      <div className="flex items-center justify-between">
-        <MonthNav base="/budgets" month={month} />
-        <CopyBudgets month={month} />
-      </div>
-      <p className="text-sm text-muted">
-        Set a monthly limit per category. Leave one blank for no limit.
-      </p>
-      <BudgetEditor rows={rows} month={month} currency={profile?.currency ?? "USD"} />
+      <BudgetsView
+        range="month"
+        month={month}
+        currency={currency}
+        view={view}
+        prevView={prevView}
+        categories={cats}
+        unbudgetedCategories={unbudgeted}
+      />
     </div>
   );
 }

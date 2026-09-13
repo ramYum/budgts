@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildDashboard, type DashboardCategory } from "./dashboard";
+import { savingsRate } from "./savings-rate";
 import type { BudgetTxn, CategoryBudget } from "./types";
 
 const cats: DashboardCategory[] = [
@@ -40,7 +41,7 @@ const budgets: CategoryBudget[] = [
 ];
 
 describe("buildDashboard", () => {
-  it("computes the five tiles", () => {
+  it("computes the six tiles", () => {
     const { tiles } = buildDashboard(txns, cats, budgets, "2026-09");
     expect(tiles).toEqual({
       income: 500000,
@@ -48,7 +49,22 @@ describe("buildDashboard", () => {
       netSavings: 445000,
       budgeted: 75000,
       leftToSpend: 20000, // 75000 - 55000
+      savingsRate: 0.89, // 445000 / 500000
     });
+  });
+
+  // Money Left / Savings Rate design §14 item 12.
+  it("test 12: savingsRate matches savingsRate(income, netSavings) directly", () => {
+    const { tiles } = buildDashboard(txns, cats, budgets, "2026-09");
+    expect(tiles.savingsRate).toBe(savingsRate(tiles.income, tiles.netSavings));
+  });
+
+  // Money Left / Savings Rate design §14 item 13.
+  it("test 13: a month with zero income produces savingsRate: null, not 0", () => {
+    const noIncome = [txn({ categoryId: "groceries", amount: 5000 })];
+    const { tiles } = buildDashboard(noIncome, cats, budgets, "2026-09");
+    expect(tiles.income).toBe(0);
+    expect(tiles.savingsRate).toBeNull();
   });
 
   it("emits one bar per expense category with name and colour joined, income excluded", () => {

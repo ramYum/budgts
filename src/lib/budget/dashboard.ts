@@ -2,6 +2,7 @@ import { monthlyActuals } from "./actuals";
 import { budgetVsActual } from "./budget-vs-actual";
 import type { MonthKey } from "./month";
 import { rollup } from "./rollup";
+import { savingsRate } from "./savings-rate";
 import type { BudgetCategory, BudgetState, BudgetTxn, CategoryBudget } from "./types";
 
 export interface DashboardCategory extends BudgetCategory {
@@ -26,6 +27,9 @@ export interface DashboardTiles {
   netSavings: number;
   budgeted: number;
   leftToSpend: number;
+  /** Money Left ÷ Income; `null` when income is zero or negative — never a
+   * bare `0` (design: 2026-09-13 Money Left / Savings Rate §8/§10). */
+  savingsRate: number | null;
 }
 
 export interface DashboardView {
@@ -69,6 +73,7 @@ export function buildDashboard(
       netSavings: r.net,
       budgeted: r.totalBudgeted,
       leftToSpend: r.totalRemaining,
+      savingsRate: savingsRate(r.income, r.net),
     },
     bars,
   };

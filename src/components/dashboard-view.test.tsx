@@ -13,7 +13,7 @@ vi.mock("@/server/transactions", () => ({
 }));
 
 const view: DV = {
-  tiles: { income: 500000, spent: 55000, netSavings: -55000, budgeted: 75000, leftToSpend: 20000 },
+  tiles: { income: 500000, spent: 55000, netSavings: -55000, budgeted: 75000, leftToSpend: 20000, savingsRate: -0.11 },
   bars: [
     {
       categoryId: "transport",

@@ -26,6 +26,13 @@ export interface BudgetTxn {
    * `budgetEffectOf`; `null` falls back to the legacy `!isTransfer` check.
    */
   eventRole: EventRole | null;
+  /**
+   * True only when the user explicitly set `isTransfer` to a value that
+   * differed from what was stored (design: 2026-09-12 transfer-ownership
+   * §4) — never by sync. When true, `countsForMonth` lets the user's
+   * decision (`!isTransfer`) outrank any machine-resolved `eventRole`.
+   */
+  transferUserSet: boolean;
 }
 
 export interface BudgetCategory {

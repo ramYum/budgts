@@ -12,6 +12,7 @@ function txn(over: Partial<BudgetTxn>): BudgetTxn {
     isTransfer: false,
     duplicateOfId: null,
     eventRole: null,
+    transferUserSet: false,
     ...over,
   };
 }
@@ -143,5 +144,56 @@ describe("countsForMonth", () => {
     expect(
       countsForMonth(txn({ eventRole: "BOGUS_ROLE" as BudgetTxn["eventRole"], isTransfer: true }), "2026-09"),
     ).toBe(false);
+  });
+
+  // Task 4 (design: 2026-09-12 transfer-ownership §4, §10 items 5-9): the
+  // new transferUserSet branch. Explicit user decision outranks any
+  // machine-resolved eventRole — but never the three absolute gates above
+  // it (month/status/duplicateOfId), which keep unconditional precedence
+  // over everything, including a user's transfer decision.
+
+  it("test 5: transferUserSet wins over a qualifying role — user's mark-as-transfer excludes a would-be PURCHASE", () => {
+    expect(
+      countsForMonth(txn({ transferUserSet: true, isTransfer: true, eventRole: "PURCHASE" }), "2026-09"),
+    ).toBe(false);
+  });
+
+  it("test 6: transferUserSet wins over an excluding role — user's unmark qualifies a would-be TRANSFER", () => {
+    expect(
+      countsForMonth(txn({ transferUserSet: true, isTransfer: false, eventRole: "TRANSFER" }), "2026-09"),
+    ).toBe(true);
+  });
+
+  it("test 7: transferUserSet false leaves an untouched row unaffected — regression guard, CARD_PAYMENT still excludes", () => {
+    expect(
+      countsForMonth(txn({ transferUserSet: false, isTransfer: false, eventRole: "CARD_PAYMENT" }), "2026-09"),
+    ).toBe(false);
+  });
+
+  it("test 8: the status gate still outranks an explicit user transfer decision", () => {
+    expect(
+      countsForMonth(txn({ transferUserSet: true, isTransfer: false, status: "pending_review" }), "2026-09"),
+    ).toBe(false);
+  });
+
+  it("test 9: the duplicateOfId gate still outranks an explicit user transfer decision", () => {
+    expect(
+      countsForMonth(txn({ transferUserSet: true, isTransfer: false, duplicateOfId: "canonical-row-id" }), "2026-09"),
+    ).toBe(false);
+  });
+
+  // No-user-decision path: transferUserSet stays false, so behavior is
+  // exactly as before Task 4 — the role branch (or, if unresolved, the
+  // legacy !isTransfer fallback) decides, completely unaffected by this
+  // new branch's existence.
+
+  it("no-user-decision path: falls through to the role branch exactly as before", () => {
+    expect(countsForMonth(txn({ transferUserSet: false, eventRole: "INCOME", direction: "credit" }), "2026-09")).toBe(
+      true,
+    );
+  });
+
+  it("no-user-decision path: falls through to the legacy !isTransfer check exactly as before", () => {
+    expect(countsForMonth(txn({ transferUserSet: false, eventRole: null, isTransfer: true }), "2026-09")).toBe(false);
   });
 });

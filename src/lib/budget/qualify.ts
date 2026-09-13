@@ -31,11 +31,23 @@ import type { BudgetTxn } from "./types";
  * ever reached — a `pending_review` or confirmed-duplicate row is excluded
  * regardless of what its event role or budget effect would say. Once a
  * role resolves, `is_transfer` is never consulted for that row.
+ *
+ * INVARIANT (design: 2026-09-12 transfer-ownership §4): `transferUserSet`
+ * — true only when the user explicitly changed `isTransfer` to a value
+ * that differed from what was stored, never set by sync
+ * (`src/server/transaction-update.ts` is the only writer) — outranks any
+ * machine-resolved `eventRole` for that row. It does NOT outrank the three
+ * absolute gates above: a `pending_review` or confirmed-duplicate row
+ * stays excluded regardless of the user's transfer decision, exactly as
+ * for a machine-derived role. Full precedence: explicit user decision →
+ * machine event role → unresolved (legacy `!isTransfer`).
  */
 export function countsForMonth(txn: BudgetTxn, month: MonthKey): boolean {
   if (monthKey(txn.occurredAt) !== month) return false;
   if (txn.status !== "confirmed") return false;
   if (txn.duplicateOfId != null) return false;
+
+  if (txn.transferUserSet) return !txn.isTransfer;
 
   if (txn.eventRole != null && isEventRole(txn.eventRole)) {
     const effect = budgetEffectOf(txn.eventRole, txn.direction);

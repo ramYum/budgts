@@ -19,6 +19,7 @@ function txn(over: Partial<BudgetTxn>): BudgetTxn {
     isTransfer: false,
     duplicateOfId: null,
     eventRole: null,
+    transferUserSet: false,
     ...over,
   };
 }

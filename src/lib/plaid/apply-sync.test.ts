@@ -151,7 +151,7 @@ describe("applyPlaidSync", () => {
     const plan = applyPlaidSync(
       input({
         modified: [norm({ amount: 9999, isTransfer: true })],
-        existing: new Map([["txn-1", existingRow({ transferUserSet: true, isTransfer: false })]]),
+        existing: new Map([["txn-1", existingRow({ transferUserSet: true, userCategorized: true, isTransfer: false })]]),
       }),
     );
     const patch = plan.updates[0].patch;

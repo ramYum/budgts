@@ -1,10 +1,15 @@
+import { budgetEffectOf } from "./budget-effect";
 import { monthKey, type MonthKey } from "./month";
 import type { BudgetTxn } from "./types";
 
 /**
  * Whether a transaction counts toward a month's spend/income math: it must be
- * `confirmed`, not a transfer, not a confirmed duplicate, and have occurred in
- * `month` (UTC).
+ * `confirmed`, not a confirmed duplicate, have occurred in `month` (UTC), and
+ * then either (a) have a resolved `eventRole`, in which case its
+ * `budgetEffectOf` decides — `EXPENSE`/`EXPENSE_REVERSAL`/`INCOME` qualify,
+ * `NONE`/`UNKNOWN` don't — or (b) fall back to the legacy `!isTransfer` check
+ * when `eventRole` is `null` (manual/email/receipt rows, and any
+ * Plaid-sourced row the resolver left unresolved).
  *
  * INVARIANT (design: 2026-09-12 Phase 15): this is the single financial-metric
  * choke point. Every module that computes a dollar total from transactions —
@@ -16,12 +21,21 @@ import type { BudgetTxn } from "./types";
  * Consumers that read transactions for a NON-financial purpose (e.g. the
  * "needs a category" queue) do not go through this function and must
  * explicitly check `duplicateOfId` themselves.
+ *
+ * INVARIANT (design: 2026-09-12 qualify-integration): `status` and
+ * `duplicateOfId` gate unconditionally, before the role/effect branch is
+ * ever reached — a `pending_review` or confirmed-duplicate row is excluded
+ * regardless of what its event role or budget effect would say. Once a
+ * role resolves, `is_transfer` is never consulted for that row.
  */
 export function countsForMonth(txn: BudgetTxn, month: MonthKey): boolean {
-  return (
-    !txn.isTransfer &&
-    txn.duplicateOfId == null &&
-    txn.status === "confirmed" &&
-    monthKey(txn.occurredAt) === month
-  );
+  if (monthKey(txn.occurredAt) !== month) return false;
+  if (txn.status !== "confirmed") return false;
+  if (txn.duplicateOfId != null) return false;
+
+  if (txn.eventRole != null) {
+    const effect = budgetEffectOf(txn.eventRole, txn.direction);
+    return effect === "EXPENSE" || effect === "EXPENSE_REVERSAL" || effect === "INCOME";
+  }
+  return !txn.isTransfer;
 }

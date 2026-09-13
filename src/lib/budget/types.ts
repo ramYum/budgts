@@ -1,3 +1,5 @@
+import type { EventRole } from "@/lib/plaid/types";
+
 export type Direction = "debit" | "credit";
 export type CategoryKind = "expense" | "income";
 export type BudgetEffect = "EXPENSE" | "INCOME" | "EXPENSE_REVERSAL" | "NONE" | "UNKNOWN";
@@ -17,6 +19,13 @@ export interface BudgetTxn {
    * confirmed duplicate of another row"; countsForMonth excludes it.
    */
   duplicateOfId: string | null;
+  /**
+   * Resolved by the Event Role classifier (design: 2026-09-12 Budget Effect
+   * / Qualify integration) — never set by manual/email/receipt ingestion,
+   * which always leaves this `null`. Non-null drives `countsForMonth` via
+   * `budgetEffectOf`; `null` falls back to the legacy `!isTransfer` check.
+   */
+  eventRole: EventRole | null;
 }
 
 export interface BudgetCategory {

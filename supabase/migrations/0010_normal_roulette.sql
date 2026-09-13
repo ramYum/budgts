@@ -1,0 +1,1 @@
+ALTER TABLE "transactions" ADD COLUMN "transfer_user_set" boolean DEFAULT false NOT NULL;

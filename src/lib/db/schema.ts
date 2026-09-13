@@ -169,6 +169,12 @@ export const transactions = pgTable(
     // never guessed; null = unresolved (design: 2026-09-12 Event Role §3/§4).
     // Plain text, no enum, same additive treatment as pendingReason above.
     eventRole: text("event_role"),
+    // true only when the user explicitly set is_transfer to a value that
+    // differed from what was currently stored — never set by sync or by the
+    // categorize quick-action. qualify.ts treats this as an override that
+    // outranks any machine-derived event_role. design: 2026-09-12
+    // transfer-ownership §4.
+    transferUserSet: boolean("transfer_user_set").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

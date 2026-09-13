@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { landTransaction, normalizeManual, supabaseTransactionStore } from "@/lib/ingestion";
 import { createClient } from "@/lib/supabase/server";
+import { updateTransactionRow } from "@/server/transaction-update";
 import { transactionFormSchema } from "@/lib/validation/transaction";
 
 export type TxnActionState = {
@@ -13,6 +14,7 @@ export type TxnActionState = {
 };
 
 const MISSING_ROW = "That transaction no longer exists. Refresh and try again.";
+const CONFLICT_ROW = "This transaction changed while you were editing it. Refresh and try again.";
 
 function fieldErrors(issues: { path: PropertyKey[]; message: string }[]): Record<string, string> {
   const out: Record<string, string> = {};
@@ -72,24 +74,21 @@ export async function updateTransaction(
 
   const { supabase } = await requireUser();
   const n = normalizeManual(parsed.data);
-  const { data, error } = await supabase
-    .from("transactions")
-    .update({
-      account_id: n.accountId,
-      category_id: n.categoryId,
-      amount: n.amount,
-      direction: n.direction,
-      occurred_at: n.occurredAt,
-      description: n.description,
-      note: n.note,
-      is_transfer: n.isTransfer,
-    })
-    .eq("id", id)
-    .select("id");
-  if (error) return { error: error.message };
-  // RLS makes another user's rows invisible rather than erroring, so a zero-row
-  // update is indistinguishable from success unless we check.
-  if (!data?.length) return { error: MISSING_ROW };
+  const result = await updateTransactionRow(supabase, id, {
+    accountId: n.accountId,
+    categoryId: n.categoryId,
+    amount: n.amount,
+    direction: n.direction,
+    occurredAt: n.occurredAt,
+    description: n.description,
+    note: n.note,
+    isTransfer: n.isTransfer,
+  });
+  // RLS makes another user's rows invisible rather than erroring, and a
+  // genuine optimistic-concurrency conflict is a distinct case from that --
+  // see transaction-update.ts for the conditional-write mechanism.
+  if (result.outcome === "missing") return { error: MISSING_ROW };
+  if (result.outcome === "conflict") return { error: CONFLICT_ROW };
 
   revalidate();
   return { ok: true };

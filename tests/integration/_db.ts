@@ -8,6 +8,7 @@
  */
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import * as schema from "@/lib/db/schema";
 
 const STAGING_REF = "iwypmifvmtmkwtnxkfma";
@@ -22,6 +23,26 @@ if (!url || !url.includes(STAGING_REF)) {
 
 export const client = postgres(url, { prepare: false, max: 4 });
 export const db = drizzle(client, { schema });
+
+let supabaseAdmin: SupabaseClient | null = null;
+/**
+ * Service-role supabase-js client (bypasses RLS) for testing code that goes
+ * through PostgREST rather than Drizzle-over-direct-Postgres — e.g.
+ * transaction-update.ts's optimistic conditional update, whose correctness
+ * depends on real PostgREST `.eq()` filter semantics, not just SQL. RLS
+ * itself is a separate, already-covered concern; this client bypassing it
+ * is not a gap for what this proves.
+ */
+export function adminSupabase(): SupabaseClient {
+  if (supabaseAdmin) return supabaseAdmin;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const secret = process.env.SUPABASE_SECRET_KEY;
+  if (!supabaseUrl || !secret) {
+    throw new Error("DB-integration tests need NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SECRET_KEY in .env.staging");
+  }
+  supabaseAdmin = createClient(supabaseUrl, secret, { auth: { autoRefreshToken: false, persistSession: false } });
+  return supabaseAdmin;
+}
 
 /** Insert a bare `auth.users` row (the trigger does the rest); return its id. */
 export async function seedUser(): Promise<string> {
@@ -126,9 +147,19 @@ export async function readTxn(id: string): Promise<{
   user_categorized: boolean;
   removed_at: string | null;
   is_transfer: boolean;
+  transfer_user_set: boolean;
+  description: string;
 }> {
   const [row] = await client<
-    { category_id: string | null; user_categorized: boolean; removed_at: string | null; is_transfer: boolean }[]
-  >`select category_id, user_categorized, removed_at, is_transfer from public.transactions where id = ${id}`;
+    {
+      category_id: string | null;
+      user_categorized: boolean;
+      removed_at: string | null;
+      is_transfer: boolean;
+      transfer_user_set: boolean;
+      description: string;
+    }[]
+  >`select category_id, user_categorized, removed_at, is_transfer, transfer_user_set, description
+    from public.transactions where id = ${id}`;
   return row;
 }

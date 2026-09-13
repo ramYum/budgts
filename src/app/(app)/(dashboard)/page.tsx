@@ -37,11 +37,21 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
 
   type TxnRow = Pick<
     Database["public"]["Tables"]["transactions"]["Row"],
-    "category_id" | "amount" | "direction" | "occurred_at" | "status" | "is_transfer" | "duplicate_of_id" | "event_role"
+    | "category_id"
+    | "amount"
+    | "direction"
+    | "occurred_at"
+    | "status"
+    | "is_transfer"
+    | "duplicate_of_id"
+    | "event_role"
+    | "transfer_user_set"
   >;
   let txnQuery = supabase
     .from("transactions")
-    .select("category_id, amount, direction, occurred_at, status, is_transfer, duplicate_of_id, event_role")
+    .select(
+      "category_id, amount, direction, occurred_at, status, is_transfer, duplicate_of_id, event_role, transfer_user_set",
+    )
     .gte("occurred_at", start)
     .lt("occurred_at", end);
   // Soft-deleted bank rows (Plaid `removed`) must not count toward spend.
@@ -73,12 +83,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
     // Same "never guess" boundary guard countsForMonth uses (design:
     // 2026-09-12 qualify-integration final review, Important #2).
     eventRole: t.event_role != null && isEventRole(t.event_role) ? t.event_role : null,
-    // Placeholder, mechanically required by Task 4's BudgetTxn.transferUserSet
-    // field to keep this file typechecking -- transfer_user_set isn't in the
-    // query above yet. Wiring the real column here is Task 5, not this task;
-    // until then this dashboard cannot see any real transferUserSet=true row
-    // (design: 2026-09-12 transfer-ownership, Task 4/Task 5 split).
-    transferUserSet: false,
+    transferUserSet: t.transfer_user_set,
   }));
   const cats: DashboardCategory[] = (categories ?? []) as DashboardCategory[];
   const budgets = (budgetRows ?? []).map((b) => ({ categoryId: b.category_id, amount: b.amount }));

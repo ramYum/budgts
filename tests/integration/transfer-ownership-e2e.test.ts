@@ -182,3 +182,80 @@ describe("Transfer Ownership — end-to-end precedence across a real sync (stagi
     expect(countsForMonth(budgetTxn, "2026-09")).toBe(true);
   });
 });
+
+/**
+ * Task 5: page.tsx's own query + mapping. page.tsx is a Next.js Server
+ * Component (cookies-bound auth) and can't be invoked directly from a
+ * test, so this mirrors its exact select column list and mapping
+ * byte-for-byte (only adding a `user_id` filter, since the real page
+ * relies on RLS for that isolation and this test uses a service-role
+ * client that bypasses RLS) -- proving the real persisted
+ * `transfer_user_set` value genuinely reaches the dashboard's
+ * qualification input, not just that `countsForMonth` behaves correctly
+ * given a hand-built `BudgetTxn` (already proven above).
+ */
+describe("page.tsx's transactions query — transfer_user_set reaches the dashboard's BudgetTxn (staging Postgres)", () => {
+  type PageTxnRow = {
+    category_id: string | null;
+    amount: number;
+    direction: "debit" | "credit";
+    occurred_at: string;
+    status: "confirmed" | "pending_review";
+    is_transfer: boolean;
+    duplicate_of_id: string | null;
+    event_role: string | null;
+    transfer_user_set: boolean;
+  };
+
+  async function queryLikePage(sourceRef: string): Promise<PageTxnRow> {
+    const { data, error } = await supabase
+      .from("transactions")
+      .select("category_id, amount, direction, occurred_at, status, is_transfer, duplicate_of_id, event_role, transfer_user_set")
+      .eq("user_id", userId)
+      .eq("source_ref", sourceRef)
+      .returns<PageTxnRow[]>();
+    if (error) throw new Error(error.message);
+    if (!data?.[0]) throw new Error(`no row for sourceRef ${sourceRef}`);
+    return data[0];
+  }
+
+  it("an explicitly user-overridden transfer comes back as transferUserSet: true", async () => {
+    const sourceRef = `itest-e2e-page-override-${Date.now()}`;
+    const id = await insertBankTxn(userId, accountId, { sourceRef, isTransfer: false, transferUserSet: false });
+
+    const write = await updateTransactionRow(supabase, id, {
+      accountId,
+      categoryId: null,
+      amount: 1000,
+      direction: "debit",
+      occurredAt: "2026-09-10T12:00:00.000Z",
+      description: "User-marked transfer",
+      note: null,
+      isTransfer: true,
+    });
+    expect(write.outcome).toBe("ok");
+
+    const row = await queryLikePage(sourceRef);
+    const budgetTxn: BudgetTxn = {
+      categoryId: row.category_id,
+      amount: row.amount,
+      direction: row.direction,
+      occurredAt: new Date(row.occurred_at),
+      status: row.status,
+      isTransfer: row.is_transfer,
+      duplicateOfId: row.duplicate_of_id,
+      eventRole: null,
+      transferUserSet: row.transfer_user_set,
+    };
+    expect(budgetTxn.transferUserSet).toBe(true);
+    expect(countsForMonth(budgetTxn, "2026-09")).toBe(false); // user decision -> excluded
+  });
+
+  it("an untouched transaction comes back as transferUserSet: false", async () => {
+    const sourceRef = `itest-e2e-page-untouched-${Date.now()}`;
+    await insertBankTxn(userId, accountId, { sourceRef, isTransfer: false, transferUserSet: false });
+
+    const row = await queryLikePage(sourceRef);
+    expect(row.transfer_user_set).toBe(false);
+  });
+});

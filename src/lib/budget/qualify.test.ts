@@ -92,6 +92,26 @@ describe("countsForMonth", () => {
     expect(countsForMonth(txn({ eventRole: "CARD_PAYMENT", duplicateOfId: "x" }), "2026-09")).toBe(false);
   });
 
+  // Precedence proof for the status gate: PURCHASE resolves to EXPENSE and
+  // would qualify (true) if the status gate did not run before the role
+  // branch. Unlike tests 10/11 (CARD_PAYMENT, which excludes via the role
+  // branch regardless of ordering), a qualifying role here means the only
+  // way to get `false` is if `status !== "confirmed"` short-circuits first.
+  it("excludes a PURCHASE-role pending_review transaction — precedence proof that status gates before the role branch", () => {
+    expect(
+      countsForMonth(txn({ eventRole: "PURCHASE", direction: "debit", status: "pending_review" }), "2026-09"),
+    ).toBe(false);
+  });
+
+  // Precedence proof for the duplicateOfId gate: same reasoning as above —
+  // PURCHASE would qualify (true) if duplicateOfId didn't short-circuit
+  // before the role branch is reached.
+  it("excludes a PURCHASE-role duplicate transaction — precedence proof that duplicateOfId gates before the role branch", () => {
+    expect(
+      countsForMonth(txn({ eventRole: "PURCHASE", direction: "debit", duplicateOfId: "some-id" }), "2026-09"),
+    ).toBe(false);
+  });
+
   it("excludes a null-role transfer — legacy path, unchanged", () => {
     expect(countsForMonth(txn({ eventRole: null, isTransfer: true }), "2026-09")).toBe(false);
   });

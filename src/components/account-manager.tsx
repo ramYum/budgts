@@ -65,11 +65,11 @@ function AccountForm({
         <button
           type="submit"
           disabled={pending}
-          className="flex-1 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-on-primary disabled:opacity-50"
+          className="flex-1 rounded-full bg-primary px-3 py-2 text-sm font-medium text-on-primary disabled:opacity-50"
         >
           {pending ? "Saving…" : submitLabel}
         </button>
-        <button type="button" onClick={onDone} className="rounded-lg border border-border px-3 py-2 text-sm">
+        <button type="button" onClick={onDone} className="rounded-full border border-border px-3 py-2 text-sm">
           Cancel
         </button>
       </div>
@@ -103,7 +103,7 @@ export function AccountManager({ accounts }: { accounts: AccountItem[] }) {
         <button
           type="button"
           onClick={() => setAdding(true)}
-          className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:bg-surface-2"
+          className="rounded-full border border-border px-3 py-1.5 text-sm font-medium hover:bg-surface-2"
         >
           + Add
         </button>

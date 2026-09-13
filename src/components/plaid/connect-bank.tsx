@@ -96,13 +96,10 @@ export function ConnectBank({
   }, [router]);
 
   const busy = phase === "starting" || phase === "exchanging";
-  // Deep Pine fill per brand/README.md's documented primary-button color, Volt
-  // Lime text as the logo-color accent — keeps the fill compliant with "Volt
-  // Lime is never a button" while still giving the label the logo's neon color.
   const btn =
     tone === "primary"
-      ? "rounded-lg bg-pine px-3 py-2 text-sm font-semibold text-volt disabled:opacity-50"
-      : "rounded-lg bg-pine px-3 py-1.5 text-sm font-semibold text-volt disabled:opacity-50";
+      ? "rounded-full bg-primary px-3 py-2 text-sm font-semibold text-on-primary disabled:opacity-50"
+      : "rounded-full bg-primary px-3 py-1.5 text-sm font-semibold text-on-primary disabled:opacity-50";
 
   return (
     <div className="space-y-2">

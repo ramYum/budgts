@@ -4,6 +4,7 @@ import { signOut } from "@/server/auth";
 import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
 import { Logo } from "@/components/logo";
 import { BottomNav } from "@/components/bottom-nav";
+import { DesktopSidebar } from "@/components/desktop-sidebar";
 import { NeedsCategoryBell } from "@/components/needs-category-bell";
 import { RealtimeRefresh } from "@/components/realtime-refresh";
 import { ReviewBanner } from "@/components/plaid/review-banner";
@@ -39,11 +40,13 @@ export default async function DashboardLayout({ children }: LayoutProps<"/">) {
   }
 
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col">
+    <div className="flex min-h-dvh w-full flex-col md:pl-60">
       {/* Keeps the bell count fresh after a sync lands, on every dashboard route. */}
       {plaidOn ? <RealtimeRefresh tables={["transactions"]} /> : null}
 
-      <header className="sticky top-0 z-20 flex items-center justify-between border-b border-hairline bg-bg/90 px-4 py-3 backdrop-blur">
+      <DesktopSidebar />
+
+      <header className="sticky top-0 z-10 flex items-center justify-between border-b border-hairline bg-bg/90 px-4 py-3 backdrop-blur md:hidden">
         <Logo size={20} />
         <div className="flex items-center gap-4">
           {plaidOn ? <NeedsCategoryBell count={needsCategoryCount} /> : null}
@@ -60,7 +63,14 @@ export default async function DashboardLayout({ children }: LayoutProps<"/">) {
 
       {plaidOn ? <ReviewBanner /> : null}
 
-      <main className="flex-1 px-4 py-4 pb-24">{children}</main>
+      <main className="mx-auto w-full max-w-md flex-1 px-4 py-4 pb-24 md:max-w-4xl md:px-8 md:py-8 md:pb-8">
+        {plaidOn ? (
+          <div className="mb-2 hidden items-center justify-end md:flex">
+            <NeedsCategoryBell count={needsCategoryCount} />
+          </div>
+        ) : null}
+        {children}
+      </main>
 
       <BottomNav />
     </div>

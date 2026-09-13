@@ -140,7 +140,7 @@ export function TransactionForm({
       </label>
 
       <label className="flex items-center gap-2 text-xs text-muted">
-        <input type="checkbox" name="isTransfer" defaultChecked={initial?.isTransfer ?? false} className="accent-[var(--volt)]" />
+        <input type="checkbox" name="isTransfer" defaultChecked={initial?.isTransfer ?? false} className="accent-[var(--blue)]" />
         Transfer between my own accounts (excluded from spend &amp; income)
       </label>
 
@@ -150,14 +150,14 @@ export function TransactionForm({
         <button
           type="submit"
           disabled={pending}
-          className="flex-1 rounded-lg bg-primary px-3 py-2 text-sm font-medium text-on-primary disabled:opacity-50"
+          className="flex-1 rounded-full bg-primary px-3 py-2 text-sm font-medium text-on-primary disabled:opacity-50"
         >
           {pending ? "Saving…" : submitLabel}
         </button>
         <button
           type="button"
           onClick={onDone}
-          className="rounded-lg border border-border px-3 py-2 text-sm"
+          className="rounded-full border border-border px-3 py-2 text-sm"
         >
           Cancel
         </button>

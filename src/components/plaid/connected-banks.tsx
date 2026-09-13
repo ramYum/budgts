@@ -64,7 +64,7 @@ export function ConnectedBanks({
         ))}
       </ul>
       <p className="text-xs text-muted">
-        Disconnecting a bank keeps every transaction it already imported — they stay in Budgts as history.
+        Disconnecting a bank keeps every transaction it already imported — they stay in Budgt as history.
       </p>
     </div>
   );
@@ -106,7 +106,7 @@ function BankCard({
         </div>
         <span
           className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
-            needsAttention ? "bg-neg/10 text-neg" : "bg-tint text-pine"
+            needsAttention ? "bg-neg/10 text-neg" : "bg-tint text-primary"
           }`}
         >
           {needsAttention ? "Needs attention" : "Connected"}
@@ -158,7 +158,7 @@ function BankCard({
         <button
           type="button"
           onClick={() => setChoosing(true)}
-          className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:bg-surface-2"
+          className="rounded-full border border-border px-3 py-1.5 text-sm font-medium hover:bg-surface-2"
         >
           Choose accounts to import
         </button>
@@ -169,7 +169,7 @@ function BankCard({
           type="button"
           onClick={runSync}
           disabled={syncing}
-          className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:bg-surface-2 disabled:opacity-50"
+          className="rounded-full border border-border px-3 py-1.5 text-sm font-medium hover:bg-surface-2 disabled:opacity-50"
         >
           {syncing ? "Syncing…" : "Sync now"}
         </button>
@@ -337,7 +337,7 @@ function StopImportingConfirm({
       <input type="hidden" name="entries" value={JSON.stringify(entries)} readOnly />
 
       <p className="text-sm text-muted">
-        Budgts stops importing new transactions from {account.name ?? "this account"}. Transactions already
+        Budgt stops importing new transactions from {account.name ?? "this account"}. Transactions already
         imported stay in your history and keep counting toward budgets.
       </p>
 
@@ -351,7 +351,7 @@ function StopImportingConfirm({
         >
           {pending ? "Saving…" : "Stop importing"}
         </button>
-        <button type="button" onClick={onClose} className="rounded-lg border border-border px-3 py-2 text-sm">
+        <button type="button" onClick={onClose} className="rounded-full border border-border px-3 py-2 text-sm">
           Cancel
         </button>
       </div>
@@ -385,7 +385,7 @@ function DisconnectConfirm({
       <input type="hidden" name="purge" value={purge ? "1" : "0"} />
 
       <p className="text-sm text-muted">
-        Budgts stops syncing {bankName}. The transactions it already imported stay in your history and keep
+        Budgt stops syncing {bankName}. The transactions it already imported stay in your history and keep
         counting toward budgets.
       </p>
 
@@ -397,7 +397,7 @@ function DisconnectConfirm({
           className="mt-0.5"
         />
         <span>
-          Also delete the {bankName} transactions Budgts imported. This can&apos;t be undone.
+          Also delete the {bankName} transactions Budgt imported. This can&apos;t be undone.
         </span>
       </label>
 
@@ -411,7 +411,7 @@ function DisconnectConfirm({
         >
           {pending ? "Disconnecting…" : purge ? "Disconnect and delete" : "Disconnect"}
         </button>
-        <button type="button" onClick={onClose} className="rounded-lg border border-border px-3 py-2 text-sm">
+        <button type="button" onClick={onClose} className="rounded-full border border-border px-3 py-2 text-sm">
           Cancel
         </button>
       </div>

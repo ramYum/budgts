@@ -155,7 +155,7 @@ export function NeedsCategory({
                   <button
                     type="button"
                     onClick={() => pick(group.key, group.anchorId, group.suggestedCategoryId!)}
-                    className="rounded-full border border-pine/30 bg-tint px-3 py-1 text-xs font-medium text-pine hover:border-pine/60"
+                    className="rounded-full border border-primary/30 bg-tint px-3 py-1 text-xs font-medium text-primary hover:border-primary/60"
                   >
                     {suggestedName}
                   </button>

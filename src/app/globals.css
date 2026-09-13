@@ -1,81 +1,71 @@
 @import "tailwindcss";
 
-/* Budgts — see brand/Branding-guidelines.html and brand/tokens.css.
- * Colour BUDGET (share of a typical screen, per the reference ratio):
- *   ~78% white  ·  ~10% Deep Pine (primary buttons, the balance card, the
- *   active nav item, headings)  ·  ~4% Volt Lime (logo, progress fills, tiny
- *   sparks)  ·  ~5% pale-lime tint (soft chips / callouts)  ·  rest neutral.
+/* Budgt — see "New Branding guidelines.png" / "New Assets.svg" for source.
+ * Warm, expressive multi-colour palette built around a black-cat mascot.
  * Raw palette values never change; components consume the semantic roles. */
 :root {
   color-scheme: light;
 
-  /* raw palette */
-  --volt: #b5ff00;
-  --pine: #001e16;
-  --carbon: #141918;
-  --paper: #ffffff;
-  --mist: #f4f6f2;
-  --lime-2: #c7ff47;
-  --lime-3: #d8ff80;
-  --lime-4: #e9ffb8;
-  --lime-5: #f6ffe3;
-  --pine-2: #26403a;
-  --pine-3: #57706a;
-  --pine-4: #8ca39d;
-  --pine-5: #c4d1cd;
-  --grey-3: #6b716e;
-  --grey-5: #d0d3d1;
-  --over: #ff5c3a;
-  --near: #ffc24b;
-  --avocado: #eef4e2; /* very light green — the page wash that warms the white */
-  --avocado-2: #e4edcf; /* a step deeper — soft chips, callouts */
+  /* raw palette (exact brand sheet values) */
+  --yellow: #fece01; /* Primary · Optimism */
+  --warm-yellow: #fdac01; /* Energy */
+  --orange: #fb5607; /* Action */
+  --deep-orange: #f62a01; /* Emphasis */
+  --blue: #0565eb; /* Primary Action */
+  --cyan: #08a1f0; /* Clarity */
+  --green: #087736; /* Growth */
+  --emerald: #00a453; /* Wellness */
+  --purple: #443288; /* Focus / Sleep */
+  --pink: #fd598a; /* Emotion */
+  --navy: #1d1159; /* Depth */
+  --warm-white: #f8f3f0; /* Background */
 
-  /* semantic roles — a soft avocado canvas, white cards on top */
-  --bg: var(--avocado);
-  --surface: var(--paper);
-  --surface-2: #e8efd8; /* sunken sections / row hover */
-  --text: var(--carbon);
-  --muted: #6b716e;
-  --border: #e2e6da;
-  --accent: var(--volt); /* Volt Lime — sparks only, never a button or a fill */
-  --accent-ink: var(--pine);
-  --heading: var(--pine-2);
+  /* semantic roles — warm-white canvas, white cards on top */
+  --bg: var(--warm-white);
+  --surface: #ffffff;
+  --surface-2: #fbeed4; /* sunken sections / row hover — soft warm-yellow wash */
+  --text: var(--navy);
+  --muted: #746e8c; /* desaturated navy-grey */
+  --border: #ece3d6;
+  --accent: var(--orange); /* sparks, underlines, small highlights */
+  --accent-ink: #ffffff;
+  --heading: var(--navy);
   --hairline: var(--border);
-  --track: #e8efd8; /* progress trough */
-  --tick: var(--pine-2); /* small structural marks */
+  --track: #f1e7d4; /* progress trough */
+  --tick: var(--orange); /* small structural marks */
 
-  /* Deep Pine as the primary-action + balance-card colour (~10% of a screen) */
-  --primary: var(--pine);
+  /* Blue as the primary-action colour, per the brand's own CTA example */
+  --primary: var(--blue);
   --on-primary: #ffffff;
-  --tint: var(--avocado-2); /* soft fill (chips, callouts) */
+  --tint: #e4efff; /* soft fill (chips, callouts) — pale blue, matches the brand's quote bubble */
 
-  --pos: #3a7d00;
-  --pos-fill: var(--volt);
-  --neg: var(--over);
-  --warn: #b5791a;
-  --info: #2f6fd0;
-  --ring: #2f6fd0;
+  --pos: var(--emerald);
+  --pos-fill: var(--emerald);
+  --neg: var(--deep-orange);
+  --warn: #b5791a; /* accessible text tone derived from warm-yellow */
+  --info: var(--cyan);
+  --ring: var(--blue);
 
   /* progress-bar fills — brand semantic colours, constant in every context */
-  --fill-under: var(--volt);
-  --fill-near: #ffc24b;
-  --fill-over: #ff5c3a;
+  --fill-under: var(--emerald);
+  --fill-near: var(--warm-yellow);
+  --fill-over: var(--deep-orange);
 
-  /* legacy chrome tokens — kept so the pine hero card / nav still resolve */
-  --surface-dark: var(--pine);
+  /* legacy chrome tokens — kept so dark-surface call sites still resolve */
+  --surface-dark: var(--navy);
   --on-dark: #ffffff;
-  --on-dark-dim: var(--pine-4);
+  --on-dark-dim: #a9a2c4;
 
   --background: var(--bg);
   --foreground: var(--text);
 }
 
-/* Content cards are plain white on the white canvas — separated by a hairline
+/* Content cards are plain white on the warm canvas — separated by a hairline
  * border, not a fill. `.card` / `.panel` are kept as no-op hooks so components
  * that carry the class keep working. */
 .card,
 .panel {
-  background: var(--paper);
+  background: var(--surface);
   color: var(--text);
 }
 
@@ -95,8 +85,17 @@
   --color-neg: var(--neg);
   --color-warn: var(--warn);
   --color-info: var(--info);
-  --color-volt: var(--volt);
-  --color-pine: var(--pine);
+  --color-yellow: var(--yellow);
+  --color-warm-yellow: var(--warm-yellow);
+  --color-orange: var(--orange);
+  --color-deep-orange: var(--deep-orange);
+  --color-blue: var(--blue);
+  --color-cyan: var(--cyan);
+  --color-green: var(--green);
+  --color-emerald: var(--emerald);
+  --color-purple: var(--purple);
+  --color-pink: var(--pink);
+  --color-navy: var(--navy);
   --color-heading: var(--heading);
   --color-hairline: var(--hairline);
   --color-track: var(--track);
@@ -107,32 +106,30 @@
   --color-primary: var(--primary);
   --color-on-primary: var(--on-primary);
   --color-tint: var(--tint);
-  --color-avocado: var(--avocado);
-  --color-avocado-2: var(--avocado-2);
   --color-fill-under: var(--fill-under);
   --color-fill-near: var(--fill-near);
   --color-fill-over: var(--fill-over);
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-nunito), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-nunito), ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
 }
 
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-nunito), ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
 /* In @layer base so any Tailwind text-colour utility on a heading still wins
- * (e.g. `text-on-dark` in the Deep Pine hero, `text-muted` day labels). */
+ * (e.g. `text-on-dark` in the primary hero, `text-muted` day labels). */
 @layer base {
   h1,
   h2,
   h3 {
-    font-family: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
-    font-weight: 700;
-    letter-spacing: -0.02em;
+    font-family: var(--font-nunito), ui-sans-serif, system-ui, sans-serif;
+    font-weight: 800;
+    letter-spacing: -0.01em;
     color: var(--heading);
   }
 }
@@ -142,9 +139,42 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* A few deliberately sparing brand moments. The guidelines use bright colour
+ * as encouragement, not as decoration on every surface. */
+.brand-mascot-stage {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid rgb(254 206 1 / 0.45);
+  border-radius: 2rem;
+  background:
+    radial-gradient(circle at 12% 12%, #fff4a8 0 13%, transparent 13.5%),
+    linear-gradient(135deg, var(--yellow), var(--warm-yellow));
+  box-shadow: 0 16px 32px rgb(251 86 7 / 0.13);
+}
+
+.brand-mascot-stage::after {
+  position: absolute;
+  z-index: -1;
+  right: -1.75rem;
+  bottom: -2.5rem;
+  width: 8rem;
+  height: 8rem;
+  border-radius: 9999px;
+  background: var(--blue);
+  content: "";
+}
+
+.brand-highlight-card {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, var(--yellow), var(--warm-yellow));
+  color: var(--navy);
+}
+
 ::selection {
-  background: var(--volt);
-  color: var(--pine);
+  background: var(--yellow);
+  color: var(--navy);
 }
 
 :where(a, button, input, select, textarea, [tabindex]):focus-visible {

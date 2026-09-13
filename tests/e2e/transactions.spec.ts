@@ -25,7 +25,7 @@ test("sign in, onboard, add a transaction, edit it, delete it", async ({ page })
     await expect(page.getByText("so far this month")).toBeVisible();
 
     // Add a transaction.
-    await page.getByRole("link", { name: "Transactions" }).click();
+    await page.getByRole("link", { name: "Activity" }).click();
     await page.getByRole("button", { name: "+ Add" }).click();
     await page.getByLabel("Amount").fill("12.34");
     await page.getByLabel("Description").fill("Groceries test");

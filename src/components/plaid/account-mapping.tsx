@@ -87,7 +87,7 @@ export function AccountMapping({
         <button
           type="button"
           onClick={onDone}
-          className="w-full rounded-lg bg-primary px-3 py-2 text-sm font-medium text-on-primary"
+          className="w-full rounded-full bg-primary px-3 py-2 text-sm font-medium text-on-primary"
         >
           Done
         </button>
@@ -101,7 +101,7 @@ export function AccountMapping({
       <input type="hidden" name="entries" value={JSON.stringify(entries)} readOnly />
 
       <p className="text-sm text-muted">
-        Each account can become a new Budgts account, feed one you already have, or be left out.
+        Each account can become a new Budgt account, feed one you already have, or be left out.
       </p>
 
       <ul className="space-y-3">
@@ -121,7 +121,7 @@ export function AccountMapping({
                   value={r.mode}
                   onChange={(e) => update(i, { mode: e.target.value as Mode })}
                 >
-                  <option value="new">A new Budgts account</option>
+                  <option value="new">A new Budgt account</option>
                   <option value="existing" disabled={budgtsAccounts.length === 0}>
                     An existing account
                   </option>
@@ -179,7 +179,7 @@ export function AccountMapping({
       <button
         type="submit"
         disabled={pending}
-        className="w-full rounded-lg bg-primary px-3 py-2 text-sm font-medium text-on-primary disabled:opacity-50"
+        className="w-full rounded-full bg-primary px-3 py-2 text-sm font-medium text-on-primary disabled:opacity-50"
       >
         {pending ? "Saving…" : "Import transactions"}
       </button>

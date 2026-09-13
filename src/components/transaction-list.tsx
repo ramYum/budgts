@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { formatMoney } from "@/lib/budget/money";
 import { deleteTransaction, updateTransaction } from "@/server/transactions";
 import { Overlay } from "./overlay";
+import { Mascot } from "./mascot";
 import {
   TransactionForm,
   type AccountOption,
@@ -64,10 +65,13 @@ export function TransactionList({
 
   if (items.length === 0) {
     return (
-      <p className="py-10 text-center text-sm text-muted">
-        No transactions this month yet. Add your first with{" "}
-        <span className="font-medium text-text">+ Add</span>.
-      </p>
+      <div className="flex flex-col items-center gap-3 py-10 text-center">
+        <Mascot mood="sleepy" size={64} />
+        <p className="text-sm text-muted">
+          No transactions this month yet. Add your first with{" "}
+          <span className="font-medium text-text">+ Add</span>.
+        </p>
+      </div>
     );
   }
 
@@ -103,13 +107,13 @@ export function TransactionList({
             <h3 className="text-xs font-medium text-muted">{dayLabel(day)}</h3>
             <ul className="divide-y divide-hairline">
               {rows.map((it) => {
-                const pillColor = it.is_transfer ? "var(--pine-4)" : (it.category?.color ?? "var(--grey-5)");
+                const pillColor = it.is_transfer ? "var(--muted)" : (it.category?.color ?? "var(--border)");
                 return (
                 <li key={it.id} className="py-2">
                   <button
                     type="button"
                     onClick={() => setViewing(it)}
-                    className="block w-full truncate text-left text-sm hover:text-pine"
+                    className="block w-full truncate text-left text-sm hover:text-primary"
                   >
                     {it.description || it.category?.name || "Transaction"}
                   </button>
@@ -168,7 +172,7 @@ export function TransactionList({
               setEditing(viewing);
               setViewing(null);
             }}
-            className="mt-4 w-full rounded-lg border border-border px-3 py-2 text-sm font-medium hover:bg-surface-2"
+            className="mt-4 w-full rounded-full border border-border px-3 py-2 text-sm font-medium hover:bg-surface-2"
           >
             Edit
           </button>

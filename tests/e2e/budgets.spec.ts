@@ -38,7 +38,7 @@ test("set a budget, then the dashboard shows budget-vs-actual and savings", asyn
     await addTransaction(page, "340.00", "Food / Groceries");
 
     // Dashboard: spent tile + a near-budget bar with $60 left, negative net savings.
-    await page.getByRole("link", { name: "Dashboard" }).click();
+    await page.getByRole("link", { name: "Home" }).click();
     await expect(page.getByText("$340.00").first()).toBeVisible();
     await expect(page.getByText("Food / Groceries")).toBeVisible();
     // "$60.00 left" now also appears as a substring of the dark header's
@@ -48,7 +48,7 @@ test("set a budget, then the dashboard shows budget-vs-actual and savings", asyn
 
     // Push it over budget.
     await addTransaction(page, "100.00", "Food / Groceries");
-    await page.getByRole("link", { name: "Dashboard" }).click();
+    await page.getByRole("link", { name: "Home" }).click();
     await expect(page.getByText(/Over by \$40\.00/)).toBeVisible();
   } finally {
     await deleteTestUser(user.id);

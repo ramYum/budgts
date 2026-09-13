@@ -17,7 +17,8 @@ test("create a savings goal, add + withdraw contributions, edit, archive", async
     await page.getByRole("button", { name: /start budgeting/i }).click();
     await page.waitForURL((u) => u.pathname === "/", { timeout: 20000 });
 
-    await page.getByRole("link", { name: "Goals" }).click();
+    await page.getByRole("link", { name: "More" }).click();
+    await page.getByRole("link", { name: "Savings Goals" }).click();
     await expect(page.getByRole("heading", { name: "Savings goals" })).toBeVisible();
 
     // Create a goal.

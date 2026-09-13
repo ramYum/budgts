@@ -2,7 +2,7 @@ import Link from "next/link";
 import { monthKey } from "@/lib/budget/month";
 
 /** ‹ September 2026 › — server component, links change the `?m=` param.
- * `tone="dark"` for use inside the Deep Pine dashboard hero. */
+ * `tone="dark"` for use inside a dark dashboard hero. */
 export function MonthNav({
   base,
   month,

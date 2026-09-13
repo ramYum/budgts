@@ -1,4 +1,12 @@
-# Budgts brand
+# Legacy Budgts brand — superseded
+
+Do not use this folder for product UI work. The active brand source is
+`New Branding guidelines.png` and `New Assets.svg`; the running application consumes its
+prepared assets from `public/brand/` and the tokens in `src/app/globals.css`.
+
+The material below is retained only as historical reference for the previous identity.
+
+# Previous Budgts brand
 
 | File | What it is |
 | --- | --- |

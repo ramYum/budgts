@@ -22,14 +22,16 @@ export default async function OnboardingPage() {
   return (
     <main className="flex min-h-dvh w-full flex-col items-center justify-center gap-8 bg-bg p-6">
       <div className="w-full max-w-sm space-y-8">
-        <div className="flex justify-center">
-          <Logo size={26} />
+        <div className="brand-mascot-stage flex flex-col items-center gap-3 px-8 py-5">
+          {/* eslint-disable-next-line @next/next/no-img-element -- fixed brand raster, decorative */}
+          <img src="/brand/mascot-hero.png" alt="" width={140} height={99} className="h-auto w-[140px]" />
+          <Logo size={24} />
         </div>
         <div className="space-y-6">
           <div className="space-y-1">
-            <h1 className="text-xl font-semibold">Welcome to Budgts</h1>
+            <h1 className="text-xl font-semibold">Welcome to Budgt</h1>
             <p className="text-sm text-muted">
-              Pick the currency you budget in. You can change it later in Settings.
+              Let&apos;s make a little space for the life you want. Pick the currency you budget in.
             </p>
           </div>
           <OnboardingForm defaultCurrency={profile?.currency ?? "USD"} />

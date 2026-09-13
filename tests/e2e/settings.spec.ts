@@ -17,7 +17,9 @@ test("manage categories: default set, rename, add, archive, and drill-in", async
     await page.getByRole("button", { name: /start budgeting/i }).click();
     await page.waitForURL((u) => u.pathname === "/", { timeout: 20000 });
 
+    await page.getByRole("link", { name: "More" }).click();
     await page.getByRole("link", { name: "Settings" }).click();
+    await page.getByRole("link", { name: "Categories" }).click();
 
     // The six seeded expense categories.
     for (const name of [
@@ -54,7 +56,7 @@ test("manage categories: default set, rename, add, archive, and drill-in", async
     await page.getByRole("button", { name: "Cancel" }).click();
 
     // Drill into a category from Settings.
-    await page.getByRole("link", { name: "Settings" }).click();
+    await page.goto("/settings/categories");
     await page.getByRole("link", { name: "Housing", exact: true }).click();
     await expect(page).toHaveURL(/category=/);
     await expect(page.getByText("Showing")).toBeVisible();

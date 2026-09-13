@@ -48,19 +48,28 @@ const view: DV = {
   ],
 };
 
+const emptyView: DV = {
+  tiles: { income: 0, spent: 0, netSavings: 0, budgeted: 0, leftToSpend: 0, savingsRate: null },
+  bars: [],
+};
+
 const baseProps = {
   currency: "USD",
   month: "2026-09",
   accounts: [{ id: "acc-1", name: "Checking" }],
   categories: [{ id: "salary", name: "Salary", kind: "income" as const }],
   defaultDate: "2026-09-07",
+  prevView: emptyView,
+  savings: { totalTarget: 0, totalSaved: 0, activeCount: 0, completeCount: 0 },
+  recent: [],
+  userEmail: "alex@example.com",
 };
 
 describe("DashboardView", () => {
   it("renders the headline figures with formatted amounts", () => {
     render(<DashboardView {...baseProps} view={view} />);
     expect(screen.getByText("Income").nextElementSibling).toHaveTextContent("$5,000.00");
-    expect(screen.getByText("Spent").nextElementSibling).toHaveTextContent("$550.00");
+    expect(screen.getByText("Spending").nextElementSibling).toHaveTextContent("$550.00");
     expect(screen.getByText("Money Left").nextElementSibling).toHaveTextContent("-$550.00");
   });
 

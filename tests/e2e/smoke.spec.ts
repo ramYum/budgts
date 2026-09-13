@@ -22,7 +22,7 @@ test("serves a web app manifest", async ({ request }) => {
   const res = await request.get("/manifest.webmanifest");
   expect(res.ok()).toBeTruthy();
   const manifest = await res.json();
-  expect(manifest.name).toBe("Budgts");
+  expect(manifest.name).toBe("Budgt");
 });
 
 test("serves the service worker without an auth redirect", async ({ request }) => {

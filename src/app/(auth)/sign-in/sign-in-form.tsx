@@ -6,7 +6,7 @@ import { requestMagicLink, signInWithGoogle, type MagicLinkState } from "@/serve
 const field =
   "w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-accent";
 const button =
-  "w-full rounded-lg bg-primary px-3 py-2 text-sm font-medium text-on-primary disabled:opacity-50";
+  "w-full rounded-full bg-primary px-3 py-2 text-sm font-medium text-on-primary disabled:opacity-50";
 
 export function SignInForm({ next, initialError }: { next: string; initialError?: string }) {
   const [state, action, pending] = useActionState<MagicLinkState, FormData>(requestMagicLink, {});
@@ -58,7 +58,7 @@ export function SignInForm({ next, initialError }: { next: string; initialError?
       <form action={signInWithGoogle}>
         <input type="hidden" name="next" value={next} />
         <button
-          className="w-full rounded-lg border border-border px-3 py-2 text-sm font-medium"
+          className="w-full rounded-full border border-border px-3 py-2 text-sm font-medium"
           type="submit"
         >
           Continue with Google

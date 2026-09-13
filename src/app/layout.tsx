@@ -1,49 +1,40 @@
 import type { Metadata, Viewport } from "next";
-import { Poppins, Inter } from "next/font/google";
+import { Nunito_Sans } from "next/font/google";
 import "./globals.css";
 import { SwRegister } from "@/components/sw-register";
 
-const poppins = Poppins({
-  variable: "--font-poppins",
-  weight: ["600", "700"],
-  subsets: ["latin"],
-});
-
-const inter = Inter({
-  variable: "--font-inter",
-  weight: ["400", "500", "600"],
+const nunito = Nunito_Sans({
+  variable: "--font-nunito",
+  weight: ["400", "500", "600", "700", "800"],
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
   title: {
-    default: "Budgts",
-    template: "%s · Budgts",
+    default: "Budgt",
+    template: "%s · Budgt",
   },
   description:
-    "Personal budget tracking — categories, budgets vs actual, recurring bills, savings goals.",
-  applicationName: "Budgts",
+    "Simple money tools, clear insights, and encouragement for a brighter tomorrow.",
+  applicationName: "Budgt",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
-    title: "Budgts",
-    statusBarStyle: "black-translucent",
+    title: "Budgt",
+    statusBarStyle: "default",
   },
 };
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#eef4e2" },
-    { media: "(prefers-color-scheme: dark)", color: "#001e16" },
+    { media: "(prefers-color-scheme: light)", color: "#f8f3f0" },
+    { media: "(prefers-color-scheme: dark)", color: "#1d1159" },
   ],
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html
-      lang="en"
-      className={`${poppins.variable} ${inter.variable} h-full antialiased`}
-    >
+    <html lang="en" className={`${nunito.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col">
         {children}
         <SwRegister />

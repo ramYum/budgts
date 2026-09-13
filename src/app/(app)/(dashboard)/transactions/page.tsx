@@ -145,14 +145,14 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
       </div>
 
       {categoryFilter ? (
-        <div className="flex items-center justify-between rounded-lg border border-hairline bg-tint px-3 py-2 text-sm text-pine">
+        <div className="flex items-center justify-between rounded-lg border border-hairline bg-tint px-3 py-2 text-sm text-primary">
           <span>
             Showing{" "}
             <span className="font-semibold">
               {categoryOpts.find((c) => c.id === categoryFilter)?.name ?? "category"}
             </span>
           </span>
-          <Link href={`/transactions?m=${m}`} className="text-xs font-medium text-pine/60 hover:text-pine">
+          <Link href={`/transactions?m=${m}`} className="text-xs font-medium text-primary/60 hover:text-primary">
             Clear
           </Link>
         </div>

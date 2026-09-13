@@ -14,6 +14,7 @@ import {
 import { Overlay } from "./overlay";
 import { GoalForm, type GoalInitial } from "./goal-form";
 import { ContributionForm } from "./contribution-form";
+import { Mascot } from "./mascot";
 
 type OverlayState =
   | null
@@ -121,7 +122,7 @@ export function GoalsView({
         <button
           type="button"
           onClick={() => setOverlay({ kind: "new" })}
-          className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-on-primary"
+          className="rounded-full bg-primary px-3 py-1.5 text-sm font-medium text-on-primary"
         >
           + Add goal
         </button>
@@ -137,10 +138,13 @@ export function GoalsView({
       ) : null}
 
       {items.length === 0 ? (
-        <p className="py-10 text-center text-sm text-muted">
-          No goals yet. Add one with <span className="font-medium text-text">+ Add goal</span> to
-          start tracking.
-        </p>
+        <div className="flex flex-col items-center gap-3 py-10 text-center">
+          <Mascot mood="curious" size={64} />
+          <p className="text-sm text-muted">
+            No goals yet. Add one with <span className="font-medium text-text">+ Add goal</span> to
+            start tracking — small steps add up.
+          </p>
+        </div>
       ) : (
         <ul className="space-y-3">
           {items.map((g) => (

@@ -96,7 +96,7 @@ export function CategoryManager({
         <button
           type="button"
           onClick={() => setAdding(true)}
-          className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:bg-surface-2"
+          className="rounded-full border border-border px-3 py-1.5 text-sm font-medium hover:bg-surface-2"
         >
           + Add
         </button>

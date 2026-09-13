@@ -121,4 +121,98 @@ describe("rollup", () => {
       totalRemaining: 0,
     });
   });
+
+  // Money Left / Savings Rate design §7: role-aware classification. All
+  // cases below have a resolved, recognized eventRole and must be
+  // classified via budgetEffectOf, not category.kind.
+
+  it("test 1: a PURCHASE-role debit with no category counts as spend — regression guard", () => {
+    const r = rollup([txn({ eventRole: "PURCHASE", categoryId: null, amount: 4200 })], cats, [], "2026-09");
+    expect(r.spend).toBe(4200);
+    expect(r.income).toBe(0);
+  });
+
+  it("test 2: an INCOME-role credit counts as income regardless of category", () => {
+    const r = rollup(
+      [txn({ eventRole: "INCOME", direction: "credit", categoryId: "groceries", amount: 500000 })],
+      cats,
+      [],
+      "2026-09",
+    );
+    expect(r.income).toBe(500000);
+    expect(r.spend).toBe(0);
+  });
+
+  // The real, currently-reachable case this fix exists for (design §7's
+  // "real-data impact" requirement) — not the hypothetical P2P_PAYMENT
+  // case below. merchant-rules.ts's own documented resolver chain (R4,
+  // "KEEPS the LOW/UNKNOWN gate") means a Plaid-reported INCOME-primary
+  // deposit with LOW/UNKNOWN confidence and no merchant-rule/knowledge
+  // match resolves eventRole="INCOME" (event-role.ts Row 2 has no
+  // confidence gate) but categoryId=null (category-map.ts's R4 does).
+  // Old code: uncategorized credit -> treated as negative spend, not
+  // income. Money Left comes out numerically identical either way (a
+  // credit subtracted from spend nets the same as added to income), but
+  // the displayed Income tile and Savings Rate (income-dependent) were
+  // both wrong under the old code.
+  it("test 2b: an uncategorized INCOME-role credit still counts as income, not negative spend — the real-data case", () => {
+    const r = rollup(
+      [txn({ eventRole: "INCOME", direction: "credit", categoryId: null, amount: 250000 })],
+      cats,
+      [],
+      "2026-09",
+    );
+    expect(r.income).toBe(250000);
+    expect(r.spend).toBe(0);
+  });
+
+  it("test 3: a hypothetical P2P_PAYMENT-incoming credit (role-resolved INCOME effect) counts as income, not spend", () => {
+    const r = rollup(
+      [txn({ eventRole: "P2P_PAYMENT", direction: "credit", categoryId: null, amount: 40000 })],
+      cats,
+      [],
+      "2026-09",
+    );
+    expect(r.income).toBe(40000);
+    expect(r.spend).toBe(0);
+  });
+
+  it("test 4: a REFUND-role credit reduces spend, does not add income", () => {
+    const r = rollup(
+      [
+        txn({ eventRole: "PURCHASE", amount: 5000 }),
+        txn({ eventRole: "REFUND", direction: "credit", categoryId: "groceries", amount: 1200 }),
+      ],
+      cats,
+      [],
+      "2026-09",
+    );
+    expect(r.spend).toBe(3800);
+    expect(r.income).toBe(0);
+  });
+
+  it("test 5: a null-role transaction still uses the category.kind fallback — regression guard, fix is additive", () => {
+    const r = rollup(
+      [txn({ eventRole: null, categoryId: "salary", direction: "credit", amount: 500000 })],
+      cats,
+      [],
+      "2026-09",
+    );
+    expect(r.income).toBe(500000);
+  });
+
+  it("test 6: a TRANSFER-role row never reaches this fix's branch — excluded upstream by countsForMonth", () => {
+    const r = rollup(
+      [
+        txn({ eventRole: "PURCHASE", amount: 3000 }),
+        txn({ eventRole: "TRANSFER", isTransfer: true, amount: 999999, direction: "credit" }),
+        txn({ eventRole: "CARD_PAYMENT", amount: 999999 }),
+      ],
+      cats,
+      [],
+      "2026-09",
+    );
+    expect(r.spend).toBe(3000);
+    expect(r.income).toBe(0);
+  });
 });

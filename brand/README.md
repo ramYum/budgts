@@ -10,8 +10,7 @@ The material below is retained only as historical reference for the previous ide
 
 | File | What it is |
 | --- | --- |
-| `../Branding-guidelines.png` | The brand sheet — logo, colour, type, voice, application. The reference. |
-| `Branding-guidelines.html` | Editable source for that PNG. Edit, then re-render (below). |
+| `Branding-guidelines.html` | Editable source for the old brand sheet. The rendered PNG (`../Branding-guidelines.png`) has been deleted — superseded by `../New Branding guidelines.png`. |
 | `Logo.png` | The original logo supplied by the owner. Source of truth for the mark. |
 | `budgts-mark.svg` | The mark, single colour (`currentColor`). Clean vector redraw of `Logo.png`. |
 | `budgts-mark-volt.svg` / `-pine.svg` / `-paper.svg` | Same mark, colour baked in. |

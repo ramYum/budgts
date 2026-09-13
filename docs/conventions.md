@@ -50,8 +50,10 @@ started. Reordering is how RLS gaps and float-money bugs get in.
      `tabular-nums`. Labelled inputs, keyboard-reachable, visible focus ring.
    - Logo: `<Logo>` / `<LogoMark>` from `src/components/logo.tsx`.
    - Subscribe to Supabase Realtime where the screen shows live shared data.
-   - Reference: `Branding-guidelines.png` (repo root) — full sheet; `brand/` has
-     the source, SVG assets and `tokens.css`. Check UI visually with
+   - Reference: `New Branding guidelines.png` (repo root, the current brand
+     source — supersedes the deleted `Branding-guidelines.png`) plus
+     `docs/specs/2026-09-13-ui-redesign-brand-guidelines-spec.md`; `brand/`
+     holds only the retired previous identity now. Check UI visually with
      `npm run screenshot -- <url> <label>` (see `tools/README.md`).
 6. **E2E** — `tests/e2e/*.spec.ts`
    - One Playwright test through the new UI, happy path. Add a

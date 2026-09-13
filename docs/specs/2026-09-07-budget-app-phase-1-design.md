@@ -1,7 +1,8 @@
 # Phase 1 Design — Core Budgeting Slice
 
 Date: 2026-09-07
-Status: approved (planning), not yet implemented
+Status: **implemented and shipped.** Live in production since 2026-09-09
+(`f31cd1a`). See `docs/workflow.md` §1/§7.
 
 ## Purpose
 

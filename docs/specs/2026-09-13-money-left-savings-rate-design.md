@@ -1,11 +1,13 @@
 # Money Left / Savings Rate — Design
 
-Status: **design only — nothing in this document has been implemented.**
-No code changed, no migration run, no branch created. This is the design
-step the north-star doc's own sequencing (§14/§15, "V1 foundation")
-reserved for after Transfer Ownership shipped. Transfer Ownership is now
-approved and frozen; this document does not modify it or any earlier
-phase.
+Status: **implemented and shipped** (`src/lib/budget/savings-rate.ts`,
+`rollup.ts`, `dashboard.ts`) — live in production since 2026-09-13
+(`docs/workflow.md` §7). §16's product-approval decisions (debt-paydown
+copy, the `rollup.ts` fix, negative/>100% rate visual treatment) were
+implicitly resolved by what shipped — no debt-paydown copy was added, the
+rollup fix shipped exactly as designed, and no special visual treatment was
+coded — recorded here since the doc itself never closed them out
+explicitly.
 
 Builds directly on `2026-09-12-north-star-architecture-design.md` §9
 ("Savings model"), which already commits to the core distinction this

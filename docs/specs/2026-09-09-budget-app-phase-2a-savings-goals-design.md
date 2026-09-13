@@ -1,7 +1,8 @@
 # Phase 2a Design — Savings goals
 
 Date: 2026-09-09
-Status: approved (planning), implementing on `phase-2/savings-goals`
+Status: **implemented and shipped** (`2d46178`). Live in production. See
+`docs/workflow.md` §1.
 
 ## Purpose
 

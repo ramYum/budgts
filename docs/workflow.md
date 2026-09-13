@@ -21,14 +21,20 @@ phase-level summary; this file is the execution tracker + decisions + change log
 | — | Ship | Pushed `main` → `ramYum/budgts`; Vercel project `budgts` (team `tocino`) live at **https://budgts.com** (Cloudflare DNS, apex + www→apex). Supabase auth URL config + `NEXT_PUBLIC_*` env vars set. | ✅ live 2026-09-09 | `f31cd1a` |
 | — | Post-ship fix | Proxy matcher was 307-redirecting `/sw.js` → `/sign-in`, so the service worker never registered in prod (PWA not installable / no offline). Added `sw.js` to the matcher exclusion + an e2e guard. Deployed; `https://budgts.com/sw.js` verified `200 application/javascript`, no console errors logged out. | ✅ live 2026-09-09 | `c58b27f` |
 | 2a | Savings goals | `savings_goals` + `savings_contributions` (RLS, realtime, migration `0003`). Standalone contribution ledger — no transactions, no account balances. `goalProgress`/`goalsSummary` domain (TDD). Server actions incl. a separate `withdrawFromGoal` (negates) so users never type a minus. `/goals` screen + a 5th bottom-nav tab. Zod + domain + component + e2e. Spec: `docs/specs/2026-09-09-…-phase-2a-…`. | ✅ done | `2d46178` |
+| V1 | Plaid ingestion — built + staging-accepted | See §4 milestone tracker M1–M9 + workstreams A–E. | ✅ done (staging) | see §4 |
+| V1+ | Budget-correctness chain + Money Left / Savings Rate / account-exclusion | Sign-convention → event-role → budget-effect → `qualify.ts` integration → transfer-ownership; Money Left + Savings Rate dashboard tiles; account calculation-exclusion safety valve. See §7 change log. | ✅ done | `4590520` |
+| — | **V1 → production promotion** | `main` fast-forwarded `5b668b2→4590520`; migration `0012` applied directly to the production Supabase project (`wsmhstqpvbbcqpqhiqyp`); deployed via the existing `budgts` Vercel project. Plaid UI stays flag-gated off in prod (unchanged — Milestone 10 still owner-gated). | ✅ live 2026-09-13 | `4590520` |
 
 Legend: ✅ done · 🔄 in progress · ⏳ planned
 
-**Shipped through Phase 2a** (`2d46178`). Next tiers: **V1 — Plaid transaction
-ingestion** (primary path), then **V1.5** (recurring / subscription / bill
-detection over synced data + paired-transfer detection), **V2** (email / receipt
-ingestion + spending intelligence), **V2+** (AI assistant). Full ladder:
-`docs/roadmap.md`; working detail: §4 below.
+**Shipped through V1 + the budget-correctness/Money-Left/account-exclusion
+work** (`4590520`, live on production since 2026-09-13). Plaid bank-connect
+itself stays flag-gated off in production pending Milestone 10 (Plaid
+Production API access, owner-gated); Money Left and Savings Rate are live now
+regardless, since they run over all transactions. Next: **V1.5** (recurring /
+subscription / bill detection over synced data + paired-transfer detection),
+**V2** (email / receipt ingestion + spending intelligence), **V2+** (AI
+assistant). Full ladder: `docs/roadmap.md`; working detail: §4 below.
 
 ---
 
@@ -308,7 +314,8 @@ Developer Program ($99/yr), Google Play Console ($25 once). Target: a few months
 | ~~Vercel project + deploy~~ | done | **2026-09-09** — `main` pushed, Vercel project live at `https://budgts.com` (custom domain via Cloudflare DNS), env vars + Supabase auth URLs set. See `docs/deploy.md` "Current deployment" + memory `deployment.md`. |
 | Verify on real devices | owner | `deploy.md` step 5 — install the PWA on a phone, sign in via magic link + Google, add a transaction, confirm it syncs to a second device. Blocked on the `/sw.js` fix reaching prod for the install check. |
 | Apple Developer + Google Play accounts | owner | Start enrollment before the native-apps delivery track; lead time is days. |
-| Plaid account + Production application | owner | Only when V1 moves to Production; all V1 build happens in Sandbox, which needs nothing. |
+| Plaid account + Production application | owner | Only when Plaid UI itself moves to Production (Milestone 10) — separate from the 2026-09-13 code/schema promotion, which shipped with the flag still off. |
+| **Owner's authenticated smoke-test pass on budgts.com** | owner | Claude verified the unauthenticated path only (site loads, `/sign-in` renders, no console errors) — no production session available to check further. Needs a real login pass: dashboard loads, connected bank data loads, transactions load, categorization works, Money Left + Savings Rate display, Connected Banks page loads, exclusion control appears for a `needs_review` account. |
 
 ---
 
@@ -652,3 +659,68 @@ Developer Program ($99/yr), Google Play Console ($25 once). Target: a few months
   gate is green; the only remaining item is the owner's own hands-on
   acceptance pass (a subjective product judgment, by design not something
   Claude completes on the owner's behalf).
+- **2026-09-12/13 — Budget-correctness chain: sign-convention → event-role →
+  budget-effect → qualify-integration → transfer-ownership** (`8b55453..
+  b0df2a6` and follow-on fix commits through `2a1828b`). Per-account sign
+  detection so a mis-signed Plaid feed doesn't silently flip debits/credits;
+  `event_role` classification (PURCHASE/REFUND/INCOME/TRANSFER/etc., CHECK-
+  constrained) replacing the old binary `is_transfer` flag as the primary
+  qualification signal; `budgetEffectOf` resolving a role to
+  EXPENSE/EXPENSE_REVERSAL/INCOME/NONE/UNKNOWN; `qualify.ts`'s `countsForMonth`
+  integrated against real `event_role` data with a legacy `!isTransfer`
+  fallback for `event_role = null` (manual/email/receipt rows); an explicit
+  user transfer decision (`transfer_user_set`) outranking the machine-resolved
+  role when they disagree. Design docs: `docs/specs/2026-09-12-*-design.md`
+  (sign-convention, event-role, budget-effect, transfer-ownership).
+- **2026-09-13 — Money Left + Savings Rate dashboard tiles** (`dfadebe..
+  2a1828b`). `rollup.ts` now classifies income/spend by `budgetEffectOf`
+  rather than raw `category.kind`; `savingsRate` = Money Left / Income, never
+  clamped; both proven end-to-end against real staging Postgres
+  (`8f6b821`), then wired into `DashboardTiles`. No new migration.
+- **2026-09-13 — Account calculation-exclusion** (`4590520`). Migration
+  `0012`: `plaid_accounts.excluded_from_calculations boolean NOT NULL DEFAULT
+  false`. An owner-only, explicit, per-account control — exclusion is only
+  ever offered while the account is already `needs_review = true` (the
+  existing anomaly-detection flag from the duplicate-feed investigation,
+  design `2026-09-12`), enforced server-side in `setAccountCalculationExclusion`
+  (never trusts client state), never triggered automatically by sync or the
+  anomaly detector. `countsForMonth` gates on it unconditionally, same tier as
+  `status`/`duplicateOfId`. Raw transactions are never touched or hidden —
+  only the calculation gate. Motivated by a real incident (Advancial Federal
+  Credit Union's feed replaying ~50 duplicate copies of some transactions,
+  `docs/specs/2026-09-12-advancial-remediation-and-future-ingestion-defense.md`)
+  but the mechanism itself is fully generic, not institution-specific,
+  and no automatic exclusion of any account was performed. Verified: 474 unit
+  + 51 DB-integration tests passing (one long-standing, unrelated async-timing
+  flake in `needs-category.test.tsx`, documented, not fixed — reproduces only
+  intermittently under full-suite load, confirmed identical on both sides of
+  this diff), typecheck/lint/build green. Committed `4590520`.
+- **2026-09-13 — V1 code + schema promoted to production.** `main` and
+  `v1-plaid-beta` fast-forwarded `5b668b2 → 4590520` (clean, no divergence)
+  and pushed. Production Supabase (`wsmhstqpvbbcqpqhiqyp`) migration
+  bookkeeping was found clean through `0011` (unlike staging, which had
+  drifted — see below); only migration `0012` was pending and was applied via
+  an explicit, self-verifying `DIRECT_URL` config (refuses to run against any
+  host but `wsmhstqpvbbcqpqhiqyp`) — never the generic `npm run db:migrate`,
+  since `drizzle.config.ts` hardcodes `.env.local` with no target check.
+  Verified before/after: `transactions` row count unchanged (13,388),
+  `plaid_accounts` row count unchanged (9), bookkeeping 12→13 rows (only the
+  new migration recorded), zero rows auto-excluded. Deployed through the
+  existing `budgts` Vercel project (no new project) — live at
+  `https://budgts.com`, confirmed via the GitHub deployments API
+  (`state: success`) and a direct fetch (loads, correct `/sign-in` redirect,
+  0 console errors). `NEXT_PUBLIC_PLAID_ENABLED` untouched (stays off).
+  GitHub Actions CI's `npm run build` step failed on this push with
+  `DATABASE_URL is not set` — confirmed pre-existing (the same 4 CI runs
+  before this push failed identically) and unrelated to the Vercel
+  production build, which has its own env vars and succeeded independently;
+  left alone per scope. Smoke-tested the unauthenticated path only (no
+  production session available); the authenticated workflow checklist
+  (dashboard, connected banks, transactions, categorization, Money Left,
+  Savings Rate, Connected Banks, exclusion UI) is an open owner item (§6).
+  **Separately, staging's own migration bookkeeping was found to have
+  silently drifted** (migrations `0009`–`0012`'s schema changes were already
+  live there from earlier ad hoc testing but never recorded in
+  `drizzle.__drizzle_migrations`) — left untouched per instruction not to
+  repair unrelated bookkeeping; noted here so a future session doesn't
+  mistake it for a fresh problem.

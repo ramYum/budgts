@@ -1,6 +1,11 @@
 # Event Role — Design
 
-Status: proposed, pending review. No implementation yet.
+Status: **implemented and shipped**, exactly as designed
+(`src/lib/plaid/event-role.ts`). One evolution this doc predates: migration
+`0011` later added a Postgres CHECK constraint mirroring §3's resolution
+table — an enum-equivalent guard at the DB layer, despite this doc's
+deliberate "no new enum" choice at the Drizzle-type level (still true). See
+`docs/workflow.md` §7.
 Scope: **Event Role only.** Not in scope: Budget Effect, Money Left, Savings
 Rate, Phase 15 changes, historical backfill, any UI.
 

@@ -1,6 +1,11 @@
 # Machine Event Role vs. User-Owned Transfer Intent — Design
 
-Status: proposed, pending review. No implementation yet.
+Status: **implemented and shipped**, verified line-by-line against
+`src/server/transaction-update.ts`, `apply-sync.ts`, `sync-store.ts`,
+`sync-engine.ts`, `qualify.ts`, and `page.tsx`. See `docs/workflow.md` §7.
+Note: §7's separately-flagged pre-existing bug (the general transaction-edit
+form never sets `user_categorized` for a category edit) remains open — not
+addressed by this or any later doc.
 Scope: **Resolving the ownership/precedence conflict between a
 user-edited `is_transfer` and a machine-derived `event_role`, found by the
 `qualify-integration` branch's final whole-branch review.** Not in scope:

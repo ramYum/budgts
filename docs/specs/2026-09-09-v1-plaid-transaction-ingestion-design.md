@@ -1,9 +1,13 @@
 # V1 Design — Plaid Transaction Ingestion
 
 Date: 2026-09-09
-Status: **concept approved 2026-09-09. Step 0 verification complete — findings +
-resolved §30 decisions in §32. Awaiting owner approval of the Step 0 findings
-before Step 1. Do not implement, migrate, or touch production until then.**
+Status: **implemented, staging-accepted, and the code + schema promoted to
+production** (`4590520`, 2026-09-13). Every step in §31 shipped — see
+`docs/workflow.md` §4 (milestone tracker M1–M9, workstreams A–E, all done)
+and §7. The one caveat that is still current: Plaid UI itself
+(`NEXT_PUBLIC_PLAID_ENABLED`) stays flag-gated **off** in production pending
+Milestone 10 (owner-gated Plaid Production API access) — everything else in
+this document has shipped.
 Supersedes: the "Phase 5 — Bank connect via Plaid" sketch in `docs/workflow.md`
 (now V1).
 

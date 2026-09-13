@@ -1,6 +1,12 @@
 # Budget Effect → qualify.ts Integration — Design
 
-Status: proposed, pending review. No implementation yet.
+Status: **implemented, then superseded.** The `countsForMonth` this doc
+proposes shipped exactly as designed, then was extended twice further — by
+`transfer-ownership-design.md`'s `transferUserSet` gate, then by the
+account-exclusion feature's `accountExcluded` gate (`docs/workflow.md` §7,
+2026-09-13). See `src/lib/budget/qualify.ts` for the current, fuller
+function; this doc's §2 sketch is now an intermediate historical snapshot,
+not the live implementation.
 Scope: **Qualification only.** Not in scope: Money Left, Savings Rate,
 Savings Insights, any UI, `duplicate_of_id`/Phase 15 changes, Sign
 Convention changes, any Event Role or Budget Effect change (both frozen:

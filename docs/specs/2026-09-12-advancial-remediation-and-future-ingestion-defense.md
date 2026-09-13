@@ -1,17 +1,22 @@
 # Phase 15 — Confirmed Advancial remediation + future-ingestion defense design
 
-Status: **design only — nothing in this document has been executed.** No
-production row has been mutated, no migration written, no code changed.
+Status: **The containment mechanism shipped (Part B's building block); the
+remediation itself has NOT been executed (Part A).** `duplicate_of_id`
+(migration `0007`) and its `qualify.ts` containment gate are live in both
+staging and production. But **zero production rows have `duplicate_of_id`
+set** — the one-time `UPDATE` against the confirmed Advancial incident
+below has never been run, on staging or production. This is the one
+genuinely open decision left anywhere in this design cluster (see
+`docs/workflow.md` §7 and `north-star-architecture-design.md`'s own
+Status note).
+
 Full per-cluster row-level manifest (real transaction IDs/amounts/descriptions)
 is intentionally kept OUT of this git-tracked file — real bank data does not
-belong in source control. It lives at, read-only:
-
-```
-<session scratchpad>/advancial-remediation-manifest.json
-```
-
-regenerable at any time by re-running the same read-only query against
-production (item_id `geEP1Ebwy3S5xvqN0XY5Idr1bE8511CXb33Lq`).
+belong in source control. The path this section originally pointed to was
+that authoring session's own local temp directory, not a real repository
+path, and no longer exists — regenerate the manifest fresh by re-running the
+same read-only query against production (item_id
+`geEP1Ebwy3S5xvqN0XY5Idr1bE8511CXb33Lq`) before executing Part A.
 
 ## 0. What's confirmed, as of this design
 

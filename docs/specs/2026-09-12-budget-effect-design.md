@@ -1,6 +1,7 @@
 # Budget Effect — Design
 
-Status: proposed, pending review. No implementation yet.
+Status: **implemented and shipped**, exactly as designed
+(`src/lib/budget/budget-effect.ts`). See `docs/workflow.md` §7.
 Scope: **Budget Effect only.** Not in scope: Money Left, Savings Rate,
 Savings Insights, any UI, any `qualify.ts` wiring, any Event Role change.
 

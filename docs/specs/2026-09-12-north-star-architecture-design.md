@@ -1,9 +1,14 @@
 # Budgts North Star Financial Architecture
 
-Status: **approved design, ready for implementation.** Nothing in this
-document has been implemented yet as of this commit — no schema migration,
-no code change beyond what predates this design (the duplicate-anomaly
-detection work and the companion remediation spec below).
+Status: **implemented and shipped.** Every layer of the pipeline this
+document specifies — sign convention, event role, budget effect, the merged
+`countsForMonth` gate, Money Left / Savings Rate — is built, tested, and
+live in production since 2026-09-13 (`4590520`). See `docs/workflow.md` §7
+for the shipping history of each layer, and each layer's own design doc
+(`event-role-design.md`, `budget-effect-design.md`,
+`qualify-integration-design.md`, `transfer-ownership-design.md`,
+`money-left-savings-rate-design.md`) for what shipped exactly as designed
+vs. what evolved further.
 
 Companion document: `2026-09-12-advancial-remediation-and-future-ingestion-defense.md`
 (same directory) is the narrow, fully-specified design for the `duplicate_of_id`
@@ -14,6 +19,13 @@ broader financial-semantics layer (`event_role`, `sign_convention`, budget
 effect, Money Left / Savings Rate) that sits *downstream* of that containment
 gate. The two `countsForMonth` proposals are merged into one function in §5
 below; there is no conflict between the two designs, only sequencing (§14).
+
+**Important distinction, still current:** the containment *mechanism*
+(`duplicate_of_id` + its `qualify.ts` gate) shipped — but the actual
+remediation *execution* against the confirmed Advancial incident has
+**never been run**. Zero production rows have `duplicate_of_id` set. See
+the companion document's own Status line; that is the one genuinely open
+decision left anywhere in this design cluster.
 
 ## 0. Core invariants
 

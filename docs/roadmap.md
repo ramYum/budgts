@@ -17,14 +17,18 @@ BUDGTS
 │
 ├── Phase 2a  Savings Goals ...................................... ✅  (2d46178)
 │
-├── V1        Plaid transaction ingestion  (primary path)
-│   ├── Plaid Sandbox
-│   ├── PlaidAdapter
-│   ├── Account linking
-│   ├── Transaction synchronization
-│   ├── Transaction normalization
-│   ├── Automatic categorization
-│   └── Budget / dashboard integration
+├── V1        Plaid transaction ingestion  (primary path) ....... 🔄  code+schema live in prod (`4590520`); Plaid UI flag off
+│   ├── Plaid Sandbox ............................................ ✅
+│   ├── PlaidAdapter ............................................. ✅
+│   ├── Account linking .......................................... ✅
+│   ├── Transaction synchronization .............................. ✅
+│   ├── Transaction normalization ................................ ✅
+│   ├── Automatic categorization ................................. ✅
+│   ├── Budget / dashboard integration ........................... ✅
+│   ├── Sign-convention / event-role / budget-effect / transfer-
+│   │   ownership correctness chain .............................. ✅
+│   ├── Money Left + Savings Rate dashboard tiles ................ ✅
+│   └── Account calculation-exclusion (bad bank-feed safety valve) ✅
 │
 ├── V1.5      Recurring & transfer intelligence
 │   ├── Recurring transaction detection
@@ -107,6 +111,21 @@ refund / unique-index rules.
 
 **Fallbacks.** If an institution is missing, TrueLayer / GoCardless / a regional
 aggregator drop into the same adapter interface.
+
+**Status (2026-09-13):** built and accepted on staging, then the code + schema
+promoted to production (`main` fast-forwarded `5b668b2→4590520`, migration
+`0012` applied to the production Supabase project, deployed and live at
+`https://budgts.com`). `NEXT_PUBLIC_PLAID_ENABLED` stays **off** in production
+pending Plaid Production API access (Milestone 10, owner-gated — unchanged).
+Alongside the core ingestion pipeline, a budget-correctness chain shipped with
+it (sign-convention detection → event-role classification → budget-effect
+resolution → `qualify.ts` integration → transfer ownership), plus two new
+dashboard tiles that are **live now** for the real user regardless of the Plaid
+flag (Money Left, Savings Rate — both computed over all transactions,
+Plaid-sourced or manual), and an account-level calculation-exclusion control so
+an owner can pull a bank connection with unreliable data (e.g. duplicate-feed
+replay) out of every financial total without deleting anything. Full detail:
+`docs/workflow.md §4/§7`.
 
 ## V1.5 — Recurring & transfer intelligence
 

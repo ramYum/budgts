@@ -16,6 +16,7 @@ function txn(over: Partial<BudgetTxn>): BudgetTxn {
     status: "confirmed",
     isTransfer: false,
     duplicateOfId: null,
+    eventRole: null,
     ...over,
   };
 }

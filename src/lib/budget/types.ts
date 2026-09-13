@@ -1,5 +1,6 @@
 export type Direction = "debit" | "credit";
 export type CategoryKind = "expense" | "income";
+export type BudgetEffect = "EXPENSE" | "INCOME" | "EXPENSE_REVERSAL" | "NONE" | "UNKNOWN";
 export type TxnStatus = "confirmed" | "pending_review";
 
 /** The transaction fields the budget math needs — a subset of the DB row. */

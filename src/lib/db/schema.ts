@@ -339,6 +339,14 @@ export const plaidAccounts = pgTable(
     needsReview: boolean("needs_review").notNull().default(false),
     reviewReason: text("review_reason"),
     reviewFlaggedAt: timestamp("review_flagged_at", { withTimezone: true }),
+    // Explicit owner decision that this connection's data must never
+    // participate in financial totals (design: 2026-09-13 Advancial
+    // containment). Distinct from `needsReview` — never set automatically by
+    // the anomaly detector or sync engine, only by an owner action in
+    // Settings, and only ever offered while `needsReview` is true (see
+    // setAccountCalculationExclusion). Raw transactions stay untouched and
+    // visible everywhere; only `countsForMonth` honors this flag.
+    excludedFromCalculations: boolean("excluded_from_calculations").notNull().default(false),
     // Sign-convention detection (design: 2026-09-12 North Star Architecture
     // §2). Defaults to 'unknown' for every account, including pre-existing
     // ones — never 'standard'. While 'unknown', every new transaction for

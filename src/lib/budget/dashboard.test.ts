@@ -21,6 +21,7 @@ function txn(over: Partial<BudgetTxn>): BudgetTxn {
     duplicateOfId: null,
     eventRole: null,
     transferUserSet: false,
+    accountExcluded: false,
     ...over,
   };
 }
@@ -87,5 +88,24 @@ describe("buildDashboard", () => {
       txn({ categoryId: "groceries", amount: 88888, occurredAt: new Date("2026-08-01T12:00:00Z") }),
     ];
     expect(buildDashboard(noisy, cats, budgets, "2026-09").tiles.spent).toBe(55000);
+  });
+
+  it("excludes an accountExcluded row from every tile, including Savings Rate (design: 2026-09-13 Advancial containment)", () => {
+    const noisy = [
+      ...txns,
+      txn({ categoryId: "groceries", amount: 999999, accountExcluded: true }),
+      txn({ categoryId: "salary", amount: 888888, direction: "credit", accountExcluded: true }),
+    ];
+    const view = buildDashboard(noisy, cats, budgets, "2026-09");
+    const clean = buildDashboard(txns, cats, budgets, "2026-09");
+    expect(view.tiles.spent).toBe(clean.tiles.spent);
+    expect(view.tiles.income).toBe(clean.tiles.income);
+    expect(view.tiles.netSavings).toBe(clean.tiles.netSavings);
+    expect(view.tiles.savingsRate).toBe(clean.tiles.savingsRate);
+  });
+
+  it("a non-excluded account continues to calculate normally alongside an excluded one — regression guard", () => {
+    const mixed = [...txns, txn({ categoryId: "groceries", amount: 5000, accountExcluded: false })];
+    expect(buildDashboard(mixed, cats, budgets, "2026-09").tiles.spent).toBe(55000 + 5000);
   });
 });

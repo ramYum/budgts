@@ -88,6 +88,7 @@ async function toBudgetTxn(id: string): Promise<BudgetTxn> {
     duplicateOfId: null,
     eventRole: eventRole as BudgetTxn["eventRole"],
     transferUserSet: row.transfer_user_set,
+    accountExcluded: false,
   };
 }
 

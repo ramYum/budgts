@@ -1,0 +1,1 @@
+ALTER TABLE "plaid_accounts" ADD COLUMN "excluded_from_calculations" boolean DEFAULT false NOT NULL;

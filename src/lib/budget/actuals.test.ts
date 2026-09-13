@@ -13,6 +13,7 @@ function txn(over: Partial<BudgetTxn>): BudgetTxn {
     duplicateOfId: null,
     eventRole: null,
     transferUserSet: false,
+    accountExcluded: false,
     ...over,
   };
 }
@@ -64,6 +65,14 @@ describe("monthlyActuals", () => {
   it("excludes a confirmed-duplicate row (design: 2026-09-12 Phase 15)", () => {
     const result = monthlyActuals(
       [txn({ amount: 900, duplicateOfId: "canonical-1" }), txn({ amount: 100 })],
+      "2026-09",
+    );
+    expect(result.get("groceries")).toBe(100);
+  });
+
+  it("excludes an accountExcluded row (design: 2026-09-13 Advancial containment)", () => {
+    const result = monthlyActuals(
+      [txn({ amount: 900, accountExcluded: true }), txn({ amount: 100 })],
       "2026-09",
     );
     expect(result.get("groceries")).toBe(100);

@@ -21,7 +21,9 @@ import {
   clearAccountReviewSchema,
   disconnectBankSchema,
   mapAccountsSchema,
+  setAccountCalculationExclusionSchema,
 } from "@/lib/validation/plaid";
+import { setAccountCalculationExclusion } from "./account-exclusion";
 import { disconnectPlaidItem } from "./disconnect";
 import { plaidDb, syncItem } from "./service";
 
@@ -158,6 +160,41 @@ export async function clearAccountReview(
     .update({ needs_review: false, review_reason: null, review_flagged_at: null })
     .eq("id", parsed.data.plaidAccountRowId);
   if (error) return { error: "Could not update the review status. Try again." };
+
+  revalidateSynced();
+  return { ok: true };
+}
+
+/**
+ * Exclude/re-include a Plaid account's transactions from financial
+ * calculations (design: 2026-09-13 Advancial containment). Deliberately an
+ * explicit, one-account-at-a-time owner action — never automatic. Ownership
+ * and the `needs_review`-required-to-exclude rule are enforced by
+ * `setAccountCalculationExclusion` itself, not just RLS. No transaction row
+ * is ever touched.
+ */
+export async function setAccountCalculationExclusionAction(
+  _prev: PlaidActionState,
+  formData: FormData,
+): Promise<PlaidActionState> {
+  const parsed = setAccountCalculationExclusionSchema.safeParse({
+    plaidAccountRowId: String(formData.get("plaidAccountRowId") ?? ""),
+    excluded: formData.get("excluded") === "1",
+  });
+  if (!parsed.success) return { error: "Something went wrong. Refresh and try again." };
+
+  const { user, supabase } = await withUser();
+  const result = await setAccountCalculationExclusion(
+    supabase,
+    user.id,
+    parsed.data.plaidAccountRowId,
+    parsed.data.excluded,
+  );
+
+  if (result.outcome === "not_found") return { error: "That account no longer exists." };
+  if (result.outcome === "needs_review_required") {
+    return { error: "Only an account currently flagged for review can be excluded from totals." };
+  }
 
   revalidateSynced();
   return { ok: true };

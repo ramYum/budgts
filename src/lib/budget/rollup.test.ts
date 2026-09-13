@@ -18,6 +18,7 @@ function txn(over: Partial<BudgetTxn>): BudgetTxn {
     duplicateOfId: null,
     eventRole: null,
     transferUserSet: false,
+    accountExcluded: false,
     ...over,
   };
 }
@@ -64,6 +65,23 @@ describe("rollup", () => {
     );
     expect(r.spend).toBe(3000);
     expect(r.income).toBe(500000);
+  });
+
+  it("excludes an accountExcluded row from spend, income, and Money Left (design: 2026-09-13 Advancial containment)", () => {
+    const r = rollup(
+      [
+        txn({ amount: 3000 }),
+        txn({ amount: 999999, accountExcluded: true }),
+        txn({ categoryId: "salary", direction: "credit", amount: 500000 }),
+        txn({ categoryId: "salary", direction: "credit", amount: 888888, accountExcluded: true }),
+      ],
+      cats,
+      [],
+      "2026-09",
+    );
+    expect(r.spend).toBe(3000);
+    expect(r.income).toBe(500000);
+    expect(r.net).toBe(500000 - 3000);
   });
 
   it("counts uncategorized debits as spend", () => {

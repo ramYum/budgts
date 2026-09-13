@@ -7,6 +7,7 @@ import {
   clearAccountReview,
   disconnectBank,
   mapAccounts,
+  setAccountCalculationExclusionAction,
   syncConnection,
   type PlaidActionState,
 } from "@/server/plaid/actions";
@@ -22,6 +23,7 @@ export type ConnectedBankAccount = {
   mappedAccountName: string | null;
   needsReview: boolean;
   reviewReason: string | null;
+  excludedFromCalculations: boolean;
 };
 
 export type ConnectedBank = {
@@ -147,7 +149,7 @@ function BankCard({
                 ) : null}
               </span>
             </div>
-            {a.needsReview ? <AccountReviewNotice account={a} /> : null}
+            {a.needsReview || a.excludedFromCalculations ? <AccountReviewNotice account={a} /> : null}
           </li>
         ))}
       </ul>
@@ -219,33 +221,91 @@ function BankCard({
 }
 
 /**
- * Per-account anomaly-review warning (design: 2026-09-12). Never hidden by
- * default — the reason and a "Mark reviewed" action are the ONLY way this
- * goes away, so the owner always sees why totals might be off before
- * dismissing it. Clearing the flag never touches any transaction row.
+ * Per-account anomaly-review warning (design: 2026-09-12), plus the
+ * calculation-exclusion controls (design: 2026-09-13 Advancial containment).
+ * Never hidden by default — the reason and the "Mark reviewed" action are
+ * the ONLY way the review half goes away, so the owner always sees why
+ * totals might be off before dismissing it. Neither action ever touches a
+ * transaction row.
+ *
+ * "Exclude from totals" only ever renders while `needsReview` is true —
+ * the server also enforces this (never trust client-supplied state), but
+ * not offering the button for a healthy account is the first line of
+ * defense against excluding one by mistake.
  */
 function AccountReviewNotice({ account }: { account: ConnectedBankAccount }) {
   const router = useRouter();
-  const [state, formAction, pending] = useActionState<PlaidActionState, FormData>(clearAccountReview, {});
+  const [reviewState, reviewAction, reviewPending] = useActionState<PlaidActionState, FormData>(
+    clearAccountReview,
+    {},
+  );
+  const [exclusionState, exclusionAction, exclusionPending] = useActionState<PlaidActionState, FormData>(
+    setAccountCalculationExclusionAction,
+    {},
+  );
 
   useEffect(() => {
-    if (state.ok) router.refresh();
-  }, [state.ok, router]);
+    if (reviewState.ok || exclusionState.ok) router.refresh();
+  }, [reviewState.ok, exclusionState.ok, router]);
+
+  if (account.excludedFromCalculations) {
+    return (
+      <div className="space-y-1.5 rounded-lg border border-neg/40 bg-neg/5 p-2.5 text-xs text-neg">
+        <p>
+          <span className="font-medium">Excluded from totals.</span> This account&apos;s bank feed showed
+          unreliable data, so its transactions no longer count toward Money Left, budgets, or spending. Nothing was
+          deleted — every transaction is still here in your history.
+        </p>
+        {exclusionState.error ? <p>{exclusionState.error}</p> : null}
+        <form action={exclusionAction}>
+          <input type="hidden" name="plaidAccountRowId" value={account.rowId} />
+          <input type="hidden" name="excluded" value="0" />
+          <button
+            type="submit"
+            disabled={exclusionPending}
+            className="rounded-md border border-neg/50 px-1.5 py-0.5 font-medium hover:bg-neg/10 disabled:opacity-50"
+          >
+            {exclusionPending ? "Saving…" : "Include again"}
+          </button>
+        </form>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-1.5 rounded-lg border border-warn/40 bg-warn/10 p-2.5 text-xs text-warn">
       <p>{account.reviewReason}</p>
-      {state.error ? <p className="text-neg">{state.error}</p> : null}
-      <form action={formAction}>
-        <input type="hidden" name="plaidAccountRowId" value={account.rowId} />
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded-md border border-warn/50 px-1.5 py-0.5 font-medium hover:bg-warn/10 disabled:opacity-50"
-        >
-          {pending ? "Saving…" : "Mark reviewed"}
-        </button>
-      </form>
+      {reviewState.error ? <p className="text-neg">{reviewState.error}</p> : null}
+      {exclusionState.error ? <p className="text-neg">{exclusionState.error}</p> : null}
+      <div className="flex flex-wrap gap-2">
+        <form action={reviewAction}>
+          <input type="hidden" name="plaidAccountRowId" value={account.rowId} />
+          <button
+            type="submit"
+            disabled={reviewPending}
+            className="rounded-md border border-warn/50 px-1.5 py-0.5 font-medium hover:bg-warn/10 disabled:opacity-50"
+          >
+            {reviewPending ? "Saving…" : "Mark reviewed"}
+          </button>
+        </form>
+        {account.needsReview ? (
+          <form action={exclusionAction}>
+            <input type="hidden" name="plaidAccountRowId" value={account.rowId} />
+            <input type="hidden" name="excluded" value="1" />
+            <button
+              type="submit"
+              disabled={exclusionPending}
+              className="rounded-md border border-warn/50 px-1.5 py-0.5 font-medium hover:bg-warn/10 disabled:opacity-50"
+            >
+              {exclusionPending ? "Saving…" : "Exclude from totals"}
+            </button>
+          </form>
+        ) : null}
+      </div>
+      <p className="text-[11px] text-warn/80">
+        Excluding keeps every transaction visible in your history — it only stops this account from affecting Money
+        Left, budgets, and spending totals.
+      </p>
     </div>
   );
 }

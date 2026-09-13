@@ -46,11 +46,12 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
     | "duplicate_of_id"
     | "event_role"
     | "transfer_user_set"
+    | "plaid_account_id"
   >;
   let txnQuery = supabase
     .from("transactions")
     .select(
-      "category_id, amount, direction, occurred_at, status, is_transfer, duplicate_of_id, event_role, transfer_user_set",
+      "category_id, amount, direction, occurred_at, status, is_transfer, duplicate_of_id, event_role, transfer_user_set, plaid_account_id",
     )
     .gte("occurred_at", start)
     .lt("occurred_at", end);
@@ -58,17 +59,33 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
   // Guarded: the column only exists where migration 0004 has run.
   if (plaidUiEnabled()) txnQuery = txnQuery.is("removed_at", null);
 
-  const [{ data: txnRows }, { data: categories }, { data: budgetRows }, { data: profile }, { data: accountRows }] =
-    await Promise.all([
-      txnQuery.returns<TxnRow[]>(),
-      supabase
-        .from("categories")
-        .select("id, kind, name, color")
-        .eq("is_archived", false),
-      supabase.from("budgets").select("category_id, amount").eq("month", `${month}-01`),
-      supabase.from("profiles").select("currency").eq("id", user.id).single(),
-      supabase.from("accounts").select("id, name").eq("is_archived", false).order("name"),
-    ]);
+  const [
+    { data: txnRows },
+    { data: categories },
+    { data: budgetRows },
+    { data: profile },
+    { data: accountRows },
+    { data: excludedPlaidAccounts },
+  ] = await Promise.all([
+    txnQuery.returns<TxnRow[]>(),
+    supabase
+      .from("categories")
+      .select("id, kind, name, color")
+      .eq("is_archived", false),
+    supabase.from("budgets").select("category_id, amount").eq("month", `${month}-01`),
+    supabase.from("profiles").select("currency").eq("id", user.id).single(),
+    supabase.from("accounts").select("id, name").eq("is_archived", false).order("name"),
+    // Explicit owner-excluded connections (design: 2026-09-13 Advancial
+    // containment) — a Plaid account the owner has confirmed is unreliable.
+    // Self-gates like the rest of the Plaid UI: an empty result under a
+    // pre-migration DB is indistinguishable from "no exclusions," which is
+    // the correct, safe default either way.
+    plaidUiEnabled()
+      ? supabase.from("plaid_accounts").select("id").eq("excluded_from_calculations", true)
+      : Promise.resolve({ data: [] as { id: string }[] }),
+  ]);
+
+  const excludedPlaidAccountIds = new Set((excludedPlaidAccounts ?? []).map((a) => a.id));
 
   const txns: BudgetTxn[] = (txnRows ?? []).map((t) => ({
     categoryId: t.category_id,
@@ -84,6 +101,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
     // 2026-09-12 qualify-integration final review, Important #2).
     eventRole: t.event_role != null && isEventRole(t.event_role) ? t.event_role : null,
     transferUserSet: t.transfer_user_set,
+    accountExcluded: t.plaid_account_id != null && excludedPlaidAccountIds.has(t.plaid_account_id),
   }));
   const cats: DashboardCategory[] = (categories ?? []) as DashboardCategory[];
   const budgets = (budgetRows ?? []).map((b) => ({ categoryId: b.category_id, amount: b.amount }));

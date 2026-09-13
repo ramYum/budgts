@@ -88,6 +88,7 @@ function toBudgetTxn(row: Awaited<ReturnType<typeof readTxn>>, eventRole: string
     duplicateOfId: null,
     eventRole: eventRole as BudgetTxn["eventRole"],
     transferUserSet: row.transfer_user_set,
+    accountExcluded: false,
   };
 }
 
@@ -246,6 +247,7 @@ describe("page.tsx's transactions query — transfer_user_set reaches the dashbo
       duplicateOfId: row.duplicate_of_id,
       eventRole: null,
       transferUserSet: row.transfer_user_set,
+      accountExcluded: false,
     };
     expect(budgetTxn.transferUserSet).toBe(true);
     expect(countsForMonth(budgetTxn, "2026-09")).toBe(false); // user decision -> excluded

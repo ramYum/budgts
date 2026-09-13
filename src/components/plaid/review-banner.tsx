@@ -7,15 +7,54 @@ function summarizeNames(names: string[]): string {
   return `${names[0]} and ${names.length - 1} other account${names.length - 1 === 1 ? "" : "s"}`;
 }
 
+export interface ReviewBannerAccount {
+  name: string | null;
+  needsReview: boolean;
+  excludedFromCalculations: boolean;
+}
+
+/**
+ * Splits flagged accounts into two independent messages (design: 2026-09-13
+ * Advancial containment): an **excluded** account (an explicit owner
+ * decision — its data no longer counts toward totals) gets its own,
+ * distinct message and is never also listed in the **advisory** message
+ * (merely `needsReview`, totals still include it) — the two states must
+ * never be blurred together, since one is "you should look at this" and the
+ * other is "this has already been acted on."
+ */
+export function buildReviewMessages(accounts: ReviewBannerAccount[]): {
+  advisory: string | null;
+  excluded: string | null;
+} {
+  const excludedAccounts = accounts.filter((a) => a.excludedFromCalculations);
+  const advisoryAccounts = accounts.filter((a) => a.needsReview && !a.excludedFromCalculations);
+
+  const excluded =
+    excludedAccounts.length === 0
+      ? null
+      : `${summarizeNames(excludedAccounts.map((a) => a.name ?? "an account"))} ${
+          excludedAccounts.length === 1 ? "is" : "are"
+        } excluded from your financial totals because its bank feed showed unreliable data. Nothing was deleted — every transaction is still in your history.`;
+
+  const advisory =
+    advisoryAccounts.length === 0
+      ? null
+      : `${summarizeNames(advisoryAccounts.map((a) => a.name ?? "an account"))} showed unusually repetitive transaction data from your bank. Nothing has been removed or changed.`;
+
+  return { advisory, excluded };
+}
+
 /**
  * Owner-facing warning for an anomaly-flagged connection (design: 2026-09-12
- * duplicate-feed investigation). Rendered once in the dashboard layout so it
- * reaches every financial surface (Dashboard, Transactions, Budgets, Goals) —
- * a flagged account's numbers must never look like an ordinary total.
+ * duplicate-feed investigation) and for a calculation-excluded one (design:
+ * 2026-09-13 Advancial containment). Rendered once in the dashboard layout
+ * so it reaches every financial surface (Dashboard, Transactions, Budgets,
+ * Goals) — neither state's numbers should ever look like an ordinary total.
  *
- * Self-gates like `BankConnections`: inert until migration 0004+0006 have run
- * and the flag is off. No dismiss control — clearing the flag is a deliberate
- * owner action in Settings, never something a stray tap on the banner can do.
+ * Self-gates like `BankConnections`: inert until the relevant migrations
+ * have run and no account is flagged/excluded. No dismiss control for
+ * either message — changing either state is a deliberate owner action in
+ * Settings, never something a stray tap on the banner can do.
  */
 export async function ReviewBanner() {
   if (!plaidUiEnabled()) return null;
@@ -24,21 +63,45 @@ export async function ReviewBanner() {
   if (!user) return null;
   const supabase = await createClient();
 
-  const { data, error } = await supabase.from("plaid_accounts").select("name").eq("needs_review", true);
+  const { data, error } = await supabase
+    .from("plaid_accounts")
+    .select("name, needs_review, excluded_from_calculations")
+    .or("needs_review.eq.true,excluded_from_calculations.eq.true");
   if (error || !data || data.length === 0) return null;
 
-  const summary = summarizeNames(data.map((a) => a.name ?? "an account"));
+  const { advisory, excluded } = buildReviewMessages(
+    data.map((a) => ({
+      name: a.name,
+      needsReview: a.needs_review,
+      excludedFromCalculations: a.excluded_from_calculations,
+    })),
+  );
+  if (!advisory && !excluded) return null;
 
   return (
-    <div className="mx-4 mt-3 rounded-lg border border-warn/40 bg-warn/10 px-3 py-2 text-sm text-warn">
-      <p>
-        <span className="font-medium">Totals may be inaccurate.</span> {summary} showed unusually repetitive
-        transaction data from your bank. Nothing has been removed or changed —{" "}
-        <a href="/settings" className="underline underline-offset-2">
-          review it in Settings
-        </a>
-        .
-      </p>
+    <div className="mx-4 mt-3 space-y-2">
+      {excluded ? (
+        <div className="rounded-lg border border-neg/40 bg-neg/5 px-3 py-2 text-sm text-neg">
+          <p>
+            <span className="font-medium">Excluded from totals.</span> {excluded}{" "}
+            <a href="/settings" className="underline underline-offset-2">
+              Review it in Settings
+            </a>
+            .
+          </p>
+        </div>
+      ) : null}
+      {advisory ? (
+        <div className="rounded-lg border border-warn/40 bg-warn/10 px-3 py-2 text-sm text-warn">
+          <p>
+            <span className="font-medium">Totals may be inaccurate.</span> {advisory}{" "}
+            <a href="/settings" className="underline underline-offset-2">
+              Review it in Settings
+            </a>
+            .
+          </p>
+        </div>
+      ) : null}
     </div>
   );
 }

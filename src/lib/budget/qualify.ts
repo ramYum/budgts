@@ -5,8 +5,10 @@ import type { BudgetTxn } from "./types";
 
 /**
  * Whether a transaction counts toward a month's spend/income math: it must be
- * `confirmed`, not a confirmed duplicate, have occurred in `month` (UTC), and
- * then either (a) have a *recognized* `eventRole`, in which case its
+ * `confirmed`, not a confirmed duplicate, not on a calculation-excluded Plaid
+ * account (design: 2026-09-13 Advancial containment), have occurred in
+ * `month` (UTC), and then either (a) have a *recognized* `eventRole`, in
+ * which case its
  * `budgetEffectOf` decides — `EXPENSE`/`EXPENSE_REVERSAL`/`INCOME` qualify,
  * `NONE`/`UNKNOWN` don't — or (b) fall back to the legacy `!isTransfer` check
  * when `eventRole` is `null` (manual/email/receipt rows, any Plaid-sourced
@@ -46,6 +48,7 @@ export function countsForMonth(txn: BudgetTxn, month: MonthKey): boolean {
   if (monthKey(txn.occurredAt) !== month) return false;
   if (txn.status !== "confirmed") return false;
   if (txn.duplicateOfId != null) return false;
+  if (txn.accountExcluded) return false;
 
   if (txn.transferUserSet) return !txn.isTransfer;
 

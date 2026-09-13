@@ -67,5 +67,15 @@ export const clearAccountReviewSchema = z.object({
   plaidAccountRowId: z.string().uuid(),
 });
 
+/**
+ * Exclude/re-include a Plaid account's data from financial calculations
+ * (design: 2026-09-13 Advancial containment) — owner action only.
+ */
+export const setAccountCalculationExclusionSchema = z.object({
+  /** `plaid_accounts.id` (row uuid). */
+  plaidAccountRowId: z.string().uuid(),
+  excluded: z.boolean(),
+});
+
 export type AccountMapEntryInput = z.infer<typeof accountMapEntrySchema>;
 export type MapAccountsInput = z.infer<typeof mapAccountsSchema>;

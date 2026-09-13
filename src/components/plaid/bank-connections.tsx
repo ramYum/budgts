@@ -31,6 +31,7 @@ type PlaidAccountRow = {
   account_id: string | null;
   needs_review: boolean;
   review_reason: string | null;
+  excluded_from_calculations: boolean;
 };
 
 /**
@@ -57,7 +58,7 @@ export async function BankConnections() {
     supabase
       .from("plaid_accounts")
       .select(
-        "id, plaid_item_id, plaid_account_id, name, official_name, mask, type, subtype, current_balance, iso_currency_code, link_state, account_id, needs_review, review_reason",
+        "id, plaid_item_id, plaid_account_id, name, official_name, mask, type, subtype, current_balance, iso_currency_code, link_state, account_id, needs_review, review_reason, excluded_from_calculations",
       ),
     supabase.from("accounts").select("id, name").eq("is_archived", false).order("name"),
   ]);
@@ -77,6 +78,7 @@ export async function BankConnections() {
       mappedAccountName: a.account_id ? (accountName.get(a.account_id) ?? null) : null,
       needsReview: a.needs_review,
       reviewReason: a.review_reason,
+      excludedFromCalculations: a.excluded_from_calculations,
     }));
     const unmappedAccounts: MappableAccount[] = rows
       .filter((a) => a.link_state === "unmapped")

@@ -33,6 +33,17 @@ export interface BudgetTxn {
    * decision (`!isTransfer`) outrank any machine-resolved `eventRole`.
    */
   transferUserSet: boolean;
+  /**
+   * True when the transaction's Plaid account has
+   * `plaid_accounts.excluded_from_calculations` set (design: 2026-09-13
+   * Advancial containment) — an explicit owner decision that a known-
+   * unreliable bank connection's data must never participate in financial
+   * totals. Never set automatically by the anomaly detector or sync engine;
+   * distinct from `needs_review` (advisory only) and from `isTransfer`.
+   * `countsForMonth` excludes it unconditionally, same tier as `status` and
+   * `duplicateOfId`. `false` for every non-Plaid (manual/email/receipt) row.
+   */
+  accountExcluded: boolean;
 }
 
 export interface BudgetCategory {

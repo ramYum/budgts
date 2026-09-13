@@ -13,6 +13,7 @@ function txn(over: Partial<BudgetTxn>): BudgetTxn {
     duplicateOfId: null,
     eventRole: null,
     transferUserSet: false,
+    accountExcluded: false,
     ...over,
   };
 }
@@ -195,5 +196,28 @@ describe("countsForMonth", () => {
 
   it("no-user-decision path: falls through to the legacy !isTransfer check exactly as before", () => {
     expect(countsForMonth(txn({ transferUserSet: false, eventRole: null, isTransfer: true }), "2026-09")).toBe(false);
+  });
+
+  // Calculation-exclusion containment (design: 2026-09-13 Advancial
+  // containment) — a new absolute gate alongside status/duplicateOfId,
+  // reflecting an explicit owner decision that a Plaid account's data must
+  // never participate in financial totals. Never set automatically.
+
+  it("excludes an accountExcluded row even though every other condition qualifies", () => {
+    expect(countsForMonth(txn({ accountExcluded: true }), "2026-09")).toBe(false);
+  });
+
+  it("accountExcluded gates before the role/effect branch — a qualifying PURCHASE role still excludes", () => {
+    expect(countsForMonth(txn({ accountExcluded: true, eventRole: "PURCHASE" }), "2026-09")).toBe(false);
+  });
+
+  it("accountExcluded outranks an explicit user transfer decision, same tier as status/duplicateOfId", () => {
+    expect(
+      countsForMonth(txn({ accountExcluded: true, transferUserSet: true, isTransfer: false }), "2026-09"),
+    ).toBe(false);
+  });
+
+  it("a non-excluded account continues to qualify normally — regression guard", () => {
+    expect(countsForMonth(txn({ accountExcluded: false, eventRole: "PURCHASE" }), "2026-09")).toBe(true);
   });
 });

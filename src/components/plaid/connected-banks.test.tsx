@@ -7,6 +7,7 @@ const disconnectBank = vi.fn();
 const syncConnection = vi.fn();
 const mapAccounts = vi.fn();
 const clearAccountReview = vi.fn();
+const setAccountCalculationExclusionAction = vi.fn();
 const refresh = vi.fn();
 
 vi.mock("next/navigation", () => ({
@@ -18,6 +19,7 @@ vi.mock("@/server/plaid/actions", () => ({
   syncConnection: (...args: unknown[]) => syncConnection(...args),
   mapAccounts: (...args: unknown[]) => mapAccounts(...args),
   clearAccountReview: (...args: unknown[]) => clearAccountReview(...args),
+  setAccountCalculationExclusionAction: (...args: unknown[]) => setAccountCalculationExclusionAction(...args),
 }));
 
 vi.mock("./reconnect-button", () => ({
@@ -41,6 +43,7 @@ function bank(over: Partial<ConnectedBank> = {}): ConnectedBank {
         mappedAccountName: "Checking",
         needsReview: false,
         reviewReason: null,
+        excludedFromCalculations: false,
       },
       {
         rowId: "row-saving",
@@ -51,6 +54,7 @@ function bank(over: Partial<ConnectedBank> = {}): ConnectedBank {
         mappedAccountName: null,
         needsReview: false,
         reviewReason: null,
+        excludedFromCalculations: false,
       },
     ],
     unmappedAccounts: [],
@@ -160,6 +164,7 @@ describe("ConnectedBanks", () => {
           mappedAccountName: "Checking",
           needsReview: true,
           reviewReason: "50 transactions with identical content — this connection's data may be unreliable.",
+          excludedFromCalculations: false,
         },
       ],
     });
@@ -168,6 +173,74 @@ describe("ConnectedBanks", () => {
 
     expect(screen.getByText(/50 transactions with identical content/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Mark reviewed" })).toBeInTheDocument();
+  });
+
+  it("never offers Exclude from totals for a healthy (non-flagged) account", () => {
+    render(<ConnectedBanks banks={[bank()]} budgtsAccounts={[{ id: "acc-1", name: "Checking" }]} />);
+    expect(screen.queryByRole("button", { name: "Exclude from totals" })).not.toBeInTheDocument();
+  });
+
+  it("offers Exclude from totals for a flagged account and submits excluded=1", async () => {
+    setAccountCalculationExclusionAction.mockResolvedValue({ ok: true });
+    const user = userEvent.setup();
+    const flagged = bank({
+      accounts: [
+        {
+          rowId: "row-checking",
+          plaidAccountId: "plaid-acc-checking",
+          name: "Plaid Checking",
+          mask: "0000",
+          linkState: "mapped",
+          mappedAccountName: "Checking",
+          needsReview: true,
+          reviewReason: "Suspicious repetition detected.",
+          excludedFromCalculations: false,
+        },
+      ],
+    });
+
+    render(<ConnectedBanks banks={[flagged]} budgtsAccounts={[{ id: "acc-1", name: "Checking" }]} />);
+    await user.click(screen.getByRole("button", { name: "Exclude from totals" }));
+
+    expect(setAccountCalculationExclusionAction).toHaveBeenCalledTimes(1);
+    const fd = setAccountCalculationExclusionAction.mock.calls[0][1] as FormData;
+    expect(fd.get("plaidAccountRowId")).toBe("row-checking");
+    expect(fd.get("excluded")).toBe("1");
+    expect(refresh).toHaveBeenCalled();
+  });
+
+  it("shows the excluded state clearly, without implying deletion, and offers Include again", async () => {
+    setAccountCalculationExclusionAction.mockResolvedValue({ ok: true });
+    const user = userEvent.setup();
+    const excluded = bank({
+      accounts: [
+        {
+          rowId: "row-checking",
+          plaidAccountId: "plaid-acc-checking",
+          name: "Plaid Checking",
+          mask: "0000",
+          linkState: "mapped",
+          mappedAccountName: "Checking",
+          needsReview: true,
+          reviewReason: "Suspicious repetition detected.",
+          excludedFromCalculations: true,
+        },
+      ],
+    });
+
+    render(<ConnectedBanks banks={[excluded]} budgtsAccounts={[{ id: "acc-1", name: "Checking" }]} />);
+
+    expect(screen.getByText(/Excluded from totals/)).toBeInTheDocument();
+    expect(screen.getByText(/Nothing was deleted/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Exclude from totals" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Include again" }));
+
+    expect(setAccountCalculationExclusionAction).toHaveBeenCalledTimes(1);
+    const fd = setAccountCalculationExclusionAction.mock.calls[0][1] as FormData;
+    expect(fd.get("plaidAccountRowId")).toBe("row-checking");
+    expect(fd.get("excluded")).toBe("0");
+    expect(refresh).toHaveBeenCalled();
   });
 
   it("clears a review flag only through the explicit Mark reviewed action", async () => {
@@ -184,6 +257,7 @@ describe("ConnectedBanks", () => {
           mappedAccountName: "Checking",
           needsReview: true,
           reviewReason: "Suspicious repetition detected.",
+          excludedFromCalculations: false,
         },
       ],
     });

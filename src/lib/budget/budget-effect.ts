@@ -29,6 +29,10 @@ export function budgetEffectOf(eventRole: EventRole | null, direction: Direction
     case "FEE":
       return "EXPENSE";
     case "INTEREST":
+      // Correct only because event-role.ts assigns INTEREST exclusively
+      // from interest *charged*, never interest *earned* (design:
+      // 2026-09-12 Budget Effect §3) — an earned-interest signal would
+      // need INCOME here instead.
       return "EXPENSE";
     case "P2P_PAYMENT":
       return direction === "credit" ? "INCOME" : "EXPENSE";

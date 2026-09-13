@@ -134,9 +134,9 @@ export function DashboardView({
 
       <MonthNav base="/" month={month} />
 
-      {/* the one solid-primary card on the screen */}
+      {/* the one solid-primary (ink-black) card on the screen — no mascot here,
+          its black silhouette disappears against this background */}
       <section className="relative overflow-hidden rounded-3xl bg-primary p-4 text-on-primary">
-        <Mascot mood="happy" size={72} className="pointer-events-none absolute -right-1 -bottom-2 opacity-90" />
         <div className="relative max-w-[78%]">
         <p className="text-xs text-on-dark-dim">Money Left</p>
         <p

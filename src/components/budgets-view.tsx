@@ -255,7 +255,7 @@ export function BudgetsView(
             type="button"
             onClick={() => setAdding(true)}
             aria-label="Add budget"
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-lg font-semibold text-on-primary"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-lg font-semibold text-accent-ink"
           >
             +
           </button>

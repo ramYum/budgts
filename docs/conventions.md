@@ -41,19 +41,25 @@ started. Reordering is how RLS gaps and float-money bugs get in.
 5. **UI** — `src/app/**`, `src/components/**`
    - Mobile-first. Show inline Zod errors. A failed write keeps the form open
      with its data (no loss).
-   - Light + dark theme from the start. Brand tokens live in
+   - Light-only for now (no dark palette is shipped; Settings → Appearance
+     doesn't offer a Dark option because of this — don't show one until a
+     dark palette actually exists). Brand tokens live in
      `src/app/globals.css` (semantic roles: `bg`, `surface`, `text`, `muted`,
-     `border`, `accent`/`accent-ink`, `pos`/`neg`/`warn`/`info` — all flip with
-     `prefers-color-scheme`). Style with those utilities (`bg-surface`,
-     `text-muted`, `border-border`, `bg-accent`…), never raw Tailwind colours or
-     `dark:` variants. One lime `bg-accent` action per screen. Amounts get
+     `border`, `accent`/`accent-ink`, `pos`/`neg`/`warn`/`info`). Style with
+     those utilities (`bg-surface`, `text-muted`, `border-border`,
+     `bg-accent`…), never raw Tailwind colours or `dark:` variants — this
+     keeps a future dark palette a one-file change. One `bg-accent` (coral)
+     action per screen. Amounts get
      `tabular-nums`. Labelled inputs, keyboard-reachable, visible focus ring.
    - Logo: `<Logo>` / `<LogoMark>` from `src/components/logo.tsx`.
    - Subscribe to Supabase Realtime where the screen shows live shared data.
-   - Reference: `New Branding guidelines.png` (repo root, the current brand
-     source — supersedes the deleted `Branding-guidelines.png`) plus
-     `docs/specs/2026-09-13-ui-redesign-brand-guidelines-spec.md`; `brand/`
-     holds only the retired previous identity now. Check UI visually with
+   - Reference: **`docs/BRAND_GUIDELINES.md`** — the source of truth for
+     color, type, logo, mascot, iconography, and component styling.
+     `docs/specs/2026-09-13-ui-redesign-brand-guidelines-spec.md` still
+     holds the screen-by-screen IA/behavior spec (see that file's header
+     for which of its sections are superseded). `public/brand/` holds the
+     current logo/mascot/decorative assets — all real crops from
+     `Assets V2.svg`, never hand-redrawn. Check UI visually with
      `npm run screenshot -- <url> <label>` (see `tools/README.md`).
 6. **E2E** — `tests/e2e/*.spec.ts`
    - One Playwright test through the new UI, happy path. Add a

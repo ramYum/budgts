@@ -140,7 +140,7 @@ export function TransactionForm({
       </label>
 
       <label className="flex items-center gap-2 text-xs text-muted">
-        <input type="checkbox" name="isTransfer" defaultChecked={initial?.isTransfer ?? false} className="accent-[var(--blue)]" />
+        <input type="checkbox" name="isTransfer" defaultChecked={initial?.isTransfer ?? false} className="accent-[var(--accent)]" />
         Transfer between my own accounts (excluded from spend &amp; income)
       </label>
 

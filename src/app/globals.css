@@ -1,68 +1,78 @@
 @import "tailwindcss";
 
-/* Budgt — see "New Branding guidelines.png" / "New Assets.svg" for source.
- * Warm, expressive multi-colour palette built around a black-cat mascot.
- * Raw palette values never change; components consume the semantic roles. */
+/* Budgt — see docs/BRAND_GUIDELINES.md for the source of truth (palette,
+ * type scale, component rules, voice). Calm cream canvas, one saturated hue
+ * per meaning, a black-cat mascot for personality. Raw palette values never
+ * change; components consume the semantic roles below, never raw hex. */
 :root {
   color-scheme: light;
 
-  /* raw palette (exact brand sheet values) */
-  --yellow: #fece01; /* Primary · Optimism */
-  --warm-yellow: #fdac01; /* Energy */
-  --orange: #fb5607; /* Action */
-  --deep-orange: #f62a01; /* Emphasis */
-  --blue: #0565eb; /* Primary Action */
-  --cyan: #08a1f0; /* Clarity */
-  --green: #087736; /* Growth */
-  --emerald: #00a453; /* Wellness */
-  --purple: #443288; /* Focus / Sleep */
-  --pink: #fd598a; /* Emotion */
-  --navy: #1d1159; /* Depth */
-  --warm-white: #f8f3f0; /* Background */
+  /* raw palette (exact brand-guideline values) */
+  --cream: #fff8f0; /* Background */
+  --surface-raw: #fffdf9; /* Card surface, just off the page */
+  --ink: #0f0f0f; /* Text */
+  --coral: #ff7b61; /* Action / energy */
+  --coral-strong: #ff6347; /* Coral, pushed for fills that need more pop */
+  --coral-tint: #ffebe5; /* Pale coral, for icon/badge backgrounds */
+  --sun: #ffd166; /* Optimism */
+  --sun-strong: #f7b733; /* Sun, pushed for text/fills on light backgrounds */
+  --sun-tint: #fff3d6; /* Pale sun, for icon/badge backgrounds */
+  --sage: #a7c7a1; /* Growth (pale) */
+  --sage-strong: #3fa772; /* Growth (glyphs, progress, positive states) */
+  --sky: #a7d8ff; /* Clarity (pale) */
+  --sky-strong: #4f8fe8; /* Clarity (glyphs, progress, informational) */
+  --lavender: #cdb8ff; /* Creativity (pale) */
+  --lavender-strong: #9b7fe0; /* Creativity (glyphs, progress) */
+  --pink: #fbd1e0; /* Emotion (pale) */
+  --pink-strong: #f0699b; /* Emotion (glyphs, progress) */
+  --gray: #ececec; /* Neutral (pale) */
+  --gray-strong: #9aa0ac; /* Neutral (glyphs, "other") */
 
-  /* semantic roles — warm-white canvas, white cards on top */
-  --bg: var(--warm-white);
-  --surface: #ffffff;
-  --surface-2: #fbeed4; /* sunken sections / row hover — soft warm-yellow wash */
-  --text: var(--navy);
-  --muted: #746e8c; /* desaturated navy-grey */
-  --border: #ece3d6;
-  --accent: var(--orange); /* sparks, underlines, small highlights */
+  /* semantic roles — cream canvas, near-white cards on top */
+  --bg: var(--cream);
+  --surface: var(--surface-raw);
+  --surface-2: #fbeee0; /* sunken sections / row hover — soft warm wash */
+  --text: var(--ink);
+  --muted: #8b8f9c; /* secondary copy — dates, captions, "of $2,500" */
+  --border: #ece5da; /* hairlines, progress troughs, card outlines */
+  --accent: var(--coral); /* energetic highlight: active nav, "+" add, links */
   --accent-ink: #ffffff;
-  --heading: var(--navy);
+  --heading: var(--ink);
   --hairline: var(--border);
-  --track: #f1e7d4; /* progress trough */
-  --tick: var(--orange); /* small structural marks */
+  --track: var(--border); /* progress trough */
+  --tick: var(--coral); /* small structural marks */
 
-  /* Blue as the primary-action colour, per the brand's own CTA example */
-  --primary: var(--blue);
+  /* the brand's own hero CTA is a solid ink pill, not a hue — high-contrast
+   * and calm, reserved for the one primary action per screen. */
+  --primary: var(--ink);
   --on-primary: #ffffff;
-  --tint: #e4efff; /* soft fill (chips, callouts) — pale blue, matches the brand's quote bubble */
+  --tint: #f2eeff; /* pale lavender wash — insight banners, quote/message bubbles */
 
-  --pos: var(--emerald);
-  --pos-fill: var(--emerald);
-  --neg: var(--deep-orange);
-  --warn: #b5791a; /* accessible text tone derived from warm-yellow */
-  --info: var(--cyan);
-  --ring: var(--blue);
+  --pos: var(--sage-strong);
+  --pos-fill: var(--sage-strong);
+  --neg: var(--coral-strong);
+  --warn: #a06a00; /* accessible text tone derived from sun */
+  --info: var(--sky-strong);
+  --ring: var(--coral-strong);
 
   /* progress-bar fills — brand semantic colours, constant in every context */
-  --fill-under: var(--emerald);
-  --fill-near: var(--warm-yellow);
-  --fill-over: var(--deep-orange);
+  --fill-under: var(--sage-strong);
+  --fill-near: var(--sun-strong);
+  --fill-over: var(--coral-strong);
 
-  /* legacy chrome tokens — kept so dark-surface call sites still resolve */
-  --surface-dark: var(--navy);
+  /* legacy dark-chrome tokens — kept so any remaining dark-surface call site
+   * still resolves to something sane (no dark mode shipped yet). */
+  --surface-dark: var(--ink);
   --on-dark: #ffffff;
-  --on-dark-dim: #a9a2c4;
+  --on-dark-dim: #b8b8b8;
 
   --background: var(--bg);
   --foreground: var(--text);
 }
 
-/* Content cards are plain white on the warm canvas — separated by a hairline
- * border, not a fill. `.card` / `.panel` are kept as no-op hooks so components
- * that carry the class keep working. */
+/* Content cards are plain, near-white surfaces on the cream canvas —
+ * separated by a hairline border, not a hard fill. `.card` / `.panel` are
+ * kept as no-op hooks so components that carry the class keep working. */
 .card,
 .panel {
   background: var(--surface);
@@ -85,17 +95,24 @@
   --color-neg: var(--neg);
   --color-warn: var(--warn);
   --color-info: var(--info);
-  --color-yellow: var(--yellow);
-  --color-warm-yellow: var(--warm-yellow);
-  --color-orange: var(--orange);
-  --color-deep-orange: var(--deep-orange);
-  --color-blue: var(--blue);
-  --color-cyan: var(--cyan);
-  --color-green: var(--green);
-  --color-emerald: var(--emerald);
-  --color-purple: var(--purple);
+  --color-ink: var(--ink);
+  --color-cream: var(--cream);
+  --color-coral: var(--coral);
+  --color-coral-strong: var(--coral-strong);
+  --color-coral-tint: var(--coral-tint);
+  --color-sun: var(--sun);
+  --color-sun-strong: var(--sun-strong);
+  --color-sun-tint: var(--sun-tint);
+  --color-sage: var(--sage);
+  --color-sage-strong: var(--sage-strong);
+  --color-sky: var(--sky);
+  --color-sky-strong: var(--sky-strong);
+  --color-lavender: var(--lavender);
+  --color-lavender-strong: var(--lavender-strong);
   --color-pink: var(--pink);
-  --color-navy: var(--navy);
+  --color-pink-strong: var(--pink-strong);
+  --color-gray: var(--gray);
+  --color-gray-strong: var(--gray-strong);
   --color-heading: var(--heading);
   --color-hairline: var(--hairline);
   --color-track: var(--track);
@@ -109,15 +126,15 @@
   --color-fill-under: var(--fill-under);
   --color-fill-near: var(--fill-near);
   --color-fill-over: var(--fill-over);
-  --font-sans: var(--font-nunito), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-nunito), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
 }
 
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: var(--font-nunito), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -127,8 +144,8 @@ body {
   h1,
   h2,
   h3 {
-    font-family: var(--font-nunito), ui-sans-serif, system-ui, sans-serif;
-    font-weight: 800;
+    font-family: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
+    font-weight: 700;
     letter-spacing: -0.01em;
     color: var(--heading);
   }
@@ -139,18 +156,17 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* A few deliberately sparing brand moments. The guidelines use bright colour
- * as encouragement, not as decoration on every surface. */
+/* The brand's one big-illustration moment — a soft cream/sun glow behind the
+ * mascot on sign-in/onboarding. Sparing by design: everywhere else the cat
+ * appears small, unframed. */
 .brand-mascot-stage {
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  border: 1px solid rgb(254 206 1 / 0.45);
   border-radius: 2rem;
   background:
-    radial-gradient(circle at 12% 12%, #fff4a8 0 13%, transparent 13.5%),
-    linear-gradient(135deg, var(--yellow), var(--warm-yellow));
-  box-shadow: 0 16px 32px rgb(251 86 7 / 0.13);
+    radial-gradient(circle at 50% 38%, var(--sun) 0%, transparent 62%),
+    var(--cream);
 }
 
 .brand-mascot-stage::after {
@@ -161,20 +177,21 @@ body {
   width: 8rem;
   height: 8rem;
   border-radius: 9999px;
-  background: var(--blue);
+  background: var(--coral);
+  opacity: 0.35;
   content: "";
 }
 
 .brand-highlight-card {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(135deg, var(--yellow), var(--warm-yellow));
-  color: var(--navy);
+  background: var(--tint);
+  color: var(--text);
 }
 
 ::selection {
-  background: var(--yellow);
-  color: var(--navy);
+  background: var(--sun);
+  color: var(--ink);
 }
 
 :where(a, button, input, select, textarea, [tabindex]):focus-visible {

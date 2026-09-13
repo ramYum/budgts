@@ -30,7 +30,7 @@ export function Overlay({
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex items-end justify-center bg-navy/50 transition-opacity duration-200 ease-out motion-reduce:transition-none sm:items-center ${
+      className={`fixed inset-0 z-50 flex items-end justify-center bg-ink/50 transition-opacity duration-200 ease-out motion-reduce:transition-none sm:items-center ${
         entered ? "opacity-100" : "opacity-0"
       }`}
       onClick={onClose}

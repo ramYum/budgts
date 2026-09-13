@@ -24,7 +24,7 @@ phase-level summary; this file is the execution tracker + decisions + change log
 | V1 | Plaid ingestion — built + staging-accepted | See §4 milestone tracker M1–M9 + workstreams A–E. | ✅ done (staging) | see §4 |
 | V1+ | Budget-correctness chain + Money Left / Savings Rate / account-exclusion | Sign-convention → event-role → budget-effect → `qualify.ts` integration → transfer-ownership; Money Left + Savings Rate dashboard tiles; account calculation-exclusion safety valve. See §7 change log. | ✅ done | `4590520` |
 | — | **V1 → production promotion** | `main` fast-forwarded `5b668b2→4590520`; migration `0012` applied directly to the production Supabase project (`wsmhstqpvbbcqpqhiqyp`); deployed via the existing `budgts` Vercel project. Plaid UI stays flag-gated off in prod (unchanged — Milestone 10 still owner-gated). | ✅ live 2026-09-13 | `4590520` |
-| — | **UI redesign — Budgt brand + IA overhaul** | Design system, responsive app shell (sidebar/bottom-nav), Home hierarchy, Budgets category cards + Category Detail, Activity search/filter, transfer toggle, new More/Insights/Accounts/Connected-Banks/Help/About + reorganized Settings. Presentation-layer only — no financial-semantics changes. See §"UI redesign" below and `docs/roadmap.md`. | 🔄 phased, not deployed | `d469d4b`, `05d4a1d` |
+| — | **UI redesign — Budgt brand + IA overhaul** | Design system, responsive app shell (sidebar/bottom-nav), Home hierarchy, Budgets category cards + Category Detail, Activity search/filter, transfer toggle, new More/Insights/Accounts/Connected-Banks/Help/About + reorganized Settings. Presentation-layer only — no financial-semantics changes. **v2 brand pass**: new palette/typeface from `Budgts Reference V2.png` + real cropped assets from `Assets V2.svg`, replacing the original brand tokens — see `docs/BRAND_GUIDELINES.md`. See §"UI redesign" below and `docs/roadmap.md`. | 🔄 pending merge to `main` | `d469d4b`, `05d4a1d`, TBD |
 
 Legend: ✅ done · 🔄 in progress · ⏳ planned
 
@@ -800,3 +800,73 @@ Developer Program ($99/yr), Google Play Console ($25 once). Target: a few months
     show a fake option). None of these touch financial correctness.
   - Not committed to `main`; not pushed; not deployed. Still needs the
     owner's own visual/product pass before merging.
+- **2026-09-13 — UI redesign v2: new brand source, real cropped assets**.
+  The owner rejected the v1 pass's visual result and supplied a new
+  reference set: `Budgts Reference V2.png` (four mockup screens — Get
+  Started, Home, Budgets, Insights) as the sole source for color/type/
+  component styling, and `Assets V2.svg` (an SVG wrapper around one
+  embedded raster sheet) for the actual logo/mascot/iconography artwork —
+  explicitly **not** to be hand-redrawn, and explicitly not to be used as a
+  branding-guidelines source itself. A third supplied file, `Branding
+  guidelines V2.png`, was deliberately **not** used (confirmed with the
+  owner) so the palette/type values trace to exactly one source.
+  - **New source of truth**: `docs/BRAND_GUIDELINES.md`, written from
+    colors sampled directly off the reference mockup's icons/progress
+    bars/donut legend (not guessed) plus the Poppins specimen in
+    `Assets V2.svg`. It explicitly supersedes the v1 entry's palette/
+    typography/asset sections; `docs/specs/2026-09-13-ui-redesign-brand-
+    guidelines-spec.md` keeps a header marking exactly which of its own
+    sections are void vs. still-current IA/behavior documentation.
+  - **Palette**: cream `#FFF8F0` bg / ink `#0F0F0F` text / coral `#FF7B61`
+    (accent + the app's own "+", active-nav, segmented-control-active
+    color) / sun, sage, sky, lavender, pink as the six category hues (pale
+    tint background + a sampled "strong" variant for glyphs/fills) —
+    replacing the v1 warm-white/yellow/orange/blue/navy set entirely.
+    **Primary CTA is now a solid ink-black pill** (literally what the
+    reference's own "Get started" button is), not the previous blue —
+    `PrimaryButton` needed no code change since it already reads the
+    `--primary` token. Font: Poppins replaces Nunito Sans.
+  - **Real assets, not redraws**: `Assets V2.svg`'s embedded PNG was
+    decoded and precisely cropped (gap-detection to avoid bleed between
+    adjacent artwork) into `public/brand/`: `logo-lockup.png` (wordmark +
+    tagline), `icon-badge.png` (full-color mark, used by the sign-in/
+    onboarding hero), `mark-default.png` + 3 solid-color alternates (source
+    for `LogoMark` and every generated app icon), and the four mascot
+    moods (`mood-normal/happy/curious/sleepy.png` — all four of the app's
+    existing moods matched the sheet exactly, no new mood art needed) plus
+    three decorative blob shapes and a sparkle mark. The superseded
+    `app-icon.png`, `mascot-hero.png`, and the already-unused
+    `decorative-blobs.png` were deleted; `public/icon-512.png`,
+    `icon-maskable.png`, `src/app/icon.png`, `src/app/apple-icon.png` were
+    regenerated from `mark-default.png` (composited onto cream at
+    increasing safe-zone margins for the maskable variant). The entire
+    legacy top-level `brand/` folder (an even older Volt-Lime/Deep-Pine
+    identity, already self-documented as superseded and unreferenced by
+    the app) was deleted too.
+  - **Fixed a mascot/background conflict this session's token change would
+    otherwise have introduced**: the black-cat mascot's silhouette
+    disappears against the new solid-ink `--primary` hero card, so the
+    Home "Money Left" card's mascot overlay was removed rather than
+    shipped invisible.
+  - **New migration** `0013_default_category_colors_v2_palette.sql` —
+    `handle_new_user()`'s seeded category colors updated to the new
+    palette's hues, so a brand-new signup's category dots/icons match out
+    of the box. Existing users' stored `color` values are untouched (it's
+    plain per-row data, not a data migration). Applied via `db:migrate`.
+  - Grepped `src/` for every remaining raw old-palette `var(--yellow` /
+    `var(--navy` / etc. reference (5 files: `income-tile.tsx`,
+    `overlay.tsx`, `ui.tsx`'s category map and `CatMessage`,
+    `transaction-form.tsx`'s checkbox accent) rather than assuming the
+    semantic-token layer alone would catch everything.
+  - **Verified visually** against a real authenticated session: created a
+    throwaway Supabase test user via the e2e admin helper pattern, seeded
+    budgets/transactions/categories with numbers mirroring the reference
+    mockup's own examples, signed in via a magic-link `token_hash` through
+    Playwright, and screenshotted Home, Budgets, Insights, Activity, Goals
+    (empty state), More, and the signed-out sign-in screen at 390px width
+    before deleting the test user. Confirmed Poppins loads, the new
+    palette/component styling render as designed, and the cropped mascot/
+    logo artwork displays correctly.
+  - `RecreateDesign.md` (repo root, untracked working notes) holds the
+    running instruction log and step-by-step checklist this pass was
+    executed against.

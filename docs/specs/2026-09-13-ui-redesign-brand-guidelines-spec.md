@@ -1,5 +1,22 @@
 # Budgts UI Redesign Specification
 
+> **SUPERSEDED — branding/visual sections void.** This spec's brand source
+> material (`New Branding guidelines.png` / `New Assets.svg`) and every
+> section derived from it are replaced by **`docs/BRAND_GUIDELINES.md`**,
+> built from `Budgts Reference V2.png` + `Assets V2.svg`. Treat the
+> following as **void, not authoritative**: "Supplied Brand Assets and
+> Brand Guidelines" (palette, typography, logo, cat/illustration system,
+> app icon system, buttons/UI components, decorative brand elements), §1–3
+> (Design North Star / Color System / Typography), and §53 (Asset
+> Implementation Requirements). Where any later section states a color,
+> font, or asset path, `docs/BRAND_GUIDELINES.md` wins.
+>
+> Everything else below — the screen-by-screen behavior, navigation
+> destinations, interaction/button map (§4–52 excluding the void sections
+> above), and the financial-semantics rules (§50) — is **still current**
+> product/IA documentation, independent of which mockup drove the visual
+> design, and is not affected by this supersession.
+
 ## Purpose
 
 Redesign the Budgts UI around one central product idea:

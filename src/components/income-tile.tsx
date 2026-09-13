@@ -31,10 +31,10 @@ export function IncomeTile({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="brand-highlight-card w-full rounded-2xl border border-yellow/50 p-3 text-left shadow-sm"
+        className="brand-highlight-card w-full rounded-2xl border border-sun/50 p-3 text-left shadow-sm"
       >
-        <p className="text-xs font-bold text-navy">Income</p>
-        <p className="tnum font-display text-lg font-extrabold text-navy">
+        <p className="text-xs font-bold text-text">Income</p>
+        <p className="tnum font-display text-lg font-extrabold text-text">
           <CountUp value={value} currency={currency} />
         </p>
       </button>

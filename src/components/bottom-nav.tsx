@@ -27,9 +27,7 @@ export function BottomNav() {
             href={item.href}
             aria-current={active ? "page" : undefined}
             className={`flex min-w-14 flex-col items-center gap-0.5 rounded-2xl px-2.5 py-1.5 font-semibold transition-colors ${
-              active
-                ? "bg-primary text-on-primary"
-                : "text-muted hover:text-text"
+              active ? "text-accent" : "text-muted hover:text-text"
             }`}
           >
             <NavIcon glyph={item.glyph} />

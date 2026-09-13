@@ -27,7 +27,7 @@ function Row({ item, active }: { item: Item; active: boolean }) {
       href={item.href}
       aria-current={active ? "page" : undefined}
       className={`flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
-        active ? "bg-tint text-primary" : "text-muted hover:bg-surface-2 hover:text-text"
+        active ? "bg-coral-tint text-coral-strong" : "text-muted hover:bg-surface-2 hover:text-text"
       }`}
     >
       <NavIcon glyph={item.glyph} className="h-5 w-5" />

@@ -1,6 +1,7 @@
 /** The brand's black-cat mascot, cropped from the brand asset sheet
- * ("New Assets.svg"). Used to add a little encouragement to empty states —
- * per the brand voice: kind, encouraging, human. */
+ * ("Assets V2.svg" — see docs/BRAND_GUIDELINES.md). Used to add a little
+ * encouragement to empty states — per the brand voice: kind, encouraging,
+ * human. */
 
 const MOOD_SRC = {
   normal: "/brand/mood-normal.png",

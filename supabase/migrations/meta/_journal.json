@@ -92,6 +92,13 @@
       "when": 1789314843480,
       "tag": "0012_spooky_living_lightning",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1789340000000,
+      "tag": "0013_default_category_colors_v2_palette",
+      "breakpoints": true
     }
   ]
 }

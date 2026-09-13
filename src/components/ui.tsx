@@ -112,15 +112,15 @@ export function SegmentedControl<T extends string>({
   onChange: (v: T) => void;
 }) {
   return (
-    <div className="inline-flex items-center gap-0.5 rounded-full border border-border bg-surface p-0.5 text-sm">
+    <div className="inline-flex items-center gap-0.5 rounded-full bg-gray p-0.5 text-sm">
       {options.map((o) => (
         <button
           key={o.value}
           type="button"
           onClick={() => onChange(o.value)}
           aria-pressed={value === o.value}
-          className={`rounded-full px-3 py-1 font-medium transition-colors ${
-            value === o.value ? "bg-primary text-on-primary" : "text-muted hover:text-text"
+          className={`rounded-full px-3 py-1.5 font-semibold transition-colors ${
+            value === o.value ? "bg-coral-tint text-coral-strong" : "text-muted hover:text-text"
           }`}
         >
           {o.label}
@@ -131,14 +131,14 @@ export function SegmentedControl<T extends string>({
 }
 
 const CATEGORY_ICON_MAP: Record<string, { glyph: CategoryGlyph; bg: string; fg: string }> = {
-  Housing: { glyph: "home", bg: "var(--purple)", fg: "#fff" },
-  Transportation: { glyph: "car", bg: "var(--blue)", fg: "#fff" },
-  "Food / Groceries": { glyph: "cart", bg: "var(--emerald)", fg: "#fff" },
-  Entertainment: { glyph: "play", bg: "var(--pink)", fg: "#fff" },
-  "Personal Care": { glyph: "heart", bg: "var(--deep-orange)", fg: "#fff" },
-  Insurances: { glyph: "shield", bg: "var(--cyan)", fg: "#fff" },
-  Salary: { glyph: "trend", bg: "var(--green)", fg: "#fff" },
-  "Other Income": { glyph: "trend", bg: "var(--warm-yellow)", fg: "var(--navy)" },
+  Housing: { glyph: "home", bg: "var(--lavender)", fg: "var(--lavender-strong)" },
+  Transportation: { glyph: "car", bg: "var(--sky)", fg: "var(--sky-strong)" },
+  "Food / Groceries": { glyph: "cart", bg: "var(--sage)", fg: "var(--sage-strong)" },
+  Entertainment: { glyph: "play", bg: "var(--pink)", fg: "var(--pink-strong)" },
+  "Personal Care": { glyph: "heart", bg: "var(--coral-tint)", fg: "var(--coral-strong)" },
+  Insurances: { glyph: "shield", bg: "var(--sun-tint)", fg: "var(--sun-strong)" },
+  Salary: { glyph: "trend", bg: "var(--sage)", fg: "var(--sage-strong)" },
+  "Other Income": { glyph: "trend", bg: "var(--sun-tint)", fg: "var(--sun-strong)" },
 };
 
 type CategoryGlyph = "home" | "car" | "cart" | "play" | "heart" | "shield" | "trend" | "tag";
@@ -234,7 +234,7 @@ export function EmptyState({
 export function CatMessage({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <div
-      className={`inline-flex max-w-xs items-center rounded-2xl rounded-bl-sm bg-tint px-3 py-2 text-sm text-navy ${className ?? ""}`}
+      className={`inline-flex max-w-xs items-center rounded-2xl rounded-bl-sm bg-tint px-3 py-2 text-sm text-text ${className ?? ""}`}
     >
       {children}
     </div>

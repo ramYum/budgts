@@ -12,8 +12,8 @@ npm run screenshot -- <url-or-path> [label] [width] [height] [scale]
 ```
 
 - `<url-or-path>` — a running URL (`http://localhost:3000/dashboard`) **or** a
-  local file path (`brand/Branding-guidelines.html`). Bare paths are resolved
-  against the repo root and loaded as `file://`.
+  local file path. Bare paths are resolved against the repo root and loaded
+  as `file://`.
 - `label` — optional; slugified into the filename.
 - `width` / `height` — CSS viewport px. Default `1440 x 900`. `fullPage` is
   always on, so `height` only affects lazy/viewport-triggered content.
@@ -25,7 +25,6 @@ incrementing. That folder is git-ignored — the PNGs are working artifacts.
 ### Examples
 
 ```
-npm run screenshot -- brand/Branding-guidelines.html brand-sheet 1600
 npm run screenshot -- http://localhost:3000 home-mobile 390 844 3
 npm run screenshot -- http://localhost:3000/budgets budgets-desktop
 ```

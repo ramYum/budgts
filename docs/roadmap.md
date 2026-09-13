@@ -80,13 +80,12 @@ types a minus.
 
 Spec: `docs/specs/2026-09-09-…-phase-2a-…`.
 
-## UI Redesign — Budgt brand + information architecture 🔄
+## UI Redesign — Budgt brand + information architecture ✅
 
-Presentation-layer redesign around the supplied brand guideline ("Budgts" →
-"Budgt": black-cat mascot, warm-white/yellow/orange/blue palette, Nunito
-Sans) and a new screen hierarchy (Home leads with Money Left → Savings Rate →
-Spending → Where it went → What can I change → Save more, not a transaction
-ledger). Explicitly does not touch financial semantics, Plaid ingestion,
+Presentation-layer redesign ("Budgts" → "Budgt": black-cat mascot, a new
+screen hierarchy — Home leads with Money Left → Savings Rate → Spending →
+Where it went → What can I change → Save more, not a transaction ledger).
+Explicitly does not touch financial semantics, Plaid ingestion,
 categorization, or any domain math — every screen reuses existing
 selectors/server actions.
 
@@ -98,6 +97,14 @@ kind filter; a one-tap transfer toggle on Transaction Detail; new
 More/Insights/Accounts/Connected-Banks/Help/About screens and a
 reorganized, menu-based Settings.
 
+**v2 brand pass:** the palette and typeface above changed again — cream/
+coral/sage/sky/lavender/pink (sampled from `Budgts Reference V2.png`) and
+Poppins (from `Assets V2.svg`), replacing the original warm-white/yellow/
+orange/blue palette and Nunito Sans. Same design-system architecture and
+screen hierarchy, new tokens + real cropped brand artwork (logo, mascot,
+category iconography) throughout. See `docs/BRAND_GUIDELINES.md` — the
+current source of truth for all of it.
+
 Deferred (see the spec's own §"remaining issues" classification): the
 3-screen onboarding wizard (Welcome → Connect Bank → All Set) — the existing
 single-screen onboarding was reskinned but not restructured, since Plaid UI
@@ -106,7 +113,9 @@ tab on Insights (spec explicitly forbids faking it before the feature
 exists); per-category "top merchants" in Category Detail; a real
 Notifications settings screen (no backend exists for it).
 
-Spec: `docs/specs/2026-09-13-ui-redesign-brand-guidelines-spec.md`.
+Spec: `docs/specs/2026-09-13-ui-redesign-brand-guidelines-spec.md` (IA/behavior
+— its brand sections are superseded, see its header). Brand:
+`docs/BRAND_GUIDELINES.md`.
 
 ## V1 — Plaid transaction ingestion (the primary path)
 

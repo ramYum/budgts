@@ -1,8 +1,8 @@
-/** Budgt logo. The mark is the black-cat mascot on its yellow/orange/blue
- * badge, cropped straight from "New Assets.svg" (the brand's own artwork —
- * see also "New Branding guidelines.png"). */
+/** Budgt logo. The mark is the black-cat mascot on its cream/coral/lavender
+ * badge, cropped straight from the brand's own artwork in "Assets V2.svg"
+ * (see docs/BRAND_GUIDELINES.md). */
 
-const MARK_SRC = "/brand/app-icon.png";
+const MARK_SRC = "/brand/mark-default.png";
 
 export function LogoMark({
   size = 24,

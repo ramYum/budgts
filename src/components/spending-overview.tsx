@@ -148,6 +148,7 @@ export function SpendingBreakdownCard({
             <PieChart>
               <Tooltip
                 formatter={(value, name) => [formatMoney(Number(value), currency), name]}
+                wrapperStyle={{ zIndex: 10 }}
                 contentStyle={{
                   background: "var(--surface)",
                   border: "1px solid var(--border)",
@@ -172,7 +173,7 @@ export function SpendingBreakdownCard({
               </Pie>
             </PieChart>
           </ResponsiveContainer>
-          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+          <div className="pointer-events-none absolute inset-0 z-0 flex flex-col items-center justify-center">
             <p className="tnum text-lg font-bold leading-tight">{formatMoney(totalSpent, currency)}</p>
             <p className="text-[11px] text-muted">This month</p>
           </div>

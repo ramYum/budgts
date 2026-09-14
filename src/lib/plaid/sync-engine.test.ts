@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { UnknownPfcPrimaryError } from "./category-map";
 import { computeContentFingerprint } from "./content-fingerprint";
 import { type SyncPlan } from "./apply-sync";
-import { ADVANCIAL_INSTITUTION_ID } from "./replay-containment";
+import { ADVANCIAL_INSTITUTION_ID, ANOMALY_DUPLICATE_REASON_MARKER } from "./replay-containment";
 import { AMBIGUOUS_REVIEW_SAMPLE_THRESHOLD, MIN_EVIDENCE_SAMPLES } from "./sign-convention";
 import {
   ANOMALY_REVIEW_THRESHOLD,
@@ -56,6 +56,7 @@ function fakeStore(
   existing: PlaidTxnRow[] = [],
   initialFingerprintCounts: Record<string, number> = {},
   initialSignEvidence: Record<string, { rawAmount: number; primary: string | null }[]> = {},
+  initialReviewFlags: Record<string, string> = {},
 ) {
   const calls: {
     findRefs: string[][];
@@ -64,7 +65,9 @@ function fakeStore(
     // keyed by `plaid_accounts.id` — the connected feed, NOT the Budgts account
     finalizedSignConventions: Array<{ plaidAccountRowId: string; convention: "standard" | "inverted" }>;
     containmentUpdates: Array<{ canonicalId: string; duplicateIds: string[] }>;
-  } = { findRefs: [], plans: [], flags: [], finalizedSignConventions: [], containmentUpdates: [] };
+    clearedFlags: Array<{ accountId: string; reasonMarker: string }>;
+  } = { findRefs: [], plans: [], flags: [], finalizedSignConventions: [], containmentUpdates: [], clearedFlags: [] };
+  const reviewFlags = new Map(Object.entries(initialReviewFlags));
   // Simulates "live rows per (accountId:fingerprint), post-insert" — the same
   // semantics the real Drizzle-backed store computes with one query after the
   // insert transaction commits. Persists across calls on the SAME fakeStore
@@ -108,6 +111,7 @@ function fakeStore(
     },
     async flagAccountForReview(accountId, reason) {
       calls.flags.push({ accountId, reason });
+      reviewFlags.set(accountId, reason);
     },
     async getSignConventionEvidence(plaidAccountRowIds) {
       const out = new Map<string, { rawAmount: number; primary: string | null }[]>();
@@ -133,8 +137,13 @@ function fakeStore(
       }
       return { marked: updates.reduce((n, u) => n + u.duplicateIds.length, 0) };
     },
+    async clearReplayReviewFlag(accountId, reasonMarker) {
+      calls.clearedFlags.push({ accountId, reasonMarker });
+      const current = reviewFlags.get(accountId);
+      if (current && current.includes(reasonMarker)) reviewFlags.delete(accountId);
+    },
   };
-  return { store, calls };
+  return { store, calls, reviewFlags };
 }
 
 const deps = (over: Partial<SyncDeps>): SyncDeps => ({
@@ -569,5 +578,61 @@ describe("Advancial replay containment", () => {
     expect(calls.containmentUpdates).toHaveLength(2);
     const secondUpdate = calls.containmentUpdates[1];
     expect(secondUpdate.duplicateIds).toEqual(["r3"]);
+  });
+
+  it("clears a stale anomaly-duplicate review flag once containment resolves it", async () => {
+    const { store, calls, reviewFlags } = fakeStore(
+      [],
+      {},
+      {},
+      {
+        "b-acct-1": "10 transactions with identical content (differing only by Plaid's own transaction ID) — this connection's data may be unreliable until reviewed.",
+      },
+    );
+    await runSync(
+      deps({
+        store,
+        institutionId: ADVANCIAL_INSTITUTION_ID,
+        transactionsSync: async () =>
+          page({ added: [pTxn({ transaction_id: "r1" }), pTxn({ transaction_id: "r2" })], next_cursor: "c2" }),
+      }),
+    );
+
+    expect(calls.clearedFlags).toEqual([{ accountId: "b-acct-1", reasonMarker: ANOMALY_DUPLICATE_REASON_MARKER }]);
+    expect(reviewFlags.has("b-acct-1")).toBe(false);
+  });
+
+  it("never clears a review flag for an unrelated reason (sign-convention ambiguity)", async () => {
+    const { store, reviewFlags } = fakeStore(
+      [],
+      {},
+      {},
+      { "b-acct-1": "Budgts can't confidently determine this account's transaction sign convention after 40 transactions — some data may be miscategorized until reviewed." },
+    );
+    await runSync(
+      deps({
+        store,
+        institutionId: ADVANCIAL_INSTITUTION_ID,
+        transactionsSync: async () => page({ added: [pTxn({ transaction_id: "r1" })], next_cursor: "c2" }),
+      }),
+    );
+
+    // clearReplayReviewFlag was still called (the wiring always attempts it
+    // for a touched account) but the fake store's marker check refused to
+    // clear a differently-worded reason — this is the behavior the real
+    // Drizzle `like` condition guarantees too.
+    expect(reviewFlags.get("b-acct-1")).toMatch(/sign convention/);
+  });
+
+  it("is a no-op clearing a flag that was never set", async () => {
+    const { store, calls } = fakeStore();
+    await runSync(
+      deps({
+        store,
+        institutionId: ADVANCIAL_INSTITUTION_ID,
+        transactionsSync: async () => page({ added: [pTxn({ transaction_id: "r1" })], next_cursor: "c2" }),
+      }),
+    );
+    expect(calls.clearedFlags).toEqual([{ accountId: "b-acct-1", reasonMarker: ANOMALY_DUPLICATE_REASON_MARKER }]);
   });
 });

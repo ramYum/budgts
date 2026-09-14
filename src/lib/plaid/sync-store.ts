@@ -10,7 +10,7 @@
  * Constructed with an injected `db` so the DB-integration tests point it at
  * `budgts-staging` and unit code never imports it.
  */
-import { and, eq, inArray, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull, like, sql, type SQL } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import type * as schema from "@/lib/db/schema";
 import { plaidAccounts, plaidItems, transactions } from "@/lib/db/schema";
@@ -196,6 +196,17 @@ export function createPlaidSyncStore(db: PlaidDb): PlaidSyncStore {
           updatedAt: sql`now()`,
         })
         .where(eq(plaidAccounts.accountId, accountId));
+    },
+
+    async clearReplayReviewFlag(accountId, reasonMarker) {
+      // Marker-gated: only ever clears a flag whose stored reason still
+      // contains this exact substring, so a flag from an unrelated cause
+      // (e.g. sign-convention ambiguity, worded completely differently)
+      // is never touched.
+      await db
+        .update(plaidAccounts)
+        .set({ needsReview: false, reviewReason: null, reviewFlaggedAt: null, updatedAt: sql`now()` })
+        .where(and(eq(plaidAccounts.accountId, accountId), like(plaidAccounts.reviewReason, `%${reasonMarker}%`)));
     },
 
     // Keyed on `plaid_accounts.id` — the specific connected feed — never the

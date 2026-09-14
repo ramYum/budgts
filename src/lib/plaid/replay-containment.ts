@@ -14,6 +14,18 @@
 /** Advancial Federal Credit Union — confirmed via both incidents' `plaid_items.institution_id`. */
 export const ADVANCIAL_INSTITUTION_ID = "ins_116484";
 
+/**
+ * The stable substring inside the Phase 14 anomaly detector's own review
+ * message (sync-engine.ts's `flagAccountForReview` call) that identifies
+ * "this account was flagged purely for identical-content duplication" —
+ * the one flag category automatic replay containment can resolve on its
+ * own. Never matches the sign-convention-ambiguity message (completely
+ * different wording), so clearing a flag by this marker can never
+ * silently discard an unrelated, still-valid warning.
+ */
+export const ANOMALY_DUPLICATE_REASON_MARKER =
+  "identical content (differing only by Plaid's own transaction ID)";
+
 export interface ContainmentCandidate {
   id: string;
   contentFingerprint: string;

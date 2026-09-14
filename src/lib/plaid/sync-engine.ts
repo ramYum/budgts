@@ -13,6 +13,7 @@ import { applyPlaidSync, type ExistingPlaidRow, type SyncPlan } from "./apply-sy
 import { computeContentFingerprint } from "./content-fingerprint";
 import {
   ADVANCIAL_INSTITUTION_ID,
+  ANOMALY_DUPLICATE_REASON_MARKER,
   planReplayContainment,
   type ContainmentCandidate,
   type ContainmentUpdate,
@@ -123,6 +124,16 @@ export interface PlaidSyncStore {
    * treatment `is_transfer` already gets.
    */
   applyReplayContainment(updates: ContainmentUpdate[]): Promise<{ marked: number }>;
+  /**
+   * Clears a stale review flag left over from *before* replay containment
+   * existed (or before this account's duplicates were contained) — but
+   * ONLY when the account's current `review_reason` still matches
+   * `reasonMarker` exactly (the anomaly detector's own duplicate-content
+   * wording). A flag for any other reason (e.g. sign-convention ambiguity)
+   * is untouched, since containment has nothing to say about it. A no-op
+   * when the account isn't flagged, or is flagged for something else.
+   */
+  clearReplayReviewFlag(accountId: string, reasonMarker: string): Promise<void>;
 }
 
 export interface SyncDeps {
@@ -271,7 +282,7 @@ export async function runSync(deps: SyncDeps): Promise<SyncOutcome> {
       if (count >= ANOMALY_REVIEW_THRESHOLD) {
         await store.flagAccountForReview(
           accountId,
-          `${count} transactions with identical content (differing only by Plaid's own transaction ID) — this connection's data may be unreliable until reviewed.`,
+          `${count} transactions with ${ANOMALY_DUPLICATE_REASON_MARKER} — this connection's data may be unreliable until reviewed.`,
         );
       }
     }
@@ -329,6 +340,12 @@ export async function runSync(deps: SyncDeps): Promise<SyncOutcome> {
       const candidates = await store.findContainmentCandidates(accountId);
       const containmentUpdates = planReplayContainment(candidates);
       if (containmentUpdates.length > 0) await store.applyReplayContainment(containmentUpdates);
+      // Every remaining (non-duplicate) row for this account is now
+      // guaranteed fingerprint-unique — containment just collapsed every
+      // 2+ group down to one. So whatever anomaly flag Phase 14 set for
+      // this exact defect is now stale; clear it (marker-gated, so an
+      // unrelated flag reason is left alone).
+      await store.clearReplayReviewFlag(accountId, ANOMALY_DUPLICATE_REASON_MARKER);
     }
   }
 

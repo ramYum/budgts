@@ -66,6 +66,12 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
   // A soft-deleted bank row (Plaid `removed`) is not a transaction — keep it out
   // of the ledger view. Guarded: the column only exists where 0004 has run.
   if (plaidOn) txnQuery = txnQuery.is("removed_at", null);
+  // A confirmed duplicate (design: 2026-09-12 Phase 15) stays in the database
+  // forever — never deleted, still in CSV export — but the default ledger
+  // view shouldn't show 50 copies of the same purchase. Same reasoning
+  // needsCategory below already applies. Guarded like removed_at: the
+  // column only exists where 0007 has run.
+  if (plaidOn) txnQuery = txnQuery.is("duplicate_of_id", null);
 
   const [{ data: txns }, { data: accounts }, { data: categories }, { data: profile }] = await Promise.all([
     txnQuery

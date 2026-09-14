@@ -12,6 +12,7 @@ import { isEventRole } from "@/lib/plaid/event-role";
 import { nudgeRefresh } from "@/server/plaid/service";
 import { DashboardView, type RecentActivityItem } from "@/components/dashboard-view";
 import { RealtimeRefresh } from "@/components/realtime-refresh";
+import { TabBlobs } from "@/components/tab-blobs";
 import type { AccountOption } from "@/components/transaction-form";
 
 const MONTH_RE = /^\d{4}-\d{2}$/;
@@ -204,6 +205,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
 
   return (
     <div className="pb-2">
+      <TabBlobs variant="home" />
       {/* `transactions` is covered by the dashboard layout's RealtimeRefresh. */}
       <RealtimeRefresh tables={["budgets"]} />
       <DashboardView

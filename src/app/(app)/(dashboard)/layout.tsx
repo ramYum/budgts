@@ -8,6 +8,7 @@ import { DesktopSidebar } from "@/components/desktop-sidebar";
 import { NeedsCategoryBell } from "@/components/needs-category-bell";
 import { RealtimeRefresh } from "@/components/realtime-refresh";
 import { ReviewBanner } from "@/components/plaid/review-banner";
+import { LimitedHistoryBanner } from "@/components/plaid/limited-history-banner";
 
 export default async function DashboardLayout({ children }: LayoutProps<"/">) {
   const user = await getSessionUser();
@@ -62,6 +63,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/">) {
       </header>
 
       {plaidOn ? <ReviewBanner /> : null}
+      {plaidOn ? <LimitedHistoryBanner /> : null}
 
       <main className="mx-auto w-full max-w-md flex-1 px-4 py-4 pb-24 md:max-w-4xl md:px-8 md:py-8 md:pb-8">
         {plaidOn ? (

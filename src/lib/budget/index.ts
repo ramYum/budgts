@@ -4,6 +4,7 @@ export { countsForMonth } from "./qualify";
 export { monthlyActuals } from "./actuals";
 export { budgetVsActual, NEAR_THRESHOLD } from "./budget-vs-actual";
 export { rollup } from "./rollup";
+export { priorMonths, spendTrend, type MonthSpend } from "./spend-trend";
 export {
   buildDashboard,
   type DashboardBar,

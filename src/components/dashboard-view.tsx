@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { formatMoney, formatSavingsRate } from "@/lib/budget/money";
 import type { DashboardView as DV } from "@/lib/budget/dashboard";
+import type { MonthSpend } from "@/lib/budget/spend-trend";
 import type { GoalsSummary } from "@/lib/budget/savings";
 import { MonthNav } from "./month-nav";
 import { IncomeTile } from "./income-tile";
 import { CountUp } from "./count-up";
 import { Mascot } from "./mascot";
+import { SpendingBreakdownCard, SpendingTrendCard } from "./spending-overview";
 import type { AccountOption, CategoryOption } from "./transaction-form";
 
 export type RecentActivityItem = {
@@ -80,6 +82,7 @@ function relativeDay(iso: string): string {
 export function DashboardView({
   view,
   prevView,
+  trend,
   currency,
   month,
   accounts,
@@ -91,6 +94,7 @@ export function DashboardView({
 }: {
   view: DV;
   prevView: DV;
+  trend: MonthSpend[];
   currency: string;
   month: string;
   accounts: AccountOption[];
@@ -327,6 +331,9 @@ export function DashboardView({
           </ul>
         )}
       </section>
+
+      <SpendingTrendCard trend={trend} changePct={spendChangePct} currency={currency} />
+      <SpendingBreakdownCard bars={view.bars} totalSpent={tiles.spent} currency={currency} />
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { buildDashboard, type DashboardCategory } from "@/lib/budget/dashboard";
 import { monthKey } from "@/lib/budget/month";
+import { priorMonths, spendTrend } from "@/lib/budget/spend-trend";
 import { goalsSummary, type SavingsContribution, type SavingsGoal } from "@/lib/budget/savings";
 import type { BudgetTxn } from "@/lib/budget/types";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
@@ -76,6 +77,20 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
     .lt("occurred_at", prevEnd);
   if (plaidUiEnabled()) prevTxnQuery = prevTxnQuery.is("removed_at", null);
 
+  // Home's "Total spending" trend card (design: Budgts Reference V2 Insights
+  // screen) — one bounded query covering the last 6 months, then the same
+  // pure `rollup` Home/Budgets/Insights already use, called once per month.
+  const trendMonths = priorMonths(month, 6);
+  const { start: trendStart } = monthRange(trendMonths[0]!);
+  let trendTxnQuery = supabase
+    .from("transactions")
+    .select(
+      "category_id, amount, direction, occurred_at, status, is_transfer, duplicate_of_id, event_role, transfer_user_set, plaid_account_id",
+    )
+    .gte("occurred_at", trendStart)
+    .lt("occurred_at", end);
+  if (plaidUiEnabled()) trendTxnQuery = trendTxnQuery.is("removed_at", null);
+
   let recentQuery = supabase
     .from("transactions")
     .select(
@@ -89,6 +104,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
   const [
     { data: txnRows },
     { data: prevTxnRows },
+    { data: trendTxnRows },
     { data: categories },
     { data: budgetRows },
     { data: profile },
@@ -100,6 +116,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
   ] = await Promise.all([
     txnQuery.returns<TxnRow[]>(),
     prevTxnQuery.returns<TxnRow[]>(),
+    trendTxnQuery.returns<TxnRow[]>(),
     supabase
       .from("categories")
       .select("id, kind, name, color")
@@ -145,6 +162,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
 
   const txns: BudgetTxn[] = (txnRows ?? []).map(toBudgetTxn);
   const prevTxns: BudgetTxn[] = (prevTxnRows ?? []).map(toBudgetTxn);
+  const trendTxns: BudgetTxn[] = (trendTxnRows ?? []).map(toBudgetTxn);
   const cats: DashboardCategory[] = (categories ?? []) as DashboardCategory[];
   const budgets = (budgetRows ?? []).map((b) => ({ categoryId: b.category_id, amount: b.amount }));
   const accounts = (accountRows ?? []) as AccountOption[];
@@ -155,6 +173,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
 
   const view = buildDashboard(txns, cats, budgets, month);
   const prevView = buildDashboard(prevTxns, cats, [], prevMonth);
+  const trend = spendTrend(trendTxns, cats, trendMonths);
 
   const goals: SavingsGoal[] = (goalRows ?? []).map((g) => ({
     id: g.id,
@@ -190,6 +209,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
       <DashboardView
         view={view}
         prevView={prevView}
+        trend={trend}
         currency={profile?.currency ?? "USD"}
         month={month}
         accounts={accounts}

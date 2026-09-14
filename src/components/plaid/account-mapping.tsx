@@ -87,7 +87,7 @@ export function AccountMapping({
         <button
           type="button"
           onClick={onDone}
-          className="w-full rounded-full bg-primary px-3 py-2 text-sm font-medium text-on-primary"
+          className="w-full rounded-full bg-primary-btn px-3 py-2 text-sm font-medium text-on-primary-btn"
         >
           Done
         </button>
@@ -179,7 +179,7 @@ export function AccountMapping({
       <button
         type="submit"
         disabled={pending}
-        className="w-full rounded-full bg-primary px-3 py-2 text-sm font-medium text-on-primary disabled:opacity-50"
+        className="w-full rounded-full bg-primary-btn px-3 py-2 text-sm font-medium text-on-primary-btn disabled:opacity-50"
       >
         {pending ? "Saving…" : "Import transactions"}
       </button>

@@ -42,10 +42,19 @@
   --track: var(--border); /* progress trough */
   --tick: var(--coral); /* small structural marks */
 
-  /* the brand's own hero CTA is a solid ink pill, not a hue — high-contrast
-   * and calm, reserved for the one primary action per screen. */
+  /* the one solid-ink hero card per screen (Home's Money Left, Insights'
+   * Your money story) — high-contrast and calm, not a hue. Distinct from
+   * `--primary-btn` below: this token is for that hero-card treatment and
+   * for link-style accents, never for a clickable button's fill. */
   --primary: var(--ink);
   --on-primary: #ffffff;
+
+  /* Primary button fill (docs/BRAND_GUIDELINES.md "Primary button") — a
+   * Sun-yellow pill with ink text, kept separate from `--primary` above so
+   * changing a button's color never repaints the hero cards or text links
+   * that happen to share the "primary" name. */
+  --primary-btn: var(--sun);
+  --on-primary-btn: var(--ink);
   --tint: #f2eeff; /* pale lavender wash — insight banners, quote/message bubbles */
 
   --pos: var(--sage-strong);
@@ -122,6 +131,8 @@
   --color-on-dark-dim: var(--on-dark-dim);
   --color-primary: var(--primary);
   --color-on-primary: var(--on-primary);
+  --color-primary-btn: var(--primary-btn);
+  --color-on-primary-btn: var(--on-primary-btn);
   --color-tint: var(--tint);
   --color-fill-under: var(--fill-under);
   --color-fill-near: var(--fill-near);

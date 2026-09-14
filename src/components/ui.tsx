@@ -23,7 +23,7 @@ function ArrowIcon() {
 }
 
 const primaryClass =
-  "inline-flex items-center justify-center gap-1.5 rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-on-primary transition-opacity hover:opacity-90 disabled:opacity-50";
+  "inline-flex items-center justify-center gap-1.5 rounded-full bg-primary-btn px-4 py-2.5 text-sm font-semibold text-on-primary-btn transition-opacity hover:opacity-90 disabled:opacity-50";
 const secondaryClass =
   "inline-flex items-center justify-center gap-1.5 rounded-full border border-border bg-surface px-4 py-2.5 text-sm font-medium text-text transition-colors hover:bg-surface-2 disabled:opacity-50";
 

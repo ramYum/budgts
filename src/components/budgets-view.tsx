@@ -64,7 +64,7 @@ function AmountForm({
         type="button"
         onClick={save}
         disabled={pending}
-        className="w-full rounded-full bg-primary px-3 py-2 text-sm font-medium text-on-primary disabled:opacity-50"
+        className="w-full rounded-full bg-primary-btn px-3 py-2 text-sm font-medium text-on-primary-btn disabled:opacity-50"
       >
         {pending ? "Saving…" : "Save"}
       </button>
@@ -142,7 +142,7 @@ function CategoryDetail({
             </button>
             <Link
               href={`/transactions?m=${month}&category=${bar.categoryId}`}
-              className="flex-1 rounded-full bg-primary px-3 py-2 text-center text-sm font-medium text-on-primary"
+              className="flex-1 rounded-full bg-primary-btn px-3 py-2 text-center text-sm font-medium text-on-primary-btn"
             >
               See transactions
             </Link>
@@ -271,7 +271,7 @@ export function BudgetsView(
               <button
                 type="button"
                 onClick={() => setAdding(true)}
-                className="rounded-full bg-primary px-4 py-2 text-sm font-medium text-on-primary"
+                className="rounded-full bg-primary-btn px-4 py-2 text-sm font-medium text-on-primary-btn"
               >
                 Build my budget
               </button>

@@ -65,7 +65,7 @@ function AccountForm({
         <button
           type="submit"
           disabled={pending}
-          className="flex-1 rounded-full bg-primary px-3 py-2 text-sm font-medium text-on-primary disabled:opacity-50"
+          className="flex-1 rounded-full bg-primary-btn px-3 py-2 text-sm font-medium text-on-primary-btn disabled:opacity-50"
         >
           {pending ? "Saving…" : submitLabel}
         </button>

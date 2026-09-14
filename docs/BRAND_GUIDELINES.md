@@ -52,7 +52,7 @@ badges need something lighter behind them.
 
 Never reference these raw tokens directly from a component. Style through
 the **semantic roles** in the same file's `@theme inline` block —
-`bg-surface`, `text-muted`, `border-border`, `bg-accent`, `bg-primary`,
+`bg-surface`, `text-muted`, `border-border`, `bg-accent`, `bg-primary-btn`,
 `bg-pos`/`bg-neg`, `bg-fill-under`/`-near`/`-over`, `bg-coral-tint`, etc.
 This is enforced, not a suggestion — grep for `var(--` in `src/components`
 before adding a new raw color reference; if a role you need doesn't exist,
@@ -61,11 +61,19 @@ component.
 
 ### Semantic assignment (deliberately different from the mockup in one way)
 
-- **Primary CTA = solid ink-black pill, not a color.** The mockup's own
-  "Get started" button is literally black-on-cream, not coral or blue.
-  `--primary` resolves to `--ink`; `PrimaryButton`/`PrimaryLinkButton` need
-  no color prop, they already read `--primary`. Reserve this for the one
-  primary action per screen (Get started, Save, Continue, Build my budget).
+- **Primary button = Sun-yellow pill, ink text.** `PrimaryButton`/
+  `PrimaryLinkButton` need no color prop, they already read
+  `--primary-btn`/`--on-primary-btn` (`--sun` / `--ink`). White text on Sun
+  measures ~1.4–1.8:1 contrast (WCAG needs 4.5:1 for normal text), so the
+  button text is ink, not white. Reserve this fill for the one primary
+  action per screen (Get started, Save, Continue, Build my budget).
+  `--primary-btn`/`--on-primary-btn` are deliberately separate tokens from
+  `--primary`/`--on-primary` below — the button fill changed without
+  repainting the hero cards or the link-style text that also reads
+  `--primary`.
+- **`--primary` (ink) is now hero-card- and link-only**, not a button
+  token: the solid-ink hero cards (below) and `text-primary` link/accent
+  usages (e.g. "See spending", "View goals") keep reading it unchanged.
 - **Coral (`--accent`) is the energetic highlight**: active bottom-nav
   item (text/icon only, no filled pill — the mockup has none), the
   segmented-control active tint, the circular "+" add action, links.
@@ -170,7 +178,8 @@ sparingly — never behind dense financial data.
 
 ## Components
 
-- **Primary button** — ink-black pill, white text (`PrimaryButton`).
+- **Primary button** — Sun-yellow pill, ink text (`PrimaryButton`;
+  `bg-primary-btn text-on-primary-btn`).
 - **Secondary button** — cream/white surface, ink text, thin border
   (`SecondaryButton`).
 - **Segmented control** — flat neutral-gray track, active segment gets a

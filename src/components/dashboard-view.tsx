@@ -138,6 +138,19 @@ export function DashboardView({
 
       <MonthNav base="/" month={month} />
 
+      {tiles.budgeted > tiles.income ? (
+        <div className="rounded-lg border border-warn/40 bg-warn/10 px-3 py-2 text-sm text-warn">
+          <p>
+            This month&apos;s budgets add up to {formatMoney(tiles.budgeted, currency)}, more than the{" "}
+            {formatMoney(tiles.income, currency)} you&apos;ve brought in so far.{" "}
+            <Link href="/budgets" className="underline underline-offset-2">
+              Review your budgets
+            </Link>
+            .
+          </p>
+        </div>
+      ) : null}
+
       {/* the one solid-sun hero card on the screen */}
       <section className="relative overflow-hidden rounded-3xl bg-sun p-4 text-on-sun">
         <div className="relative max-w-[78%]">

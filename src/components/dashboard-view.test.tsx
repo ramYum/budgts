@@ -122,6 +122,33 @@ describe("DashboardView", () => {
   });
 });
 
+describe("DashboardView budgets-exceed-income note", () => {
+  it("shows a note when this month's budgets add up to more than income", () => {
+    const overBudgeted: DV = {
+      ...view,
+      tiles: { ...view.tiles, income: 50000, budgeted: 75000 },
+    };
+    render(<DashboardView {...baseProps} view={overBudgeted} />);
+    const note = screen.getByText(/budgets add up to/i);
+    expect(note).toHaveTextContent("This month's budgets add up to $750.00, more than the $500.00 you've brought in so far.");
+    expect(screen.getByRole("link", { name: /review your budgets/i })).toHaveAttribute("href", "/budgets");
+  });
+
+  it("says nothing when budgets are within income", () => {
+    render(<DashboardView {...baseProps} view={view} />);
+    expect(screen.queryByText(/budgets add up to/i)).not.toBeInTheDocument();
+  });
+
+  it("says nothing when budgets exactly equal income", () => {
+    const equal: DV = {
+      ...view,
+      tiles: { ...view.tiles, income: 75000, budgeted: 75000 },
+    };
+    render(<DashboardView {...baseProps} view={equal} />);
+    expect(screen.queryByText(/budgets add up to/i)).not.toBeInTheDocument();
+  });
+});
+
 describe("DashboardView savings rate presentation", () => {
   it("shows a positive savings rate plainly", () => {
     const positive: DV = {

@@ -143,25 +143,25 @@ export function DashboardView({
         <BudgetOverAlert month={month} budgeted={tiles.budgeted} income={tiles.income} currency={currency} />
       ) : null}
 
-      {/* the one solid-sun hero card on the screen */}
-      <section className="relative overflow-hidden rounded-3xl bg-sun p-4 text-on-sun">
+      {/* the one solid hero card on the screen — light coral fill */}
+      <section className="relative overflow-hidden rounded-3xl bg-hero-fill p-4 text-on-hero">
         <div className="relative max-w-[78%]">
-        <p className="text-xs text-on-sun-dim">Money Left</p>
+        <p className="text-xs text-on-hero-dim">Money Left</p>
         <p
           className={`tnum font-display text-[1.9rem] font-bold leading-tight ${
-            tiles.netSavings < 0 ? "text-fill-over" : "text-on-sun"
+            tiles.netSavings < 0 ? "text-fill-over" : "text-on-hero"
           }`}
         >
           <CountUp value={tiles.netSavings} currency={currency} />
         </p>
-        <p className="mt-1 text-xs text-on-sun-dim">
+        <p className="mt-1 text-xs text-on-hero-dim">
           {formatMoney(tiles.leftToSpend, currency)} left to spend ·{" "}
           {formatMoney(tiles.budgeted, currency)} budgeted
         </p>
-        <p className="mt-3 text-xs text-on-sun-dim">Savings rate</p>
+        <p className="mt-3 text-xs text-on-hero-dim">Savings rate</p>
         <p
           className={`tnum font-display text-lg font-bold ${
-            tiles.savingsRate !== null && tiles.savingsRate < 0 ? "text-fill-over" : "text-on-sun"
+            tiles.savingsRate !== null && tiles.savingsRate < 0 ? "text-fill-over" : "text-on-hero"
           }`}
         >
           {tiles.savingsRate === null
@@ -171,7 +171,7 @@ export function DashboardView({
             <span className="ml-1 text-xs font-medium">— spent more than you earned</span>
           ) : null}
         </p>
-        <p className="mt-2 text-xs text-on-sun-dim">
+        <p className="mt-2 text-xs text-on-hero-dim">
           Based on income minus spending — doesn&apos;t measure savings-account balances.
         </p>
         </div>
@@ -272,7 +272,7 @@ export function DashboardView({
                 <span className="text-neg">↑ {formatMoney(biggestMover.delta, currency)} vs. usual</span>
               </p>
             </div>
-            <Mascot mood="curious" size={44} className="shrink-0" />
+            <Mascot mood="curious" size={44} className="shrink-0 -scale-x-100" />
           </div>
           <Link
             href={`/transactions?m=${month}&category=${biggestMover.categoryId}`}

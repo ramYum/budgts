@@ -14,6 +14,7 @@
   --coral: #ff7b61; /* Action / energy */
   --coral-strong: #ff6347; /* Coral, pushed for fills that need more pop */
   --coral-tint: #ffebe5; /* Pale coral, for icon/badge backgrounds */
+  --coral-light: #ffbdb0; /* Coral, 50% lighter (mixed with white) — Money Left hero card fill */
   --sun: #ffd166; /* Optimism */
   --sun-strong: #f7b733; /* Sun, pushed for text/fills on light backgrounds */
   --sun-tint: #fff3d6; /* Pale sun, for icon/badge backgrounds */
@@ -44,9 +45,9 @@
 
   /* the solid-ink hero card (Insights' "Your money story") — high-contrast
    * and calm, not a hue. Home's "Money Left" hero card diverges from this
-   * (solid-sun, see --on-sun below). Distinct from `--primary-btn` below:
-   * this token is for that hero-card treatment and for link-style accents,
-   * never for a clickable button's fill. */
+   * (solid coral-light fill, see --on-hero below). Distinct from
+   * `--primary-btn` below: this token is for that hero-card treatment and
+   * for link-style accents, never for a clickable button's fill. */
   --primary: var(--ink);
   --on-primary: #ffffff;
 
@@ -76,11 +77,12 @@
   --on-dark: #ffffff;
   --on-dark-dim: #b8b8b8;
 
-  /* Home's "Money Left" hero card — sun-yellow, ink text. Distinct from
-   * Insights' "Your money story" card, which keeps the solid-ink `--primary`
-   * treatment above. */
-  --on-sun: var(--ink);
-  --on-sun-dim: rgba(15, 15, 15, 0.62);
+  /* Home's "Money Left" hero card — light coral fill, ink text. Distinct
+   * from Insights' "Your money story" card, which keeps the solid-ink
+   * `--primary` treatment above. */
+  --hero-fill: var(--coral-light);
+  --on-hero: var(--ink);
+  --on-hero-dim: rgba(15, 15, 15, 0.62);
 
   --background: var(--bg);
   --foreground: var(--text);
@@ -116,6 +118,7 @@
   --color-coral: var(--coral);
   --color-coral-strong: var(--coral-strong);
   --color-coral-tint: var(--coral-tint);
+  --color-coral-light: var(--coral-light);
   --color-sun: var(--sun);
   --color-sun-strong: var(--sun-strong);
   --color-sun-tint: var(--sun-tint);
@@ -136,8 +139,9 @@
   --color-surface-dark: var(--surface-dark);
   --color-on-dark: var(--on-dark);
   --color-on-dark-dim: var(--on-dark-dim);
-  --color-on-sun: var(--on-sun);
-  --color-on-sun-dim: var(--on-sun-dim);
+  --color-hero-fill: var(--hero-fill);
+  --color-on-hero: var(--on-hero);
+  --color-on-hero-dim: var(--on-hero-dim);
   --color-primary: var(--primary);
   --color-on-primary: var(--on-primary);
   --color-primary-btn: var(--primary-btn);

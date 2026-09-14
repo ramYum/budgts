@@ -149,6 +149,10 @@ export function DashboardView({
         >
           <CountUp value={tiles.netSavings} currency={currency} />
         </p>
+        <p className="mt-1 text-xs text-on-sun-dim">
+          {formatMoney(tiles.leftToSpend, currency)} left to spend ·{" "}
+          {formatMoney(tiles.budgeted, currency)} budgeted
+        </p>
         <p className="mt-3 text-xs text-on-sun-dim">Savings rate</p>
         <p
           className={`tnum font-display text-lg font-bold ${
@@ -165,15 +169,6 @@ export function DashboardView({
         <p className="mt-2 text-xs text-on-sun-dim">
           Based on income minus spending — doesn&apos;t measure savings-account balances.
         </p>
-        {/* Budget-vs-spend, not income-derived (rollup.ts) — separated with its
-            own heading so it doesn't read as a breakdown of Money Left above. */}
-        <div className="mt-4 border-t border-ink/15 pt-3">
-          <p className="text-xs font-semibold text-on-sun-dim">Category budgets</p>
-          <p className="mt-1 text-xs text-on-sun-dim">
-            {formatMoney(tiles.leftToSpend, currency)} left of {formatMoney(tiles.budgeted, currency)} budgeted
-            this month
-          </p>
-        </div>
         </div>
       </section>
 

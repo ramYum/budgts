@@ -9,7 +9,6 @@ import type { Database } from "@/lib/supabase/database.types";
 import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
 import { isEventRole } from "@/lib/plaid/event-role";
 import { RealtimeRefresh } from "@/components/realtime-refresh";
-import { TabBlobs } from "@/components/tab-blobs";
 import { BudgetsView, type AllTimeRow } from "@/components/budgets-view";
 
 export const metadata: Metadata = { title: "Budgets" };
@@ -103,7 +102,6 @@ export default async function BudgetsPage({ searchParams }: PageProps<"/budgets"
 
     return (
       <div className="pt-1">
-        <TabBlobs variant="budgets" />
         <BudgetsView range="all" month={month} currency={currency} allTimeRows={rows} categories={cats} />
       </div>
     );
@@ -140,7 +138,6 @@ export default async function BudgetsPage({ searchParams }: PageProps<"/budgets"
 
   return (
     <div className="pt-1">
-      <TabBlobs variant="budgets" />
       <RealtimeRefresh tables={["budgets"]} />
       <BudgetsView
         range="month"

@@ -11,7 +11,6 @@ import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
 import { STANDARD_CATEGORIES } from "@/lib/categories/standard";
 import { ConnectBank } from "@/components/plaid/connect-bank";
 import { NeedsCategory, type NeedsCategoryItem } from "@/components/plaid/needs-category";
-import { TabBlobs } from "@/components/tab-blobs";
 import { nudgeRefresh } from "@/server/plaid/service";
 import { buildCategoryLookup, suggestPlaidCategory } from "@/lib/plaid/category-map";
 
@@ -132,7 +131,6 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
 
   return (
     <div className="space-y-4 pt-1">
-      <TabBlobs variant="activity" />
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1">
           <Link href={`/transactions?m=${prev}`} className="px-2 py-1 text-sm text-muted hover:text-text" aria-label="Previous month">

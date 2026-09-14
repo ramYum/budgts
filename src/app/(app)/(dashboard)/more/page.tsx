@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { NavIcon, type NavGlyph } from "@/components/nav-icons";
-import { TabBlobs } from "@/components/tab-blobs";
 
 export const metadata: Metadata = { title: "More" };
 
@@ -27,7 +26,6 @@ function Row({ href, label, glyph }: { href: string; label: string; glyph: NavGl
 export default function MorePage() {
   return (
     <div className="space-y-6 pt-1">
-      <TabBlobs variant="more" />
       <h1 className="text-xl font-semibold">More</h1>
 
       <ul className="card divide-y divide-hairline overflow-hidden rounded-2xl border border-hairline">

@@ -168,30 +168,6 @@ Rules:
   no `concerned`/`celebrating` expression currently in `public/brand/`, so
   don't reference those moods in code until there is.
 
-## Decorative shapes
-
-Each of the four main tabs (`<TabBlobs variant="home" | "budgets" |
-"activity" | "more">`, `src/components/tab-blobs.tsx`) gets a scatter of
-soft, organic blobs in the pale brand hues (`--sun-tint`, `--coral-tint`,
-`--sage`, `--sky`, `--lavender`, `--pink`) — CSS shapes (asymmetric
-`border-radius`), not raster art, so they're crisp at any size and cheap to
-vary. `position: fixed` behind everything (`z-index: -1`), mostly bleeding
-off the left/right edges: since cards paint an opaque `--surface` fill, a
-blob positioned behind one is simply invisible there, so the scatter is
-self-clipping to genuinely empty ("dull") page margins by construction —
-never a deliberate placement decision per screen.
-
-Rules:
-
-- Vary shape, size, and position per tab (see the `SHAPES`/`SIZE` presets
-  in `tab-blobs.tsx`) so the scatter reads as loose and organic, not one
-  stamp repeated.
-- Only the four main tabs get this treatment, not every screen under
-  `(dashboard)` — Settings, forms, and detail overlays stay plain.
-- Never add a sixth+ blob per tab or push saturation up — this is page
-  texture, not a focal element; the mascot and hero cards stay the
-  intentional focal points per screen.
-
 ## Iconography
 
 - **Category icons** (`CategoryIcon` in `src/components/ui.tsx`): a

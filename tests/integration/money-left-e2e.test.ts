@@ -132,6 +132,7 @@ describe("Money Left — a user's transfer decision survives a subsequent machin
     const out = await runSync({
       userId,
       itemId: ITEM_ID,
+      institutionId: null,
       initialCursor: `${sourceRef}-cursor-pre`,
       transactionsSync: async () => ({
         added: [],

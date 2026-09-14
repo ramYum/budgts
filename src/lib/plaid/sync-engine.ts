@@ -11,6 +11,12 @@
 import { normalizePlaidTxn } from "./adapter";
 import { applyPlaidSync, type ExistingPlaidRow, type SyncPlan } from "./apply-sync";
 import { computeContentFingerprint } from "./content-fingerprint";
+import {
+  ADVANCIAL_INSTITUTION_ID,
+  planReplayContainment,
+  type ContainmentCandidate,
+  type ContainmentUpdate,
+} from "./replay-containment";
 import { AMBIGUOUS_REVIEW_SAMPLE_THRESHOLD, detectSignConvention } from "./sign-convention";
 import type { SignEvidenceTxn } from "./sign-convention";
 import type {
@@ -103,12 +109,30 @@ export interface PlaidSyncStore {
    * account.
    */
   finalizeSignConvention(plaidAccountRowId: string, convention: "standard" | "inverted"): Promise<void>;
+  /**
+   * Every not-yet-excluded row for one Budgts account, for Advancial replay
+   * containment (design 2026-09-14, replay-containment.ts). Institution-
+   * scoped at the call site, not here — this method itself has no opinion
+   * about which institution it's being used for.
+   */
+  findContainmentCandidates(accountId: string): Promise<ContainmentCandidate[]>;
+  /**
+   * Sets `duplicate_of_id` on each planned duplicate, idempotently (only
+   * where currently null) — safe to call every sync. The row is kept
+   * forever, just excluded from financial totals (qualify.ts), the same
+   * treatment `is_transfer` already gets.
+   */
+  applyReplayContainment(updates: ContainmentUpdate[]): Promise<{ marked: number }>;
 }
 
 export interface SyncDeps {
   userId: string;
   /** Plaid `item_id`. */
   itemId: string;
+  /** The item's `plaid_items.institution_id` — gates Advancial replay
+   * containment (replay-containment.ts) to that one confirmed institution,
+   * never a general rule. `null`/unknown institutions never trigger it. */
+  institutionId: string | null;
   /** The stored `plaid_items.transactions_cursor` (null on first sync). */
   initialCursor: string | null;
   transactionsSync: (args: { cursor: string | null }) => Promise<PlaidSyncPage>;
@@ -150,6 +174,7 @@ export async function runSync(deps: SyncDeps): Promise<SyncOutcome> {
   const {
     userId,
     itemId,
+    institutionId,
     initialCursor,
     transactionsSync,
     store,
@@ -290,6 +315,20 @@ export async function runSync(deps: SyncDeps): Promise<SyncOutcome> {
           );
         }
       }
+    }
+  }
+
+  // Advancial replay containment (design 2026-09-14, replay-containment.ts)
+  // — automatic, but gated on this one confirmed institution_id so it can
+  // never touch any other institution's or user's data. Runs per touched
+  // Budgts account (not per Plaid account) so a fresh sync's new copies get
+  // grouped against the account's full history, not just this batch.
+  if (institutionId === ADVANCIAL_INSTITUTION_ID) {
+    const touchedAccountIds = new Set(plan.inserts.map((n) => n.accountId));
+    for (const accountId of touchedAccountIds) {
+      const candidates = await store.findContainmentCandidates(accountId);
+      const containmentUpdates = planReplayContainment(candidates);
+      if (containmentUpdates.length > 0) await store.applyReplayContainment(containmentUpdates);
     }
   }
 

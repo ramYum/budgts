@@ -10,7 +10,7 @@
  * Constructed with an injected `db` so the DB-integration tests point it at
  * `budgts-staging` and unit code never imports it.
  */
-import { and, eq, inArray, isNull, sql, type SQL } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import type * as schema from "@/lib/db/schema";
 import { plaidAccounts, plaidItems, transactions } from "@/lib/db/schema";
@@ -265,6 +265,47 @@ export function createPlaidSyncStore(db: PlaidDb): PlaidSyncStore {
             ),
           );
       });
+    },
+
+    // Advancial replay containment only (design 2026-09-14) — the caller
+    // gates this to that one confirmed institution_id; this method itself
+    // has no institution opinion, it just reads/writes what it's asked.
+    async findContainmentCandidates(accountId) {
+      const rows = await db
+        .select({
+          id: transactions.id,
+          contentFingerprint: transactions.contentFingerprint,
+          userCategorized: transactions.userCategorized,
+        })
+        .from(transactions)
+        .where(
+          and(
+            eq(transactions.accountId, accountId),
+            isNull(transactions.duplicateOfId),
+            isNull(transactions.removedAt),
+            isNotNull(transactions.contentFingerprint),
+          ),
+        );
+      return rows.map((r) => ({
+        id: r.id,
+        contentFingerprint: r.contentFingerprint!,
+        userCategorized: r.userCategorized,
+      }));
+    },
+
+    async applyReplayContainment(updates) {
+      let marked = 0;
+      for (const u of updates) {
+        for (const batch of chunk(u.duplicateIds, BATCH_SIZE)) {
+          const done = await db
+            .update(transactions)
+            .set({ duplicateOfId: u.canonicalId })
+            .where(and(inArray(transactions.id, batch), isNull(transactions.duplicateOfId)))
+            .returning({ id: transactions.id });
+          marked += done.length;
+        }
+      }
+      return { marked };
     },
   };
 }

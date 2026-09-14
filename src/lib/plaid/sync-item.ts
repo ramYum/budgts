@@ -114,6 +114,7 @@ export async function syncItem(deps: {
     const outcome = await runSync({
       userId: item.userId,
       itemId: item.itemId,
+      institutionId: item.institutionId,
       initialCursor: item.transactionsCursor,
       transactionsSync,
       store: createPlaidSyncStore(db),

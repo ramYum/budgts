@@ -13,6 +13,9 @@ export interface PlaidItemRecord {
   id: string;
   userId: string;
   itemId: string;
+  /** Plaid's institution id (e.g. `ins_116484`) — gates Advancial replay
+   * containment (replay-containment.ts) to that one confirmed institution. */
+  institutionId: string | null;
   accessTokenEnc: string;
   transactionsCursor: string | null;
   status: PlaidItemStatus;
@@ -22,6 +25,7 @@ const COLS = {
   id: plaidItems.id,
   userId: plaidItems.userId,
   itemId: plaidItems.itemId,
+  institutionId: plaidItems.institutionId,
   accessTokenEnc: plaidItems.accessTokenEnc,
   transactionsCursor: plaidItems.transactionsCursor,
   status: plaidItems.status,

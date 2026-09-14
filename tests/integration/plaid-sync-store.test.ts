@@ -313,6 +313,7 @@ describe("PlaidSyncStore transfer_user_set travels through the real loading path
     const out = await runSync({
       userId,
       itemId: ITEM_ID,
+      institutionId: null,
       initialCursor: "cursor-transfer-user-set-pre",
       transactionsSync: async () => ({
         added: [],

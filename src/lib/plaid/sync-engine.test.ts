@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { UnknownPfcPrimaryError } from "./category-map";
 import { computeContentFingerprint } from "./content-fingerprint";
 import { type SyncPlan } from "./apply-sync";
+import { ADVANCIAL_INSTITUTION_ID } from "./replay-containment";
 import { AMBIGUOUS_REVIEW_SAMPLE_THRESHOLD, MIN_EVIDENCE_SAMPLES } from "./sign-convention";
 import {
   ANOMALY_REVIEW_THRESHOLD,
@@ -62,7 +63,8 @@ function fakeStore(
     flags: Array<{ accountId: string; reason: string }>;
     // keyed by `plaid_accounts.id` — the connected feed, NOT the Budgts account
     finalizedSignConventions: Array<{ plaidAccountRowId: string; convention: "standard" | "inverted" }>;
-  } = { findRefs: [], plans: [], flags: [], finalizedSignConventions: [] };
+    containmentUpdates: Array<{ canonicalId: string; duplicateIds: string[] }>;
+  } = { findRefs: [], plans: [], flags: [], finalizedSignConventions: [], containmentUpdates: [] };
   // Simulates "live rows per (accountId:fingerprint), post-insert" — the same
   // semantics the real Drizzle-backed store computes with one query after the
   // insert transaction commits. Persists across calls on the SAME fakeStore
@@ -72,6 +74,13 @@ function fakeStore(
   const signEvidence = new Map(
     Object.entries(initialSignEvidence).map(([k, v]) => [k, [...v]]),
   );
+  // Live rows per Budgts account, for replay-containment candidates —
+  // sourceRef stands in for the DB-assigned id (fine for a fake: it's
+  // unique per inserted row, same as a real primary key would be).
+  const liveRowsByAccount = new Map<
+    string,
+    { id: string; contentFingerprint: string; userCategorized: boolean; duplicateOfId: string | null }[]
+  >();
   const store: PlaidSyncStore = {
     async findBySourceRefs(_u, refs) {
       calls.findRefs.push(refs);
@@ -80,8 +89,12 @@ function fakeStore(
     async applyPlan(_u, plan, meta) {
       calls.plans.push({ plan, meta });
       for (const n of plan.inserts) {
-        const key = `${n.accountId}:${computeContentFingerprint(n.raw)}`;
+        const fp = computeContentFingerprint(n.raw);
+        const key = `${n.accountId}:${fp}`;
         fingerprintCounts.set(key, (fingerprintCounts.get(key) ?? 0) + 1);
+        const list = liveRowsByAccount.get(n.accountId) ?? [];
+        list.push({ id: n.sourceRef, contentFingerprint: fp, userCategorized: n.userCategorized, duplicateOfId: null });
+        liveRowsByAccount.set(n.accountId, list);
       }
       return { inserts: plan.inserts.length, updates: plan.updates.length, softDeletes: plan.softDeletes.length };
     },
@@ -104,6 +117,22 @@ function fakeStore(
     async finalizeSignConvention(plaidAccountRowId, convention) {
       calls.finalizedSignConventions.push({ plaidAccountRowId, convention });
     },
+    async findContainmentCandidates(accountId) {
+      return (liveRowsByAccount.get(accountId) ?? [])
+        .filter((r) => r.duplicateOfId == null)
+        .map(({ id, contentFingerprint, userCategorized }) => ({ id, contentFingerprint, userCategorized }));
+    },
+    async applyReplayContainment(updates) {
+      calls.containmentUpdates.push(...updates);
+      for (const u of updates) {
+        for (const list of liveRowsByAccount.values()) {
+          for (const r of list) {
+            if (r.duplicateOfId == null && u.duplicateIds.includes(r.id)) r.duplicateOfId = u.canonicalId;
+          }
+        }
+      }
+      return { marked: updates.reduce((n, u) => n + u.duplicateIds.length, 0) };
+    },
   };
   return { store, calls };
 }
@@ -111,6 +140,7 @@ function fakeStore(
 const deps = (over: Partial<SyncDeps>): SyncDeps => ({
   userId: "u1",
   itemId: "item-1",
+  institutionId: null,
   initialCursor: null,
   transactionsSync: async () => page(),
   store: fakeStore().store,
@@ -338,6 +368,7 @@ describe("runSync", () => {
     await runSync({
       userId: "u1",
       itemId: "item1",
+      institutionId: null,
       initialCursor: null,
       transactionsSync: async () => page({ added: [pTxn()], next_cursor: "c2" }),
       store,
@@ -359,6 +390,7 @@ describe("runSync", () => {
     await runSync({
       userId: "u1",
       itemId: "item1",
+      institutionId: null,
       initialCursor: null,
       transactionsSync: async () => page({ added: [pTxn()], next_cursor: "c2" }),
       store,
@@ -378,6 +410,7 @@ describe("runSync", () => {
     await runSync({
       userId: "u1",
       itemId: "item1",
+      institutionId: null,
       initialCursor: null,
       transactionsSync: async () => page({ added: [pTxn()], next_cursor: "c2" }),
       store,
@@ -403,6 +436,7 @@ describe("runSync", () => {
     await runSync({
       userId: "u1",
       itemId: "item1",
+      institutionId: null,
       initialCursor: null,
       transactionsSync: async () => page({ added: [pTxn()], next_cursor: "c2" }),
       store,
@@ -411,5 +445,129 @@ describe("runSync", () => {
 
     expect(calls.finalizedSignConventions).toEqual([]);
     expect(calls.flags).toEqual([]);
+  });
+});
+
+describe("Advancial replay containment", () => {
+  it("marks duplicates when the item's institution is Advancial's confirmed id", async () => {
+    const { store, calls } = fakeStore();
+    await runSync(
+      deps({
+        store,
+        institutionId: ADVANCIAL_INSTITUTION_ID,
+        transactionsSync: async () =>
+          page({
+            added: [
+              pTxn({ transaction_id: "r1" }),
+              pTxn({ transaction_id: "r2" }),
+              pTxn({ transaction_id: "r3" }),
+            ],
+            next_cursor: "c2",
+          }),
+      }),
+    );
+
+    expect(calls.containmentUpdates).toHaveLength(1);
+    expect(calls.containmentUpdates[0].duplicateIds).toHaveLength(2);
+  });
+
+  it("does nothing for a non-Advancial institution, even with the exact same duplicated content", async () => {
+    const { store, calls } = fakeStore();
+    await runSync(
+      deps({
+        store,
+        institutionId: "ins_some_other_bank",
+        transactionsSync: async () =>
+          page({
+            added: [pTxn({ transaction_id: "r1" }), pTxn({ transaction_id: "r2" })],
+            next_cursor: "c2",
+          }),
+      }),
+    );
+
+    expect(calls.containmentUpdates).toEqual([]);
+  });
+
+  it("does nothing when institutionId is null (unknown/legacy item)", async () => {
+    const { store, calls } = fakeStore();
+    await runSync(
+      deps({
+        store,
+        institutionId: null,
+        transactionsSync: async () =>
+          page({
+            added: [pTxn({ transaction_id: "r1" }), pTxn({ transaction_id: "r2" })],
+            next_cursor: "c2",
+          }),
+      }),
+    );
+
+    expect(calls.containmentUpdates).toEqual([]);
+  });
+
+  it("contains a fresh batch against the account's prior history, not just this sync's rows", async () => {
+    const { store, calls } = fakeStore();
+    // First sync: one real transaction lands alone — no duplicate yet.
+    await runSync(
+      deps({
+        store,
+        institutionId: ADVANCIAL_INSTITUTION_ID,
+        transactionsSync: async () => page({ added: [pTxn({ transaction_id: "old1" })], next_cursor: "c1" }),
+      }),
+    );
+    expect(calls.containmentUpdates).toEqual([]);
+
+    // Second sync: Advancial replays the same content as new rows with new ids.
+    await runSync(
+      deps({
+        store,
+        institutionId: ADVANCIAL_INSTITUTION_ID,
+        initialCursor: "c1",
+        transactionsSync: async () =>
+          page({ added: [pTxn({ transaction_id: "new1" }), pTxn({ transaction_id: "new2" })], next_cursor: "c2" }),
+      }),
+    );
+
+    // Which specific row survives as canonical is an arbitrary, deterministic
+    // tiebreak (replay-containment.test.ts covers that choice directly) — the
+    // wiring-level guarantee this test exists for is that the SECOND sync's
+    // new rows get grouped against the FIRST sync's already-landed row, not
+    // just against each other.
+    expect(calls.containmentUpdates).toHaveLength(1);
+    const { canonicalId, duplicateIds } = calls.containmentUpdates[0];
+    expect([...duplicateIds, canonicalId].sort()).toEqual(["new1", "new2", "old1"]);
+  });
+
+  it("never re-marks a row that already has duplicate_of_id set (idempotent across syncs)", async () => {
+    const { store, calls } = fakeStore();
+    const syncOnce = () =>
+      runSync(
+        deps({
+          store,
+          institutionId: ADVANCIAL_INSTITUTION_ID,
+          initialCursor: null,
+          transactionsSync: async () =>
+            page({
+              added: [pTxn({ transaction_id: "r1" }), pTxn({ transaction_id: "r2" })],
+              next_cursor: "c-repeat",
+            }),
+        }),
+      );
+    await syncOnce();
+    expect(calls.containmentUpdates).toHaveLength(1);
+
+    // A second, independent sync landing more copies of the SAME content must
+    // never re-touch r1/r2 (already excluded) — only the newly landed rows.
+    await runSync(
+      deps({
+        store,
+        institutionId: ADVANCIAL_INSTITUTION_ID,
+        initialCursor: "c-repeat",
+        transactionsSync: async () => page({ added: [pTxn({ transaction_id: "r3" })], next_cursor: "c-final" }),
+      }),
+    );
+    expect(calls.containmentUpdates).toHaveLength(2);
+    const secondUpdate = calls.containmentUpdates[1];
+    expect(secondUpdate.duplicateIds).toEqual(["r3"]);
   });
 });

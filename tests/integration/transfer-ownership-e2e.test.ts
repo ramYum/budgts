@@ -119,6 +119,7 @@ describe("Transfer Ownership — end-to-end precedence across a real sync (stagi
     const out = await runSync({
       userId,
       itemId: ITEM_ID,
+      institutionId: null,
       initialCursor: `${sourceRef}-cursor-pre`,
       transactionsSync: async () => ({
         added: [],
@@ -158,6 +159,7 @@ describe("Transfer Ownership — end-to-end precedence across a real sync (stagi
     const out = await runSync({
       userId,
       itemId: ITEM_ID,
+      institutionId: null,
       initialCursor: `${sourceRef}-cursor-pre`,
       transactionsSync: async () => ({
         added: [],

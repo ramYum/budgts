@@ -1,14 +1,13 @@
 # Phase 15 — Confirmed Advancial remediation + future-ingestion defense design
 
-Status: **The containment mechanism shipped (Part B's building block); the
-remediation itself has NOT been executed (Part A).** `duplicate_of_id`
-(migration `0007`) and its `qualify.ts` containment gate are live in both
-staging and production. But **zero production rows have `duplicate_of_id`
-set** — the one-time `UPDATE` against the confirmed Advancial incident
-below has never been run, on staging or production. This is the one
-genuinely open decision left anywhere in this design cluster (see
-`docs/workflow.md` §7 and `north-star-architecture-design.md`'s own
-Status note).
+Status: **SUPERSEDED by the 2026-09-14 update below** — Part A has now been
+executed (for a second, independent Advancial incident, not the original
+one this doc's manifest describes), and Part B.3's automatic containment is
+built and live, scoped to `institution_id = ins_116484` only. The original
+incident's item was deliberately left untouched by the manual pass and will
+self-remediate on its next sync via the new automatic mechanism. Everything
+below this point is the original design as written 2026-09-12 — read it for
+the reasoning and the canonical-selection rule, not for current status.
 
 Full per-cluster row-level manifest (real transaction IDs/amounts/descriptions)
 is intentionally kept OUT of this git-tracked file — real bank data does not
@@ -362,3 +361,39 @@ manifest file if Plaid's support form wants more than two examples.
 
 Stopping here per your instruction — no code, no migration, no production
 change beyond what was already approved and executed before this message.
+
+## 2026-09-14 update — recurrence confirmed, Part A executed, Part B.3 built
+
+Advancial replayed the same defect on a **second, independent, fresh**
+connection (owner's own account, item created 2026-09-14, institution_id
+`ins_116484` — same id as the original incident). 158 of 170 canonical
+event clusters on this new item were duplicated (138 at exactly 50 copies,
+the rest partial batches from 4–49) — the same signature, confirming this
+is a recurring institution-side defect, not a one-time replay.
+
+**Part A executed for this new item** (owner-approved): 7,280 rows marked
+`duplicate_of_id` via the exact same closed-set, human-reviewed process
+this doc specifies — content-fingerprint clusters per `(account_id,
+fingerprint)`, canonical = user-categorized row if any (none existed here)
+else lowest id, every other cluster member marked as a duplicate of it.
+Verified after: zero rows pointing outside the account set, zero chained
+duplicates, zero fingerprint mismatches between a row and its canonical
+target. The original incident's item (`geEP1Ebwy3S5xvqN0XY5Idr1bE8511CXb33Lq`,
+a different user's account) was deliberately **not** touched by this
+pass — out of scope for what was asked, and it will self-remediate the
+next time it syncs, via the mechanism below.
+
+**Part B.3 built** (owner ask: "a formula... but only for Advancial
+users"): `src/lib/plaid/replay-containment.ts` (pure `planReplayContainment`,
+test-first) + wiring in `sync-engine.ts`'s `runSync`, gated on
+`institutionId === ADVANCIAL_INSTITUTION_ID` (`ins_116484`). After every
+sync for an Advancial-connected item, each touched Budgts account's
+not-yet-excluded rows are grouped by the same `content_fingerprint` column
+already computed at land time; any group of 2+ gets all-but-one marked
+`duplicate_of_id`, idempotently. This is the automatic half of Part B.3
+that didn't exist before — containment for every *other* institution
+remains exactly what this doc always specified: detect (Phase 14
+threshold) and flag, never auto-exclude. The scoping is a literal
+`institution_id` string equality check, not a pattern or heuristic — an
+account at any other institution is structurally unreachable by this code
+path regardless of how many identical-looking transactions it has.

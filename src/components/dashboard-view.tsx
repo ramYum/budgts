@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { formatMoney, formatSavingsRate } from "@/lib/budget/money";
+import { BudgetOverAlert } from "./budget-over-alert";
 import type { DashboardView as DV } from "@/lib/budget/dashboard";
 import type { MonthSpend } from "@/lib/budget/spend-trend";
 import type { GoalsSummary } from "@/lib/budget/savings";
@@ -139,16 +140,7 @@ export function DashboardView({
       <MonthNav base="/" month={month} />
 
       {tiles.budgeted > tiles.income ? (
-        <div className="rounded-lg border border-warn/40 bg-warn/10 px-3 py-2 text-sm text-warn">
-          <p>
-            This month&apos;s budgets add up to {formatMoney(tiles.budgeted, currency)}, more than the{" "}
-            {formatMoney(tiles.income, currency)} you&apos;ve brought in so far.{" "}
-            <Link href="/budgets" className="underline underline-offset-2">
-              Review your budgets
-            </Link>
-            .
-          </p>
-        </div>
+        <BudgetOverAlert month={month} budgeted={tiles.budgeted} income={tiles.income} currency={currency} />
       ) : null}
 
       {/* the one solid-sun hero card on the screen */}

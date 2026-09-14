@@ -65,10 +65,15 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
     let q = supabase
       .from("transactions")
       .select(
-        "id, amount, direction, occurred_at, description, note, is_transfer, category_id, account_id, category:categories(name,color), account:accounts(name)",
+        "id, amount, direction, occurred_at, description, note, is_transfer, category_id, account_id, category:categories(name,color), account:accounts!inner(name, is_archived)",
       )
       .gte("occurred_at", start)
-      .lt("occurred_at", end);
+      .lt("occurred_at", end)
+      // An archived account (closed manually, or left behind by an explicit
+      // bank disconnect — see below) stays in the database forever, same as
+      // a confirmed duplicate: never deleted, still in CSV export, just not
+      // cluttering the default ledger view.
+      .eq("account.is_archived", false);
     if (categoryFilter) q = q.eq("category_id", categoryFilter);
     // A soft-deleted bank row (Plaid `removed`) is not a transaction — keep it out
     // of the ledger view. Guarded: the column only exists where 0004 has run.
@@ -79,6 +84,15 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
     // needsCategory below already applies. Guarded like removed_at: the
     // column only exists where 0007 has run.
     if (plaidOn) q = q.is("duplicate_of_id", null);
+    // An explicitly disconnected bank (design §24, disconnect.ts) never
+    // deletes its transactions — plaid_account_id just goes null (the FK's
+    // ON DELETE SET NULL) — but the ledger view shouldn't keep showing a
+    // connection the owner deliberately removed. Scoped to `source = bank`
+    // only: a manual entry's plaid_account_id is always null too, and must
+    // never be caught by this. Deliberately NOT triggered by a transient
+    // sync failure (login_required/error) — the item row, and so
+    // plaid_account_id, is untouched until an actual disconnect.
+    if (plaidOn) q = q.or("source.neq.bank,plaid_account_id.not.is.null");
     return q
       .order("occurred_at", { ascending: false })
       .order("created_at", { ascending: false })

@@ -1,6 +1,7 @@
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
 import { buildLimitedHistoryMessages } from "@/lib/plaid/history-coverage";
+import { AutoDismissBanner } from "./auto-dismiss-banner";
 
 /**
  * Owner-facing advisory when a Plaid connection's initial backfill fell
@@ -10,10 +11,13 @@ import { buildLimitedHistoryMessages } from "@/lib/plaid/history-coverage";
  * plainly rather than leaving their budget picture silently incomplete for
  * dates before they connected.
  *
- * Rendered once in the dashboard layout, same placement as `<ReviewBanner>`,
- * so it reaches every financial surface. Evaluated per Plaid Item (not per
- * account) using the earliest transaction across all of that item's mapped
- * accounts — every real-world case seen so far was all-or-nothing per item.
+ * Activity-tab only (design ask 2026-09-14) — that's where a data gap
+ * actually shows up as missing rows, unlike Home's aggregate tiles. Brief
+ * by design: a red (negative/attention) tag, small, and self-dismisses
+ * after 5 seconds rather than sitting there permanently. Evaluated per
+ * Plaid Item (not per account) using the earliest transaction across all
+ * of that item's mapped accounts — every real-world case seen so far was
+ * all-or-nothing per item.
  */
 export async function LimitedHistoryBanner() {
   if (!plaidUiEnabled()) return null;
@@ -72,13 +76,5 @@ export async function LimitedHistoryBanner() {
   );
   if (messages.length === 0) return null;
 
-  return (
-    <div className="mx-4 mt-3 space-y-2">
-      {messages.map((m, i) => (
-        <div key={i} className="rounded-lg border border-warn/40 bg-warn/10 px-3 py-2 text-sm text-warn">
-          <p>{m}</p>
-        </div>
-      ))}
-    </div>
-  );
+  return <AutoDismissBanner messages={messages} />;
 }

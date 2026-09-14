@@ -11,6 +11,7 @@ import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
 import { STANDARD_CATEGORIES } from "@/lib/categories/standard";
 import { ConnectBank } from "@/components/plaid/connect-bank";
 import { NeedsCategory, type NeedsCategoryItem } from "@/components/plaid/needs-category";
+import { LimitedHistoryBanner } from "@/components/plaid/limited-history-banner";
 import { nudgeRefresh } from "@/server/plaid/service";
 import { buildCategoryLookup, suggestPlaidCategory } from "@/lib/plaid/category-map";
 
@@ -143,6 +144,8 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
         </div>
         <AddTransaction accounts={accountOpts} categories={categoryOpts} defaultDate={defaultDate} />
       </div>
+
+      <LimitedHistoryBanner />
 
       {categoryFilter ? (
         <div className="flex items-center justify-between rounded-lg border border-hairline bg-tint px-3 py-2 text-sm text-primary">

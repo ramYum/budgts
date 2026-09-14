@@ -12,7 +12,7 @@ export default function AboutPage() {
       <PageHeader title="About Budgt" back="/more" />
 
       <div className="flex flex-col items-center gap-3 py-4 text-center">
-        <LogoMark size={64} />
+        <LogoMark size={96} />
         <div>
           <p className="text-lg font-bold">Simple money.</p>
           <p className="text-lg font-bold">Brighter tomorrows.</p>

@@ -47,7 +47,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/">) {
       <DesktopSidebar />
 
       <header className="sticky top-0 z-10 flex items-center justify-between border-b border-hairline bg-bg/90 px-4 py-3 backdrop-blur md:hidden">
-        <Logo size={20} />
+        <Logo size={30} />
         <div className="flex items-center gap-4">
           {plaidOn ? <NeedsCategoryBell count={needsCategoryCount} /> : null}
           <form action={signOut}>

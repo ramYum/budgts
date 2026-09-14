@@ -44,9 +44,8 @@ export function Logo({
       {mark ? <LogoMark size={size} /> : null}
       {wordmark ? (
         <span
-          className={`font-display text-[1.05rem] font-bold tracking-tight ${
-            onDark ? "text-white" : "text-text"
-          }`}
+          className={`font-display font-bold tracking-tight ${onDark ? "text-white" : "text-text"}`}
+          style={{ fontSize: size * 0.76 }}
         >
           Budgt
         </span>

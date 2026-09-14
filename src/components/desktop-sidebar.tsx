@@ -46,7 +46,7 @@ export function DesktopSidebar() {
 
   return (
     <aside className="fixed inset-y-0 left-0 z-20 hidden w-60 flex-col gap-6 border-r border-hairline bg-surface px-4 py-6 md:flex">
-      <Logo size={22} />
+      <Logo size={33} />
       <nav className="flex flex-1 flex-col gap-1">
         {PRIMARY.map((item) => (
           <Row key={item.href} item={item} active={isActive(item.href)} />

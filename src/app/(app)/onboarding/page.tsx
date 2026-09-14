@@ -29,9 +29,9 @@ export default async function OnboardingPage() {
             alt=""
             width={516}
             height={376}
-            style={{ width: 210, height: "auto" }}
+            style={{ width: 315, height: "auto" }}
           />
-          <Logo mark={false} size={24} />
+          <Logo mark={false} size={36} />
         </div>
         <div className="space-y-6">
           <div className="space-y-1">

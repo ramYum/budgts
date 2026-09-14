@@ -131,8 +131,8 @@ export function DashboardView({
               : "Let's see where things stand."}
           </p>
         </div>
-        <Link href="/more" aria-label="More" className="shrink-0">
-          <Mascot mood={mood} size={44} />
+        <Link href="/more" aria-label="More" className="ml-3 shrink-0">
+          <Mascot mood={mood} size={64} />
         </Link>
       </div>
 

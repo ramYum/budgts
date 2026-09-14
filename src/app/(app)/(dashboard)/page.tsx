@@ -7,6 +7,7 @@ import { goalsSummary, type SavingsContribution, type SavingsGoal } from "@/lib/
 import type { BudgetTxn } from "@/lib/budget/types";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
+import { fetchAllRows } from "@/lib/supabase/fetch-all-rows";
 import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
 import { isEventRole } from "@/lib/plaid/event-role";
 import { nudgeRefresh } from "@/server/plaid/service";
@@ -55,41 +56,40 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
     | "transfer_user_set"
     | "plaid_account_id"
   >;
-  let txnQuery = supabase
-    .from("transactions")
-    .select(
-      "category_id, amount, direction, occurred_at, status, is_transfer, duplicate_of_id, event_role, transfer_user_set, plaid_account_id",
-    )
-    .gte("occurred_at", start)
-    .lt("occurred_at", end);
-  // Soft-deleted bank rows (Plaid `removed`) must not count toward spend.
-  // Guarded: the column only exists where migration 0004 has run.
-  if (plaidUiEnabled()) txnQuery = txnQuery.is("removed_at", null);
+  const txnCols =
+    "category_id, amount, direction, occurred_at, status, is_transfer, duplicate_of_id, event_role, transfer_user_set, plaid_account_id";
+  // fetchAllRows, not a bare await: an unbounded `.select()` silently caps
+  // at PostgREST's default 1000 rows, and a heavy Plaid feed (a real,
+  // confirmed case) can exceed that within a single month — see
+  // fetch-all-rows.ts. Ordered by `id` (unique) so pagination across pages
+  // is deterministic; a timestamp column here has many exact ties from
+  // bulk-inserted sync batches.
+  const txnPage = (gte: string, lt: string) => (from: number, to: number) => {
+    let q = supabase
+      .from("transactions")
+      .select(txnCols)
+      .gte("occurred_at", gte)
+      .lt("occurred_at", lt)
+      .order("id", { ascending: true })
+      .range(from, to);
+    // Soft-deleted bank rows (Plaid `removed`) must not count toward spend.
+    // Guarded: the column only exists where migration 0004 has run.
+    if (plaidUiEnabled()) q = q.is("removed_at", null);
+    return q.returns<TxnRow[]>();
+  };
 
   const prevMonth = prevMonthKey(month);
   const { start: prevStart, end: prevEnd } = monthRange(prevMonth);
-  let prevTxnQuery = supabase
-    .from("transactions")
-    .select(
-      "category_id, amount, direction, occurred_at, status, is_transfer, duplicate_of_id, event_role, transfer_user_set, plaid_account_id",
-    )
-    .gte("occurred_at", prevStart)
-    .lt("occurred_at", prevEnd);
-  if (plaidUiEnabled()) prevTxnQuery = prevTxnQuery.is("removed_at", null);
 
   // Home's "Total spending" trend card (design: Budgts Reference V2 Insights
   // screen) — one bounded query covering the last 6 months, then the same
   // pure `rollup` Home/Budgets/Insights already use, called once per month.
   const trendMonths = priorMonths(month, 6);
   const { start: trendStart } = monthRange(trendMonths[0]!);
-  let trendTxnQuery = supabase
-    .from("transactions")
-    .select(
-      "category_id, amount, direction, occurred_at, status, is_transfer, duplicate_of_id, event_role, transfer_user_set, plaid_account_id",
-    )
-    .gte("occurred_at", trendStart)
-    .lt("occurred_at", end);
-  if (plaidUiEnabled()) trendTxnQuery = trendTxnQuery.is("removed_at", null);
+
+  const txnRowsPromise = fetchAllRows(txnPage(start, end));
+  const prevTxnRowsPromise = fetchAllRows(txnPage(prevStart, prevEnd));
+  const trendTxnRowsPromise = fetchAllRows(txnPage(trendStart, end));
 
   let recentQuery = supabase
     .from("transactions")
@@ -102,9 +102,9 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
   if (plaidUiEnabled()) recentQuery = recentQuery.is("removed_at", null);
 
   const [
-    { data: txnRows },
-    { data: prevTxnRows },
-    { data: trendTxnRows },
+    txnRows,
+    prevTxnRows,
+    trendTxnRows,
     { data: categories },
     { data: budgetRows },
     { data: profile },
@@ -114,9 +114,9 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
     { data: goalRows },
     { data: contribRows },
   ] = await Promise.all([
-    txnQuery.returns<TxnRow[]>(),
-    prevTxnQuery.returns<TxnRow[]>(),
-    trendTxnQuery.returns<TxnRow[]>(),
+    txnRowsPromise,
+    prevTxnRowsPromise,
+    trendTxnRowsPromise,
     supabase
       .from("categories")
       .select("id, kind, name, color")

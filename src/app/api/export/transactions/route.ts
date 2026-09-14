@@ -1,4 +1,5 @@
 import { createClient, getSessionUser } from "@/lib/supabase/server";
+import { fetchAllRows } from "@/lib/supabase/fetch-all-rows";
 import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
 
 type ExportRow = {
@@ -27,16 +28,25 @@ export async function GET() {
   if (!user) return new Response("Unauthorized", { status: 401 });
 
   const supabase = await createClient();
-  let query = supabase
-    .from("transactions")
-    .select(
-      "occurred_at, description, note, amount, direction, is_transfer, status, source, category:categories(name), account:accounts(name)",
-    )
-    .order("occurred_at", { ascending: false });
-  // Skip soft-deleted bank rows. Guarded: column only exists where 0004 has run.
-  if (plaidUiEnabled()) query = query.is("removed_at", null);
-  const { data, error } = await query;
-  if (error) return new Response(error.message, { status: 500 });
+  // fetchAllRows, not a bare await: this is a full-history export with no
+  // date bound at all — the query most at risk of PostgREST's default
+  // 1000-row cap. A truncated "full backup" that silently drops rows past
+  // #1000 would be worse than no export at all. See fetch-all-rows.ts.
+  let data: ExportRow[];
+  try {
+    data = await fetchAllRows<ExportRow>((from, to) => {
+      let q = supabase
+        .from("transactions")
+        .select(
+          "occurred_at, description, note, amount, direction, is_transfer, status, source, category:categories(name), account:accounts(name)",
+        );
+      // Skip soft-deleted bank rows. Guarded: column only exists where 0004 has run.
+      if (plaidUiEnabled()) q = q.is("removed_at", null);
+      return q.order("occurred_at", { ascending: false }).order("id", { ascending: false }).range(from, to) as never;
+    });
+  } catch (e) {
+    return new Response(e instanceof Error ? e.message : "export failed", { status: 500 });
+  }
 
   const header = [
     "date",
@@ -50,7 +60,7 @@ export async function GET() {
     "category",
     "account",
   ];
-  const rows = ((data ?? []) as unknown as ExportRow[]).map((t) => [
+  const rows = data.map((t) => [
     t.occurred_at?.slice(0, 10) ?? "",
     t.description ?? "",
     t.note ?? "",

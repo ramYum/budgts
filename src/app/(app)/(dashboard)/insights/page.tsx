@@ -6,6 +6,7 @@ import { monthKey } from "@/lib/budget/month";
 import type { BudgetTxn } from "@/lib/budget/types";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
+import { fetchAllRows } from "@/lib/supabase/fetch-all-rows";
 import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
 import { isEventRole } from "@/lib/plaid/event-role";
 import { PageHeader } from "@/components/page-header";
@@ -51,16 +52,23 @@ async function loadMonth(
 ): Promise<BudgetTxn[]> {
   const { start, end } = monthRange(month);
   const plaidOn = plaidUiEnabled();
-  let query = supabase
-    .from("transactions")
-    .select(
-      "category_id, amount, direction, occurred_at, status, is_transfer, duplicate_of_id, event_role, transfer_user_set, plaid_account_id",
-    )
-    .gte("occurred_at", start)
-    .lt("occurred_at", end);
-  if (plaidOn) query = query.is("removed_at", null);
-  const { data } = await query.returns<TxnRow[]>();
-  return (data ?? []).map((t) => ({
+  // fetchAllRows, not a bare await — see fetch-all-rows.ts: an unbounded
+  // `.select()` silently caps at 1000 rows, which a heavy Plaid feed can
+  // exceed within a single month.
+  const data = await fetchAllRows((from, to) => {
+    let q = supabase
+      .from("transactions")
+      .select(
+        "category_id, amount, direction, occurred_at, status, is_transfer, duplicate_of_id, event_role, transfer_user_set, plaid_account_id",
+      )
+      .gte("occurred_at", start)
+      .lt("occurred_at", end)
+      .order("id", { ascending: true })
+      .range(from, to);
+    if (plaidOn) q = q.is("removed_at", null);
+    return q.returns<TxnRow[]>();
+  });
+  return data.map((t) => ({
     categoryId: t.category_id,
     amount: t.amount,
     direction: t.direction,

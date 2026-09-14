@@ -6,6 +6,7 @@ import { monthKey } from "@/lib/budget/month";
 import type { BudgetTxn } from "@/lib/budget/types";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
+import { fetchAllRows } from "@/lib/supabase/fetch-all-rows";
 import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
 import { isEventRole } from "@/lib/plaid/event-role";
 import { RealtimeRefresh } from "@/components/realtime-refresh";
@@ -81,10 +82,19 @@ export default async function BudgetsPage({ searchParams }: PageProps<"/budgets"
   const currency = profile?.currency ?? "USD";
 
   if (range === "all") {
-    let allQuery = supabase.from("transactions").select(cols);
-    if (plaidOn) allQuery = allQuery.is("removed_at", null);
-    const { data: allRows } = await allQuery.returns<TxnRow[]>();
-    const allTxns = (allRows ?? []).map(toBudgetTxn);
+    // fetchAllRows, not a bare await: unbounded (no date filter — this is
+    // the user's ENTIRE history), so it's the query most at risk of
+    // PostgREST's default 1000-row cap. See fetch-all-rows.ts.
+    const allRows = await fetchAllRows((from, to) => {
+      let q = supabase
+        .from("transactions")
+        .select(cols)
+        .order("id", { ascending: true })
+        .range(from, to);
+      if (plaidOn) q = q.is("removed_at", null);
+      return q.returns<TxnRow[]>();
+    });
+    const allTxns = allRows.map(toBudgetTxn);
 
     const months = new Set(allTxns.map((t) => monthKey(t.occurredAt)));
     const totals = new Map<string, number>();
@@ -111,26 +121,22 @@ export default async function BudgetsPage({ searchParams }: PageProps<"/budgets"
   const prevMonth = prevMonthKey(month);
   const { start: prevStart, end: prevEnd } = monthRangeOf(prevMonth);
 
-  let curQuery = supabase.from("transactions").select(cols).gte("occurred_at", start).lt("occurred_at", end);
-  let prevQuery = supabase
-    .from("transactions")
-    .select(cols)
-    .gte("occurred_at", prevStart)
-    .lt("occurred_at", prevEnd);
-  if (plaidOn) {
-    curQuery = curQuery.is("removed_at", null);
-    prevQuery = prevQuery.is("removed_at", null);
-  }
+  const txnPage = (gte: string, lt: string) => (from: number, to: number) => {
+    let q = supabase.from("transactions").select(cols).gte("occurred_at", gte).lt("occurred_at", lt);
+    q = q.order("id", { ascending: true }).range(from, to);
+    if (plaidOn) q = q.is("removed_at", null);
+    return q.returns<TxnRow[]>();
+  };
 
-  const [{ data: curRows }, { data: prevRows }, { data: budgetRows }] = await Promise.all([
-    curQuery.returns<TxnRow[]>(),
-    prevQuery.returns<TxnRow[]>(),
+  const [curRows, prevRows, { data: budgetRows }] = await Promise.all([
+    fetchAllRows(txnPage(start, end)),
+    fetchAllRows(txnPage(prevStart, prevEnd)),
     supabase.from("budgets").select("category_id, amount").eq("month", `${month}-01`),
   ]);
 
   const budgets = (budgetRows ?? []).map((b) => ({ categoryId: b.category_id, amount: b.amount }));
-  const view = buildDashboard((curRows ?? []).map(toBudgetTxn), cats, budgets, month);
-  const prevView = buildDashboard((prevRows ?? []).map(toBudgetTxn), cats, [], prevMonth);
+  const view = buildDashboard(curRows.map(toBudgetTxn), cats, budgets, month);
+  const prevView = buildDashboard(prevRows.map(toBudgetTxn), cats, [], prevMonth);
 
   const unbudgeted = cats.filter(
     (c) => c.kind === "expense" && !view.bars.some((b) => b.categoryId === c.id && b.budget > 0),

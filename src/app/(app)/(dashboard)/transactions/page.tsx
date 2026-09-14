@@ -12,6 +12,7 @@ import { STANDARD_CATEGORIES } from "@/lib/categories/standard";
 import { ConnectBank } from "@/components/plaid/connect-bank";
 import { NeedsCategory, type NeedsCategoryItem } from "@/components/plaid/needs-category";
 import { LimitedHistoryBanner } from "@/components/plaid/limited-history-banner";
+import { fetchAllRows } from "@/lib/supabase/fetch-all-rows";
 import { nudgeRefresh } from "@/server/plaid/service";
 import { buildCategoryLookup, suggestPlaidCategory } from "@/lib/plaid/category-map";
 
@@ -55,28 +56,38 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
   // holding up the response — see nudgeRefresh's docstring for the throttle.
   if (plaidOn) after(() => nudgeRefresh(user.id));
 
-  let txnQuery = supabase
-    .from("transactions")
-    .select(
-      "id, amount, direction, occurred_at, description, note, is_transfer, category_id, account_id, category:categories(name,color), account:accounts(name)",
-    )
-    .gte("occurred_at", start)
-    .lt("occurred_at", end);
-  if (categoryFilter) txnQuery = txnQuery.eq("category_id", categoryFilter);
-  // A soft-deleted bank row (Plaid `removed`) is not a transaction — keep it out
-  // of the ledger view. Guarded: the column only exists where 0004 has run.
-  if (plaidOn) txnQuery = txnQuery.is("removed_at", null);
-  // A confirmed duplicate (design: 2026-09-12 Phase 15) stays in the database
-  // forever — never deleted, still in CSV export — but the default ledger
-  // view shouldn't show 50 copies of the same purchase. Same reasoning
-  // needsCategory below already applies. Guarded like removed_at: the
-  // column only exists where 0007 has run.
-  if (plaidOn) txnQuery = txnQuery.is("duplicate_of_id", null);
-
-  const [{ data: txns }, { data: accounts }, { data: categories }, { data: profile }] = await Promise.all([
-    txnQuery
+  // fetchAllRows, not a bare await: an unbounded `.select()` silently caps
+  // at PostgREST's default 1000 rows, which a heavy Plaid feed can exceed
+  // within a single month — see fetch-all-rows.ts. Keeps the intended
+  // newest-first display order (occurred_at, created_at) and adds `id` as
+  // a final tiebreaker so pagination across pages is deterministic.
+  const txnsPromise = fetchAllRows((from, to) => {
+    let q = supabase
+      .from("transactions")
+      .select(
+        "id, amount, direction, occurred_at, description, note, is_transfer, category_id, account_id, category:categories(name,color), account:accounts(name)",
+      )
+      .gte("occurred_at", start)
+      .lt("occurred_at", end);
+    if (categoryFilter) q = q.eq("category_id", categoryFilter);
+    // A soft-deleted bank row (Plaid `removed`) is not a transaction — keep it out
+    // of the ledger view. Guarded: the column only exists where 0004 has run.
+    if (plaidOn) q = q.is("removed_at", null);
+    // A confirmed duplicate (design: 2026-09-12 Phase 15) stays in the database
+    // forever — never deleted, still in CSV export — but the default ledger
+    // view shouldn't show 50 copies of the same purchase. Same reasoning
+    // needsCategory below already applies. Guarded like removed_at: the
+    // column only exists where 0007 has run.
+    if (plaidOn) q = q.is("duplicate_of_id", null);
+    return q
       .order("occurred_at", { ascending: false })
-      .order("created_at", { ascending: false }),
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(from, to);
+  });
+
+  const [txns, { data: accounts }, { data: categories }, { data: profile }] = await Promise.all([
+    txnsPromise,
     supabase.from("accounts").select("id, name").eq("is_archived", false).order("name"),
     supabase.from("categories").select("id, name, kind").eq("is_archived", false).order("kind").order("name"),
     supabase.from("profiles").select("currency").eq("id", user.id).single(),

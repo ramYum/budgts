@@ -105,6 +105,15 @@ screen hierarchy, new tokens + real cropped brand artwork (logo, mascot,
 category iconography) throughout. See `docs/BRAND_GUIDELINES.md` — the
 current source of truth for all of it.
 
+**Logo-asset correction:** the v2 pass's logo/mascot artwork (auto-cropped
+from `Assets V2.svg`'s embedded PNG sheet) had visible edge/bleed defects.
+Replaced with the brand owner's own finished exports (`Downloads/Logo
+Assets/`) — a badge mark (also the source for every generated app icon), a
+sunburst lockup now used as the sign-in/onboarding hero art (replacing a
+CSS-simulated glow), and the four mascot mood expressions. Unused
+solid-color mark variants and decorative blob/sparkle crops were dropped
+rather than replaced (nothing in the app referenced them).
+
 Deferred (see the spec's own §"remaining issues" classification): the
 3-screen onboarding wizard (Welcome → Connect Bank → All Set) — the existing
 single-screen onboarding was reskinned but not restructured, since Plaid UI

@@ -58,8 +58,8 @@ started. Reordering is how RLS gaps and float-money bugs get in.
      `docs/specs/2026-09-13-ui-redesign-brand-guidelines-spec.md` still
      holds the screen-by-screen IA/behavior spec (see that file's header
      for which of its sections are superseded). `public/brand/` holds the
-     current logo/mascot/decorative assets — all real crops from
-     `Assets V2.svg`, never hand-redrawn. Check UI visually with
+     current logo/mascot/decorative assets — the real brand artwork, never
+     hand-redrawn or auto-cropped. Check UI visually with
      `npm run screenshot -- <url> <label>` (see `tools/README.md`).
 6. **E2E** — `tests/e2e/*.spec.ts`
    - One Playwright test through the new UI, happy path. Add a

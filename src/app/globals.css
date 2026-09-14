@@ -167,30 +167,13 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* The brand's one big-illustration moment — a soft cream/sun glow behind the
- * mascot on sign-in/onboarding. Sparing by design: everywhere else the cat
- * appears small, unframed. */
+/* The brand's one big-illustration moment — the sunburst mascot lockup on
+ * sign-in/onboarding, on a quiet cream card. Sparing by design: everywhere
+ * else the cat appears small, unframed. The art itself carries the glow now
+ * (it has its own sun disc + rays), so the card stays plain. */
 .brand-mascot-stage {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
   border-radius: 2rem;
-  background:
-    radial-gradient(circle at 50% 38%, var(--sun) 0%, transparent 62%),
-    var(--cream);
-}
-
-.brand-mascot-stage::after {
-  position: absolute;
-  z-index: -1;
-  right: -1.75rem;
-  bottom: -2.5rem;
-  width: 8rem;
-  height: 8rem;
-  border-radius: 9999px;
-  background: var(--coral);
-  opacity: 0.35;
-  content: "";
+  background: var(--surface);
 }
 
 .brand-highlight-card {

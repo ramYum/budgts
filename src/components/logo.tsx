@@ -1,8 +1,8 @@
 /** Budgt logo. The mark is the black-cat mascot on its cream/coral/lavender
- * badge, cropped straight from the brand's own artwork in "Assets V2.svg"
+ * badge — the real artwork from the brand's own Logo Assets, not a crop
  * (see docs/BRAND_GUIDELINES.md). */
 
-const MARK_SRC = "/brand/mark-default.png";
+const MARK_SRC = "/brand/logo-mark.png";
 
 export function LogoMark({
   size = 24,
@@ -18,7 +18,7 @@ export function LogoMark({
       alt=""
       width={size}
       height={size}
-      className={`inline-block shrink-0 rounded-[22%] ${className ?? ""}`}
+      className={`inline-block shrink-0 ${className ?? ""}`}
       style={{ width: size, height: size }}
     />
   );
@@ -26,11 +26,14 @@ export function LogoMark({
 
 export function Logo({
   size = 22,
+  mark = true,
   wordmark = true,
   onDark = false,
   className,
 }: {
   size?: number;
+  /** `false` to render just the "Budgt" wordmark, e.g. below a bigger hero mark. */
+  mark?: boolean;
   wordmark?: boolean;
   /** `true` when the logo sits on a dark ground — flips the wordmark to white. */
   onDark?: boolean;
@@ -38,7 +41,7 @@ export function Logo({
 }) {
   return (
     <span className={`inline-flex items-center gap-2 ${className ?? ""}`}>
-      <LogoMark size={size} />
+      {mark ? <LogoMark size={size} /> : null}
       {wordmark ? (
         <span
           className={`font-display text-[1.05rem] font-bold tracking-tight ${

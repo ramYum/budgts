@@ -11,11 +11,12 @@ Assets.svg` in `docs/conventions.md`.
 It was built by studying **`Budgts Reference V2.png`** (a set of four mockup
 screens: Get Started, Home, Budgets, Insights) pixel-by-pixel — colors were
 sampled directly off its icons, progress bars, and chart legend, not
-guessed. The logo, wordmark, and mascot artwork are the *actual* brand
-assets cropped from **`Assets V2.svg`** (an SVG wrapper around one embedded
-PNG sheet) — nothing here was hand-redrawn. Typography (Poppins) is also
-per `Assets V2.svg`'s own type specimen. Both source files live at the repo
-root as local working references; they are not part of the shipped app.
+guessed. Typography (Poppins) is per `Assets V2.svg`'s own type specimen.
+Both source files live at the repo root as local working references; they
+are not part of the shipped app.
+
+The logo and mascot artwork are the brand owner's own finished exports —
+not cropped or redrawn from either reference file. See Provenance below.
 
 ## Brand positioning
 
@@ -113,33 +114,39 @@ number on the screen. Ink (`--ink` / `--text`) is the dominant text color;
 
 ## Logo
 
-The mark and wordmark are cropped directly from `Assets V2.svg` — never
-redrawn. Files live in `public/brand/`:
+The mark and mascot are the brand owner's own finished exports (originally
+supplied via a local `Downloads/Logo Assets/` folder) — never hand-redrawn,
+never auto-cropped from a mockup sheet. Files live in `public/brand/`:
 
-- `logo-lockup.png` — the full "Budgt" wordmark + "SIMPLE MONEY. BRIGHTER
-  TOMORROWS." tagline, for marketing/hero contexts (About screen, welcome).
-- `icon-badge.png` — the peeking-cat mark on its cream/coral/lavender
-  corner-accent badge. Used by the sign-in/onboarding hero
-  (`.brand-mascot-stage`) and available for any full-color badge context.
-- `mark-default.png` — the same peeking-cat mark, small/flat version (no
-  corner-accent shading), used by `LogoMark`/`Logo`
-  (`src/components/logo.tsx`) in nav bars and compact contexts, and as the
-  source for every generated app icon (`public/icon-512.png`,
-  `public/icon-maskable.png`, `src/app/icon.png`, `src/app/apple-icon.png`
-  — all regenerated from this one file, composited onto a cream `#FFF8F0`
-  background at increasing safe-zone margins for the maskable variant).
-- `mark-coral.png` / `mark-lavender.png` / `mark-black.png` — solid-color
-  alternates of the same mark, for use on a colored or dark surface if one
-  ever needs the mark rather than the cat-only glyph.
+- `logo-mark.png` — the peeking-cat mark on its cream/sun/coral/lavender
+  corner-accent badge. This one file is the source for everything that
+  needs the mark: `LogoMark`/`Logo` (`src/components/logo.tsx`) in nav bars,
+  the About screen, and compact contexts, **and** every generated app icon
+  (`public/icon-512.png`, `public/icon-maskable.png`, `src/app/icon.png`,
+  `src/app/apple-icon.png` — all regenerated from this one file, composited
+  onto a cream `#FFF8F0` background; the maskable variant scales the mark
+  down to ~68% of the canvas so Android's circular safe-zone mask doesn't
+  clip the ears/paws/tail).
+- `logo-sunburst.png` — the peeking cat in front of a sun disc with
+  sparkle rays. The brand's one big-illustration moment: the sign-in/
+  onboarding hero (`.brand-mascot-stage`), replacing what used to be a
+  CSS-simulated radial-gradient glow behind the flat mark. Not used
+  anywhere else — it's deliberately a single, memorable placement.
+
+There's no separate wordmark image — "Budgt" is always live text (`<Logo>`'s
+`wordmark` span, `font-display` / Poppins / bold), not a raster crop, so it's
+never soft or mis-kerned.
 
 Never recolor, distort, or redraw any of these. Always go through
 `<Logo>` / `<LogoMark>` — never hardcode a `<img src="/brand/...">` for the
-logo itself.
+logo itself, except the one-off hero placement of `logo-sunburst.png` in the
+auth/onboarding layouts, which isn't a `<Logo>`-shaped use (it's
+illustration, not a lockup).
 
 ## Mascot
 
-Four expressions, cropped from the same `Assets V2.svg` sheet, via the
-`<Mascot mood="…">` component (`src/components/mascot.tsx`):
+Four expressions, via the `<Mascot mood="…">` component
+(`src/components/mascot.tsx`):
 
 | Mood | File | Use |
 | --- | --- | --- |
@@ -154,14 +161,9 @@ Rules:
 - One mascot per screen at most, and only where it earns its place
   (a header avatar, an empty state, or a single insight card) — never as
   decoration on every card.
-- Don't invent new moods without adding the corresponding crop from the
-  source sheet; there is no `concerned`/`celebrating` art currently
-  extracted, so don't reference those moods in code until there is.
-
-Decorative shapes (`blob-sun.png`, `blob-coral.png`, `blob-lavender.png`,
-`sparkle.png`, also cropped from `Assets V2.svg`) are available in
-`public/brand/` for onboarding/empty-state/goal-celebration contexts. Use
-sparingly — never behind dense financial data.
+- Don't invent new moods without sourcing the matching art first; there is
+  no `concerned`/`celebrating` expression currently in `public/brand/`, so
+  don't reference those moods in code until there is.
 
 ## Iconography
 
@@ -210,7 +212,7 @@ the palette:
 ## Where things live
 
 ```
-public/brand/            Logo, mascot, decorative art (see Logo/Mascot above)
+public/brand/            Logo, mascot art (see Logo/Mascot above)
 src/app/globals.css       Color tokens + semantic roles, Poppins font wiring
 src/app/layout.tsx        Poppins next/font setup
 src/components/logo.tsx   <Logo> / <LogoMark>
@@ -225,11 +227,16 @@ src/components/nav-icons.tsx, bottom-nav.tsx, desktop-sidebar.tsx
 
 - `Budgts Reference V2.png` — the four-screen mockup this doc's palette,
   type scale, and component styling were sampled from.
-- `Assets V2.svg` — the source of the logo, wordmark, mascot expressions,
-  category iconography reference, and decorative shapes. It is an SVG
-  wrapper around one embedded raster sheet, not real vector paths — the
-  files in `public/brand/` are direct crops of that sheet at full
-  resolution, not redraws.
+- `Assets V2.svg` — the Poppins type specimen this doc's typography choice
+  came from. It was also, briefly, an early source for logo/mascot artwork
+  (an SVG wrapper around one embedded raster sheet, auto-cropped) — those
+  crops had visible edge/bleed defects and have been fully replaced; it is
+  **not** the source for anything in `public/brand/` anymore.
+- **`public/brand/*` (logo, mascot)** — the brand owner's own finished
+  exports, supplied directly (a local `Downloads/Logo Assets/` folder:
+  a badge mark, a sunburst lockup, and the four mascot mood expressions).
+  This is the current, correct source for all logo/mascot artwork; treat
+  it as final unless the brand owner supplies a further revision.
 - A third file, `Branding guidelines V2.png`, was supplied alongside
   `Assets V2.svg` but was **not** used as a source for this doc — palette
   and type values here come only from `Budgts Reference V2.png` and the

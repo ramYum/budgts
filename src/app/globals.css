@@ -42,10 +42,11 @@
   --track: var(--border); /* progress trough */
   --tick: var(--coral); /* small structural marks */
 
-  /* the one solid-ink hero card per screen (Home's Money Left, Insights'
-   * Your money story) — high-contrast and calm, not a hue. Distinct from
-   * `--primary-btn` below: this token is for that hero-card treatment and
-   * for link-style accents, never for a clickable button's fill. */
+  /* the solid-ink hero card (Insights' "Your money story") — high-contrast
+   * and calm, not a hue. Home's "Money Left" hero card diverges from this
+   * (solid-sun, see --on-sun below). Distinct from `--primary-btn` below:
+   * this token is for that hero-card treatment and for link-style accents,
+   * never for a clickable button's fill. */
   --primary: var(--ink);
   --on-primary: #ffffff;
 
@@ -74,6 +75,12 @@
   --surface-dark: var(--ink);
   --on-dark: #ffffff;
   --on-dark-dim: #b8b8b8;
+
+  /* Home's "Money Left" hero card — sun-yellow, ink text. Distinct from
+   * Insights' "Your money story" card, which keeps the solid-ink `--primary`
+   * treatment above. */
+  --on-sun: var(--ink);
+  --on-sun-dim: rgba(15, 15, 15, 0.62);
 
   --background: var(--bg);
   --foreground: var(--text);
@@ -129,6 +136,8 @@
   --color-surface-dark: var(--surface-dark);
   --color-on-dark: var(--on-dark);
   --color-on-dark-dim: var(--on-dark-dim);
+  --color-on-sun: var(--on-sun);
+  --color-on-sun-dim: var(--on-sun-dim);
   --color-primary: var(--primary);
   --color-on-primary: var(--on-primary);
   --color-primary-btn: var(--primary-btn);

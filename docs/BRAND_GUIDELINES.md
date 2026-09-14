@@ -89,9 +89,12 @@ component.
   over budget is real product value the mockup's static examples don't
   need to demonstrate, and `docs/conventions.md` explicitly protects
   existing financial-status UI from being changed for cosmetic reasons.
-- **The one solid-ink hero card** (Home's "Money Left", Insights' "Your
-  money story") never carries the cat mascot — the mascot's black
-  silhouette disappears against a black background.
+- **Insights' "Your money story" is the one solid-ink hero card** — never
+  carries the cat mascot, since its black silhouette disappears against a
+  black background.
+- **Home's "Money Left" hero card is solid-sun, ink text** (`bg-sun
+  text-on-sun`/`text-on-sun-dim`, `src/components/dashboard-view.tsx`) —
+  the one deliberate divergence from the ink hero-card treatment above.
 
 ## Typography
 

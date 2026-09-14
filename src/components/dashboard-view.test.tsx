@@ -156,7 +156,7 @@ describe("DashboardView savings rate presentation", () => {
       tiles: { ...view.tiles, netSavings: 350000, savingsRate: 0.3 },
     };
     render(<DashboardView {...baseProps} view={positive} />);
-    expect(screen.getByText("Savings rate").nextElementSibling).toHaveTextContent("30%");
+    expect(screen.getByText("30% saved this month")).toBeInTheDocument();
   });
 
   it("clearly indicates a negative savings rate as overspending", () => {
@@ -165,8 +165,8 @@ describe("DashboardView savings rate presentation", () => {
       tiles: { ...view.tiles, netSavings: -55000, savingsRate: -0.11 },
     };
     render(<DashboardView {...baseProps} view={negative} />);
-    const rateEl = screen.getByText("Savings rate").nextElementSibling;
-    expect(rateEl).toHaveTextContent("-11%");
+    const rateEl = screen.getByText(/saved this month/);
+    expect(rateEl).toHaveTextContent("-11% saved this month");
     expect(rateEl).toHaveTextContent(/spent more than you earned/i);
   });
 
@@ -176,17 +176,15 @@ describe("DashboardView savings rate presentation", () => {
       tiles: { ...view.tiles, netSavings: 750000, savingsRate: 1.5 },
     };
     render(<DashboardView {...baseProps} view={over} />);
-    expect(screen.getByText("Savings rate").nextElementSibling).toHaveTextContent("150%");
+    expect(screen.getByText("150% saved this month")).toBeInTheDocument();
   });
 
-  it('shows "No income this month" instead of 0% or blank when savingsRate is null', () => {
+  it('shows "no income this month" instead of 0% or blank when savingsRate is null', () => {
     const noIncome: DV = {
       ...view,
       tiles: { ...view.tiles, income: 0, savingsRate: null },
     };
     render(<DashboardView {...baseProps} view={noIncome} />);
-    const rateEl = screen.getByText("Savings rate").nextElementSibling;
-    expect(rateEl).toHaveTextContent("No income this month");
-    expect(rateEl).not.toHaveTextContent("0%");
+    expect(screen.getByText("no income this month")).toBeInTheDocument();
   });
 });

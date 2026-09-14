@@ -91,9 +91,13 @@ component.
   existing financial-status UI from being changed for cosmetic reasons.
 - **Insights' "Your money story" is the one solid-ink hero card** — never
   carries the mascot, per the "no mascot on a solid ink card" rule below.
-- **Home's "Money Left" hero card is solid-sun, ink text** (`bg-sun
-  text-on-sun`/`text-on-sun-dim`, `src/components/dashboard-view.tsx`) —
-  the one deliberate divergence from the ink hero-card treatment above.
+- **Home's "Money Left" hero card is `--sun` lightened 50% toward white, ink
+  text** (`bg-hero-fill text-on-hero`, backed by `--sun-light` in
+  `globals.css`; `src/components/dashboard-view.tsx`) — the one deliberate
+  divergence from the ink hero-card treatment above. The card leads with one
+  hero number and one supporting sentence (left-to-spend/budgeted and
+  savings rate combined), not several separately-captioned stats, and its
+  text runs at full opacity rather than a dimmed tone.
 
 ## Typography
 

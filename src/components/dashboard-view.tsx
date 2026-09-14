@@ -143,10 +143,9 @@ export function DashboardView({
         <BudgetOverAlert month={month} budgeted={tiles.budgeted} income={tiles.income} currency={currency} />
       ) : null}
 
-      {/* the one solid hero card on the screen — light coral fill */}
+      {/* the one solid hero card on the screen — light sun fill */}
       <section className="relative overflow-hidden rounded-3xl bg-hero-fill p-4 text-on-hero">
-        <div className="relative max-w-[78%]">
-        <p className="text-xs text-on-hero-dim">Money Left</p>
+        <p className="text-xs font-medium">Money Left</p>
         <p
           className={`tnum font-display text-[1.9rem] font-bold leading-tight ${
             tiles.netSavings < 0 ? "text-fill-over" : "text-on-hero"
@@ -154,27 +153,22 @@ export function DashboardView({
         >
           <CountUp value={tiles.netSavings} currency={currency} />
         </p>
-        <p className="mt-1 text-xs text-on-hero-dim">
-          {formatMoney(tiles.leftToSpend, currency)} left to spend ·{" "}
-          {formatMoney(tiles.budgeted, currency)} budgeted
+        <p className="tnum mt-1.5 text-[13px] leading-snug">
+          {formatMoney(tiles.leftToSpend, currency)} left of {formatMoney(tiles.budgeted, currency)} budgeted ·{" "}
+          <span
+            className={
+              tiles.savingsRate !== null && tiles.savingsRate < 0 ? "font-medium text-fill-over" : undefined
+            }
+          >
+            {tiles.savingsRate === null
+              ? "no income this month"
+              : `${formatSavingsRate(tiles.savingsRate)} saved this month`}
+            {tiles.savingsRate !== null && tiles.savingsRate < 0 ? " — spent more than you earned" : null}
+          </span>
         </p>
-        <p className="mt-3 text-xs text-on-hero-dim">Savings rate</p>
-        <p
-          className={`tnum font-display text-lg font-bold ${
-            tiles.savingsRate !== null && tiles.savingsRate < 0 ? "text-fill-over" : "text-on-hero"
-          }`}
-        >
-          {tiles.savingsRate === null
-            ? "No income this month"
-            : formatSavingsRate(tiles.savingsRate)}
-          {tiles.savingsRate !== null && tiles.savingsRate < 0 ? (
-            <span className="ml-1 text-xs font-medium">— spent more than you earned</span>
-          ) : null}
-        </p>
-        <p className="mt-2 text-xs text-on-hero-dim">
+        <p className="mt-2 text-xs">
           Based on income minus spending — doesn&apos;t measure savings-account balances.
         </p>
-        </div>
       </section>
 
       <section className="space-y-2">

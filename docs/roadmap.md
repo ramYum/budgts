@@ -17,12 +17,14 @@ BUDGTS
 │
 ├── Phase 2a  Savings Goals ...................................... ✅  (2d46178)
 │
-├── UI Redesign  Budgt brand + information architecture .......... 🔄  design system, app shell, Home,
-│                                                                       Budgets/Category Detail, Activity done;
-│                                                                       onboarding wizard + top-merchant/net-worth
-│                                                                       insights deferred (see §"UI Redesign" below)
+├── UI Redesign  Budgt brand + information architecture .......... ✅  design system, app shell, Home,
+│                                                                       Budgets/Category Detail, Activity done, merged
+│                                                                       to main and live; onboarding wizard + top-
+│                                                                       merchant/net-worth insights still deferred
 │
-├── V1        Plaid transaction ingestion  (primary path) ....... 🔄  code+schema live in prod (`4590520`); Plaid UI flag off
+├── V1        Plaid transaction ingestion  (primary path) ....... ✅  live in prod (`4590520`); Plaid UI flag ON —
+│                                                                       3 real bank connections since 2026-09-11
+│                                                                       (retroactively documented 2026-09-14)
 │   ├── Plaid Sandbox ............................................ ✅
 │   ├── PlaidAdapter ............................................. ✅
 │   ├── Account linking .......................................... ✅
@@ -117,7 +119,9 @@ rather than replaced (nothing in the app referenced them).
 Deferred (see the spec's own §"remaining issues" classification): the
 3-screen onboarding wizard (Welcome → Connect Bank → All Set) — the existing
 single-screen onboarding was reskinned but not restructured, since Plaid UI
-is flag-gated off in every environment this was built against; a Net Worth
+was flag-gated off in every environment this was built against (the flag has
+since been turned on in production — see the V1 section's 2026-09-14 update —
+so this deferral's premise no longer holds; worth revisiting); a Net Worth
 tab on Insights (spec explicitly forbids faking it before the feature
 exists); per-category "top merchants" in Category Detail; a real
 Notifications settings screen (no backend exists for it).
@@ -166,8 +170,19 @@ aggregator drop into the same adapter interface.
 **Status (2026-09-13):** built and accepted on staging, then the code + schema
 promoted to production (`main` fast-forwarded `5b668b2→4590520`, migration
 `0012` applied to the production Supabase project, deployed and live at
-`https://budgts.com`). `NEXT_PUBLIC_PLAID_ENABLED` stays **off** in production
-pending Plaid Production API access (Milestone 10, owner-gated — unchanged).
+`https://budgts.com`). `NEXT_PUBLIC_PLAID_ENABLED` shipped with this promotion
+still off — that part of the paragraph is historical.
+
+**Update (2026-09-14):** the flag was turned on in the Vercel dashboard at
+some point after the promotion above, with no corresponding commit or doc
+update — Milestone 10 (Plaid Production API access, owner-gated) is done.
+Confirmed by querying the production `plaid_items` table directly: 3 real
+connections (**Capital One**, **SoFi**, **Advancial Federal Credit Union**),
+all connected 2026-09-11, syncing live. Plaid bank-connect is live for the
+real user now, not staging-only. See `docs/workflow.md` §1 and §4, and
+memory `plaid-live-in-production.md`, for the verification trail. **V1.5 is
+unblocked.**
+
 Alongside the core ingestion pipeline, a budget-correctness chain shipped with
 it (sign-convention detection → event-role classification → budget-effect
 resolution → `qualify.ts` integration → transfer ownership), plus two new

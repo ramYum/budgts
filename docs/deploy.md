@@ -18,9 +18,17 @@ Steps you (the owner) do — Claude can't create the accounts or push to a remot
 - **2026-09-11 — V1 promoted to production.** `main` fast-forwarded to
   `v1-plaid-beta`'s tip (`ae92716`) after full staging acceptance; migration
   `0004` applied to prod Supabase; `DATABASE_URL` added to prod Vercel env
-  (newly required — see §3). `NEXT_PUBLIC_PLAID_ENABLED` stays off pending
-  Plaid Production access (owner-gated, §27/Milestone 10) — see the Plaid
-  section below.
+  (newly required — see §3). `NEXT_PUBLIC_PLAID_ENABLED` shipped with this
+  promotion still off, pending Plaid Production access (Milestone 10).
+- **Update (2026-09-14) — Milestone 10 done, Plaid UI is live in prod.** The
+  flag was turned on in the Vercel dashboard at some point after the
+  promotion above, with no corresponding commit or doc update at the time.
+  Confirmed by querying the production `plaid_items` table directly: 3 real
+  connections (Capital One, SoFi, Advancial Federal Credit Union), all
+  connected 2026-09-11, syncing live. The rest of this file's "Plaid" section
+  describes the earlier off-state and staging setup — read it as history for
+  how it got turned on, not as prod's current state. See `docs/workflow.md`
+  §1/§4 and memory `plaid-live-in-production.md`.
 
 ## 1. Push the repo to GitHub
 
@@ -64,21 +72,31 @@ e2e suite uses it), `DIRECT_URL` (only `db:migrate` uses it, run locally),
 `ANTHROPIC_API_KEY` (V2 — email / receipt ingestion). The app talks to Supabase
 entirely through the user session + the publishable key.
 
-### Plaid (V1 code live on prod since 2026-09-11; UI still off)
+### Plaid (V1 code live on prod since 2026-09-11; UI live in prod as of 2026-09-14 confirmation)
 
 Migration `0004` (Plaid tables/columns, additive-only — see its own file for
 the reverse) was applied to the **prod** Supabase project on 2026-09-11 as
 part of the V1 → production promotion, so the schema is ready. The "Connect a
-bank" UI itself is gated by `NEXT_PUBLIC_PLAID_ENABLED`, which **stays unset
-on prod** — flipping it on needs real Plaid **Production** API keys, which
-require completing Plaid's Production access process (business
-application/billing, design §27 — an owner-only, external step; Claude cannot
-self-serve this). Until then `/api/plaid/*` exists in the deployed bundle but
-is unreachable in practice (no UI entry point, no webhook registered against
-`budgts.com`, no cron configured) — hitting one directly 500s on missing
-Plaid config, which is expected and harmless. The **staging** deploy
-(Milestone 9 — points `NEXT_PUBLIC_SUPABASE_URL` / `DATABASE_URL` at
-`budgts-staging`) is where Plaid is actually live today, in Sandbox mode:
+bank" UI itself is gated by `NEXT_PUBLIC_PLAID_ENABLED`, which **is on in
+prod** — it needed real Plaid **Production** API keys, obtained by completing
+Plaid's Production access process (business application/billing — an
+owner-only, external step Claude couldn't self-serve). That step happened;
+the flag was flipped directly in Vercel without a corresponding commit or doc
+update, so it went undocumented until confirmed 2026-09-14 by querying
+`plaid_items` directly (see the note at the top of this file): 3 real linked
+accounts with recent `last_synced_at` timestamps, i.e. sync is actually
+running — this is no longer staging-only. (Not independently re-verified
+here: whether prod's webhook/cron wiring mirrors staging's M9 setup exactly,
+vs. syncs landing via some other path — worth confirming if that ever
+matters operationally.)
+
+**Historical context below** (accurate for how V1 was originally built and
+verified, before the prod flag was turned on): the paragraph immediately
+above this used to say the flag stayed unset on prod and that the **staging**
+deploy (Milestone 9 — points `NEXT_PUBLIC_SUPABASE_URL` / `DATABASE_URL` at
+`budgts-staging`) was where Plaid was actually live, in Sandbox mode. Staging
+still exists and still works the same way; it's just no longer the only place
+Plaid is live.
 
 | Var | Value / source |
 | --- | --- |

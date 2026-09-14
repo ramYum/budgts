@@ -23,18 +23,23 @@ phase-level summary; this file is the execution tracker + decisions + change log
 | 2a | Savings goals | `savings_goals` + `savings_contributions` (RLS, realtime, migration `0003`). Standalone contribution ledger — no transactions, no account balances. `goalProgress`/`goalsSummary` domain (TDD). Server actions incl. a separate `withdrawFromGoal` (negates) so users never type a minus. `/goals` screen + a 5th bottom-nav tab. Zod + domain + component + e2e. Spec: `docs/specs/2026-09-09-…-phase-2a-…`. | ✅ done | `2d46178` |
 | V1 | Plaid ingestion — built + staging-accepted | See §4 milestone tracker M1–M9 + workstreams A–E. | ✅ done (staging) | see §4 |
 | V1+ | Budget-correctness chain + Money Left / Savings Rate / account-exclusion | Sign-convention → event-role → budget-effect → `qualify.ts` integration → transfer-ownership; Money Left + Savings Rate dashboard tiles; account calculation-exclusion safety valve. See §7 change log. | ✅ done | `4590520` |
-| — | **V1 → production promotion** | `main` fast-forwarded `5b668b2→4590520`; migration `0012` applied directly to the production Supabase project (`wsmhstqpvbbcqpqhiqyp`); deployed via the existing `budgts` Vercel project. Plaid UI stays flag-gated off in prod (unchanged — Milestone 10 still owner-gated). | ✅ live 2026-09-13 | `4590520` |
-| — | **UI redesign — Budgt brand + IA overhaul** | Design system, responsive app shell (sidebar/bottom-nav), Home hierarchy, Budgets category cards + Category Detail, Activity search/filter, transfer toggle, new More/Insights/Accounts/Connected-Banks/Help/About + reorganized Settings. Presentation-layer only — no financial-semantics changes. **v2 brand pass**: new palette/typeface from `Budgts Reference V2.png` + real cropped assets from `Assets V2.svg`, replacing the original brand tokens — see `docs/BRAND_GUIDELINES.md`. See §"UI redesign" below and `docs/roadmap.md`. | 🔄 pending merge to `main` | `d469d4b`, `05d4a1d`, `f9e2642` |
+| — | **V1 → production promotion** | `main` fast-forwarded `5b668b2→4590520`; migration `0012` applied directly to the production Supabase project (`wsmhstqpvbbcqpqhiqyp`); deployed via the existing `budgts` Vercel project. Shipped with Plaid UI still flag-gated off. | ✅ live 2026-09-13 | `4590520` |
+| — | **UI redesign — Budgt brand + IA overhaul** | Design system, responsive app shell (sidebar/bottom-nav), Home hierarchy, Budgets category cards + Category Detail, Activity search/filter, transfer toggle, new More/Insights/Accounts/Connected-Banks/Help/About + reorganized Settings. Presentation-layer only — no financial-semantics changes. **v2 brand pass**: new palette/typeface from `Budgts Reference V2.png` + real cropped assets from `Assets V2.svg`, replacing the original brand tokens — see `docs/BRAND_GUIDELINES.md`. See §"UI redesign" below and `docs/roadmap.md`. | ✅ merged to `main`, live | `d469d4b`, `05d4a1d`, `f9e2642` |
 | — | **Logo-asset correction** | The v2 pass's `Assets V2.svg` auto-crops had visible edge/bleed defects. Replaced `public/brand/*` and every generated app icon with the brand owner's own finished exports (`Downloads/Logo Assets/`); sign-in/onboarding hero now uses the real sunburst lockup instead of a CSS-simulated glow. Dropped the unused solid-color mark/blob/sparkle variants (unreferenced in code). `docs/BRAND_GUIDELINES.md` updated. | ✅ done | `8b6af93` |
 | — | **Advancial replay containment** | Advancial Federal Credit Union's confirmed feed defect (docs/specs/2026-09-12-advancial-...) recurred on a fresh connection — 7,280/7,450 rows were replayed copies. One-time closed-set remediation executed (owner-approved). Built automatic containment scoped strictly to `institution_id = ins_116484` (`replay-containment.ts`), wired into `sync-engine.ts` — never a general rule, structurally unreachable for any other institution/user. 12 new tests. | ✅ done | `c20678c` |
 | — | **1000-row query cap — income/spend silently wrong** | Root cause of a real report ("income isn't showing"): every unbounded `transactions` `.select()` across Home/Budgets/Insights/Activity/CSV-export silently caps at PostgREST's default 1000 rows — a heavy Plaid feed (post-Advancial-replay, 1,209 September rows) pushed a manually-entered $1,850 income transaction out of the fetched page entirely, so it was never even considered, not merely miscategorized. Added `fetchAllRows` (paginated, ordered by `id` for determinism, test-first) and applied it to every affected query. Verified live against the real account: Income tile corrected $0 → $1,850.00. | ✅ done | `8846123` |
+| — | **Milestone 10 — Plaid Production cutover** | `NEXT_PUBLIC_PLAID_ENABLED` was flipped on directly in the Vercel dashboard at some point after the 2026-09-13 promotion — **not captured in a commit or doc update at the time**. Discovered 2026-09-14 by querying the production `plaid_items` table directly: 3 real connections (**Capital One**, **SoFi**, **Advancial Federal Credit Union**), all connected 2026-09-11, with live sync cursors. Every "flag-gated off" statement elsewhere in this doc and in `docs/roadmap.md` / `docs/deploy.md` describes that earlier, now-superseded state — left as historical record rather than rewritten. See memory `plaid-live-in-production.md` for the verification trail. | ✅ done (retroactively documented) | — |
+| — | **Breakdown-chart tooltip stacking fix** | The spending-breakdown donut's center "This month" total overlay rendered after the chart in DOM order with no explicit `z-index`, so it sat above the Recharts hover/touch tooltip instead of the tooltip appearing in front. Gave the `Tooltip` an explicit `wrapperStyle={{ zIndex: 10 }}` and the overlay `z-0`. Verified live (throwaway test user, hover triggered against the real component). | ✅ done | `5465ac3` |
+| — | **Dismiss button on the budgets-exceed-income banner** | The Home warning banner (shown when this month's category budgets add up to more than income) gained a per-month dismiss control, persisted via `sessionStorage` (tab/app-session scoped — reappears on a fresh session, stays hidden across tab switches). | ✅ done | `f795d3e` |
 
 Legend: ✅ done · 🔄 in progress · ⏳ planned
 
 **Shipped through V1 + the budget-correctness/Money-Left/account-exclusion
-work** (`4590520`, live on production since 2026-09-13). Plaid bank-connect
-itself stays flag-gated off in production pending Milestone 10 (Plaid
-Production API access, owner-gated); Money Left and Savings Rate are live now
+work** (`4590520`, live on production since 2026-09-13), **and Plaid bank-
+connect itself is live in production** — the flag was turned on in Vercel at
+some point after that promotion (undocumented at the time; confirmed
+2026-09-14 against real `plaid_items` rows, see the change-log entry above).
+Money Left and Savings Rate are live now
 regardless, since they run over all transactions. Next: **V1.5** (recurring /
 subscription / bill detection over synced data + paired-transfer detection),
 **V2** (email / receipt ingestion + spending intelligence), **V2+** (AI
@@ -221,7 +226,10 @@ QUALITY     typecheck · lint · build · production-readiness                  
 
 V1.5 (recurring / transfer intelligence) does not start until the gate is green.
 Milestone 10 = Production cutover (owner-gated, §27 / §32): Plaid Production
-keys, `PLAID_ENV = production`, link a real account.
+keys, `PLAID_ENV = production`, link a real account. **Gate is green** —
+Milestone 10 happened (flag flipped on in Vercel, 3 real accounts connected
+2026-09-11, discovered/documented retroactively 2026-09-14; see §1's change-log
+entry and memory `plaid-live-in-production.md`). V1.5 is unblocked.
 
 ### V1.5 — Recurring & transfer intelligence
 
@@ -318,7 +326,7 @@ Developer Program ($99/yr), Google Play Console ($25 once). Target: a few months
 | ~~Vercel project + deploy~~ | done | **2026-09-09** — `main` pushed, Vercel project live at `https://budgts.com` (custom domain via Cloudflare DNS), env vars + Supabase auth URLs set. See `docs/deploy.md` "Current deployment" + memory `deployment.md`. |
 | Verify on real devices | owner | `deploy.md` step 5 — install the PWA on a phone, sign in via magic link + Google, add a transaction, confirm it syncs to a second device. Blocked on the `/sw.js` fix reaching prod for the install check. |
 | Apple Developer + Google Play accounts | owner | Start enrollment before the native-apps delivery track; lead time is days. |
-| Plaid account + Production application | owner | Only when Plaid UI itself moves to Production (Milestone 10) — separate from the 2026-09-13 code/schema promotion, which shipped with the flag still off. |
+| ~~Plaid account + Production application~~ | done | Milestone 10 happened — Plaid Production access obtained, `NEXT_PUBLIC_PLAID_ENABLED` on in Vercel prod, 3 real bank connections live (Capital One, SoFi, Advancial) since 2026-09-11. Not captured in a commit/doc at the time; retroactively documented 2026-09-14. |
 | **Owner's authenticated smoke-test pass on budgts.com** | owner | Claude verified the unauthenticated path only (site loads, `/sign-in` renders, no console errors) — no production session available to check further. Needs a real login pass: dashboard loads, connected bank data loads, transactions load, categorization works, Money Left + Savings Rate display, Connected Banks page loads, exclusion control appears for a `needs_review` account. |
 
 ---

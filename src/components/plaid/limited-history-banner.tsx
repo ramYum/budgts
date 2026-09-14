@@ -1,7 +1,6 @@
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
 import { buildLimitedHistoryMessages } from "@/lib/plaid/history-coverage";
-import { AutoDismissBanner } from "./auto-dismiss-banner";
 
 /**
  * Owner-facing advisory when a Plaid connection's initial backfill fell
@@ -12,9 +11,8 @@ import { AutoDismissBanner } from "./auto-dismiss-banner";
  * dates before they connected.
  *
  * Activity-tab only (design ask 2026-09-14) — that's where a data gap
- * actually shows up as missing rows, unlike Home's aggregate tiles. Brief
- * by design: a red (negative/attention) tag, small, and self-dismisses
- * after 5 seconds rather than sitting there permanently. Evaluated per
+ * actually shows up as missing rows, unlike Home's aggregate tiles. Small,
+ * red (negative/attention) tag; stays shown, no auto-dismiss. Evaluated per
  * Plaid Item (not per account) using the earliest transaction across all
  * of that item's mapped accounts — every real-world case seen so far was
  * all-or-nothing per item.
@@ -76,5 +74,13 @@ export async function LimitedHistoryBanner() {
   );
   if (messages.length === 0) return null;
 
-  return <AutoDismissBanner messages={messages} />;
+  return (
+    <div className="space-y-1.5">
+      {messages.map((m, i) => (
+        <div key={i} className="rounded-md border border-neg/40 bg-neg/5 px-2.5 py-1.5 text-xs text-neg">
+          <p>{m}</p>
+        </div>
+      ))}
+    </div>
+  );
 }

@@ -24,7 +24,7 @@ export async function POST(request: Request) {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
   const base = {
     user: { client_user_id: user.id },
-    client_name: "Budgt",
+    client_name: "Budgts",
     language: "en",
     country_codes: cfg.countryCodes,
     webhook: `${siteUrl}/api/plaid/webhook`,

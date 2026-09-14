@@ -167,6 +167,14 @@ layer only; see `docs/BRAND_GUIDELINES.md` (the visual source of truth) and
 behavior, still current outside its superseded brand sections — see its
 header) plus `docs/roadmap.md`'s "UI Redesign" section for what's deferred.
 
+**Shipped:** **Mascot/logo rebrand** — the black-cat mascot and "Budgt" name
+were replaced with a robin mascot and the "Budgts" name/wordmark (matching
+the live domain), sourced from `Logo Assets V2`. Palette and typography
+(cream/coral/sage/sky/lavender/pink, Poppins) are unchanged — this was a
+mascot/logo/name swap, not a full visual rebrand. `docs/BRAND_GUIDELINES.md`
+is up to date; the UI redesign v2 note above is historical only for its
+brand details.
+
 **Next:** **V1 — Plaid transaction ingestion** (the primary automatic path;
 manual entry stays as a fallback) → **V1.5** (recurring / subscription / bill
 detection over synced data + paired-transfer detection) → **V2** (email /

@@ -1,4 +1,4 @@
-/** The brand's black-cat mascot — the real Logo Assets artwork (see
+/** The brand's robin mascot — the real Logo Assets V2 artwork (see
  * docs/BRAND_GUIDELINES.md). Used to add a little encouragement to empty
  * states — per the brand voice: kind, encouraging, human. */
 
@@ -7,10 +7,10 @@
 // before the image loads) matches the real art instead of a mismatched
 // square, which could otherwise show as the wrong edge getting clipped.
 const MOOD = {
-  normal: { src: "/brand/mood-normal.png", w: 126, h: 92 },
-  happy: { src: "/brand/mood-happy.png", w: 131, h: 94 },
-  curious: { src: "/brand/mood-curious.png", w: 124, h: 117 },
-  sleepy: { src: "/brand/mood-sleepy.png", w: 125, h: 111 },
+  normal: { src: "/brand/mood-normal.png", w: 163, h: 244 },
+  happy: { src: "/brand/mood-happy.png", w: 306, h: 288 },
+  curious: { src: "/brand/mood-curious.png", w: 251, h: 315 },
+  sleepy: { src: "/brand/mood-sleepy.png", w: 230, h: 242 },
 } as const;
 
 export function Mascot({

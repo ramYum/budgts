@@ -231,7 +231,7 @@ export function EmptyState({
 
 /** A small speech-bubble message paired with the mascot — used sparingly for
  * contextual encouragement (design spec §45), never decoration on every card. */
-export function CatMessage({ children, className }: { children: ReactNode; className?: string }) {
+export function MascotMessage({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <div
       className={`inline-flex max-w-xs items-center rounded-2xl rounded-bl-sm bg-tint px-3 py-2 text-sm text-text ${className ?? ""}`}

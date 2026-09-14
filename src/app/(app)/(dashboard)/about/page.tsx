@@ -2,23 +2,20 @@ import type { Metadata } from "next";
 import { PageHeader } from "@/components/page-header";
 import { LogoMark } from "@/components/logo";
 
-export const metadata: Metadata = { title: "About Budgt" };
+export const metadata: Metadata = { title: "About Budgts" };
 
 /** Static about screen (design spec §44). Version reflects the roadmap tier
  * (`docs/roadmap.md`) rather than a fabricated semver — this app has none. */
 export default function AboutPage() {
   return (
     <div className="space-y-6 pt-1">
-      <PageHeader title="About Budgt" back="/more" />
+      <PageHeader title="About Budgts" back="/more" />
 
       <div className="flex flex-col items-center gap-3 py-4 text-center">
         <LogoMark size={96} />
-        <div>
-          <p className="text-lg font-bold">Simple money.</p>
-          <p className="text-lg font-bold">Brighter tomorrows.</p>
-        </div>
+        <p className="text-lg font-bold">A brighter way to budget.</p>
         <p className="max-w-xs text-sm text-muted">
-          Budgt helps you take control of your money with simple tools, clear insights, and a little
+          Budgts helps you take control of your money with simple tools, clear insights, and a little
           encouragement along the way.
         </p>
       </div>

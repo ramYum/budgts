@@ -1,6 +1,6 @@
-# Budgt Brand Guidelines
+# Budgts Brand Guidelines
 
-**This document is the single source of truth for Budgt's visual identity** —
+**This document is the single source of truth for Budgts' visual identity** —
 color, typography, logo, mascot, iconography, and component styling. It
 supersedes every earlier brand reference in this repo, including
 `docs/specs/2026-09-13-ui-redesign-brand-guidelines-spec.md`'s palette and
@@ -20,10 +20,10 @@ not cropped or redrawn from either reference file. See Provenance below.
 
 ## Brand positioning
 
-> **Simple money. Brighter tomorrows.**
+> **A brighter way to budget.**
 
-Budgt is calm, friendly, and premium — closer to a well-made health app than
-a bank or a spreadsheet. The black-cat mascot carries personality so the
+Budgts is calm, friendly, and premium — closer to a well-made health app
+than a bank or a spreadsheet. The robin mascot carries personality so the
 numbers don't have to feel cold. Voice: plain language, encouraging,
 conversational, focused on progress over perfection. Avoid financial
 jargon, alarmist framing, and traditional-bank visual clichés.
@@ -90,8 +90,7 @@ component.
   need to demonstrate, and `docs/conventions.md` explicitly protects
   existing financial-status UI from being changed for cosmetic reasons.
 - **Insights' "Your money story" is the one solid-ink hero card** — never
-  carries the cat mascot, since its black silhouette disappears against a
-  black background.
+  carries the mascot, per the "no mascot on a solid ink card" rule below.
 - **Home's "Money Left" hero card is solid-sun, ink text** (`bg-sun
   text-on-sun`/`text-on-sun-dim`, `src/components/dashboard-view.tsx`) —
   the one deliberate divergence from the ink hero-card treatment above.
@@ -117,28 +116,30 @@ number on the screen. Ink (`--ink` / `--text`) is the dominant text color;
 
 ## Logo
 
-The mark and mascot are the brand owner's own finished exports (originally
-supplied via a local `Downloads/Logo Assets/` folder) — never hand-redrawn,
-never auto-cropped from a mockup sheet. Files live in `public/brand/`:
+The mark, mascot, and wordmark are the brand owner's own finished exports
+(supplied via a local `Logo Assets V2/` folder) — never hand-redrawn, never
+auto-cropped from a mockup sheet. Files live in `public/brand/`:
 
-- `logo-mark.png` — the peeking-cat mark on its cream/sun/coral/lavender
-  corner-accent badge. This one file is the source for everything that
-  needs the mark: `LogoMark`/`Logo` (`src/components/logo.tsx`) in nav bars,
-  the About screen, and compact contexts, **and** every generated app icon
-  (`public/icon-512.png`, `public/icon-maskable.png`, `src/app/icon.png`,
-  `src/app/apple-icon.png` — all regenerated from this one file, composited
-  onto a cream `#FFF8F0` background; the maskable variant scales the mark
-  down to ~68% of the canvas so Android's circular safe-zone mask doesn't
-  clip the ears/paws/tail).
-- `logo-sunburst.png` — the peeking cat in front of a sun disc with
-  sparkle rays. The brand's one big-illustration moment: the sign-in/
-  onboarding hero (`.brand-mascot-stage`), replacing what used to be a
-  CSS-simulated radial-gradient glow behind the flat mark. Not used
-  anywhere else — it's deliberately a single, memorable placement.
-
-There's no separate wordmark image — "Budgt" is always live text (`<Logo>`'s
-`wordmark` span, `font-display` / Poppins / bold), not a raster crop, so it's
-never soft or mis-kerned.
+- `logo-mark.png` — the robin mark (the "Happy" pose). This one file is the
+  source for everything that needs the mark: `LogoMark`/`Logo`
+  (`src/components/logo.tsx`) in nav bars, the About screen, and compact
+  contexts, **and** every generated app icon (`public/icon-512.png`,
+  `public/icon-maskable.png`, `src/app/icon.png`, `src/app/apple-icon.png`
+  — all regenerated from this one file, composited onto a cream `#FFF8F0`
+  background; the maskable variant scales the mark down to ~68% of the
+  canvas so Android's circular safe-zone mask doesn't clip the wings).
+- `wordmark.png` — the raster "Budgts" lockup (dark green serif + leaf
+  sprout). Used inside `<Logo>`'s `wordmark` slot instead of live text —
+  a deliberate choice for this brand's custom serif treatment, which
+  isn't a web font in the app's type stack. Never recolor or re-render it
+  as text; if it ever needs a dark-background variant, that requires a new
+  export, not a CSS filter.
+- `logo-sunburst.png` — the robin perched on the "Budgts" wordmark, with
+  the "A brighter way to budget" tagline baked in. The brand's one
+  big-illustration moment: the sign-in/onboarding hero
+  (`.brand-mascot-stage`). Not used anywhere else — it's deliberately a
+  single, memorable placement, and because it already carries the
+  wordmark, it's never paired with a separate `<Logo>` on the same screen.
 
 Never recolor, distort, or redraw any of these. Always go through
 `<Logo>` / `<LogoMark>` — never hardcode a `<img src="/brand/...">` for the
@@ -164,9 +165,10 @@ Rules:
 - One mascot per screen at most, and only where it earns its place
   (a header avatar, an empty state, or a single insight card) — never as
   decoration on every card.
-- Don't invent new moods without sourcing the matching art first; there is
-  no `concerned`/`celebrating` expression currently in `public/brand/`, so
-  don't reference those moods in code until there is.
+- Don't invent new moods without sourcing the matching art first. The
+  source folder also has unused pose shots (left/right profile, looking
+  up, wings open, back) that aren't wired to a mood — don't repurpose
+  those as a new mood without deciding what state they'd represent first.
 
 ## Iconography
 
@@ -221,7 +223,7 @@ src/app/layout.tsx        Poppins next/font setup
 src/components/logo.tsx   <Logo> / <LogoMark>
 src/components/mascot.tsx <Mascot mood="…">
 src/components/ui.tsx     PrimaryButton, SecondaryButton, ProgressBar,
-                           SegmentedControl, CategoryIcon, EmptyState, CatMessage
+                           SegmentedControl, CategoryIcon, EmptyState, MascotMessage
 src/components/nav-icons.tsx, bottom-nav.tsx, desktop-sidebar.tsx
                            Navigation icon set + active-state color rules
 ```
@@ -235,11 +237,23 @@ src/components/nav-icons.tsx, bottom-nav.tsx, desktop-sidebar.tsx
   (an SVG wrapper around one embedded raster sheet, auto-cropped) — those
   crops had visible edge/bleed defects and have been fully replaced; it is
   **not** the source for anything in `public/brand/` anymore.
-- **`public/brand/*` (logo, mascot)** — the brand owner's own finished
-  exports, supplied directly (a local `Downloads/Logo Assets/` folder:
-  a badge mark, a sunburst lockup, and the four mascot mood expressions).
-  This is the current, correct source for all logo/mascot artwork; treat
-  it as final unless the brand owner supplies a further revision.
+- **`public/brand/*` (logo, mascot, wordmark)** — the brand owner's own
+  finished exports, supplied directly via a local `Logo Assets V2/` folder:
+  a robin mascot in several poses/expressions (mapped to the mood table
+  above; "Happy" doubles as the logo mark), a "Get Started Page" hero
+  lockup (robin + wordmark + tagline, used as `logo-sunburst.png`), and a
+  standalone "Budgts Main Text" wordmark. This supersedes an earlier
+  black-cat asset set (originally from a `Downloads/Logo Assets/` folder)
+  that this redesign fully replaced — nothing from that earlier set remains
+  in `public/brand/`. Treat `Logo Assets V2` as final unless the brand
+  owner supplies a further revision.
+- The two flattened source exports (`Get Started Page.png`, `Budgts Main
+  Text.png`) ship with a flat white background, not transparency — both
+  were re-exported with the white keyed out to alpha (a per-pixel
+  brightness threshold, not a corner flood-fill, so enclosed white regions
+  like letter counters in "B"/"d"/"g" go transparent too) before landing
+  in `public/brand/`, and downsized from their multi-megapixel originals to
+  a size sane for a UI asset. Re-do both steps if re-exporting from source.
 - A third file, `Branding guidelines V2.png`, was supplied alongside
   `Assets V2.svg` but was **not** used as a source for this doc — palette
   and type values here come only from `Budgts Reference V2.png` and the

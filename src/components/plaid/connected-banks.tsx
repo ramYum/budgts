@@ -64,7 +64,7 @@ export function ConnectedBanks({
         ))}
       </ul>
       <p className="text-xs text-muted">
-        Disconnecting a bank keeps every transaction it already imported — they stay in Budgt as history.
+        Disconnecting a bank keeps every transaction it already imported — they stay in Budgts as history.
       </p>
     </div>
   );
@@ -337,7 +337,7 @@ function StopImportingConfirm({
       <input type="hidden" name="entries" value={JSON.stringify(entries)} readOnly />
 
       <p className="text-sm text-muted">
-        Budgt stops importing new transactions from {account.name ?? "this account"}. Transactions already
+        Budgts stops importing new transactions from {account.name ?? "this account"}. Transactions already
         imported stay in your history and keep counting toward budgets.
       </p>
 
@@ -385,7 +385,7 @@ function DisconnectConfirm({
       <input type="hidden" name="purge" value={purge ? "1" : "0"} />
 
       <p className="text-sm text-muted">
-        Budgt stops syncing {bankName}. The transactions it already imported stay in your history and keep
+        Budgts stops syncing {bankName}. The transactions it already imported stay in your history and keep
         counting toward budgets.
       </p>
 
@@ -397,7 +397,7 @@ function DisconnectConfirm({
           className="mt-0.5"
         />
         <span>
-          Also delete the {bankName} transactions Budgt imported. This can&apos;t be undone.
+          Also delete the {bankName} transactions Budgts imported. This can&apos;t be undone.
         </span>
       </label>
 

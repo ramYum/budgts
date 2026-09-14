@@ -113,11 +113,11 @@ export async function BankConnections() {
       {banks.length === 0 ? (
         <div className="card space-y-3 rounded-2xl border border-hairline p-4">
           <p className="text-sm text-muted">
-            Connect a bank and Budgt imports its transactions for you — categories filled in, ready to
+            Connect a bank and Budgts imports its transactions for you — categories filled in, ready to
             check. Manual entry still works for cash and anything your bank can&apos;t reach.
           </p>
           <p className="text-xs text-muted">
-            Your data is secure. Budgt can only read your account and transaction data to help you budget —
+            Your data is secure. Budgts can only read your account and transaction data to help you budget —
             it cannot send money, make payments, make purchases, or transfer funds.
           </p>
           <ConnectBank accounts={budgtsAccounts} />

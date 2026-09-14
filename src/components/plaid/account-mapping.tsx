@@ -101,7 +101,7 @@ export function AccountMapping({
       <input type="hidden" name="entries" value={JSON.stringify(entries)} readOnly />
 
       <p className="text-sm text-muted">
-        Each account can become a new Budgt account, feed one you already have, or be left out.
+        Each account can become a new Budgts account, feed one you already have, or be left out.
       </p>
 
       <ul className="space-y-3">
@@ -121,7 +121,7 @@ export function AccountMapping({
                   value={r.mode}
                   onChange={(e) => update(i, { mode: e.target.value as Mode })}
                 >
-                  <option value="new">A new Budgt account</option>
+                  <option value="new">A new Budgts account</option>
                   <option value="existing" disabled={budgtsAccounts.length === 0}>
                     An existing account
                   </option>

@@ -5,8 +5,8 @@ export const metadata: Metadata = { title: "Help" };
 
 const FAQ: { q: string; a: string }[] = [
   {
-    q: "How does Budgt organize my money?",
-    a: "Connect a bank and Budgt imports and categorizes transactions automatically. You can also add anything by hand — cash, or accounts your bank can't reach.",
+    q: "How does Budgts organize my money?",
+    a: "Connect a bank and Budgts imports and categorizes transactions automatically. You can also add anything by hand — cash, or accounts your bank can't reach.",
   },
   {
     q: "What is Money Left?",
@@ -14,7 +14,7 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "How does categorization work?",
-    a: "Budgt files obvious transactions automatically. When it isn't confident, it asks once — your answer is remembered for that merchant next time.",
+    a: "Budgts files obvious transactions automatically. When it isn't confident, it asks once — your answer is remembered for that merchant next time.",
   },
   {
     q: "What happens if I disconnect a bank?",
@@ -22,7 +22,7 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "Why is an account excluded from my totals?",
-    a: "Only you can exclude an account, and only after Budgt flags it for review — usually because its feed looked unreliable (e.g. duplicated activity). Exclusion never happens automatically.",
+    a: "Only you can exclude an account, and only after Budgts flags it for review — usually because its feed looked unreliable (e.g. duplicated activity). Exclusion never happens automatically.",
   },
 ];
 

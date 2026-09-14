@@ -60,7 +60,7 @@ export default async function SettingsPage() {
       <Section label="App">
         <Row href="/settings/appearance" label="Appearance" glyph="settings" />
         <Row href="/help" label="Help" glyph="help" />
-        <Row href="/about" label="About Budgt" glyph="about" />
+        <Row href="/about" label="About Budgts" glyph="about" />
       </Section>
 
       <section className="space-y-2">

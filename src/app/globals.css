@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
-/* Budgt — see docs/BRAND_GUIDELINES.md for the source of truth (palette,
+/* Budgts — see docs/BRAND_GUIDELINES.md for the source of truth (palette,
  * type scale, component rules, voice). Calm cream canvas, one saturated hue
- * per meaning, a black-cat mascot for personality. Raw palette values never
+ * per meaning, a robin mascot for personality. Raw palette values never
  * change; components consume the semantic roles below, never raw hex. */
 :root {
   color-scheme: light;
@@ -176,10 +176,10 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* The brand's one big-illustration moment — the sunburst mascot lockup on
- * sign-in/onboarding, on a quiet cream card. Sparing by design: everywhere
- * else the cat appears small, unframed. The art itself carries the glow now
- * (it has its own sun disc + rays), so the card stays plain. */
+/* The brand's one big-illustration moment — the robin + wordmark hero lockup
+ * on sign-in/onboarding, on a quiet cream card. Sparing by design: everywhere
+ * else the mascot appears small, unframed. The art itself carries the whole
+ * lockup (mascot, wordmark, tagline), so the card stays plain. */
 .brand-mascot-stage {
   border-radius: 2rem;
   background: var(--surface);

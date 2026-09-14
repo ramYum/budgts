@@ -11,16 +11,16 @@ const poppins = Poppins({
 
 export const metadata: Metadata = {
   title: {
-    default: "Budgt",
-    template: "%s · Budgt",
+    default: "Budgts",
+    template: "%s · Budgts",
   },
   description:
     "Simple money tools, clear insights, and encouragement for a brighter tomorrow.",
-  applicationName: "Budgt",
+  applicationName: "Budgts",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
-    title: "Budgt",
+    title: "Budgts",
     statusBarStyle: "default",
   },
 };

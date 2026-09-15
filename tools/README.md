@@ -37,3 +37,23 @@ npm run screenshot -- http://localhost:3000/budgets budgets-desktop
 ```
 npx puppeteer browsers install chrome
 ```
+
+## sign-convention-remediation-dryrun.ts
+
+Read-only report for the one-time historical sign-convention migration
+(design: 2026-09-12 North Star §10, workflow 2) — never run before
+2026-09-15. Reuses the real `detectSignConvention` / `resolveEventRole`
+against production, and reports, per Plaid account: the full-history sign
+verdict, exactly which rows would change direction and/or `event_role`, and
+before/after monthly spend/income totals. A second sweep separately finds
+any confirmed row anywhere whose `event_role` doesn't match its own current
+direction — this catches accounts that were already resolved before the
+`finalizeSignConvention` event_role fix landed, which the first pass (scoped
+to still-`unknown` accounts) doesn't see.
+
+Writes nothing; requires `SUPABASE_SECRET_KEY` in `.env.local` and refuses to
+run against anything but the production Supabase project.
+
+```
+npx tsx tools/sign-convention-remediation-dryrun.ts
+```

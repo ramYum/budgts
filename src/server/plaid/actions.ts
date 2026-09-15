@@ -203,12 +203,25 @@ export async function setAccountCalculationExclusionAction(
 
 /**
  * Turn importing on/off for one already-linked Plaid account (design
- * 2026-09-15). Deliberately non-destructive and reversible: turning off
- * never nulls `account_id` (unlike the "Don't import this one" choice in
- * account mapping), so turning back on resumes the SAME Budgts account —
- * no re-mapping, no risk of a second duplicate account being created for
- * the same real-world bank account. Requires a Budgts account already
- * mapped; an account that was never mapped has nothing to resume.
+ * 2026-09-15). Reversible in the sense that turning off never nulls
+ * `account_id` (unlike the "Don't import this one" choice in account
+ * mapping), so turning back on resumes the SAME Budgts account — no
+ * re-mapping, no risk of a second duplicate account being created for the
+ * same real-world bank account. Requires a Budgts account already mapped;
+ * an account that was never mapped has nothing to resume.
+ *
+ * NOT reversible for data: `link_state = 'ignored'` makes the adapter skip
+ * this account's rows outright (adapter.ts's `ignored-account` check —
+ * unchanged, pre-existing behavior, same as it's always meant for "Don't
+ * import this one"), and Plaid's `/transactions/sync` cursor is per-Item,
+ * so ANY sync of a sibling account on the same Item while this one is
+ * paused — a manual "Sync now", the sync-due cron, a webhook — advances
+ * past this account's new transactions with no way to re-fetch them later.
+ * Turning back on only imports what arrives AFTER that point, not what
+ * happened during the pause. A true no-loss pause would need to land those
+ * rows held (mirroring the sign-convention pending mechanism) rather than
+ * skip them — worth building if pausing becomes a routine action rather
+ * than an occasional one; out of scope for this pass.
  */
 export async function setAccountImportingAction(
   _prev: PlaidActionState,
@@ -240,8 +253,10 @@ export async function setAccountImportingAction(
   if (error) return { error: "Could not update the import setting. Try again." };
 
   if (parsed.data.importing) {
-    // Pull in anything that arrived while paused, same as the mapping flow's
-    // first-sync-on-save (design §11).
+    // Picks up new activity from now on — NOT a replay of what happened
+    // while paused (see the doc comment above; Plaid's cursor already moved
+    // past it if any sync ran meanwhile). Same first-sync-on-save pattern as
+    // account mapping (design §11).
     const { data: item } = await supabase
       .from("plaid_items")
       .select("item_id")

@@ -283,23 +283,32 @@ export function createPlaidSyncStore(db: PlaidDb): PlaidSyncStore {
             ),
           );
 
+        // One bulk UPDATE...FROM(VALUES...) per chunk, not one UPDATE per row
+        // (an account needing this can hold thousands of pending rows — see
+        // countByAccountFingerprint above for the same VALUES-join pattern).
         for (const batch of chunk(pendingRows, BATCH_SIZE)) {
-          await Promise.all(
-            batch.map((row) => {
-              const direction =
-                convention === "inverted" ? (row.direction === "debit" ? "credit" : "debit") : row.direction;
-              const eventRole = resolveEventRole({
-                primary: row.primary,
-                detailed: row.detailed,
-                isTransfer: row.isTransfer,
-                direction,
-              });
-              return tx
-                .update(transactions)
-                .set({ status: "confirmed", pendingReason: null, direction, eventRole })
-                .where(eq(transactions.id, row.id));
-            }),
-          );
+          const computed = batch.map((row) => {
+            const direction =
+              convention === "inverted" ? (row.direction === "debit" ? "credit" : "debit") : row.direction;
+            const eventRole = resolveEventRole({
+              primary: row.primary,
+              detailed: row.detailed,
+              isTransfer: row.isTransfer,
+              direction,
+            });
+            return { id: row.id, direction, eventRole };
+          });
+          const valuesList = sql.join(
+            computed.map((c) => sql`(${c.id}::uuid, ${c.direction}::text, ${c.eventRole}::text)`),
+            sql`, `,
+          ) as SQL;
+          await tx.execute(sql`
+            update transactions t
+            set status = 'confirmed', pending_reason = null,
+                direction = v.direction::txn_direction, event_role = v.event_role
+            from (values ${valuesList}) as v(id, direction, event_role)
+            where t.id = v.id
+          `);
         }
       });
     },

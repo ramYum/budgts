@@ -1,4 +1,5 @@
 import { createClient, getSessionUser } from "@/lib/supabase/server";
+import { fetchAllRows } from "@/lib/supabase/fetch-all-rows";
 import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
 import { ConnectBank } from "./connect-bank";
 import {
@@ -54,7 +55,7 @@ export async function BankConnections() {
 
   const items = (itemsData ?? []) as PlaidItemRow[];
 
-  const [{ data: acctData }, { data: budgtsAcctData }, { data: pendingSignRows }] = await Promise.all([
+  const [{ data: acctData }, { data: budgtsAcctData }, pendingSignRows] = await Promise.all([
     supabase
       .from("plaid_accounts")
       .select(
@@ -65,19 +66,28 @@ export async function BankConnections() {
     // ("We're checking this account's transaction format") rather than let
     // transactions silently vanish from every total. IDs only, tallied below —
     // an aggregate count isn't available through PostgREST without an RPC.
-    supabase
-      .from("transactions")
-      .select("plaid_account_id")
-      .eq("status", "pending_review")
-      .eq("pending_reason", "sign_convention_unknown")
-      .not("plaid_account_id", "is", null),
+    // fetchAllRows, not a bare await: this exact account can hold thousands of
+    // pending rows (a heavy Plaid feed's full initial import) — an unbounded
+    // `.select()` silently caps at PostgREST's default 1000, which would
+    // undercount the very notice this query exists to make accurate (see
+    // fetch-all-rows.ts for the confirmed real-world case that pattern fixed).
+    fetchAllRows<{ plaid_account_id: string }>((from, to) =>
+      supabase
+        .from("transactions")
+        .select("plaid_account_id")
+        .eq("status", "pending_review")
+        .eq("pending_reason", "sign_convention_unknown")
+        .not("plaid_account_id", "is", null)
+        .order("id")
+        .range(from, to),
+    ),
   ]);
 
   const plaidAccounts = (acctData ?? []) as PlaidAccountRow[];
   const budgtsAccounts = (budgtsAcctData ?? []) as { id: string; name: string }[];
   const accountName = new Map(budgtsAccounts.map((a) => [a.id, a.name]));
   const pendingSignCheckCounts = new Map<string, number>();
-  for (const r of (pendingSignRows ?? []) as { plaid_account_id: string }[]) {
+  for (const r of pendingSignRows) {
     pendingSignCheckCounts.set(r.plaid_account_id, (pendingSignCheckCounts.get(r.plaid_account_id) ?? 0) + 1);
   }
 

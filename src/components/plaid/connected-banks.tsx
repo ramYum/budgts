@@ -259,7 +259,11 @@ function ImportToggle({ account }: { account: ConnectedBankAccount }) {
         aria-checked={importing}
         aria-label={`Importing ${account.name ?? "Account"}`}
         disabled={pending}
-        title={importing ? "Importing — tap to pause" : "Paused — tap to resume importing"}
+        title={
+          importing
+            ? "Importing — tap to pause. New transactions from a paused account aren't recovered later."
+            : "Paused — tap to resume importing new transactions from now on."
+        }
         className={`relative h-5 w-9 shrink-0 rounded-full transition-colors disabled:opacity-50 ${
           importing ? "bg-primary" : "bg-border"
         }`}

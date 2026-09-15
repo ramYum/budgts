@@ -11,7 +11,7 @@
  */
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { usePlaidLink } from "react-plaid-link";
+import { usePlaidLink, type PlaidLinkOnSuccessMetadata } from "react-plaid-link";
 import { syncConnection } from "@/server/plaid/actions";
 import { clearLinkContext, loadLinkContext } from "@/components/plaid/oauth-storage";
 
@@ -34,10 +34,7 @@ export default function PlaidOAuthPage() {
     },
   });
 
-  async function finish(
-    publicToken: string,
-    metadata: Parameters<NonNullable<Parameters<typeof usePlaidLink>[0]["onSuccess"]>>[1],
-  ) {
+  async function finish(publicToken: string, metadata: PlaidLinkOnSuccessMetadata) {
     if (saved?.context.kind === "reconnect") {
       await syncConnection(saved.context.itemId);
       router.replace("/connected-banks");
@@ -59,10 +56,12 @@ export default function PlaidOAuthPage() {
         }),
       });
       if (!res.ok && res.status !== 409) throw new Error();
+      // Only navigate away on success — an error the user can't read defeats
+      // the point of showing one (found in review before this shipped).
+      router.replace("/connected-banks");
     } catch {
       setError("Couldn't finish connecting the bank. Try again from Connected Banks.");
     }
-    router.replace("/connected-banks");
   }
 
   useEffect(() => {
@@ -88,8 +87,20 @@ export default function PlaidOAuthPage() {
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-sm flex-col items-center justify-center gap-3 p-6 text-center">
-      <p className="text-sm text-muted">Finishing your bank connection…</p>
-      {error ? <p className="text-sm text-neg">{error}</p> : null}
+      {error ? (
+        <>
+          <p className="text-sm text-neg">{error}</p>
+          <button
+            type="button"
+            onClick={() => router.replace("/connected-banks")}
+            className="rounded-full bg-primary-btn px-3 py-2 text-sm font-semibold text-on-primary-btn"
+          >
+            Back to Connected Banks
+          </button>
+        </>
+      ) : (
+        <p className="text-sm text-muted">Finishing your bank connection…</p>
+      )}
     </main>
   );
 }

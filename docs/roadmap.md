@@ -136,6 +136,15 @@ and typography unchanged.
 redesigned fill + type hierarchy, mascot mirrored on the insight card —
 the final redesign pass.
 
+**"How Budgts Works" guide** (`/help/how-it-works`): a permanent, static
+Help page teaching the end-to-end mental model (connect → transactions
+arrive → auto-categorize → review exceptions → set a budget → Money Left →
+track progress) — what the first-run tour shows *where* for, this teaches
+*how the workflow fits together and why it's convenient*. Linked from a new
+entry card at the top of `/help` and from the tour's final card. No DB
+reads, no new dependency. Spec:
+`docs/specs/2026-09-15-how-budgts-works-guide-design.md`.
+
 Deferred → backlog, outside the closed redesign (see the spec's own
 §"remaining issues" classification): the
 3-screen onboarding wizard (Welcome → Connect Bank → All Set) — the existing

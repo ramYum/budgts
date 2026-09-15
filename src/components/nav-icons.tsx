@@ -15,7 +15,10 @@ export type NavGlyph =
   | "help"
   | "about"
   | "connected-banks"
-  | "back";
+  | "back"
+  | "categorize"
+  | "review"
+  | "money-left";
 
 const common = {
   fill: "none" as const,
@@ -92,6 +95,27 @@ const PATHS: Record<NavGlyph, React.ReactNode> = {
     </>
   ),
   back: <path {...common} d="M14.5 5.5 8 12l6.5 6.5" />,
+  // The three "How Budgts Works" guide (Help) concepts without an existing
+  // glyph to borrow — same line-icon language as everything above.
+  categorize: (
+    <>
+      <path {...common} d="M12 4h5.5A1.5 1.5 0 0 1 19 5.5V11a2 2 0 0 1-.59 1.41l-6 6a2 2 0 0 1-2.82 0l-4.5-4.5a2 2 0 0 1 0-2.82l6-6A2 2 0 0 1 12 4Z" />
+      <circle cx="15" cy="8" r="1.1" fill="currentColor" stroke="none" />
+    </>
+  ),
+  review: (
+    <>
+      <path {...common} d="M4 6.5A1.5 1.5 0 0 1 5.5 5h13A1.5 1.5 0 0 1 20 6.5v8A1.5 1.5 0 0 1 18.5 16H10l-4 3.5V16H5.5A1.5 1.5 0 0 1 4 14.5Z" />
+      <circle cx="12" cy="10.5" r="1.1" fill="currentColor" stroke="none" />
+    </>
+  ),
+  "money-left": (
+    <>
+      <ellipse {...common} cx="12" cy="6.5" rx="6" ry="2.3" />
+      <path {...common} d="M6 6.5v11c0 1.27 2.69 2.3 6 2.3s6-1.03 6-2.3v-11" />
+      <path {...common} d="M6 12c0 1.27 2.69 2.3 6 2.3s6-1.03 6-2.3" />
+    </>
+  ),
 };
 
 export function NavIcon({ glyph, className = "h-[18px] w-[18px]" }: { glyph: NavGlyph; className?: string }) {

@@ -77,5 +77,17 @@ export const setAccountCalculationExclusionSchema = z.object({
   excluded: z.boolean(),
 });
 
+/**
+ * Turn importing on/off for one already-linked Plaid account without
+ * re-running account mapping (design 2026-09-15 — the prior "Stop
+ * importing" flow nulled the account_id, making resume a fresh mapping
+ * decision every time; this path preserves it, so the switch is reversible).
+ */
+export const setAccountImportingSchema = z.object({
+  /** `plaid_accounts.id` (row uuid). */
+  plaidAccountRowId: z.string().uuid(),
+  importing: z.boolean(),
+});
+
 export type AccountMapEntryInput = z.infer<typeof accountMapEntrySchema>;
 export type MapAccountsInput = z.infer<typeof mapAccountsSchema>;

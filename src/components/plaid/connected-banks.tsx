@@ -6,8 +6,8 @@ import { Overlay } from "@/components/overlay";
 import {
   clearAccountReview,
   disconnectBank,
-  mapAccounts,
   setAccountCalculationExclusionAction,
+  setAccountImportingAction,
   syncConnection,
   type PlaidActionState,
 } from "@/server/plaid/actions";
@@ -24,6 +24,11 @@ export type ConnectedBankAccount = {
   needsReview: boolean;
   reviewReason: string | null;
   excludedFromCalculations: boolean;
+  /** Rows still held pending sign-convention verification (design 2026-09-12
+   *  North Star §2) — never confirmed, so never counted anywhere, until this
+   *  is 0. Drives the "We're checking this account's transaction format"
+   *  notice; must never be silently omitted. */
+  pendingSignCheckCount: number;
 };
 
 export type ConnectedBank = {
@@ -102,7 +107,6 @@ function BankCard({
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [choosing, setChoosing] = useState(false);
-  const [stopping, setStopping] = useState<ConnectedBankAccount | null>(null);
 
   const needsAttention = NEEDS_ATTENTION.includes(bank.status);
   const hasUnmapped = bank.unmappedAccounts.length > 0;
@@ -158,17 +162,12 @@ function BankCard({
                   : a.linkState === "ignored"
                     ? "not imported"
                     : "not set up"}
-                {a.linkState === "mapped" ? (
-                  <button
-                    type="button"
-                    onClick={() => setStopping(a)}
-                    className="rounded-md border border-border px-1.5 py-0.5 font-medium hover:bg-surface-2"
-                  >
-                    Stop importing
-                  </button>
+                {a.linkState === "mapped" || (a.linkState === "ignored" && a.mappedAccountName) ? (
+                  <ImportToggle account={a} />
                 ) : null}
               </span>
             </div>
+            {a.pendingSignCheckCount > 0 ? <SignCheckNotice count={a.pendingSignCheckCount} /> : null}
             {a.needsReview || a.excludedFromCalculations ? <AccountReviewNotice account={a} /> : null}
           </li>
         ))}
@@ -227,16 +226,72 @@ function BankCard({
         </Overlay>
       ) : null}
 
-      {stopping ? (
-        <Overlay title={`Stop importing ${stopping.name ?? "this account"}?`} onClose={() => setStopping(null)}>
-          <StopImportingConfirm
-            plaidItemId={bank.id}
-            account={stopping}
-            onClose={() => setStopping(null)}
-          />
-        </Overlay>
-      ) : null}
     </li>
+  );
+}
+
+/**
+ * Import on/off switch for one already-mapped Plaid account (design
+ * 2026-09-15). Non-destructive: turning off never touches `account_id`, so
+ * turning back on resumes the same Budgts account with no re-mapping step —
+ * the whole point of making this reversible instead of a one-way "stop
+ * importing" action.
+ */
+function ImportToggle({ account }: { account: ConnectedBankAccount }) {
+  const router = useRouter();
+  const [state, formAction, pending] = useActionState<PlaidActionState, FormData>(
+    setAccountImportingAction,
+    {},
+  );
+  const importing = account.linkState === "mapped";
+
+  useEffect(() => {
+    if (state.ok) router.refresh();
+  }, [state.ok, router]);
+
+  return (
+    <form action={formAction} className="inline-flex items-center gap-1.5">
+      <input type="hidden" name="plaidAccountRowId" value={account.rowId} />
+      <input type="hidden" name="importing" value={importing ? "0" : "1"} />
+      <button
+        type="submit"
+        role="switch"
+        aria-checked={importing}
+        aria-label={`Importing ${account.name ?? "Account"}`}
+        disabled={pending}
+        title={importing ? "Importing — tap to pause" : "Paused — tap to resume importing"}
+        className={`relative h-5 w-9 shrink-0 rounded-full transition-colors disabled:opacity-50 ${
+          importing ? "bg-primary" : "bg-border"
+        }`}
+      >
+        <span
+          aria-hidden
+          className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${
+            importing ? "translate-x-4" : "translate-x-0.5"
+          }`}
+        />
+      </button>
+      {state.error ? <span className="text-neg">{state.error}</span> : null}
+    </form>
+  );
+}
+
+/**
+ * Design: 2026-09-12 North Star §2. `sign_convention` is never exposed to the
+ * user by name (internal-only concept) — this is the ONLY thing shown while
+ * an account's convention is still unresolved, so held transactions never
+ * just silently disappear from every total with no explanation.
+ */
+function SignCheckNotice({ count }: { count: number }) {
+  return (
+    <div className="rounded-lg border border-hairline bg-surface-2 p-2.5 text-xs text-muted">
+      <p>
+        We&apos;re checking this account&apos;s transaction format. Your transactions will appear once verified.
+      </p>
+      <p className="mt-1 text-[11px]">
+        {count} {count === 1 ? "transaction" : "transactions"} waiting.
+      </p>
+    </div>
   );
 }
 
@@ -327,55 +382,6 @@ function AccountReviewNotice({ account }: { account: ConnectedBankAccount }) {
         Left, budgets, and spending totals.
       </p>
     </div>
-  );
-}
-
-function StopImportingConfirm({
-  plaidItemId,
-  account,
-  onClose,
-}: {
-  plaidItemId: string;
-  account: ConnectedBankAccount;
-  onClose: () => void;
-}) {
-  const router = useRouter();
-  const [state, formAction, pending] = useActionState<PlaidActionState, FormData>(mapAccounts, {});
-
-  useEffect(() => {
-    if (state.ok) {
-      onClose();
-      router.refresh();
-    }
-  }, [state.ok, onClose, router]);
-
-  const entries = [{ plaidAccountId: account.plaidAccountId, mode: "ignore" }];
-
-  return (
-    <form action={formAction} className="space-y-3">
-      <input type="hidden" name="plaidItemId" value={plaidItemId} />
-      <input type="hidden" name="entries" value={JSON.stringify(entries)} readOnly />
-
-      <p className="text-sm text-muted">
-        Budgts stops importing new transactions from {account.name ?? "this account"}. Transactions already
-        imported stay in your history and keep counting toward budgets.
-      </p>
-
-      {state.error ? <p className="text-sm text-neg">{state.error}</p> : null}
-
-      <div className="flex gap-2 pt-1">
-        <button
-          type="submit"
-          disabled={pending}
-          className="flex-1 rounded-lg bg-neg px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
-        >
-          {pending ? "Saving…" : "Stop importing"}
-        </button>
-        <button type="button" onClick={onClose} className="rounded-full border border-border px-3 py-2 text-sm">
-          Cancel
-        </button>
-      </div>
-    </form>
   );
 }
 

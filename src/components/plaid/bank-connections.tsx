@@ -54,18 +54,32 @@ export async function BankConnections() {
 
   const items = (itemsData ?? []) as PlaidItemRow[];
 
-  const [{ data: acctData }, { data: budgtsAcctData }] = await Promise.all([
+  const [{ data: acctData }, { data: budgtsAcctData }, { data: pendingSignRows }] = await Promise.all([
     supabase
       .from("plaid_accounts")
       .select(
         "id, plaid_item_id, plaid_account_id, name, official_name, mask, type, subtype, current_balance, iso_currency_code, link_state, account_id, needs_review, review_reason, excluded_from_calculations",
       ),
     supabase.from("accounts").select("id, name").eq("is_archived", false).order("name"),
+    // Design: 2026-09-12 North Star §2 — while unresolved, the UI must say so
+    // ("We're checking this account's transaction format") rather than let
+    // transactions silently vanish from every total. IDs only, tallied below —
+    // an aggregate count isn't available through PostgREST without an RPC.
+    supabase
+      .from("transactions")
+      .select("plaid_account_id")
+      .eq("status", "pending_review")
+      .eq("pending_reason", "sign_convention_unknown")
+      .not("plaid_account_id", "is", null),
   ]);
 
   const plaidAccounts = (acctData ?? []) as PlaidAccountRow[];
   const budgtsAccounts = (budgtsAcctData ?? []) as { id: string; name: string }[];
   const accountName = new Map(budgtsAccounts.map((a) => [a.id, a.name]));
+  const pendingSignCheckCounts = new Map<string, number>();
+  for (const r of (pendingSignRows ?? []) as { plaid_account_id: string }[]) {
+    pendingSignCheckCounts.set(r.plaid_account_id, (pendingSignCheckCounts.get(r.plaid_account_id) ?? 0) + 1);
+  }
 
   const banks: ConnectedBank[] = items.map((item) => {
     const rows = plaidAccounts.filter((a) => a.plaid_item_id === item.id);
@@ -79,6 +93,7 @@ export async function BankConnections() {
       needsReview: a.needs_review,
       reviewReason: a.review_reason,
       excludedFromCalculations: a.excluded_from_calculations,
+      pendingSignCheckCount: pendingSignCheckCounts.get(a.id) ?? 0,
     }));
     const unmappedAccounts: MappableAccount[] = rows
       .filter((a) => a.link_state === "unmapped")

@@ -448,3 +448,92 @@ describe("PlaidSyncStore anomaly review flagging (staging Postgres)", () => {
     expect(pendingRow.content_fingerprint).not.toBe(postedRow.content_fingerprint);
   });
 });
+
+// Design: 2026-09-12 North Star §2 sign-convention lifecycle. Regression found
+// 2026-09-15 in production: an inverted account's PURCHASE rows were flipping
+// direction correctly but staying labeled REFUND forever, because event_role
+// is direction-dependent (event-role.ts rows 6/7) and finalizeSignConvention
+// only ever touched `direction`.
+describe("PlaidSyncStore.finalizeSignConvention recomputes event_role, not just direction (staging Postgres)", () => {
+  let invertedAccountRowId: string;
+
+  beforeAll(async () => {
+    const [item] = await client<{ id: string }[]>`select id from public.plaid_items where item_id = ${ITEM_ID}`;
+    const [pa] = await client<{ id: string }[]>`
+      insert into public.plaid_accounts (user_id, plaid_item_id, plaid_account_id, account_id, link_state, name, sign_convention)
+      values (${userId}, ${item.id}, 'itest-pa-inverted', ${accountId}, 'mapped', 'Inverted Checking', 'unknown')
+      returning id`;
+    invertedAccountRowId = pa.id;
+  });
+
+  it("flips a spend-shaped row's event_role from REFUND to PURCHASE when the account resolves inverted", async () => {
+    // Landed under the "assume standard" default: raw amount negative (looks
+    // like an inflow) + FOOD_AND_DRINK (spend-shaped) => direction=credit,
+    // event_role=REFUND (event-role.ts row 6) — exactly what the live adapter
+    // computes for an account still at signConvention "unknown".
+    const rowId = await insertBankTxn(userId, accountId, {
+      plaidAccountId: invertedAccountRowId,
+      direction: "credit",
+      primary: "FOOD_AND_DRINK",
+      detailed: "FOOD_AND_DRINK_RESTAURANT",
+      status: "pending_review",
+      pendingReason: "sign_convention_unknown",
+      eventRole: "REFUND",
+      raw: { transaction_id: "itest-inv-1", amount: -1500 },
+    });
+
+    await store.finalizeSignConvention(invertedAccountRowId, "inverted");
+
+    const [row] = await client<{ direction: string; event_role: string | null; status: string; pending_reason: string | null }[]>`
+      select direction, event_role, status, pending_reason from public.transactions where id = ${rowId}`;
+    expect(row.direction).toBe("debit"); // flipped, as before
+    expect(row.event_role).toBe("PURCHASE"); // must ALSO flip — this is the bug
+    expect(row.status).toBe("confirmed");
+    expect(row.pending_reason).toBeNull();
+  });
+
+  it("leaves a direction-independent event_role (TRANSFER) untouched by the same finalize", async () => {
+    const rowId = await insertBankTxn(userId, accountId, {
+      plaidAccountId: invertedAccountRowId,
+      direction: "credit",
+      primary: "TRANSFER_IN",
+      isTransfer: true, // as adapter.ts computes it at landing time (TRANSFER_PRIMARIES check)
+      status: "pending_review",
+      pendingReason: "sign_convention_unknown",
+      eventRole: "TRANSFER",
+      raw: { transaction_id: "itest-inv-2", amount: -2500 },
+    });
+
+    await store.finalizeSignConvention(invertedAccountRowId, "inverted");
+
+    const [row] = await client<{ direction: string; event_role: string | null }[]>`
+      select direction, event_role from public.transactions where id = ${rowId}`;
+    expect(row.direction).toBe("debit"); // direction still flips
+    expect(row.event_role).toBe("TRANSFER"); // role is direction-independent, unchanged
+  });
+
+  it("a standard verdict confirms rows without touching direction or event_role", async () => {
+    const [item] = await client<{ id: string }[]>`select id from public.plaid_items where item_id = ${ITEM_ID}`;
+    const [pa] = await client<{ id: string }[]>`
+      insert into public.plaid_accounts (user_id, plaid_item_id, plaid_account_id, account_id, link_state, name, sign_convention)
+      values (${userId}, ${item.id}, 'itest-pa-standard', ${accountId}, 'mapped', 'Standard Checking', 'unknown')
+      returning id`;
+    const rowId = await insertBankTxn(userId, accountId, {
+      plaidAccountId: pa.id,
+      direction: "debit",
+      primary: "FOOD_AND_DRINK",
+      status: "pending_review",
+      pendingReason: "sign_convention_unknown",
+      eventRole: "PURCHASE",
+      raw: { transaction_id: "itest-std-1", amount: 1500 },
+    });
+
+    await store.finalizeSignConvention(pa.id, "standard");
+
+    const [row] = await client<{ direction: string; event_role: string | null; status: string }[]>`
+      select direction, event_role, status from public.transactions where id = ${rowId}`;
+    expect(row.direction).toBe("debit");
+    expect(row.event_role).toBe("PURCHASE");
+    expect(row.status).toBe("confirmed");
+  });
+});

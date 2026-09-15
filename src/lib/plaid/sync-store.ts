@@ -16,6 +16,7 @@ import type * as schema from "@/lib/db/schema";
 import { plaidAccounts, plaidItems, transactions } from "@/lib/db/schema";
 import type { SyncPlan, TxnPatch } from "./apply-sync";
 import { plaidToInsert } from "./land";
+import { resolveEventRole } from "./event-role";
 import type { SignEvidenceTxn } from "./sign-convention";
 import type { PlaidSyncStore, PlaidTxnRow } from "./sync-engine";
 
@@ -257,16 +258,22 @@ export function createPlaidSyncStore(db: PlaidDb): PlaidSyncStore {
           .set({ signConvention: convention, updatedAt: sql`now()` })
           .where(eq(plaidAccounts.id, plaidAccountRowId));
 
-        const set: Record<string, unknown> = { status: "confirmed", pendingReason: null };
-        if (convention === "inverted") {
-          // Explicit cast: the CASE expression is text by default, but
-          // `direction` is the `txn_direction` Postgres enum — an
-          // uncast text value can't be assigned to it in an UPDATE SET.
-          set.direction = sql`(CASE WHEN ${transactions.direction} = 'debit' THEN 'credit' ELSE 'debit' END)::txn_direction`;
-        }
-        await tx
-          .update(transactions)
-          .set(set)
+        // event_role is direction-dependent for spend-shaped primaries
+        // (event-role.ts rows 6/7, PURCHASE <-> REFUND) — a bare direction
+        // flip on "inverted" leaves those rows' role stale forever (found in
+        // production 2026-09-15: purchases stuck labeled REFUND). Recompute
+        // per row from the SAME inputs the live adapter used, with the
+        // corrected direction, rather than special-casing which primaries
+        // are direction-dependent — one source of truth (resolveEventRole).
+        const pendingRows = await tx
+          .select({
+            id: transactions.id,
+            direction: transactions.direction,
+            primary: transactions.plaidCategoryPrimary,
+            detailed: transactions.plaidCategoryDetailed,
+            isTransfer: transactions.isTransfer,
+          })
+          .from(transactions)
           .where(
             and(
               eq(transactions.plaidAccountId, plaidAccountRowId),
@@ -275,6 +282,25 @@ export function createPlaidSyncStore(db: PlaidDb): PlaidSyncStore {
               eq(transactions.pendingReason, "sign_convention_unknown"),
             ),
           );
+
+        for (const batch of chunk(pendingRows, BATCH_SIZE)) {
+          await Promise.all(
+            batch.map((row) => {
+              const direction =
+                convention === "inverted" ? (row.direction === "debit" ? "credit" : "debit") : row.direction;
+              const eventRole = resolveEventRole({
+                primary: row.primary,
+                detailed: row.detailed,
+                isTransfer: row.isTransfer,
+                direction,
+              });
+              return tx
+                .update(transactions)
+                .set({ status: "confirmed", pendingReason: null, direction, eventRole })
+                .where(eq(transactions.id, row.id));
+            }),
+          );
+        }
       });
     },
 

@@ -22,6 +22,7 @@ import {
   disconnectBankSchema,
   mapAccountsSchema,
   setAccountCalculationExclusionSchema,
+  setAccountImportingSchema,
 } from "@/lib/validation/plaid";
 import { setAccountCalculationExclusion } from "./account-exclusion";
 import { disconnectPlaidItem } from "./disconnect";
@@ -194,6 +195,66 @@ export async function setAccountCalculationExclusionAction(
   if (result.outcome === "not_found") return { error: "That account no longer exists." };
   if (result.outcome === "needs_review_required") {
     return { error: "Only an account currently flagged for review can be excluded from totals." };
+  }
+
+  revalidateSynced();
+  return { ok: true };
+}
+
+/**
+ * Turn importing on/off for one already-linked Plaid account (design
+ * 2026-09-15). Deliberately non-destructive and reversible: turning off
+ * never nulls `account_id` (unlike the "Don't import this one" choice in
+ * account mapping), so turning back on resumes the SAME Budgts account —
+ * no re-mapping, no risk of a second duplicate account being created for
+ * the same real-world bank account. Requires a Budgts account already
+ * mapped; an account that was never mapped has nothing to resume.
+ */
+export async function setAccountImportingAction(
+  _prev: PlaidActionState,
+  formData: FormData,
+): Promise<PlaidActionState> {
+  const parsed = setAccountImportingSchema.safeParse({
+    plaidAccountRowId: String(formData.get("plaidAccountRowId") ?? ""),
+    importing: formData.get("importing") === "1",
+  });
+  if (!parsed.success) return { error: "Something went wrong. Refresh and try again." };
+
+  const { user, supabase } = await withUser();
+
+  // RLS scopes this to the caller.
+  const { data: row } = await supabase
+    .from("plaid_accounts")
+    .select("account_id, plaid_item_id")
+    .eq("id", parsed.data.plaidAccountRowId)
+    .maybeSingle();
+  if (!row) return { error: "That account no longer exists." };
+  if (parsed.data.importing && !row.account_id) {
+    return { error: "Choose which Budgts account to import into first." };
+  }
+
+  const { error } = await supabase
+    .from("plaid_accounts")
+    .update({ link_state: parsed.data.importing ? "mapped" : "ignored" })
+    .eq("id", parsed.data.plaidAccountRowId);
+  if (error) return { error: "Could not update the import setting. Try again." };
+
+  if (parsed.data.importing) {
+    // Pull in anything that arrived while paused, same as the mapping flow's
+    // first-sync-on-save (design §11).
+    const { data: item } = await supabase
+      .from("plaid_items")
+      .select("item_id")
+      .eq("id", row.plaid_item_id)
+      .maybeSingle();
+    const record = item ? await findItemByPlaidItemId(plaidDb, item.item_id) : null;
+    if (record && record.userId === user.id) {
+      const result = await syncItem(record);
+      revalidateSynced();
+      if (!result.ok) {
+        return { ok: true, warning: "Importing resumed. The first sync didn't finish — it'll retry shortly." };
+      }
+    }
   }
 
   revalidateSynced();

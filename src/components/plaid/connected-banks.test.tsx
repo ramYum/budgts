@@ -8,6 +8,7 @@ const syncConnection = vi.fn();
 const mapAccounts = vi.fn();
 const clearAccountReview = vi.fn();
 const setAccountCalculationExclusionAction = vi.fn();
+const setAccountImportingAction = vi.fn();
 const refresh = vi.fn();
 
 vi.mock("next/navigation", () => ({
@@ -20,6 +21,7 @@ vi.mock("@/server/plaid/actions", () => ({
   mapAccounts: (...args: unknown[]) => mapAccounts(...args),
   clearAccountReview: (...args: unknown[]) => clearAccountReview(...args),
   setAccountCalculationExclusionAction: (...args: unknown[]) => setAccountCalculationExclusionAction(...args),
+  setAccountImportingAction: (...args: unknown[]) => setAccountImportingAction(...args),
 }));
 
 vi.mock("./reconnect-button", () => ({
@@ -44,6 +46,7 @@ function bank(over: Partial<ConnectedBank> = {}): ConnectedBank {
         needsReview: false,
         reviewReason: null,
         excludedFromCalculations: false,
+        pendingSignCheckCount: 0,
       },
       {
         rowId: "row-saving",
@@ -55,6 +58,7 @@ function bank(over: Partial<ConnectedBank> = {}): ConnectedBank {
         needsReview: false,
         reviewReason: null,
         excludedFromCalculations: false,
+        pendingSignCheckCount: 0,
       },
     ],
     unmappedAccounts: [],
@@ -130,28 +134,6 @@ describe("ConnectedBanks", () => {
     expect(syncConnection).toHaveBeenCalledWith("item-sandbox-1");
   });
 
-  it("stops importing a single already-mapped account without disconnecting the bank", async () => {
-    mapAccounts.mockResolvedValue({ ok: true });
-    const user = userEvent.setup();
-
-    render(<ConnectedBanks banks={[bank()]} budgtsAccounts={[{ id: "acc-1", name: "Checking" }]} />);
-
-    await user.click(screen.getByRole("button", { name: "Stop importing" }));
-
-    const dialog = screen.getByRole("dialog");
-    expect(within(dialog).getByText(/stops importing new transactions from Plaid Checking/)).toBeInTheDocument();
-    expect(within(dialog).getByText(/already imported stay in your history/)).toBeInTheDocument();
-
-    await user.click(within(dialog).getByRole("button", { name: "Stop importing" }));
-
-    expect(mapAccounts).toHaveBeenCalledTimes(1);
-    const fd = mapAccounts.mock.calls[0][1] as FormData;
-    expect(fd.get("plaidItemId")).toBe("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
-    expect(JSON.parse(fd.get("entries") as string)).toEqual([
-      { plaidAccountId: "plaid-acc-checking", mode: "ignore" },
-    ]);
-  });
-
   it("shows a review warning for a flagged account and never hides it silently", () => {
     const flagged = bank({
       accounts: [
@@ -165,6 +147,7 @@ describe("ConnectedBanks", () => {
           needsReview: true,
           reviewReason: "50 transactions with identical content — this connection's data may be unreliable.",
           excludedFromCalculations: false,
+          pendingSignCheckCount: 0,
         },
       ],
     });
@@ -195,6 +178,7 @@ describe("ConnectedBanks", () => {
           needsReview: true,
           reviewReason: "Suspicious repetition detected.",
           excludedFromCalculations: false,
+          pendingSignCheckCount: 0,
         },
       ],
     });
@@ -224,6 +208,7 @@ describe("ConnectedBanks", () => {
           needsReview: true,
           reviewReason: "Suspicious repetition detected.",
           excludedFromCalculations: true,
+          pendingSignCheckCount: 0,
         },
       ],
     });
@@ -258,6 +243,7 @@ describe("ConnectedBanks", () => {
           needsReview: true,
           reviewReason: "Suspicious repetition detected.",
           excludedFromCalculations: false,
+          pendingSignCheckCount: 0,
         },
       ],
     });
@@ -270,5 +256,135 @@ describe("ConnectedBanks", () => {
     const fd = clearAccountReview.mock.calls[0][1] as FormData;
     expect(fd.get("plaidAccountRowId")).toBe("row-checking");
     expect(refresh).toHaveBeenCalled();
+  });
+});
+
+// Design: 2026-09-12 North Star §2 — "UI: never exposes 'sign convention.'
+// While unresolved: 'We're checking this account's transaction format. Your
+// transactions will appear once verified.'" This message was never built
+// (found in production 2026-09-15: transactions vanished from every total
+// with zero explanation). It must never be confused with the anomaly
+// needs_review banner — different cause, different (non-actionable) state.
+describe("ConnectedBanks — sign-convention 'checking this account' notice", () => {
+  it("shows the exact design copy while an account has unverified transactions held", () => {
+    const checking = bank({
+      accounts: [
+        {
+          rowId: "row-checking",
+          plaidAccountId: "plaid-acc-checking",
+          name: "Plaid Checking",
+          mask: "0000",
+          linkState: "mapped",
+          mappedAccountName: "Checking",
+          needsReview: false,
+          reviewReason: null,
+          excludedFromCalculations: false,
+          pendingSignCheckCount: 3,
+        },
+      ],
+    });
+
+    render(<ConnectedBanks banks={[checking]} budgtsAccounts={[{ id: "acc-1", name: "Checking" }]} />);
+
+    expect(
+      screen.getByText(
+        "We're checking this account's transaction format. Your transactions will appear once verified.",
+      ),
+    ).toBeInTheDocument();
+    // Never the word "sign convention" or "inverted"/"standard" — internal terms.
+    expect(screen.queryByText(/sign convention/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/inverted/i)).not.toBeInTheDocument();
+  });
+
+  it("says nothing extra once the account has no rows held for this reason", () => {
+    render(<ConnectedBanks banks={[bank()]} budgtsAccounts={[{ id: "acc-1", name: "Checking" }]} />);
+    expect(screen.queryByText(/checking this account/i)).not.toBeInTheDocument();
+  });
+
+  it("shows both the checking notice and an unrelated review flag together, never suppressing either", () => {
+    const both = bank({
+      accounts: [
+        {
+          rowId: "row-checking",
+          plaidAccountId: "plaid-acc-checking",
+          name: "Plaid Checking",
+          mask: "0000",
+          linkState: "mapped",
+          mappedAccountName: "Checking",
+          needsReview: true,
+          reviewReason: "Suspicious repetition detected.",
+          excludedFromCalculations: false,
+          pendingSignCheckCount: 5,
+        },
+      ],
+    });
+
+    render(<ConnectedBanks banks={[both]} budgtsAccounts={[{ id: "acc-1", name: "Checking" }]} />);
+
+    expect(screen.getByText(/checking this account's transaction format/i)).toBeInTheDocument();
+    expect(screen.getByText(/Suspicious repetition detected/)).toBeInTheDocument();
+  });
+});
+
+// User request 2026-09-15: "Stop importing" should be a reversible switch, not
+// a one-way action requiring the mapping screen again to resume.
+describe("ConnectedBanks — import on/off switch", () => {
+  it("renders an ON switch for a mapped account and turns it off with no confirm dialog", async () => {
+    setAccountImportingAction.mockResolvedValue({ ok: true });
+    const user = userEvent.setup();
+
+    render(<ConnectedBanks banks={[bank()]} budgtsAccounts={[{ id: "acc-1", name: "Checking" }]} />);
+
+    const toggle = screen.getByRole("switch", { name: /import.*Plaid Checking/i });
+    expect(toggle).toHaveAttribute("aria-checked", "true");
+
+    await user.click(toggle);
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument(); // reversible now — no destructive confirm
+    expect(setAccountImportingAction).toHaveBeenCalledTimes(1);
+    const fd = setAccountImportingAction.mock.calls[0][1] as FormData;
+    expect(fd.get("plaidAccountRowId")).toBe("row-checking");
+    expect(fd.get("importing")).toBe("0");
+    expect(refresh).toHaveBeenCalled();
+  });
+
+  it("renders an OFF switch for a paused-but-still-mapped account and turns it back on", async () => {
+    setAccountImportingAction.mockResolvedValue({ ok: true });
+    const user = userEvent.setup();
+    const paused = bank({
+      accounts: [
+        {
+          rowId: "row-checking",
+          plaidAccountId: "plaid-acc-checking",
+          name: "Plaid Checking",
+          mask: "0000",
+          linkState: "ignored",
+          mappedAccountName: "Checking", // still resolvable — toggled off via the new path, not nulled
+          needsReview: false,
+          reviewReason: null,
+          excludedFromCalculations: false,
+          pendingSignCheckCount: 0,
+        },
+      ],
+    });
+
+    render(<ConnectedBanks banks={[paused]} budgtsAccounts={[{ id: "acc-1", name: "Checking" }]} />);
+
+    const toggle = screen.getByRole("switch", { name: /import.*Plaid Checking/i });
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+
+    await user.click(toggle);
+
+    expect(setAccountImportingAction).toHaveBeenCalledTimes(1);
+    const fd = setAccountImportingAction.mock.calls[0][1] as FormData;
+    expect(fd.get("plaidAccountRowId")).toBe("row-checking");
+    expect(fd.get("importing")).toBe("1");
+  });
+
+  it("shows plain not-imported text (no switch) for an account never mapped to anything", () => {
+    render(<ConnectedBanks banks={[bank()]} budgtsAccounts={[{ id: "acc-1", name: "Checking" }]} />);
+    // "Plaid Saving" fixture: linkState ignored, mappedAccountName null — nothing to resume to.
+    expect(screen.getByText("not imported")).toBeInTheDocument();
+    expect(screen.queryByRole("switch", { name: /import.*Plaid Saving/i })).not.toBeInTheDocument();
   });
 });

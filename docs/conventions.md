@@ -112,6 +112,14 @@ updated if something surprised you.
 - Counting `is_transfer` rows, or non-`confirmed` rows, in spend/income totals.
 - Treating a refund as its own concept instead of a `credit` in the same
   expense category that nets against spend.
+- Rendering clock- or time-zone-dependent text in a client component's first
+  render: `Date.now()`-relative labels ("5 min ago"), or `toLocaleDateString`
+  without `timeZone`. Vercel server-renders in UTC, so every non-UTC viewer
+  hits React #418 (hydration mismatch). Format stored dates with
+  `timeZone: "UTC"`; show relative time only after hydration
+  (`useSyncExternalStore` with a `false` server snapshot, see
+  `connected-banks.tsx`). Test with `src/test-utils/hydration.tsx`: server
+  render under one `process.env.TZ`, hydrate under another.
 
 ---
 

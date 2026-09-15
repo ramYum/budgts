@@ -17,10 +17,10 @@ BUDGTS
 │
 ├── Phase 2a  Savings Goals ...................................... ✅  (2d46178)
 │
-├── UI Redesign  Budgt brand + information architecture .......... ✅  design system, app shell, Home,
-│                                                                       Budgets/Category Detail, Activity done, merged
-│                                                                       to main and live; onboarding wizard + top-
-│                                                                       merchant/net-worth insights still deferred
+├── UI Redesign  Budgts brand + information architecture ......... ✅  COMPLETE (closed 2026-09-14) — design system,
+│                                                                       app shell, every screen, v2 brand, robin
+│                                                                       mascot rebrand, Money Left hero; live on main.
+│                                                                       Leftover items moved to the backlog below
 │
 ├── V1        Plaid transaction ingestion  (primary path) ....... ✅  live in prod (`4590520`); Plaid UI flag ON —
 │                                                                       3 real bank connections since 2026-09-11
@@ -82,7 +82,13 @@ types a minus.
 
 Spec: `docs/specs/2026-09-09-…-phase-2a-…`.
 
-## UI Redesign — Budgt brand + information architecture ✅
+## UI Redesign — Budgts brand + information architecture ✅ COMPLETE
+
+**Closed 2026-09-14.** Everything in scope has shipped to `main` and is live
+at `https://budgts.com` (last commit `b08cfcf`). The items under "Deferred"
+at the end of this section are **not** redesign work any more — they are
+standalone backlog items, picked up on their own merits (the onboarding
+wizard most naturally alongside V1.5, since Plaid is now live).
 
 Presentation-layer redesign ("Budgts" → "Budgt": black-cat mascot, a new
 screen hierarchy — Home leads with Money Left → Savings Rate → Spending →
@@ -116,7 +122,17 @@ CSS-simulated glow), and the four mascot mood expressions. Unused
 solid-color mark variants and decorative blob/sparkle crops were dropped
 rather than replaced (nothing in the app referenced them).
 
-Deferred (see the spec's own §"remaining issues" classification): the
+**Mascot/logo rebrand** (`22067c0`): the black-cat mascot and "Budgt" name
+were replaced by a robin mascot and the "Budgts" name/wordmark from `Logo
+Assets V2` — resolving the old in-app-name vs `budgts.com` mismatch. Palette
+and typography unchanged.
+
+**Money Left hero card** (`d0e48f2`, `b08cfcf`): light-coral hero fill,
+redesigned fill + type hierarchy, mascot mirrored on the insight card —
+the final redesign pass.
+
+Deferred → backlog, outside the closed redesign (see the spec's own
+§"remaining issues" classification): the
 3-screen onboarding wizard (Welcome → Connect Bank → All Set) — the existing
 single-screen onboarding was reskinned but not restructured, since Plaid UI
 was flag-gated off in every environment this was built against (the flag has

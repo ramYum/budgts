@@ -109,7 +109,31 @@ Plaid is live.
 | `DATABASE_URL` | staging transaction pooler (needed here — runtime uses Drizzle for the sync engine) |
 
 Also register `https://<deploy-host>/api/plaid/webhook` as the webhook URL in the
-Plaid dashboard, and the OAuth `redirect_uri` if OAuth institutions are used.
+Plaid dashboard.
+
+### OAuth redirect (needed for SoFi, Capital One, and most large US banks) — owner action required
+
+**Status 2026-09-15: code shipped, OFF until you complete this.** These
+institutions send the browser to their own login page, then need somewhere
+Plaid-registered to send it back — without this, Link can hang or fail
+partway through, exactly what happened reconnecting SoFi. The code is safe
+either way: `PLAID_OAUTH_REDIRECT_URI` unset (the default) sends no
+`redirect_uri` at all, identical to before this existed.
+
+**To turn it on** (Claude can't do this part — no Plaid dashboard access):
+
+1. Plaid dashboard → Developers → API → **Allowed redirect URIs** — add
+   `https://budgts.com/plaid-oauth` under the **Production** environment
+   (Sandbox has its own separate list; add it there too if you test OAuth
+   institutions in Sandbox).
+2. Vercel → Project → Settings → Environment Variables → set
+   `PLAID_OAUTH_REDIRECT_URI=https://budgts.com/plaid-oauth` for Production.
+3. Redeploy.
+
+**Do not set the env var before step 1 is saved in the Plaid dashboard** —
+sending an unregistered `redirect_uri` makes Plaid reject **every**
+`/link/token/create` call, not just OAuth ones, so this would break
+connecting or reconnecting any bank, not only the OAuth ones.
 
 ## 4. Point Supabase at the deployed URL
 

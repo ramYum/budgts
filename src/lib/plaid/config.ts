@@ -28,6 +28,17 @@ export interface PlaidConfig {
   tokenEncKey: Buffer;
   /** Shared secret the pg_cron poller presents to `/api/plaid/sync-due`. */
   cronSecret: string | null;
+  /**
+   * Where Plaid Link sends the browser back after an OAuth institution's
+   * bank-hosted login page. `null` by default (Link is created with no
+   * `redirect_uri`, exactly as before this existed) — sending ANY
+   * redirect_uri Plaid hasn't been told about in the developer dashboard's
+   * Allowed redirect URIs makes every `/link/token/create` call fail, not
+   * just OAuth reconnects, so this only turns on once the owner sets
+   * PLAID_OAUTH_REDIRECT_URI, which doubles as their confirmation that the
+   * matching dashboard entry exists.
+   */
+  oauthRedirectUri: string | null;
 }
 
 /** Plaid-Version we develop and test against. Bump deliberately, never implicitly. */
@@ -51,7 +62,19 @@ export function loadPlaidConfig(env: EnvLike = process.env): PlaidConfig {
     countryCodes: [CountryCode.Us],
     tokenEncKey: decodeTokenEncKey(required(env, "PLAID_TOKEN_ENC_KEY")),
     cronSecret: env.CRON_SECRET ?? null,
+    oauthRedirectUri: loadOauthRedirectUri(env, rawEnv),
   };
+}
+
+function loadOauthRedirectUri(env: EnvLike, plaidEnv: PlaidEnv): string | null {
+  const uri = env.PLAID_OAUTH_REDIRECT_URI;
+  if (!uri || uri.trim() === "") return null;
+  if (plaidEnv === "production" && !uri.startsWith("https://")) {
+    throw new Error(
+      `PLAID_OAUTH_REDIRECT_URI must be an https URL in production (got ${JSON.stringify(uri)})`,
+    );
+  }
+  return uri;
 }
 
 function required(env: EnvLike, name: string): string {

@@ -28,6 +28,14 @@ export async function POST(request: Request) {
     language: "en",
     country_codes: cfg.countryCodes,
     webhook: `${siteUrl}/api/plaid/webhook`,
+    // OAuth institutions (SoFi, Capital One, most large US banks) leave our
+    // page entirely for the bank's own login, then need somewhere registered
+    // to send the browser back — without this, Link can hang or silently fail
+    // on exactly those institutions (design 2026-09-15). Omitted whenever
+    // PLAID_OAUTH_REDIRECT_URI is unset: sending ANY redirect_uri Plaid's
+    // dashboard doesn't have registered fails EVERY link-token create, so
+    // this must never turn on by accident.
+    ...(cfg.oauthRedirectUri ? { redirect_uri: cfg.oauthRedirectUri } : {}),
   };
 
   try {

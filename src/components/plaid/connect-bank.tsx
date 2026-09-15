@@ -6,6 +6,7 @@ import type { PlaidLinkOnSuccessMetadata } from "react-plaid-link";
 import { Overlay } from "@/components/overlay";
 import { AccountMapping, type MappableAccount } from "./account-mapping";
 import { LinkHandoff } from "./link-handoff";
+import { clearLinkContext, saveLinkContext } from "./oauth-storage";
 
 type BudgtsAccount = { id: string; name: string };
 type Phase = "idle" | "starting" | "linking" | "exchanging" | "mapping";
@@ -38,6 +39,10 @@ export function ConnectBank({
       const res = await fetch("/api/plaid/link-token", { method: "POST" });
       const body = (await res.json()) as { link_token?: string };
       if (!res.ok || !body.link_token) throw new Error();
+      // Persisted BEFORE opening Link: an OAuth institution navigates the
+      // whole page away, so this is the only way the return trip
+      // (`/plaid-oauth`) can find the same token again.
+      saveLinkContext(body.link_token, { kind: "connect" });
       setLinkToken(body.link_token);
       setPhase("linking");
     } catch {
@@ -48,6 +53,7 @@ export function ConnectBank({
 
   const handleSuccess = useCallback(
     async (publicToken: string, metadata: PlaidLinkOnSuccessMetadata) => {
+      clearLinkContext(); // this run completed without leaving the page — nothing left to resume
       setPhase("exchanging");
       try {
         const res = await fetch("/api/plaid/exchange", {
@@ -85,6 +91,7 @@ export function ConnectBank({
   );
 
   const handleExit = useCallback(() => {
+    clearLinkContext();
     setLinkToken(null);
     setPhase((p) => (p === "mapping" ? p : "idle"));
   }, []);

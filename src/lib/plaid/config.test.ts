@@ -70,3 +70,35 @@ describe("decodeTokenEncKey", () => {
     expect(() => decodeTokenEncKey(Buffer.alloc(64).toString("base64"))).toThrow(/32 bytes/);
   });
 });
+
+// design 2026-09-15: redirect_uri is OFF by default (only sent to Plaid once
+// the owner has registered it in the Plaid dashboard's Allowed redirect URIs
+// — an env var they set is the confirmation, since there's no API to check
+// dashboard registration). Sending an unregistered redirect_uri makes EVERY
+// link-token create fail, not just OAuth reconnects, so this must never be on
+// by accident.
+describe("loadPlaidConfig — oauthRedirectUri", () => {
+  it("is null when PLAID_OAUTH_REDIRECT_URI is unset (feature off by default)", () => {
+    expect(loadPlaidConfig(env()).oauthRedirectUri).toBeNull();
+  });
+
+  it("passes the URI through once set", () => {
+    const c = loadPlaidConfig(env({ PLAID_OAUTH_REDIRECT_URI: "http://localhost:3000/plaid-oauth" }));
+    expect(c.oauthRedirectUri).toBe("http://localhost:3000/plaid-oauth");
+  });
+
+  it("rejects a non-https redirect URI in production — Plaid requires https there", () => {
+    expect(() =>
+      loadPlaidConfig(
+        env({ PLAID_ENV: "production", PLAID_OAUTH_REDIRECT_URI: "http://budgts.com/plaid-oauth" }),
+      ),
+    ).toThrow(/PLAID_OAUTH_REDIRECT_URI must be an https URL in production/);
+  });
+
+  it("accepts an https redirect URI in production", () => {
+    const c = loadPlaidConfig(
+      env({ PLAID_ENV: "production", PLAID_OAUTH_REDIRECT_URI: "https://budgts.com/plaid-oauth" }),
+    );
+    expect(c.oauthRedirectUri).toBe("https://budgts.com/plaid-oauth");
+  });
+});

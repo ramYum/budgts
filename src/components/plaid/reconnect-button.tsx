@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { syncConnection } from "@/server/plaid/actions";
 import { LinkHandoff } from "./link-handoff";
+import { clearLinkContext, saveLinkContext } from "./oauth-storage";
 
 type Phase = "idle" | "starting" | "linking" | "finishing";
 
@@ -29,6 +30,10 @@ export function ReconnectButton({ itemId }: { itemId: string }) {
       });
       const body = (await res.json()) as { link_token?: string };
       if (!res.ok || !body.link_token) throw new Error();
+      // Persisted BEFORE opening Link — an OAuth institution's reconnect
+      // leaves the page entirely; `/plaid-oauth` needs both the token and
+      // which item this reconnect was for.
+      saveLinkContext(body.link_token, { kind: "reconnect", itemId });
       setLinkToken(body.link_token);
       setPhase("linking");
     } catch {
@@ -38,6 +43,7 @@ export function ReconnectButton({ itemId }: { itemId: string }) {
   }, [itemId]);
 
   const handleSuccess = useCallback(async () => {
+    clearLinkContext(); // completed without leaving the page — nothing left to resume
     setLinkToken(null);
     setPhase("finishing");
     await syncConnection(itemId);
@@ -62,6 +68,7 @@ export function ReconnectButton({ itemId }: { itemId: string }) {
           linkToken={linkToken}
           onSuccess={handleSuccess}
           onExit={() => {
+            clearLinkContext();
             setLinkToken(null);
             setPhase("idle");
           }}

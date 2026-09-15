@@ -18,8 +18,9 @@ const field =
 const STD_PREFIX = "std:";
 const NEW_CATEGORY_VALUE = "__new__";
 
+/** Stored UTC calendar day — same as the Activity list, and identical on the server and in any browser time zone. */
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
 }
 
 /** "FOOD_AND_DRINK" -> "Food and drink" — Plaid's own guess, shown as a hint. */

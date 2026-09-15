@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState, useTransition } from "react";
+import { useActionState, useEffect, useState, useSyncExternalStore, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Overlay } from "@/components/overlay";
 import {
@@ -38,8 +38,16 @@ export type ConnectedBank = {
 
 const NEEDS_ATTENTION: ConnectedBank["status"][] = ["login_required", "pending_expiration", "revoked", "error"];
 
-function whenLabel(iso: string | null): string {
+/**
+ * "Last synced" wording. A relative label depends on the clock and the viewer's time zone, and the
+ * server renders in UTC a moment before the browser hydrates — so rendering it during SSR/hydration
+ * causes a text mismatch (React #418). Until hydrated, show the stable UTC calendar date instead.
+ */
+function whenLabel(iso: string | null, hydrated: boolean): string {
   if (!iso) return "not yet";
+  if (!hydrated) {
+    return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+  }
   const then = new Date(iso).getTime();
   const mins = Math.round((Date.now() - then) / 60000);
   if (mins < 1) return "just now";
@@ -47,6 +55,17 @@ function whenLabel(iso: string | null): string {
   const hrs = Math.round(mins / 60);
   if (hrs < 24) return `${hrs} hr ago`;
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+const subscribeNever = () => () => {};
+
+/** false during SSR and the hydration render, true afterwards (no setState-in-effect). */
+function useHydrated(): boolean {
+  return useSyncExternalStore(
+    subscribeNever,
+    () => true,
+    () => false,
+  );
 }
 
 export function ConnectedBanks({
@@ -78,6 +97,7 @@ function BankCard({
   budgtsAccounts: { id: string; name: string }[];
 }) {
   const router = useRouter();
+  const hydrated = useHydrated();
   const [syncing, startSync] = useTransition();
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
@@ -102,7 +122,7 @@ function BankCard({
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="truncate text-sm font-medium">{bank.institutionName ?? "Bank"}</p>
-          <p className="text-xs text-muted">Last synced {whenLabel(bank.lastSyncedAt)}</p>
+          <p className="text-xs text-muted">Last synced {whenLabel(bank.lastSyncedAt, hydrated)}</p>
         </div>
         <span
           className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${

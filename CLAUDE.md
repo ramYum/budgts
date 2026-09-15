@@ -6,16 +6,34 @@ WAT framework" below).
 
 ## What this project is
 
-A personal **budget tracking app**: a standalone, installable **PWA** (one
-codebase for phone + desktop) backed by the cloud so data syncs across a
-user's devices. Per-user accounts; no household/shared budgets in v1.
+A **commercial budget tracking app** ("Budgts"). Today it is an installable
+**PWA** (one codebase for phone + desktop) backed by the cloud, so data syncs
+across a user's devices. Per-user accounts; no household/shared budgets in v1.
+
+### The goal — read this before every decision
+
+Budgts will be **sold**: released on the **Google Play Store and Apple App
+Store** for **500+ paying users**. Every product and technical decision is
+judged against that, not against the owner's own accounts.
+
+- **Every account matters.** A fix must work for every user, bank, account
+  type, time zone and locale. The owner's data is only the first test set,
+  so "works on my accounts" is not done.
+- **No silent failure states.** Held, excluded, stale or errored data must
+  be visible in the UI, with a way to resolve it.
+- **Every state has a reachable exit.** Nothing may depend on "enough data
+  eventually arriving", because a low-activity account never gets there.
+- **Built for scale and cost:** paginated queries, Plaid per-item cost,
+  sync throughput and rate limits, hosting and database plan limits.
+- **Production data belongs to customers.** Remediation needs exact affected
+  rows, before/after totals, owner approval, and an audit trail.
 
 **Ingestion paths, in priority order:**
 
-1. Manual entry (always available)
-2. Email purchase-notification parsing — the primary *automatic* path
-3. Receipt photo → parse → user picks which card/account was used
-4. Bank aggregator connect — later, only where coverage exists
+1. Bank connect via Plaid — the primary automatic path (live)
+2. Manual entry — always-available fallback
+3. Email purchase-notification parsing (V2)
+4. Receipt photo → parse → user picks which card/account was used (V2)
 
 **v1 feature set:** categories + spend tracking · budgets vs actual · recurring
 / bills tracking · savings goals. Single currency per user, chosen at signup.
@@ -47,7 +65,7 @@ What carries over is the **spirit**:
 | Concern | Choice |
 | --- | --- |
 | App framework | Next.js (App Router) + TypeScript + React |
-| Hosting | Vercel (Hobby tier — personal/non-commercial; revisit if the app gets other users) |
+| Hosting | Vercel. **Currently Hobby tier, which is non-commercial only. Must move to Pro before charging users.** Supabase and Plaid plans also need sizing for 500+ users. |
 | PWA | web app manifest + service worker (app-shell caching) |
 | Data / auth / storage / realtime | Supabase (Postgres, Auth, Storage, Realtime) |
 | DB access | `supabase-js` with the user's session for all reads/writes; Drizzle for **migrations only** |
@@ -151,6 +169,9 @@ project settings. Never commit secrets. Keep `.env.local.example` in sync.
 5. One Playwright e2e covering the happy path end to end.
 6. `lint`, `typecheck`, `test`, `build` green.
 7. The relevant doc updated if anything surprised us.
+8. Works for **every** user and account, not just the owner's data. Every
+   state has a reachable exit, and nothing fails silently (see "The goal"
+   above).
 
 ## Roadmap
 

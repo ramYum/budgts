@@ -1,5 +1,10 @@
 # Roadmap
 
+> **Goal:** Budgts is a commercial app for the **Google Play Store and Apple
+> App Store**, sold to **500+ paying users**. Each tier below is only done
+> when it works for every user and every connected account, with no silent
+> failure states. See `CLAUDE.md` → "The goal".
+
 Build order for Budgts. **Phase 1** (manual core) and **Phase 2a** (savings
 goals) are shipped. Everything after is organised as capability tiers —
 **V1 → V1.5 → V2 → V2+** — sequenced so the passive-ingestion experience lands

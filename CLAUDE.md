@@ -175,6 +175,12 @@ mascot/logo/name swap, not a full visual rebrand. `docs/BRAND_GUIDELINES.md`
 is up to date; the UI redesign v2 note above is historical only for its
 brand details.
 
+**Shipped:** **"How Budgts Works" guide** — a permanent static Help page
+(`/help/how-it-works`) teaching the end-to-end workflow (connect →
+transactions arrive → auto-categorize → review exceptions → budget → Money
+Left → track progress); linked from `/help` and the first-run tour's final
+card. Spec: `docs/specs/2026-09-15-how-budgts-works-guide-design.md`.
+
 **Next:** **V1 — Plaid transaction ingestion** (the primary automatic path;
 manual entry stays as a fallback) → **V1.5** (recurring / subscription / bill
 detection over synced data + paired-transfer detection) → **V2** (email /

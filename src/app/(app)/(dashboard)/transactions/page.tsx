@@ -8,6 +8,7 @@ import { AddTransaction } from "@/components/add-transaction";
 import { TransactionList, type TxnListItem } from "@/components/transaction-list";
 import type { AccountOption, CategoryOption } from "@/components/transaction-form";
 import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
+import { applyNeedsCategoryFilter } from "@/lib/plaid/needs-category-window";
 import { STANDARD_CATEGORIES } from "@/lib/categories/standard";
 import { ConnectBank } from "@/components/plaid/connect-bank";
 import { NeedsCategory, type NeedsCategoryItem } from "@/components/plaid/needs-category";
@@ -111,7 +112,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
         ? supabase.from("plaid_accounts").select("account_id").not("account_id", "is", null)
         : Promise.resolve({ data: [] as { account_id: string | null }[] }),
       supabase.from("categories").select("id, name, kind").eq("is_archived", false).order("kind").order("name"),
-      supabase.from("profiles").select("currency").eq("id", user.id).single(),
+      supabase.from("profiles").select("currency, created_at").eq("id", user.id).single(),
     ]);
 
   const currency = profile?.currency ?? "USD";
@@ -124,25 +125,22 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
   );
   const categoryOpts = (categories ?? []) as CategoryOption[];
 
-  // Imported bank rows with no category — the one prompt V1 shows (design §3).
-  // All-time, newest first: it's a to-do list, not a month view. Grouped by
-  // merchant in the component, so this cap is against raw rows, not the
-  // (much smaller) number of unique merchants a person actually has to act on.
+  // Imported bank rows with no category, inside the user's categorization
+  // window — the one prompt V1 shows (design §3; window: 2026-09-16 Advancial
+  // follow-up). Newest first within that window: it's a to-do list scoped to
+  // signup-month-day-1 through signup date, not a month view and not the
+  // full recall history. Grouped by merchant in the component, so this cap is
+  // against raw rows, not the (much smaller) number of unique merchants a
+  // person actually has to act on. Same predicate as the header bell —
+  // applied by the same shared function so the two can't drift.
   let needsCategory: NeedsCategoryItem[] = [];
-  if (plaidOn) {
-    const { data: nc } = await supabase
-      .from("transactions")
-      .select(
+  if (plaidOn && profile?.created_at) {
+    const { data: nc } = await applyNeedsCategoryFilter(
+      supabase.from("transactions").select(
         "id, description, merchant_name, merchant_entity_id, amount, direction, occurred_at, pending, plaid_category_primary, plaid_category_detailed, account:accounts(name)",
-      )
-      .eq("source", "bank")
-      .is("category_id", null)
-      .is("removed_at", null)
-      .eq("is_transfer", false)
-      // A confirmed duplicate (design: 2026-09-12 Phase 15) is never real work
-      // to do — it doesn't route through countsForMonth, so it must be
-      // excluded here explicitly.
-      .is("duplicate_of_id", null)
+      ),
+      profile.created_at,
+    )
       .order("occurred_at", { ascending: false })
       .limit(500);
     const categoryLookup = buildCategoryLookup(categoryOpts.map((c) => [c.name, c.id] as const));

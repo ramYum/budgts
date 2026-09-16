@@ -207,6 +207,71 @@ describe("detectRecurringSeries — end to end", () => {
     });
   });
 
+  describe("membership validation (B2 review fix)", () => {
+    it("REGRESSION (review B2): five same-amount observations where the first two are 3 days apart and the final three are ~monthly must NOT all count as confirmed members", () => {
+      const rows = [obs("old1", 0), obs("old2", 3), obs("m1", 400), obs("m2", 430), obs("m3", 460)];
+      const result = detectRecurringSeries(rows, noExisting)!;
+      expect(result).not.toBeNull();
+      expect(result.cadence).toBe("MONTHLY");
+      // The two unrelated old observations must be excluded -- only the
+      // genuinely monthly-spaced trio counts.
+      expect(result.memberIds.sort()).toEqual(["m1", "m2", "m3"]);
+      expect(result.observationCount).toBe(3);
+      expect(result.status).toBe("ACTIVE");
+    });
+
+    it("historical observations with an irregular gap before a genuine weekly run are excluded from membership", () => {
+      // "old" is 40 days before the first genuinely weekly occurrence --
+      // same amount (passes the amount-consistency chain) but no cadence
+      // relationship to the weekly trio that follows.
+      const rows = [obs("old", 0), obs("w1", 40), obs("w2", 47), obs("w3", 54)];
+      const result = detectRecurringSeries(rows, noExisting)!;
+      expect(result.cadence).toBe("WEEKLY");
+      expect(result.memberIds.sort()).toEqual(["w1", "w2", "w3"]);
+      expect(result.observationCount).toBe(3);
+    });
+
+    it("a long, fully self-consistent run keeps every observation as a validated member (no false truncation of a genuine series)", () => {
+      const rows = [obs("a", 0), obs("b", 7), obs("c", 14), obs("d", 21), obs("e", 28)];
+      const result = detectRecurringSeries(rows, noExisting)!;
+      expect(result.cadence).toBe("WEEKLY");
+      expect(result.memberIds.sort()).toEqual(["a", "b", "c", "d", "e"]);
+      expect(result.observationCount).toBe(5);
+    });
+
+    it("validation truncates from the earliest point where a consecutive gap stops fitting, keeping the maximal valid suffix", () => {
+      // a->b is a 40-day outlier gap; b, c, d are genuinely monthly.
+      const rows = [obs("a", 0), obs("b", 40), obs("c", 70), obs("d", 100)];
+      const result = detectRecurringSeries(rows, noExisting)!;
+      expect(result.cadence).toBe("MONTHLY");
+      expect(result.memberIds.sort()).toEqual(["b", "c", "d"]);
+      expect(result.observationCount).toBe(3);
+    });
+
+    it("SEMIMONTHLY: a longer run whose day-of-month pattern no longer holds across its full span falls back to the minimal validated trailing window", () => {
+      // Every consecutive gap numerically fits the SEMIMONTHLY band
+      // (14,17,17,14,14 days), so the gap-based walk alone would keep all
+      // 6 -- but the day-of-month values across the full run form 4
+      // distinct clusters (1st, 15th, 4th, 18th), not the fixed-two-days
+      // signature a genuine semimonthly bill has. Only the trailing 3
+      // (18th, 4th, 18th -- 2 clusters) actually pass the pattern check.
+      const rows = [
+        monthlyObs("a", 0, 1),
+        monthlyObs("b", 0, 15),
+        monthlyObs("c", 1, 1),
+        monthlyObs("d", 1, 18),
+        monthlyObs("e", 2, 4),
+        monthlyObs("f", 2, 18),
+      ];
+      const result = detectRecurringSeries(rows, noExisting)!;
+      expect(result.cadence).toBe("SEMIMONTHLY");
+      // Falls back to the minimal trailing-3 window rather than claiming
+      // all 6 as validated members of one consistent semimonthly pattern.
+      expect(result.observationCount).toBe(3);
+      expect(result.memberIds.sort()).toEqual(["d", "e", "f"]);
+    });
+  });
+
   describe("cadence-change re-verification", () => {
     it("a single coincidental match under a new cadence proposes no update at all -- the caller leaves the stored cadence untouched", () => {
       const existing: SeriesSnapshot = {

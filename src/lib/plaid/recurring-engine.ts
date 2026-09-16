@@ -37,11 +37,22 @@ export interface ExistingSeriesRow extends Omit<SeriesSnapshot, "status"> {
 }
 
 export interface RecurringStore {
-  /** Distinct candidacy-eligible (merchant, account, direction) groups for
-   * this user. When `sinceWatermark` is non-null, restricted to groups with
-   * at least one eligible transaction created after it — the daily job's
-   * "touched groups only" bound. */
-  findCandidateGroups(userId: string, sinceWatermark: string | null): Promise<RecurringGroupKey[]>;
+  /**
+   * Distinct candidacy-eligible (merchant, account, direction) groups for
+   * this user, touched in `(sinceWatermark, upToScanStart]` — a closed upper
+   * bound, not open-ended. This closed range is what makes the watermark
+   * race-free: a transaction created strictly after `upToScanStart` is
+   * guaranteed to have `created_at > newWatermark` on the NEXT run (since
+   * the caller persists `upToScanStart` itself as the new watermark, never
+   * a later timestamp), so it can never be silently skipped no matter when
+   * it lands relative to this run's own duration. `sinceWatermark === null`
+   * means "never scanned" — every eligible group up to `upToScanStart`.
+   */
+  findCandidateGroups(
+    userId: string,
+    sinceWatermark: string | null,
+    upToScanStart: string,
+  ): Promise<RecurringGroupKey[]>;
   /** Bounded-lookback, candidacy-filtered history for one group, any order
    * (the engine sorts). */
   loadGroupObservations(userId: string, key: RecurringGroupKey): Promise<RecurringObservationRow[]>;
@@ -83,7 +94,14 @@ export interface RunRecurringDetectionOutcome {
 export async function runRecurringDetectionForUser(deps: RunRecurringDetectionDeps): Promise<RunRecurringDetectionOutcome> {
   const { userId, watermark, store, now = () => new Date() } = deps;
 
-  const groups = await store.findCandidateGroups(userId, watermark);
+  // Captured ONCE, before discovery, and persisted as-is at the end (never a
+  // later `now()`) -- this is the fix for the watermark race (review
+  // finding B1): a transaction created after this exact instant is
+  // therefore guaranteed `created_at > newWatermark` on the next run,
+  // whether it lands one millisecond or one hour into this run's duration.
+  const scanStartTime = now().toISOString();
+
+  const groups = await store.findCandidateGroups(userId, watermark, scanStartTime);
 
   let updatedCount = 0;
   let newlyActiveCount = 0;
@@ -117,8 +135,7 @@ export async function runRecurringDetectionForUser(deps: RunRecurringDetectionDe
     if (result.status === "ACTIVE" && existing?.status !== "ACTIVE") newlyActiveCount += 1;
   }
 
-  const scannedAt = now().toISOString();
-  await store.markScanned(userId, scannedAt);
+  await store.markScanned(userId, scanStartTime);
 
   console.log("[plaid] recurring-detection", {
     userId,

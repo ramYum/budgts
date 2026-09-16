@@ -222,6 +222,15 @@ export const transactions = pgTable(
     index("transactions_recurring_candidate_idx")
       .on(t.userId, t.merchantEntityId, t.accountId, t.direction, t.occurredAt)
       .where(sql`${t.merchantEntityId} is not null`),
+    // V1.5 recurring detection — supports the daily job's incremental
+    // "touched since the last scan" discovery query (findCandidateGroups),
+    // which filters on user_id + a created_at watermark range and does not
+    // otherwise constrain merchant_entity_id/account_id/direction (those are
+    // SELECTed, not filtered, at that step) — the candidate index above
+    // doesn't help that query at all. Deliberately not partial: created_at
+    // watermarking has no natural WHERE condition to narrow on the way
+    // merchant_entity_id's nullability does for the other index.
+    index("transactions_user_created_idx").on(t.userId, t.createdAt),
     // Defense-in-depth for qualify.ts's Important #2 finding (design:
     // 2026-09-12 qualify-integration final review) — event_role stays
     // plain nullable text (no enum type), but a malformed value can never

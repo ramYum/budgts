@@ -11,7 +11,7 @@
  * simultaneous user-mute action, which cannot happen yet since no UI writes
  * to this table in this phase. Revisit if/when a mute UI is built.
  */
-import { and, eq, gt, gte, inArray, isNotNull, isNull, notInArray, or, sql } from "drizzle-orm";
+import { and, eq, gt, gte, inArray, isNotNull, isNull, lte, notInArray, or, sql } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import type * as schema from "@/lib/db/schema";
 import { plaidAccounts, profiles, recurringSeries, transactions } from "@/lib/db/schema";
@@ -55,7 +55,7 @@ function candidacyConditions(userId: string) {
 
 export function createRecurringStore(db: RecurringDb): RecurringStore {
   return {
-    async findCandidateGroups(userId, sinceWatermark) {
+    async findCandidateGroups(userId, sinceWatermark, upToScanStart) {
       const rows = await db
         .selectDistinct({
           merchantEntityId: transactions.merchantEntityId,
@@ -67,6 +67,10 @@ export function createRecurringStore(db: RecurringDb): RecurringStore {
           and(
             candidacyConditions(userId),
             sinceWatermark ? gt(transactions.createdAt, new Date(sinceWatermark)) : undefined,
+            // Closed upper bound (review fix B1) -- without this, a row
+            // created between this query and markScanned's write would be
+            // silently, permanently invisible to every future run.
+            lte(transactions.createdAt, new Date(upToScanStart)),
           ),
         );
       return rows.map((r) => ({

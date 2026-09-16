@@ -201,7 +201,9 @@ function filterAmountConsistentMembers(observations: readonly RecurringObservati
  * before the break is historical only, and the promotion gate re-runs from
  * the post-break observations alone. Without an existing series there is
  * nothing to break FROM, so this is a no-op on the very first promotion —
- * an implausible gap there simply fails `classifyCadence` on its own.
+ * genuinely inconsistent older history is instead caught afterward by
+ * {@link truncateToCadenceValidatedSuffix}, which runs regardless of
+ * whether a prior series existed.
  */
 function truncateAfterGapBreak(
   observations: readonly RecurringObservation[],
@@ -217,6 +219,52 @@ function truncateAfterGapBreak(
 }
 
 /**
+ * Review fix (B2): `classifyCadence` only inspects the trailing 2 gaps, so
+ * without this step, older amount-consistent-but-irregularly-spaced
+ * observations could ride along into `memberIds`/`observationCount` merely
+ * because the trailing 2 gaps happened to fit a band — even on a group's
+ * very first run, where `truncateAfterGapBreak` above is a no-op (nothing
+ * to break FROM). This walks backward from the most recent observation and
+ * keeps only the maximal suffix whose EVERY consecutive gap independently
+ * fits the classified cadence's band — so `memberIds`/`observationCount`
+ * represent observations actually validated against that cadence, not
+ * merely "amount-consistent and old enough to still be in the lookback
+ * window." Guaranteed to keep at least the 2 observations (3 elements)
+ * `classifyCadence` itself already verified, since those are exactly the
+ * last two gaps this walk checks first.
+ */
+function truncateToCadenceValidatedSuffix(
+  observations: readonly RecurringObservation[],
+  cadence: Cadence,
+): RecurringObservation[] {
+  const band = BANDS.find((b) => b.cadence === cadence);
+  /* istanbul ignore next -- cadence always comes from BANDS itself */
+  if (!band) return [...observations];
+
+  let start = observations.length - 1;
+  for (let i = observations.length - 2; i >= 0; i--) {
+    const gap = daysBetween(observations[i].occurredAt, observations[i + 1].occurredAt);
+    if (gap < band.min || gap > band.max) break;
+    start = i;
+  }
+  const suffix = observations.slice(start);
+
+  // SEMIMONTHLY's extra day-of-month signature must also hold across the
+  // full validated suffix, not just the trailing pair the gap walk alone
+  // checked -- a longer run can pass the numeric gap band while its
+  // day-of-month values have drifted (e.g. weekend/holiday shifts) enough
+  // to no longer show the fixed-two-days pattern. Falling back to the
+  // minimal trailing-3 window is safe: classifyCadence already proved that
+  // exact window valid.
+  if (cadence === "SEMIMONTHLY" && suffix.length > 3) {
+    const days = suffix.map((o) => dayOfMonth(o.occurredAt));
+    if (!isSemimonthlyPattern(days)) return observations.slice(-3);
+  }
+
+  return suffix;
+}
+
+/**
  * The main entry point. `observations` must already be candidacy-filtered
  * (source='bank', confirmed, non-pending, not removed/duplicate,
  * merchant_entity_id present, an eligible event_role, not a GENERAL_
@@ -225,10 +273,10 @@ function truncateAfterGapBreak(
  * cadence/membership/lifecycle within that already-eligible set.
  *
  * Returns `null` when no series can currently be formed (fewer than 2
- * amount-consistent members, or no cadence band fits) — the caller must
- * leave any existing series row untouched in that case, never delete it:
- * "likely ended" is rendered lazily elsewhere from `next_expected_at`, not
- * decided here.
+ * validated members, or no cadence band fits) — the caller must leave any
+ * existing series row untouched in that case, never delete it: "likely
+ * ended" is rendered lazily elsewhere from `next_expected_at`, not decided
+ * here.
  */
 export function detectRecurringSeries(
   observations: readonly RecurringObservation[],
@@ -236,22 +284,29 @@ export function detectRecurringSeries(
 ): SeriesUpdate | null {
   const sorted = [...observations].sort((a, b) => new Date(a.occurredAt).getTime() - new Date(b.occurredAt).getTime());
   const amountConsistent = filterAmountConsistentMembers(sorted);
-  const windowed = truncateAfterGapBreak(amountConsistent, existing?.cadence ?? null);
-  if (windowed.length < 2) return null;
+  const gapBroken = truncateAfterGapBreak(amountConsistent, existing?.cadence ?? null);
+  if (gapBroken.length < 2) return null;
 
-  const cadence = classifyCadence(windowed);
+  const cadence = classifyCadence(gapBroken);
   if (!cadence) return null;
 
-  const last = windowed[windowed.length - 1];
+  // B2 fix: validate every consecutive gap in the surviving window against
+  // the classified cadence -- not just the trailing 2 `classifyCadence`
+  // itself checked -- so membership/observationCount reflect observations
+  // actually confirmed to fit, on a first run exactly as much as a later one.
+  const validated = truncateToCadenceValidatedSuffix(gapBroken, cadence);
+  if (validated.length < 2) return null;
+
+  const last = validated[validated.length - 1];
   return {
     cadence,
     expectedAmount: last.amount,
     amountToleranceMinor: computeAmountToleranceMinor(last.amount),
     lastOccurredAt: last.occurredAt,
     nextExpectedAt: addDaysIso(last.occurredAt, CADENCE_TYPICAL_DAYS[cadence]),
-    observationCount: windowed.length,
-    status: windowed.length >= MIN_OBSERVATIONS_FOR_ACTIVE ? "ACTIVE" : "CANDIDATE",
-    memberIds: windowed.map((o) => o.id),
+    observationCount: validated.length,
+    status: validated.length >= MIN_OBSERVATIONS_FOR_ACTIVE ? "ACTIVE" : "CANDIDATE",
+    memberIds: validated.map((o) => o.id),
   };
 }
 

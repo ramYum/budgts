@@ -83,7 +83,7 @@ describe("recurring-detection candidacy exclusions (DB-integration)", () => {
         occurredAt: daysAgo(days),
       });
     }
-    const groups = await store.findCandidateGroups(userId, null);
+    const groups = await store.findCandidateGroups(userId, null, new Date().toISOString());
     expect(groups.some((g) => g.merchantEntityId === null)).toBe(false);
   });
 
@@ -99,7 +99,7 @@ describe("recurring-detection candidacy exclusions (DB-integration)", () => {
         occurredAt: daysAgo(days),
       });
     }
-    const groups = await store.findCandidateGroups(userId, null);
+    const groups = await store.findCandidateGroups(userId, null, new Date().toISOString());
     expect(groups.some((g) => g.merchantEntityId === merchant)).toBe(false);
   });
 
@@ -117,7 +117,7 @@ describe("recurring-detection candidacy exclusions (DB-integration)", () => {
           occurredAt: daysAgo(days),
         });
       }
-      const groups = await store.findCandidateGroups(userId, null);
+      const groups = await store.findCandidateGroups(userId, null, new Date().toISOString());
       expect(groups.some((g) => g.merchantEntityId === merchant)).toBe(false);
     },
   );
@@ -135,7 +135,7 @@ describe("recurring-detection candidacy exclusions (DB-integration)", () => {
         occurredAt: daysAgo(days),
       });
     }
-    const groups = await store.findCandidateGroups(userId, null);
+    const groups = await store.findCandidateGroups(userId, null, new Date().toISOString());
     expect(groups.some((g) => g.merchantEntityId === merchant)).toBe(false);
   });
 
@@ -190,6 +190,54 @@ describe("recurring-detection lifecycle (DB-integration)", () => {
     expect(series!.status).toBe("ACTIVE");
     expect(series!.cadence).toBe("MONTHLY");
     expect(series!.observation_count).toBe(3);
+  });
+
+  it("B2 REGRESSION: two old, unrelated same-amount occurrences do not get swept into a genuine recent monthly series", async () => {
+    const merchant = `b2regression-${crypto.randomUUID()}`;
+    // Two same-amount purchases 3 days apart, ~400 days ago -- no cadence
+    // relationship to anything, just a coincidental repeat.
+    const old1 = await insertBankTxn(userId, checkingId, {
+      merchantEntityId: merchant,
+      eventRole: "PURCHASE",
+      primary: "ENTERTAINMENT",
+      direction: "debit",
+      amount: 1700,
+      occurredAt: daysAgo(370),
+    });
+    const old2 = await insertBankTxn(userId, checkingId, {
+      merchantEntityId: merchant,
+      eventRole: "PURCHASE",
+      primary: "ENTERTAINMENT",
+      direction: "debit",
+      amount: 1700,
+      occurredAt: daysAgo(367),
+    });
+    // Three genuinely monthly occurrences, recent.
+    const recentIds: string[] = [];
+    for (const days of [0, 30, 60]) {
+      recentIds.push(
+        await insertBankTxn(userId, checkingId, {
+          merchantEntityId: merchant,
+          eventRole: "PURCHASE",
+          primary: "ENTERTAINMENT",
+          direction: "debit",
+          amount: 1700,
+          occurredAt: daysAgo(days),
+        }),
+      );
+    }
+    await runRecurringDetectionForUser({ userId, watermark: null, store });
+    const series = await readSeries(merchant, checkingId, "debit");
+    expect(series).not.toBeNull();
+    expect(series!.cadence).toBe("MONTHLY");
+    expect(series!.observation_count).toBe(3); // NOT 5
+    expect(series!.status).toBe("ACTIVE");
+    // The two old, unrelated occurrences must never be linked to this series.
+    expect(await readTxnRecurringLink(old1)).toBeNull();
+    expect(await readTxnRecurringLink(old2)).toBeNull();
+    for (const id of recentIds) {
+      expect(await readTxnRecurringLink(id)).toBe(series!.id);
+    }
   });
 
   it("a merchant change starts a fresh, distinct series -- never links across identities", async () => {

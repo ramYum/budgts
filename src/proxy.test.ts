@@ -3,11 +3,15 @@ import { isPublic } from "./proxy";
 
 describe("isPublic", () => {
   it("lets Plaid's server-to-server endpoints through without a session", () => {
-    // Plaid's webhook (JWT-signed) and the pg_cron poller (bearer secret) carry
-    // no user cookie — the proxy must not redirect them to /sign-in before the
-    // route handler's own auth runs (design §20 / workstream B).
+    // Plaid's webhook (JWT-signed) and the pg_cron pollers (bearer secret)
+    // carry no user cookie — the proxy must not redirect them to /sign-in
+    // before the route handler's own auth runs (design §20 / workstream B).
+    // recurring-scan (V1.5) was caught missing here during staging
+    // verification: without this, its own bearer-secret check in the route
+    // handler never runs at all -- every call 307s to /sign-in first.
     expect(isPublic("/api/plaid/webhook")).toBe(true);
     expect(isPublic("/api/plaid/sync-due")).toBe(true);
+    expect(isPublic("/api/plaid/recurring-scan")).toBe(true);
   });
 
   it("still requires a session for the user-facing Plaid API routes", () => {

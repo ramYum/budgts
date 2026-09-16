@@ -12,6 +12,7 @@ const PUBLIC_PREFIXES = [
   "/offline",
   "/api/plaid/webhook",
   "/api/plaid/sync-due",
+  "/api/plaid/recurring-scan",
 ];
 
 export function isPublic(pathname: string) {

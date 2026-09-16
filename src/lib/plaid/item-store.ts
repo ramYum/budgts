@@ -19,6 +19,11 @@ export interface PlaidItemRecord {
   accessTokenEnc: string;
   transactionsCursor: string | null;
   status: PlaidItemStatus;
+  /** Null exactly once — before this item's first-ever successful sync.
+   * Used to fire a one-time recurring-detection pass right after that first
+   * sync lands, instead of waiting for the next daily job (design:
+   * docs/specs/2026-09-16-recurring-detection-design.md §G). */
+  lastSyncedAt: Date | null;
 }
 
 const COLS = {
@@ -29,6 +34,7 @@ const COLS = {
   accessTokenEnc: plaidItems.accessTokenEnc,
   transactionsCursor: plaidItems.transactionsCursor,
   status: plaidItems.status,
+  lastSyncedAt: plaidItems.lastSyncedAt,
 };
 
 /** Resolve a Plaid `item_id` to its owning row (item_id is globally unique). */

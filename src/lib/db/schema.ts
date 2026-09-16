@@ -61,6 +61,13 @@ export const profiles = pgTable("profiles", {
   // onboardedAt so an already-onboarded user can still be sent through the
   // tour once (see docs/specs/2026-09-15-first-run-tour-design.md)
   tourSeenAt: timestamp("tour_seen_at", { withTimezone: true }),
+  // V1.5 recurring detection — the daily job's per-user watermark. Only
+  // touched merchant groups (a candidacy-eligible transaction with
+  // created_at > this value) are re-evaluated on the next run; null means
+  // "never scanned," so every eligible group is evaluated once. Advanced
+  // only after a run completes successfully — a crash mid-run simply
+  // re-scans the same window next time (idempotent, not lossy).
+  recurringLastScanAt: timestamp("recurring_last_scan_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -146,8 +153,13 @@ export const transactions = pgTable(
     transferPairId: uuid("transfer_pair_id").references((): AnyPgColumn => transactions.id, {
       onDelete: "set null",
     }),
-    // V1.5 recurring-stream linkage — plain uuid, no FK (recurring_streams is V1.5)
-    recurringStreamId: uuid("recurring_stream_id"),
+    // V1.5 recurring-series linkage — set only by the recurring-detection pass
+    // (src/lib/plaid/recurring-detection.ts), never by sync ingestion itself.
+    // SET NULL (not CASCADE): deleting the derived series metadata must never
+    // touch the real transaction row, mirroring transferPairId below.
+    recurringStreamId: uuid("recurring_stream_id").references((): AnyPgColumn => recurringSeries.id, {
+      onDelete: "set null",
+    }),
     // the raw Plaid transaction payload, for offline re-processing / debugging
     raw: jsonb("raw"),
     // sha256 of the raw Plaid payload minus transaction_id — an ANOMALY-DETECTION
@@ -203,6 +215,13 @@ export const transactions = pgTable(
     index("transactions_account_fingerprint_idx")
       .on(t.accountId, t.contentFingerprint)
       .where(sql`${t.contentFingerprint} is not null`),
+    // V1.5 recurring detection — the daily job's per-(user, merchant, account,
+    // direction) candidate-history lookup (design:
+    // docs/specs/2026-09-16-recurring-detection-design.md). Partial on the
+    // same merchant_entity_id-not-null condition candidacy already requires.
+    index("transactions_recurring_candidate_idx")
+      .on(t.userId, t.merchantEntityId, t.accountId, t.direction, t.occurredAt)
+      .where(sql`${t.merchantEntityId} is not null`),
     // Defense-in-depth for qualify.ts's Important #2 finding (design:
     // 2026-09-12 qualify-integration final review) — event_role stays
     // plain nullable text (no enum type), but a malformed value can never
@@ -407,4 +426,76 @@ export const plaidMerchantRules = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex("plaid_merchant_rules_user_merchant_uq").on(t.userId, t.merchantEntityId)],
+);
+
+// ===========================================================================
+// V1.5 — Recurring transaction detection.
+// Design: docs/specs/2026-09-16-recurring-detection-design.md.
+// Descriptive metadata ONLY — never read by qualify.ts / any rollup. A row
+// here is a PREDICTION (next_expected_at / expected_amount); the actual
+// transactions it links to via `transactions.recurring_stream_id` are the
+// only ledger facts. `cadence` and `status` stay plain text + CHECK
+// (matching `transactions.event_role`'s precedent) rather than a pgEnum, so
+// a future bucket/state can be added without an ALTER TYPE migration.
+// ===========================================================================
+export const recurringSeries = pgTable(
+  "recurring_series",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull(),
+    // Candidacy requires merchant_entity_id IS NOT NULL — see the detector.
+    merchantEntityId: text("merchant_entity_id").notNull(),
+    accountId: uuid("account_id")
+      .notNull()
+      .references(() => accounts.id, { onDelete: "cascade" }),
+    direction: txnDirection("direction").notNull(),
+    // The event_role every member transaction had at candidacy time —
+    // restricted to the recurring-eligible subset (see the CHECK below).
+    eventRole: text("event_role").notNull(),
+    cadence: text("cadence").notNull(),
+    // minor units, > 0 (CHECK added in the migration)
+    expectedAmount: integer("expected_amount").notNull(),
+    // minor units, >= 0 (CHECK added in the migration)
+    amountToleranceMinor: integer("amount_tolerance_minor").notNull(),
+    lastOccurredAt: timestamp("last_occurred_at", { withTimezone: true }).notNull(),
+    nextExpectedAt: timestamp("next_expected_at", { withTimezone: true }).notNull(),
+    // >= 2 (CHECK added in the migration) — a series is never created below
+    // the two raw observations needed to guess a first cadence.
+    observationCount: integer("observation_count").notNull(),
+    // CANDIDATE (< 3 observations, never user-visible) | ACTIVE (>= 3) |
+    // MUTED (durable user dismissal). "Likely ended" is deliberately NOT a
+    // stored state — it's computed at read time from next_expected_at vs
+    // now(), so a lapsed series needs no background job to reflect it.
+    status: text("status").notNull().default("CANDIDATE"),
+    // User's durable dismissal (mirrors transferUserSet's "user decision
+    // outranks automation forever" precedent) — null while not muted.
+    mutedAt: timestamp("muted_at", { withTimezone: true }),
+    // true once a user has manually edited cadence/expectedAmount (no UI
+    // yet — reserved for when one exists). While true, the automatic
+    // recompute in the detector must never overwrite those two fields,
+    // though observationCount/lastOccurredAt/nextExpectedAt keep advancing
+    // from real matches — same non-clobber contract as userCategorized.
+    overriddenByUser: boolean("overridden_by_user").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    // The series identity key — one row per (user, merchant, account,
+    // direction); also what makes the daily job's upsert idempotent under
+    // an accidental concurrent double-invocation.
+    uniqueIndex("recurring_series_identity_uq").on(t.userId, t.merchantEntityId, t.accountId, t.direction),
+    index("recurring_series_user_idx").on(t.userId),
+    check(
+      "recurring_series_event_role_valid",
+      sql`${t.eventRole} in ('PURCHASE','INCOME','FEE','INTEREST')`,
+    ),
+    check(
+      "recurring_series_cadence_valid",
+      sql`${t.cadence} in ('WEEKLY','BIWEEKLY','SEMIMONTHLY','MONTHLY','ANNUAL')`,
+    ),
+    check("recurring_series_status_valid", sql`${t.status} in ('CANDIDATE','ACTIVE','MUTED')`),
+    check("recurring_series_expected_amount_positive", sql`${t.expectedAmount} > 0`),
+    check("recurring_series_tolerance_nonnegative", sql`${t.amountToleranceMinor} >= 0`),
+    check("recurring_series_observation_count_min", sql`${t.observationCount} >= 2`),
+  ],
 );

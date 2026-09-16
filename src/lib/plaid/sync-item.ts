@@ -16,6 +16,8 @@ import {
   setItemStatus,
 } from "./item-store";
 import { buildResolveCategory, loadMerchantRules } from "./merchant-rules";
+import { runRecurringDetectionForUser } from "./recurring-engine";
+import { createRecurringStore, loadRecurringWatermark } from "./recurring-store";
 import {
   MUTATION_DURING_PAGINATION_CODE,
   type PlaidSyncPage,
@@ -92,6 +94,7 @@ export async function syncItem(deps: {
 }): Promise<SyncItemResult> {
   const { db, client, item, tokenEncKey } = deps;
   const accessToken = decryptToken(item.accessTokenEnc, tokenEncKey);
+  const isFirstSyncForItem = item.lastSyncedAt === null;
 
   const transactionsSync = async ({ cursor }: { cursor: string | null }): Promise<PlaidSyncPage> => {
     try {
@@ -123,6 +126,22 @@ export async function syncItem(deps: {
       store: createPlaidSyncStore(db),
       normalizeCtx: await buildNormalizeCtx(db, item.userId, item.id),
     });
+
+    // First-ever successful sync for this Item: run one recurring-detection
+    // pass immediately for this user, rather than waiting for the next
+    // daily job -- otherwise a brand-new user would see zero recurrence
+    // insight for up to 24h despite their full imported history already
+    // being live (design §G). Best-effort: a failure here must never turn
+    // an otherwise-successful sync into a failed one.
+    if (isFirstSyncForItem) {
+      const watermark = await loadRecurringWatermark(db, item.userId);
+      await runRecurringDetectionForUser({
+        userId: item.userId,
+        watermark,
+        store: createRecurringStore(db),
+      }).catch((e) => console.error("[plaid] first-sync recurring detection failed", { itemId: item.itemId, e }));
+    }
+
     return {
       itemId: item.itemId,
       ok: true,

@@ -33,5 +33,5 @@ export async function completeOnboarding(
     return { error: "We couldn't find your profile. Sign out, sign back in, and try again." };
   }
 
-  redirect("/");
+  redirect("/tour?new=1");
 }

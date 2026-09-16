@@ -22,6 +22,17 @@ export default async function DashboardLayout({ children }: LayoutProps<"/">) {
     .single();
   if (!profile?.onboarded_at) redirect("/onboarding");
 
+  // Queried separately from onboarded_at above: if app code ships before the
+  // tour_seen_at migration runs, this query errors and we treat that as
+  // "seen" rather than looping (a missing profiles.onboarded_at select would
+  // otherwise bounce to /onboarding, which redirects straight back to /).
+  const { data: tourProfile, error: tourErr } = await supabase
+    .from("profiles")
+    .select("tour_seen_at")
+    .eq("id", user.id)
+    .single();
+  if (!tourErr && !tourProfile?.tour_seen_at) redirect("/tour");
+
   // Bank rows Budgts could not categorise, inside the user's categorization
   // window — the header bell's count. Same predicate as <NeedsCategory>,
   // applied by the same shared function so the two can't drift (design:

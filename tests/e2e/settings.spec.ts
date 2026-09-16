@@ -5,6 +5,7 @@ import {
   hasAdminCredentials,
   magicTokenHash,
 } from "./helpers/test-user";
+import { onboardAndSkipTour } from "./helpers/onboard";
 
 test.skip(!hasAdminCredentials(), "needs SUPABASE_SECRET_KEY (see .env.local)");
 
@@ -12,10 +13,7 @@ test("manage categories: default set, rename, add, archive, and drill-in", async
   const user = await createTestUser();
   try {
     await page.goto(`/auth/callback?token_hash=${await magicTokenHash(user.email)}&type=magiclink&next=/`);
-    await expect(page).toHaveURL(/\/onboarding$/);
-    await page.getByRole("combobox").selectOption("USD");
-    await page.getByRole("button", { name: /start budgeting/i }).click();
-    await page.waitForURL((u) => u.pathname === "/", { timeout: 20000 });
+    await onboardAndSkipTour(page);
 
     await page.getByRole("link", { name: "More" }).click();
     await page.getByRole("link", { name: "Settings" }).click();

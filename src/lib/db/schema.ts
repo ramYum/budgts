@@ -57,6 +57,10 @@ export const profiles = pgTable("profiles", {
   currency: text("currency").notNull().default("USD"),
   // null until the first-run screen completes (currency confirmed)
   onboardedAt: timestamp("onboarded_at", { withTimezone: true }),
+  // null until the first-run tour (or its skip) completes — separate from
+  // onboardedAt so an already-onboarded user can still be sent through the
+  // tour once (see docs/specs/2026-09-15-first-run-tour-design.md)
+  tourSeenAt: timestamp("tour_seen_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

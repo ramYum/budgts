@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { createTestUser, deleteTestUser, hasAdminCredentials, magicTokenHash } from "./helpers/test-user";
+import { onboardAndSkipTour } from "./helpers/onboard";
 
 /**
  * Full Plaid journey against a deployed, Plaid-enabled environment (design §26,
@@ -67,10 +68,7 @@ test("connect a bank, map an account, import, categorize, disconnect, history re
   try {
     const tokenHash = await magicTokenHash(user.email);
     await page.goto(`/auth/callback?token_hash=${tokenHash}&type=magiclink&next=/`);
-    await expect(page).toHaveURL(/\/onboarding$/);
-    await page.getByRole("combobox").selectOption("USD");
-    await page.getByRole("button", { name: /start budgeting/i }).click();
-    await page.waitForURL((u) => u.pathname === "/", { timeout: 20000 });
+    await onboardAndSkipTour(page);
 
     // --- Connect (bypasses the un-scriptable Plaid Link iframe, design §26) ---
     const seed = await (

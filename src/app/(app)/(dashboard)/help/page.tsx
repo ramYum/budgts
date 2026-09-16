@@ -41,6 +41,12 @@ export default function HelpPage() {
           The short version: you spend, Budgts keeps track. See the whole workflow in one page.
         </p>
       </Link>
+      <Link
+        href="/tour"
+        className="card block rounded-2xl border border-hairline p-4 text-sm font-semibold text-accent"
+      >
+        Replay the tour →
+      </Link>
       <ul className="space-y-4">
         {FAQ.map((item) => (
           <li key={item.q} className="card space-y-1.5 rounded-2xl border border-hairline p-4">

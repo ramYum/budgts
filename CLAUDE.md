@@ -198,11 +198,22 @@ mascot/logo/name swap, not a full visual rebrand. `docs/BRAND_GUIDELINES.md`
 is up to date; the UI redesign v2 note above is historical only for its
 brand details.
 
+**In progress:** **First-run tour** — a convenience-first onboarding wizard
+(auto-capture + auto-categorization pitch, then Connect your bank → Sorted
+for you → Know what's left) replacing the old single-screen onboarding.
+Code, tests, `lint`/`typecheck`/`test`/`build` all green on branch
+`v1.5/first-run-tour`; migration `0014` (`profiles.tour_seen_at`) and an e2e
+run against a real Supabase project are still pending — see
+`docs/workflow.md`. Spec: `docs/specs/2026-09-15-first-run-tour-design.md`.
+This card-wizard version is what's **currently live**; a live-coachmark
+redesign (v2) has been specced and planned but not implemented — see
+`docs/workflow.md` for the exact status.
+
 **Shipped:** **"How Budgts Works" guide** — a permanent static Help page
 (`/help/how-it-works`) teaching the end-to-end workflow (connect →
 transactions arrive → auto-categorize → review exceptions → budget → Money
-Left → track progress); linked from `/help` and the first-run tour's final
-card. Spec: `docs/specs/2026-09-15-how-budgts-works-guide-design.md`.
+Left → track progress); linked from `/help` and the tour's final card.
+Spec: `docs/specs/2026-09-15-how-budgts-works-guide-design.md`.
 
 **Next:** **V1 — Plaid transaction ingestion** (the primary automatic path;
 manual entry stays as a fallback) → **V1.5** (recurring / subscription / bill

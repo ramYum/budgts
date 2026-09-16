@@ -11,6 +11,11 @@ describe("HelpPage", () => {
     );
   });
 
+  it("still links to the guided tour", () => {
+    render(<HelpPage />);
+    expect(screen.getByRole("link", { name: "Replay the tour →" })).toHaveAttribute("href", "/tour");
+  });
+
   it("still shows the existing FAQ content", () => {
     render(<HelpPage />);
     expect(screen.getByText("How does categorization work?")).toBeInTheDocument();

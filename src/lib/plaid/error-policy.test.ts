@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { classifyPlaidError, describeSyncError, readPlaidError } from "./error-policy";
+import { MUTATION_DURING_PAGINATION_CODE, SyncMutationDuringPagination } from "./sync-engine";
 
 const plaidErr = (data: object) => ({ response: { data } });
 
@@ -59,6 +60,27 @@ describe("classifyPlaidError", () => {
       status: null,
     });
     expect(classifyPlaidError(new Error("socket hang up"))).toMatchObject({ retry: true, countFailure: true });
+  });
+
+  it("a SyncMutationDuringPagination is recognized by readPlaidError, not swallowed as a bare Error", () => {
+    // Regression guard for the bug this fix closes: before, this class had
+    // no error_code, so readPlaidError returned null for it just like any
+    // plain Error — see the "returns null for a plain Error" case above.
+    expect(readPlaidError(new SyncMutationDuringPagination())).toMatchObject({
+      error_code: MUTATION_DURING_PAGINATION_CODE,
+      error_type: "TRANSACTIONS_ERROR",
+    });
+  });
+
+  it("exhausted mutation-during-pagination → retryable + counted, real errorCode (not UNKNOWN)", () => {
+    const decision = classifyPlaidError(new SyncMutationDuringPagination());
+    expect(decision).toEqual({
+      retry: true,
+      countFailure: true,
+      status: null,
+      errorCode: MUTATION_DURING_PAGINATION_CODE,
+    });
+    expect(decision.errorCode).not.toBe("UNKNOWN");
   });
 });
 

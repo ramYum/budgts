@@ -48,13 +48,45 @@ export interface PlaidSyncPage {
   has_more: boolean;
 }
 
+/** Plaid's `error_code` for a `/transactions/sync` call that failed because
+ *  the underlying transaction data changed mid-pagination (Plaid docs:
+ *  https://plaid.com/docs/errors/transactions/#transactions_sync_mutation_during_pagination
+ *  — restart the whole pagination loop from the original cursor). Single
+ *  source of truth: sync-item.ts uses this to recognize the raw SDK error,
+ *  error-policy.ts uses it to classify the wrapped error distinctly instead
+ *  of falling through to UNKNOWN. */
+export const MUTATION_DURING_PAGINATION_CODE = "TRANSACTIONS_SYNC_MUTATION_DURING_PAGINATION";
+
 /** Thrown by the injected Plaid call to signal a restart (Plaid error code
- *  TRANSACTIONS_SYNC_MUTATION_DURING_PAGINATION). */
+ *  TRANSACTIONS_SYNC_MUTATION_DURING_PAGINATION). Carries the real Plaid
+ *  error_code/error_type as own properties (matching PlaidErrorShape) so
+ *  error-policy.ts's readPlaidError/classifyPlaidError recognize this
+ *  specific, documented, recoverable-by-retry condition even after local
+ *  restarts are exhausted and it propagates up — see error-policy.ts. */
 export class SyncMutationDuringPagination extends Error {
+  readonly error_code = MUTATION_DURING_PAGINATION_CODE;
+  readonly error_type = "TRANSACTIONS_ERROR";
   constructor() {
-    super("TRANSACTIONS_SYNC_MUTATION_DURING_PAGINATION");
+    super(MUTATION_DURING_PAGINATION_CODE);
     this.name = "SyncMutationDuringPagination";
   }
+}
+
+/**
+ * Delay before restart attempt `attempt` (1-indexed) of a mutation-during-
+ * pagination retry. Plaid's docs (see MUTATION_DURING_PAGINATION_CODE above)
+ * specify no delay or backoff requirement — restarting immediately is
+ * documented as correct. This backoff is purely our own engineering policy,
+ * not a Plaid requirement: a small, bounded pause gives a genuinely transient
+ * mutation a moment to settle before the next attempt, without meaningfully
+ * lengthening a request that ultimately succeeds or a request that ultimately
+ * fails. Doubles from 250ms, capped at 1000ms — worst case (all maxRestarts
+ * exhausted, default 3) adds ~1.75s total, well within a server action's budget.
+ */
+export function mutationRestartDelayMs(attempt: number): number {
+  const base = 250;
+  const cap = 1000;
+  return Math.min(base * 2 ** (attempt - 1), cap);
 }
 
 /** The `transactions` fields the reducer needs, as the store returns them. */
@@ -153,6 +185,12 @@ export interface SyncDeps {
   maxPagesPerRun?: number;
   /** Restart budget for mutation-during-pagination. Default 3. */
   maxRestarts?: number;
+  /**
+   * Injected so tests can assert on/skip the real wait — see
+   * mutationRestartDelayMs's docstring for why this delay exists and why
+   * its values are our policy, not Plaid's. Defaults to a real setTimeout.
+   */
+  delay?: (ms: number) => Promise<void>;
 }
 
 export interface SyncOutcome {
@@ -192,10 +230,14 @@ export async function runSync(deps: SyncDeps): Promise<SyncOutcome> {
     normalizeCtx,
     maxPagesPerRun = 20,
     maxRestarts = 3,
+    delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   } = deps;
 
   // ---- page loop. On a mid-pagination mutation, discard partial results and
   //      restart from `initialCursor` (Plaid's guidance), up to `maxRestarts`.
+  //      A bounded backoff (mutationRestartDelayMs) runs before each restart
+  //      — never before the first attempt, never after the final exhausted
+  //      one, since at that point we're rethrowing, not retrying.
   let restarts = 0;
   let pages: PlaidSyncPage[] = [];
   let cursor: string | null = initialCursor;
@@ -209,7 +251,10 @@ export async function runSync(deps: SyncDeps): Promise<SyncOutcome> {
       cappedMore = collected.capped;
       break;
     } catch (e) {
-      if (e instanceof SyncMutationDuringPagination && ++restarts <= maxRestarts) continue;
+      if (e instanceof SyncMutationDuringPagination && ++restarts <= maxRestarts) {
+        await delay(mutationRestartDelayMs(restarts));
+        continue;
+      }
       throw e;
     }
   }

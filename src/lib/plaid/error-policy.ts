@@ -3,6 +3,7 @@
  * poller should do with the Item. Design §21.
  */
 import type { PlaidItemStatus } from "./item-store";
+import { MUTATION_DURING_PAGINATION_CODE } from "./sync-engine";
 
 export interface PlaidErrorShape {
   error_type?: string | null;
@@ -67,6 +68,19 @@ export function classifyPlaidError(e: unknown): ErrorDecision {
   if (type === "INVALID_REQUEST" || type === "INVALID_INPUT") {
     // our bug — stop hammering, surface as error
     return { retry: false, countFailure: true, status: "error", errorCode: code };
+  }
+  if (code === MUTATION_DURING_PAGINATION_CODE) {
+    // Reached only once sync-engine's bounded restart+backoff is exhausted
+    // (see sync-engine.ts's SyncMutationDuringPagination / runSync). Plaid
+    // documents this as a transient pagination race, correctly recovered by
+    // restarting the whole loop from the original cursor — which the engine
+    // already tried, repeatedly, before this propagated here. Decision is
+    // deliberately identical to the generic fallback below (retryable,
+    // counted, no forced status — same existing architecture, not a new
+    // permanent state); the only difference is `errorCode` names the real,
+    // known Plaid condition instead of collapsing into "UNKNOWN", so it's
+    // visible in `plaid_items.error_code` for diagnosis.
+    return { retry: true, countFailure: true, status: null, errorCode: code };
   }
   // API_ERROR and anything unrecognised: retry with backoff, count toward the
   // failure threshold so a persistently-broken item eventually flips to error.

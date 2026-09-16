@@ -6,6 +6,7 @@ import { ADVANCIAL_INSTITUTION_ID, ANOMALY_DUPLICATE_REASON_MARKER } from "./rep
 import { AMBIGUOUS_REVIEW_SAMPLE_THRESHOLD, MIN_EVIDENCE_SAMPLES } from "./sign-convention";
 import {
   ANOMALY_REVIEW_THRESHOLD,
+  mutationRestartDelayMs,
   type PlaidSyncPage,
   type PlaidSyncStore,
   type PlaidTxnRow,
@@ -154,7 +155,24 @@ const deps = (over: Partial<SyncDeps>): SyncDeps => ({
   transactionsSync: async () => page(),
   store: fakeStore().store,
   normalizeCtx,
+  // Real delay is setTimeout-based (sync-engine.ts default) — tests never
+  // want to actually wait, so every test gets a no-op delay unless it
+  // overrides this to inspect timing/call behavior itself.
+  delay: async () => {},
   ...over,
+});
+
+describe("mutationRestartDelayMs", () => {
+  it("doubles from a 250ms base for each successive attempt", () => {
+    expect(mutationRestartDelayMs(1)).toBe(250);
+    expect(mutationRestartDelayMs(2)).toBe(500);
+  });
+
+  it("caps at 1000ms and stays bounded for later attempts", () => {
+    expect(mutationRestartDelayMs(3)).toBe(1000);
+    expect(mutationRestartDelayMs(4)).toBe(1000);
+    expect(mutationRestartDelayMs(10)).toBe(1000);
+  });
 });
 
 describe("runSync", () => {
@@ -196,7 +214,7 @@ describe("runSync", () => {
     expect(out.cursor).toBe("cN");
   });
 
-  it("restarts from initialCursor on a mutation-during-pagination error", async () => {
+  it("restarts from initialCursor on a mutation-during-pagination error, delaying once before the restart (success path)", async () => {
     let call = 0;
     const sync: SyncDeps["transactionsSync"] = async ({ cursor }) => {
       call++;
@@ -207,26 +225,59 @@ describe("runSync", () => {
       return page({ added: [pTxn({ transaction_id: "a1" }), pTxn({ transaction_id: "a2" })], next_cursor: "final", has_more: false });
     };
     const { store, calls } = fakeStore();
-    const out = await runSync(deps({ store, initialCursor: "c0", transactionsSync: sync }));
+    const delay = vi.fn<NonNullable<SyncDeps["delay"]>>().mockResolvedValue(undefined);
+    const out = await runSync(deps({ store, initialCursor: "c0", transactionsSync: sync, delay }));
     expect(out.restarts).toBe(1);
     expect(out.cursor).toBe("final");
-    expect(calls.plans[0].plan.inserts.map((i) => i.sourceRef)).toEqual(["a1", "a2"]); // no dup from the partial first attempt
+    expect(calls.plans[0].plan.inserts.map((i) => i.sourceRef)).toEqual(["a1", "a2"]); // no dup from the partial first attempt, and only landed once
+    expect(calls.plans).toHaveLength(1); // no duplicate transaction write from the discarded partial attempt
+
+    // Delayed exactly once, before the (successful) restart — never before
+    // the very first attempt.
+    expect(delay).toHaveBeenCalledTimes(1);
+    expect(delay).toHaveBeenCalledWith(mutationRestartDelayMs(1));
   });
 
-  it("gives up after maxRestarts and rethrows", async () => {
+  it("delays with increasing, bounded backoff before each successive restart, in order", async () => {
     const sync: SyncDeps["transactionsSync"] = async () => {
       throw new SyncMutationDuringPagination();
     };
-    await expect(runSync(deps({ transactionsSync: sync, maxRestarts: 2 }))).rejects.toBeInstanceOf(
-      SyncMutationDuringPagination,
-    );
+    const delay = vi.fn<NonNullable<SyncDeps["delay"]>>().mockResolvedValue(undefined);
+    await expect(
+      runSync(deps({ transactionsSync: sync, maxRestarts: 3, delay })),
+    ).rejects.toBeInstanceOf(SyncMutationDuringPagination);
+
+    // 3 restarts attempted (4 total calls to the Plaid stub), so exactly 3
+    // delay calls — one before each restart, values strictly increasing and
+    // capped, per mutationRestartDelayMs's own contract.
+    expect(delay.mock.calls.map((c) => c[0])).toEqual([
+      mutationRestartDelayMs(1),
+      mutationRestartDelayMs(2),
+      mutationRestartDelayMs(3),
+    ]);
   });
 
-  it("rethrows a non-mutation error immediately", async () => {
+  it("gives up after maxRestarts and rethrows — no delay after the final exhausted attempt", async () => {
+    const sync: SyncDeps["transactionsSync"] = async () => {
+      throw new SyncMutationDuringPagination();
+    };
+    const delay = vi.fn<NonNullable<SyncDeps["delay"]>>().mockResolvedValue(undefined);
+    await expect(runSync(deps({ transactionsSync: sync, maxRestarts: 2, delay }))).rejects.toBeInstanceOf(
+      SyncMutationDuringPagination,
+    );
+    // maxRestarts: 2 → attempts 1,2,3 fail, restart delays before attempts 2
+    // and 3 only (2 delays) — the 3rd failure exhausts the budget and
+    // rethrows immediately, with no further delay call.
+    expect(delay).toHaveBeenCalledTimes(2);
+  });
+
+  it("rethrows a non-mutation error immediately, with no restart and no delay", async () => {
     const sync: SyncDeps["transactionsSync"] = async () => {
       throw new Error("PLAID 500");
     };
-    await expect(runSync(deps({ transactionsSync: sync }))).rejects.toThrow("PLAID 500");
+    const delay = vi.fn<NonNullable<SyncDeps["delay"]>>().mockResolvedValue(undefined);
+    await expect(runSync(deps({ transactionsSync: sync, delay }))).rejects.toThrow("PLAID 500");
+    expect(delay).not.toHaveBeenCalled();
   });
 
   it("loads existing rows by source_ref + pending refs, then applies the reducer", async () => {

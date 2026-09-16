@@ -16,11 +16,14 @@ import {
   setItemStatus,
 } from "./item-store";
 import { buildResolveCategory, loadMerchantRules } from "./merchant-rules";
-import { type PlaidSyncPage, runSync, SyncMutationDuringPagination } from "./sync-engine";
+import {
+  MUTATION_DURING_PAGINATION_CODE,
+  type PlaidSyncPage,
+  runSync,
+  SyncMutationDuringPagination,
+} from "./sync-engine";
 import { type PlaidDb, createPlaidSyncStore } from "./sync-store";
 import type { AccountMapEntry, NormalizeCtx } from "./types";
-
-const MUTATION_CODE = "TRANSACTIONS_SYNC_MUTATION_DURING_PAGINATION";
 
 /** Build the sync `NormalizeCtx` for one item (account map, categories, merchant memory, currency). */
 export async function buildNormalizeCtx(
@@ -105,7 +108,7 @@ export async function syncItem(deps: {
         has_more: res.data.has_more,
       };
     } catch (e) {
-      if (readPlaidError(e)?.error_code === MUTATION_CODE) throw new SyncMutationDuringPagination();
+      if (readPlaidError(e)?.error_code === MUTATION_DURING_PAGINATION_CODE) throw new SyncMutationDuringPagination();
       throw e;
     }
   };

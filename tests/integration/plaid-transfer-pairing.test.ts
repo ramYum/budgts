@@ -141,7 +141,14 @@ describe("Tier B — corrective classify + link, against real Postgres", () => {
     });
 
     const { accepted, results } = await runDetectionOnce();
-    expect(accepted).toEqual([{ tier: "B", legA: shapedId, legB: unresolvedId, classifyLegId: unresolvedId }]);
+    // legA/legB order is an arbitrary tie-break (both legs share one
+    // occurredAt) with no operational meaning -- see sync-store.ts's
+    // applyTierBClassification, which derives shaped/unresolved purely
+    // from classifyLegId. Assert the pair as a set, not a fixed tuple.
+    expect(accepted).toHaveLength(1);
+    expect(new Set([accepted[0].legA, accepted[0].legB])).toEqual(new Set([shapedId, unresolvedId]));
+    expect(accepted[0].tier).toBe("B");
+    expect(accepted[0].classifyLegId).toBe(unresolvedId);
     expect(results).toEqual(["applied"]);
 
     const shaped = await readTxn(shapedId);

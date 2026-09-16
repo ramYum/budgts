@@ -14,7 +14,9 @@ across a user's devices. Per-user accounts; no household/shared budgets in v1.
 
 Budgts will be **sold**: released on the **Google Play Store and Apple App
 Store** for **500+ paying users**. Every product and technical decision is
-judged against that, not against the owner's own accounts.
+judged against that, not against the owner's own accounts. 500 is the
+initial commercial target, not an architectural ceiling — decisions should
+leave headroom to exceed it without a rewrite.
 
 - **Every account matters.** A fix must work for every user, bank, account
   type, time zone and locale. The owner's data is only the first test set,
@@ -65,7 +67,7 @@ What carries over is the **spirit**:
 | Concern | Choice |
 | --- | --- |
 | App framework | Next.js (App Router) + TypeScript + React |
-| Hosting | Vercel. **Currently Hobby tier, which is non-commercial only. Must move to Pro before charging users.** Supabase and Plaid plans also need sizing for 500+ users. |
+| Hosting | Vercel. Supabase is currently on the Free/Nano tier (500MB DB, pauses after 7 idle days) and Vercel is on Hobby — both deliberately deferred to a launch-readiness milestone, not an oversight. Upgrade trigger: Supabase DB size approaching its 500MB cap, or a concrete dev/prod limitation, whichever comes first. |
 | PWA | web app manifest + service worker (app-shell caching) |
 | Data / auth / storage / realtime | Supabase (Postgres, Auth, Storage, Realtime) |
 | DB access | `supabase-js` with the user's session for all reads/writes; Drizzle for **migrations only** |

@@ -36,6 +36,20 @@ export function readPlaidError(e: unknown): PlaidErrorShape | null {
   return null;
 }
 
+/**
+ * Safely describe a caught sync error for logging — never the raw Plaid
+ * error body (readPlaidError's `.response.data` can carry account/financial
+ * detail) and never an unknown thrown value dumped verbatim. `Error#message`
+ * / `#stack` never include `response.data`, so this stays safe even for a
+ * Plaid SDK (Axios-style) error.
+ */
+export function describeSyncError(e: unknown): { message: string; stack?: string } {
+  if (e instanceof Error) {
+    return e.stack ? { message: e.message, stack: e.stack } : { message: e.message };
+  }
+  return { message: "non-Error value thrown" };
+}
+
 export function classifyPlaidError(e: unknown): ErrorDecision {
   const p = readPlaidError(e);
   const code = p?.error_code ?? "UNKNOWN";

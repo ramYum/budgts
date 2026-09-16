@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyPlaidError, readPlaidError } from "./error-policy";
+import { classifyPlaidError, describeSyncError, readPlaidError } from "./error-policy";
 
 const plaidErr = (data: object) => ({ response: { data } });
 
@@ -59,5 +59,38 @@ describe("classifyPlaidError", () => {
       status: null,
     });
     expect(classifyPlaidError(new Error("socket hang up"))).toMatchObject({ retry: true, countFailure: true });
+  });
+});
+
+describe("describeSyncError", () => {
+  it("extracts message and stack from a real Error", () => {
+    const e = new Error("socket hang up");
+    const result = describeSyncError(e);
+    expect(result.message).toBe("socket hang up");
+    expect(result.stack).toBe(e.stack);
+  });
+
+  it("extracts message and stack from a Plaid SDK (Axios-style) error without exposing response.data", () => {
+    const e = Object.assign(new Error("Request failed with status code 400"), {
+      response: { data: { error_code: "INVALID_FIELD", error_type: "INVALID_REQUEST", account_id: "secret-acct" } },
+    });
+    const result = describeSyncError(e);
+    expect(result.message).toBe("Request failed with status code 400");
+    expect(result).not.toHaveProperty("response");
+    expect(JSON.stringify(result)).not.toContain("secret-acct");
+  });
+
+  it("omits stack when a real Error somehow has none", () => {
+    const e = new Error("boom");
+    e.stack = undefined;
+    expect(describeSyncError(e)).toEqual({ message: "boom" });
+  });
+
+  it("never dumps a non-Error thrown value verbatim", () => {
+    expect(describeSyncError({ access_token: "secret-token", foo: "bar" })).toEqual({
+      message: "non-Error value thrown",
+    });
+    expect(describeSyncError("plain string throw")).toEqual({ message: "non-Error value thrown" });
+    expect(describeSyncError(undefined)).toEqual({ message: "non-Error value thrown" });
   });
 });

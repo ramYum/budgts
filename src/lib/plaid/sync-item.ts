@@ -9,7 +9,7 @@ import type { PlaidApi } from "plaid";
 import { categories, plaidAccounts, profiles } from "@/lib/db/schema";
 import { buildCategoryLookup } from "./category-map";
 import { decryptToken } from "./crypto";
-import { classifyPlaidError, readPlaidError } from "./error-policy";
+import { classifyPlaidError, describeSyncError, readPlaidError } from "./error-policy";
 import {
   type PlaidItemRecord,
   recordSyncFailure,
@@ -131,6 +131,12 @@ export async function syncItem(deps: {
       cursor: outcome.cursor,
     };
   } catch (e) {
+    // Diagnostic only — never changes classifyPlaidError's decision or any
+    // downstream behavior. See describeSyncError for why this is safe to
+    // log (never the raw Plaid error body, never an unknown object dumped
+    // verbatim).
+    console.error("[plaid] sync failed", { itemId: item.itemId, ...describeSyncError(e) });
+
     const decision = classifyPlaidError(e);
     if (decision.status) await setItemStatus(db, item.itemId, decision.status, decision.errorCode);
     else if (decision.countFailure) await recordSyncFailure(db, item.itemId, decision.errorCode);

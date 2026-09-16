@@ -5,6 +5,7 @@ import {
   hasAdminCredentials,
   magicTokenHash,
 } from "./helpers/test-user";
+import { onboardAndSkipTour } from "./helpers/onboard";
 
 test.skip(!hasAdminCredentials(), "needs SUPABASE_SECRET_KEY (see .env.local)");
 
@@ -15,13 +16,8 @@ test("sign in, onboard, add a transaction, edit it, delete it", async ({ page })
     const tokenHash = await magicTokenHash(user.email);
     await page.goto(`/auth/callback?token_hash=${tokenHash}&type=magiclink&next=/`);
 
-    // New user -> onboarding.
-    await expect(page).toHaveURL(/\/onboarding$/);
-    await page.getByRole("combobox").selectOption("USD");
-    await page.getByRole("button", { name: /start budgeting/i }).click();
-
-    // Dashboard shows the seeded categories.
-    await page.waitForURL((u) => u.pathname === "/", { timeout: 20000 });
+    // New user -> onboarding -> the first-run tour -> dashboard.
+    await onboardAndSkipTour(page);
     await expect(page.getByText("so far this month")).toBeVisible();
 
     // Add a transaction.

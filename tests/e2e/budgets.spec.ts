@@ -5,6 +5,7 @@ import {
   hasAdminCredentials,
   magicTokenHash,
 } from "./helpers/test-user";
+import { onboardAndSkipTour } from "./helpers/onboard";
 
 test.skip(!hasAdminCredentials(), "needs SUPABASE_SECRET_KEY (see .env.local)");
 
@@ -22,10 +23,7 @@ test("set a budget, then the dashboard shows budget-vs-actual and savings", asyn
   const user = await createTestUser();
   try {
     await page.goto(`/auth/callback?token_hash=${await magicTokenHash(user.email)}&type=magiclink&next=/`);
-    await expect(page).toHaveURL(/\/onboarding$/);
-    await page.getByRole("combobox").selectOption("USD");
-    await page.getByRole("button", { name: /start budgeting/i }).click();
-    await page.waitForURL((u) => u.pathname === "/", { timeout: 20000 });
+    await onboardAndSkipTour(page);
 
     // Set a $400 budget for Food / Groceries via its category card.
     await page.getByRole("link", { name: "Budgets" }).click();

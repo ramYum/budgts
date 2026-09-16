@@ -64,7 +64,9 @@ BUDGTS
 ```
 
 Native mobile apps are a **separate delivery track**, not a tier — see the end
-of this file. Working detail for every tier: `docs/workflow.md §4`.
+of this file. **Scale & Infrastructure** is a second parallel track
+(capacity observability, no plan upgrades yet) — same section. Working
+detail for every tier: `docs/workflow.md §4`.
 
 ## Phase 1 — Core budgeting foundation ✅
 
@@ -136,25 +138,36 @@ and typography unchanged.
 redesigned fill + type hierarchy, mascot mirrored on the insight card —
 the final redesign pass.
 
-**"How Budgts Works" guide** (`/help/how-it-works`): a permanent, static
-Help page teaching the end-to-end mental model (connect → transactions
-arrive → auto-categorize → review exceptions → set a budget → Money Left →
-track progress) — what the first-run tour shows *where* for, this teaches
-*how the workflow fits together and why it's convenient*. Linked from a new
-entry card at the top of `/help` and from the tour's final card. No DB
-reads, no new dependency. Spec:
+**First-run tour** (branch `v1.5/first-run-tour`): the deferred 3-screen
+onboarding wizard, expanded into a convenience-first pitch and picked up on
+its own merits once Plaid went live in production. Welcome → Every purchase,
+tracked (phone tap/card/online order, auto-captured once a bank is
+connected) → Currency (`/onboarding`, unchanged data flow), then Connect your
+bank → Sorted for you (auto-categorization) → Know what's left → All set
+(`/tour`). Shown once to new users and once to every already-onboarded user
+(`profiles.tour_seen_at`); replayable from Help. Every pitch card
+self-hides where its claim wouldn't be true (Plaid off, or a bank already
+connected). Spec: `docs/specs/2026-09-15-first-run-tour-design.md`. **This
+is the currently-live tour** — a live-coachmark redesign (v2, spotlight +
+tooltip on the real button on the real page) has been fully specced
+(`docs/specs/2026-09-15-first-run-tour-live-coachmarks-design.md`) and
+planned (`docs/superpowers/plans/2026-09-15-first-run-tour-coachmarks.md`)
+but **not implemented** — none of its tasks have run yet.
+
+**"How Budgts Works" guide** (`/help/how-it-works`, branch
+`v1.5/first-run-tour`): a permanent, static Help page teaching the
+end-to-end mental model (connect → transactions arrive → auto-categorize →
+review exceptions → set a budget → Money Left → track progress) — what the
+tour shows *where* for, this teaches *how the workflow fits together and
+why it's convenient*. Linked from a new entry card at the top of `/help`
+and from the live tour's final card. No DB reads, no new dependency. Spec:
 `docs/specs/2026-09-15-how-budgts-works-guide-design.md`.
 
 Deferred → backlog, outside the closed redesign (see the spec's own
-§"remaining issues" classification): the
-3-screen onboarding wizard (Welcome → Connect Bank → All Set) — the existing
-single-screen onboarding was reskinned but not restructured, since Plaid UI
-was flag-gated off in every environment this was built against (the flag has
-since been turned on in production — see the V1 section's 2026-09-14 update —
-so this deferral's premise no longer holds; worth revisiting); a Net Worth
-tab on Insights (spec explicitly forbids faking it before the feature
-exists); per-category "top merchants" in Category Detail; a real
-Notifications settings screen (no backend exists for it).
+§"remaining issues" classification): a Net Worth tab on Insights (spec
+explicitly forbids faking it before the feature exists); per-category "top
+merchants" in Category Detail; a real Notifications settings screen (no
+backend exists for it).
 
 Spec: `docs/specs/2026-09-13-ui-redesign-brand-guidelines-spec.md` (IA/behavior
 — its brand sections are superseded, see its header). Brand:
@@ -173,7 +186,9 @@ refund / unique-index rules.
 
 - **Plaid Sandbox** — build and test entirely against Sandbox (free, no
   application). Production is a separate gate: a short application, then
-  ~$0.30–$1.50 per connected item / month for Transactions.
+  ~$0.30–$1.50 per connected item / month for Transactions (Plaid's public
+  pricing page no longer lists per-unit rates — treat this figure as
+  unverified/stale until reconfirmed via Plaid's sales contact).
 - **`PlaidAdapter`** — `normalize()` maps each Plaid transaction to a
   `NormalizedTxn` (`source: 'bank'`, `sourceRef: transaction_id`).
 - **Account linking** — Plaid Link (hosted UI) → `public_token` →
@@ -296,3 +311,29 @@ Not a capability tier. Expo / React Native + Expo Router; reuse domain logic +
 Supabase; EAS Build (required — owner is on Windows, cannot build iOS locally).
 Prereqs: Apple Developer Program ($99/yr), Google Play Console ($25 once). Can
 run alongside any tier above once V1 is stable. Target: a few months.
+
+## Delivery track (parallel) — Scale & Infrastructure
+
+Not a capability tier — runs alongside V1.5 and V2 without blocking either.
+Purpose: measure real capacity limits and remove genuine bottlenecks before
+they're hit, without paying for headroom nobody has used yet.
+
+- **`sync-due` instrumentation** — per-item and per-invocation duration
+  logging on the Plaid poller, so capacity decisions use measured data
+  instead of estimates.
+- **Capacity boundary, documented not guessed** — the serial `sync-due`
+  design has sufficient headroom for expected steady-state traffic at the
+  500-user initial target; synchronized bursts (mass onboarding, a webhook
+  storm) are the known weakness. No queue/fan-out architecture is planned
+  unless measured production behavior demonstrates it's actually required.
+- **Bounded `LIMIT` + `ORDER BY` on `findItemsToSync`** — optional
+  hardening, built only if/when measured data justifies it. Not built yet.
+- **Production usage/cost monitoring** — Supabase DB size, connection
+  counts, Plaid per-item spend, tracked against real usage rather than
+  assumed.
+- **Supabase/Vercel plan upgrade** — an explicit **launch-readiness
+  milestone**, not a development-phase expense. Trigger: Supabase DB size
+  approaching its 500MB Free-tier cap, or a concrete dev/prod limitation —
+  whichever comes first, not an arbitrary user count.
+
+This track does not block V1.5 or V2.

@@ -265,13 +265,13 @@ function ImportToggle({ account }: { account: ConnectedBankAccount }) {
             : "Paused — tap to resume importing new transactions from now on."
         }
         className={`relative h-5 w-9 shrink-0 rounded-full transition-colors disabled:opacity-50 ${
-          importing ? "bg-primary" : "bg-border"
+          importing ? "bg-accent" : "bg-border"
         }`}
       >
         <span
           aria-hidden
-          className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${
-            importing ? "translate-x-4" : "translate-x-0.5"
+          className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${
+            importing ? "translate-x-4" : "translate-x-0"
           }`}
         />
       </button>

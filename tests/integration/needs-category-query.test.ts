@@ -30,6 +30,11 @@ async function needsCategoryIds(): Promise<string[]> {
       and removed_at is null
       and is_transfer = false
       and duplicate_of_id is null
+      and (
+        event_role is null
+        or event_role not in ('CARD_PAYMENT', 'CASH_ADVANCE')
+        or transfer_user_set = true
+      )
     order by occurred_at desc`;
   return rows.map((r) => r.id);
 }
@@ -60,6 +65,35 @@ describe("needs-a-category query predicate (staging Postgres)", () => {
     expect(ids).not.toContain(categorized);
     expect(ids).not.toContain(transfer);
     expect(ids).not.toContain(removed);
+  });
+
+  it("excludes a CARD_PAYMENT-role row (e.g. paying off a credit card) even though it has no category", async () => {
+    const cardPayment = await insertBankTxn(userId, accountId, { eventRole: "CARD_PAYMENT" });
+    const unrelated = await insertBankTxn(userId, accountId, { description: "unrelated for card-payment case" });
+
+    const ids = await needsCategoryIds();
+
+    expect(ids).not.toContain(cardPayment);
+    expect(ids).toContain(unrelated);
+  });
+
+  it("excludes a CASH_ADVANCE-role row the same way", async () => {
+    const cashAdvance = await insertBankTxn(userId, accountId, { eventRole: "CASH_ADVANCE" });
+
+    const ids = await needsCategoryIds();
+
+    expect(ids).not.toContain(cashAdvance);
+  });
+
+  it("keeps a CARD_PAYMENT row in the queue when the user explicitly overrode the transfer decision", async () => {
+    const overridden = await insertBankTxn(userId, accountId, {
+      eventRole: "CARD_PAYMENT",
+      transferUserSet: true,
+    });
+
+    const ids = await needsCategoryIds();
+
+    expect(ids).toContain(overridden);
   });
 });
 

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { signOut } from "@/server/auth";
 import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
+import { applyNeedsCategoryFilter } from "@/lib/plaid/needs-category-window";
 import { Logo } from "@/components/logo";
 import { BottomNav } from "@/components/bottom-nav";
 import { DesktopSidebar } from "@/components/desktop-sidebar";
@@ -16,26 +17,22 @@ export default async function DashboardLayout({ children }: LayoutProps<"/">) {
   const supabase = await createClient();
   const { data: profile } = await supabase
     .from("profiles")
-    .select("onboarded_at")
+    .select("onboarded_at, created_at")
     .eq("id", user.id)
     .single();
   if (!profile?.onboarded_at) redirect("/onboarding");
 
-  // Bank rows Budgts could not categorise — the header bell's count. Same
-  // predicate as <NeedsCategory>. `removed_at` only exists where 0004 has run.
+  // Bank rows Budgts could not categorise, inside the user's categorization
+  // window — the header bell's count. Same predicate as <NeedsCategory>,
+  // applied by the same shared function so the two can't drift (design:
+  // 2026-09-16). `removed_at` only exists where 0004 has run.
   const plaidOn = plaidUiEnabled();
   let needsCategoryCount = 0;
   if (plaidOn) {
-    const { count } = await supabase
-      .from("transactions")
-      .select("id", { count: "exact", head: true })
-      .eq("source", "bank")
-      .is("category_id", null)
-      .is("removed_at", null)
-      .eq("is_transfer", false)
-      // A confirmed duplicate (design: 2026-09-12 Phase 15) is never real work
-      // to do — exclude it, matching the query in transactions/page.tsx.
-      .is("duplicate_of_id", null);
+    const { count } = await applyNeedsCategoryFilter(
+      supabase.from("transactions").select("id", { count: "exact", head: true }),
+      profile.created_at,
+    );
     needsCategoryCount = count ?? 0;
   }
 

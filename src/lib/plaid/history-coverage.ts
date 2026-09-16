@@ -1,6 +1,6 @@
 /**
  * Detects when a Plaid connection's initial transaction backfill fell short
- * of the historical window Budgts requested at Link time (90 days —
+ * of the historical window Budgts requested at Link time (60 days —
  * `days_requested` in `/api/plaid/link-token`). `days_requested` is a
  * request, not a guarantee: Plaid's own docs note actual depth varies by
  * institution, and some institutions only return transactions from the
@@ -23,7 +23,7 @@ function dateOnly(iso: string): string {
  * connected — i.e. nothing came back for any date before connection, which
  * is the signature of a short-changed historical backfill rather than a
  * genuinely new account (a real backfill would show at least some days
- * before the connection date, even if fewer than the 90 requested).
+ * before the connection date, even if fewer than the 60 requested).
  */
 export function hasLimitedHistory(connectedAt: string, earliestTxnAt: string | null): boolean {
   if (!earliestTxnAt) return false;

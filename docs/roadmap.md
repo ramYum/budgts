@@ -337,3 +337,24 @@ they're hit, without paying for headroom nobody has used yet.
   whichever comes first, not an arbitrary user count.
 
 This track does not block V1.5 or V2.
+
+**Empirical signal (2026-09-16), not yet acted on.** Running the local e2e
+suite against a production-backed build surfaced a real Postgres
+`canceling statement due to statement timeout` error, twice, including once
+during an otherwise-passing, unrelated run — i.e. not tied to one specific
+test. Two pre-existing specs (`budgets.spec.ts`, `goals.spec.ts`) failed or
+went flaky waiting on a mutation to reflect (a stuck "Saving…" state, or a
+post-save `router.refresh()` still showing pre-save data), never a wrong
+computed value. Primary suspected factor: Nano/shared-compute contention on
+the single production Postgres instance — the `/budgets` page's `router
+.refresh()` re-runs its full multi-query data-fetch on every mutation
+rather than updating incrementally, which is a plausible amplifier but not
+shown to be the root cause. The `transactions_user_occurred_idx` composite
+index and the plain `auth.uid() = user_id` RLS policy mean the query itself
+is not inherently expensive against the ~32k-row table. **Caveat:** manual
+read-only SQL-editor queries were running against this same production
+database during the investigation and may have contributed to the
+contention observed — this was not an isolated measurement. No
+architectural change made or planned from this alone; treat it as one
+data point for the controlled measurement this track already calls for
+(`sync-due` instrumentation, above), not a conclusion.

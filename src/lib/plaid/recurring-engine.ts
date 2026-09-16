@@ -12,6 +12,7 @@
  * (see recurring-store.ts's `ON CONFLICT DO UPDATE`).
  */
 import { detectRecurringSeries, type SeriesSnapshot, type SeriesUpdate } from "./recurring-detection";
+import { classifySubscription } from "./subscription-detection";
 import type { EventRole } from "./types";
 
 export interface RecurringGroupKey {
@@ -25,6 +26,10 @@ export interface RecurringObservationRow {
   amount: number;
   occurredAt: string;
   eventRole: EventRole;
+  /** Subscription-detection evidence (V1.5) — read but never written by the
+   * recurring detector itself; see subscription-detection.ts. */
+  plaidCategoryPrimary: string | null;
+  plaidCategoryDetailed: string | null;
 }
 
 /** A persisted series can be MUTED too, unlike {@link SeriesSnapshot}'s
@@ -129,10 +134,36 @@ export async function runRecurringDetectionForUser(deps: RunRecurringDetectionDe
       continue;
     }
 
-    const eventRole = sorted[sorted.length - 1].eventRole;
+    const latest = sorted[sorted.length - 1];
+    const eventRole = latest.eventRole;
     await store.applySeriesUpdate(userId, key, result, eventRole, existing);
     updatedCount += 1;
     if (result.status === "ACTIVE" && existing?.status !== "ACTIVE") newlyActiveCount += 1;
+
+    // Subscription detection (V1.5) -- a pure classification layer, not a
+    // second detector: it reads the SAME final status applySeriesUpdate
+    // just persisted (mirroring, not modifying, that method's own MUTED
+    // guard) and the latest observation's category evidence. Never
+    // persisted in this first implementation (no recurring_series column
+    // yet) -- observation only, via structured logging, exactly like this
+    // feature's own first phase before any UI/persistence existed.
+    const finalStatus = existing?.status === "MUTED" ? "MUTED" : result.status;
+    const isSubscription = classifySubscription({
+      status: finalStatus,
+      eventRole,
+      plaidCategoryPrimary: latest.plaidCategoryPrimary,
+      plaidCategoryDetailed: latest.plaidCategoryDetailed,
+    });
+    if (isSubscription) {
+      console.log("[plaid] subscription-detection", {
+        userId,
+        merchantEntityId: key.merchantEntityId,
+        accountId: key.accountId,
+        direction: key.direction,
+        cadence: result.cadence,
+        plaidCategoryDetailed: latest.plaidCategoryDetailed,
+      });
+    }
   }
 
   await store.markScanned(userId, scanStartTime);

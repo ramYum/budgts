@@ -88,6 +88,8 @@ export function createRecurringStore(db: RecurringDb): RecurringStore {
           amount: transactions.amount,
           occurredAt: transactions.occurredAt,
           eventRole: transactions.eventRole,
+          plaidCategoryPrimary: transactions.plaidCategoryPrimary,
+          plaidCategoryDetailed: transactions.plaidCategoryDetailed,
         })
         .from(transactions)
         .where(
@@ -105,6 +107,8 @@ export function createRecurringStore(db: RecurringDb): RecurringStore {
         amount: r.amount,
         occurredAt: r.occurredAt.toISOString(),
         eventRole: r.eventRole as EventRole,
+        plaidCategoryPrimary: r.plaidCategoryPrimary,
+        plaidCategoryDetailed: r.plaidCategoryDetailed,
       })) satisfies RecurringObservationRow[];
     },
 

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   type ExistingSeriesRow,
   type RecurringGroupKey,
@@ -11,10 +11,22 @@ import type { SeriesUpdate } from "./recurring-detection";
 
 const KEY: RecurringGroupKey = { merchantEntityId: "m1", accountId: "acct1", direction: "debit" };
 
-function row(id: string, dayOffset: number, amount = 1000): RecurringObservationRow {
+function row(
+  id: string,
+  dayOffset: number,
+  amount = 1000,
+  category: { primary?: string | null; detailed?: string | null } = {},
+): RecurringObservationRow {
   const d = new Date(Date.UTC(2026, 0, 1));
   d.setUTCDate(d.getUTCDate() + dayOffset);
-  return { id, amount, occurredAt: d.toISOString(), eventRole: "PURCHASE" };
+  return {
+    id,
+    amount,
+    occurredAt: d.toISOString(),
+    eventRole: "PURCHASE",
+    plaidCategoryPrimary: category.primary ?? null,
+    plaidCategoryDetailed: category.detailed ?? null,
+  };
 }
 
 function fakeStore(opts: {
@@ -262,5 +274,93 @@ describe("runRecurringDetectionForUser", () => {
     expect(outcome.groupCount).toBe(2);
     expect(outcome.updatedCount).toBe(1); // only m1 forms a valid series
     expect(outcome.noChangeCount).toBe(1); // m2 has only 1 observation
+  });
+});
+
+describe("subscription detection (V1.5) — classification layer, no effect on recurring detection", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("REGRESSION: RunRecurringDetectionOutcome is byte-identical whether or not the underlying observations carry subscription-qualifying category evidence", async () => {
+    const withoutCategory = [row("a", 0), row("b", 30), row("c", 60)];
+    const withCategory = [
+      row("a", 0, 1000, { primary: "ENTERTAINMENT", detailed: "ENTERTAINMENT_TV_AND_MOVIES" }),
+      row("b", 30, 1000, { primary: "ENTERTAINMENT", detailed: "ENTERTAINMENT_TV_AND_MOVIES" }),
+      row("c", 60, 1000, { primary: "ENTERTAINMENT", detailed: "ENTERTAINMENT_TV_AND_MOVIES" }),
+    ];
+
+    const { store: storeA } = fakeStore({ groups: [KEY], observations: withoutCategory });
+    const { store: storeB } = fakeStore({ groups: [KEY], observations: withCategory });
+
+    const outcomeA = await runRecurringDetectionForUser({ userId: "u1", watermark: null, store: storeA });
+    const outcomeB = await runRecurringDetectionForUser({ userId: "u1", watermark: null, store: storeB });
+
+    expect(outcomeB).toEqual(outcomeA);
+  });
+
+  it("logs a subscription-detection line for an ACTIVE, PURCHASE, trusted-category series", async () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const observations = [
+      row("a", 0, 1000, { primary: "ENTERTAINMENT", detailed: "ENTERTAINMENT_TV_AND_MOVIES" }),
+      row("b", 30, 1000, { primary: "ENTERTAINMENT", detailed: "ENTERTAINMENT_TV_AND_MOVIES" }),
+      row("c", 60, 1000, { primary: "ENTERTAINMENT", detailed: "ENTERTAINMENT_TV_AND_MOVIES" }),
+    ];
+    const { store } = fakeStore({ groups: [KEY], observations });
+
+    await runRecurringDetectionForUser({ userId: "u1", watermark: null, store });
+
+    const subscriptionLogs = logSpy.mock.calls.filter((call) => call[0] === "[plaid] subscription-detection");
+    expect(subscriptionLogs).toHaveLength(1);
+    expect(subscriptionLogs[0][1]).toMatchObject({ userId: "u1", merchantEntityId: "m1" });
+  });
+
+  it("does not log a subscription-detection line for a series without trusted category evidence", async () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const observations = [row("a", 0), row("b", 30), row("c", 60)]; // no category evidence at all
+    const { store } = fakeStore({ groups: [KEY], observations });
+
+    await runRecurringDetectionForUser({ userId: "u1", watermark: null, store });
+
+    const subscriptionLogs = logSpy.mock.calls.filter((call) => call[0] === "[plaid] subscription-detection");
+    expect(subscriptionLogs).toHaveLength(0);
+  });
+
+  it("does not log a subscription-detection line for a MUTED series, even with perfect category evidence", async () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const observations = [
+      row("a", 0, 1000, { primary: "ENTERTAINMENT", detailed: "ENTERTAINMENT_TV_AND_MOVIES" }),
+      row("b", 30, 1000, { primary: "ENTERTAINMENT", detailed: "ENTERTAINMENT_TV_AND_MOVIES" }),
+      row("c", 60, 1000, { primary: "ENTERTAINMENT", detailed: "ENTERTAINMENT_TV_AND_MOVIES" }),
+    ];
+    const existing: ExistingSeriesRow = {
+      id: "series1",
+      cadence: "MONTHLY",
+      expectedAmount: 1000,
+      amountToleranceMinor: computeAmountToleranceMinor(1000),
+      observationCount: 3,
+      status: "MUTED",
+      overriddenByUser: false,
+    };
+    const { store } = fakeStore({ groups: [KEY], observations, existing });
+
+    await runRecurringDetectionForUser({ userId: "u1", watermark: null, store });
+
+    const subscriptionLogs = logSpy.mock.calls.filter((call) => call[0] === "[plaid] subscription-detection");
+    expect(subscriptionLogs).toHaveLength(0);
+  });
+
+  it("does not log a subscription-detection line for a CANDIDATE series (only 2 observations), even with perfect category evidence", async () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const observations = [
+      row("a", 0, 1000, { primary: "ENTERTAINMENT", detailed: "ENTERTAINMENT_TV_AND_MOVIES" }),
+      row("b", 30, 1000, { primary: "ENTERTAINMENT", detailed: "ENTERTAINMENT_TV_AND_MOVIES" }),
+    ];
+    const { store } = fakeStore({ groups: [KEY], observations });
+
+    await runRecurringDetectionForUser({ userId: "u1", watermark: null, store });
+
+    const subscriptionLogs = logSpy.mock.calls.filter((call) => call[0] === "[plaid] subscription-detection");
+    expect(subscriptionLogs).toHaveLength(0);
   });
 });

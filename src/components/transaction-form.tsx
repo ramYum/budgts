@@ -36,6 +36,7 @@ export function TransactionForm({
   onDone,
   submitLabel,
   initialDirection = "debit",
+  lockDirection = false,
 }: {
   action: (prev: TxnActionState, formData: FormData) => Promise<TxnActionState>;
   accounts: AccountOption[];
@@ -46,10 +47,15 @@ export function TransactionForm({
   submitLabel: string;
   /** Direction to preselect on a brand-new (non-`initial`) entry, e.g. "credit" for an "Add income" shortcut. */
   initialDirection?: "debit" | "credit";
+  /** When true, `initialDirection` is fixed and not user-editable, and the category list narrows to that direction's kind (e.g. the "Add income" shortcut: always money in, only income categories). Ignored when editing an existing transaction (`initial`). */
+  lockDirection?: boolean;
 }) {
   const [state, formAction, pending] = useActionState<TxnActionState, FormData>(action, {});
   const router = useRouter();
   const fe = state.fieldErrors ?? {};
+  const directionLocked = lockDirection && !initial;
+  const visibleCategories =
+    directionLocked && initialDirection === "credit" ? categories.filter((c) => c.kind === "income") : categories;
 
   useEffect(() => {
     if (state.ok) {
@@ -76,10 +82,19 @@ export function TransactionForm({
         </label>
         <label className={label}>
           Direction
-          <select className={field} name="direction" defaultValue={initial?.direction ?? initialDirection}>
-            <option value="debit">Money out</option>
-            <option value="credit">Money in</option>
-          </select>
+          {directionLocked ? (
+            <>
+              <p className={`${field} bg-tint text-muted`}>
+                {initialDirection === "credit" ? "Money in" : "Money out"}
+              </p>
+              <input type="hidden" name="direction" value={initialDirection} />
+            </>
+          ) : (
+            <select className={field} name="direction" defaultValue={initial?.direction ?? initialDirection}>
+              <option value="debit">Money out</option>
+              <option value="credit">Money in</option>
+            </select>
+          )}
         </label>
       </div>
       {fe.amount ? <p className="text-xs text-neg">{fe.amount}</p> : null}
@@ -103,14 +118,14 @@ export function TransactionForm({
           name="categoryId"
           defaultValue={
             initial?.categoryId ??
-            (initialDirection === "credit" ? (categories.find((c) => c.kind === "income")?.id ?? "") : "")
+            (initialDirection === "credit" ? (visibleCategories.find((c) => c.kind === "income")?.id ?? "") : "")
           }
         >
           <option value="">Uncategorized</option>
-          {categories.map((c) => (
+          {visibleCategories.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}
-              {c.kind === "income" ? " (income)" : ""}
+              {!directionLocked && c.kind === "income" ? " (income)" : ""}
             </option>
           ))}
         </select>

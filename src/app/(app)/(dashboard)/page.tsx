@@ -8,6 +8,7 @@ import type { BudgetTxn } from "@/lib/budget/types";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
 import { fetchAllRows } from "@/lib/supabase/fetch-all-rows";
+import { selectableAccounts, type SelectableAccountRow } from "@/lib/accounts/selectable-accounts";
 import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
 import { isEventRole } from "@/lib/plaid/event-role";
 import { nudgeRefresh } from "@/server/plaid/service";
@@ -109,6 +110,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
     { data: budgetRows },
     { data: profile },
     { data: accountRows },
+    { data: liveLinkedAccounts },
     { data: excludedPlaidAccounts },
     { data: recentRows },
     { data: goalRows },
@@ -123,7 +125,15 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
       .eq("is_archived", false),
     supabase.from("budgets").select("category_id, amount").eq("month", `${month}-01`),
     supabase.from("profiles").select("currency").eq("id", user.id).single(),
-    supabase.from("accounts").select("id, name").eq("is_archived", false).order("name"),
+    supabase.from("accounts").select("id, name, source").eq("is_archived", false).order("name"),
+    // Accounts currently linked to a live bank connection — disconnecting a
+    // bank deletes its plaid_accounts row (cascade) without touching the
+    // accounts row, so this set is what makes selectableAccounts() below
+    // drop a disconnected bank's leftover account from the manual-entry
+    // dropdown instead of showing it forever.
+    plaidUiEnabled()
+      ? supabase.from("plaid_accounts").select("account_id").not("account_id", "is", null)
+      : Promise.resolve({ data: [] as { account_id: string | null }[] }),
     // Explicit owner-excluded connections (design: 2026-09-13 Advancial
     // containment) — a Plaid account the owner has confirmed is unreliable.
     // Self-gates like the rest of the Plaid UI: an empty result under a
@@ -165,7 +175,13 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
   const trendTxns: BudgetTxn[] = (trendTxnRows ?? []).map(toBudgetTxn);
   const cats: DashboardCategory[] = (categories ?? []) as DashboardCategory[];
   const budgets = (budgetRows ?? []).map((b) => ({ categoryId: b.category_id, amount: b.amount }));
-  const accounts = (accountRows ?? []) as AccountOption[];
+  const liveLinkedAccountIds = new Set(
+    (liveLinkedAccounts ?? []).map((a) => a.account_id).filter((id): id is string => id != null),
+  );
+  const accounts: AccountOption[] = selectableAccounts(
+    (accountRows ?? []) as SelectableAccountRow[],
+    liveLinkedAccountIds,
+  );
   const defaultDate = (monthKey(new Date()) === month ? new Date().toISOString() : `${month}-15T12:00:00Z`).slice(
     0,
     10,

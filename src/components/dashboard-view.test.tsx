@@ -103,7 +103,7 @@ describe("DashboardView", () => {
     expect(screen.getByText(/Set a budget/i)).toBeInTheDocument();
   });
 
-  it("opens an add-income form preset to credit when the Income tile is tapped", async () => {
+  it("opens an add-income form locked to money in when the Income tile is tapped", async () => {
     const user = userEvent.setup();
     render(<DashboardView {...baseProps} view={view} />);
 
@@ -111,7 +111,10 @@ describe("DashboardView", () => {
 
     const dialog = screen.getByRole("dialog", { name: "Add income" });
     expect(dialog).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "Direction" })).toHaveValue("credit");
+    // Direction is fixed, not user-editable, from this shortcut — see
+    // TransactionForm's lockDirection.
+    expect(screen.queryByRole("combobox", { name: "Direction" })).not.toBeInTheDocument();
+    expect(screen.getByText("Money in")).toBeInTheDocument();
   });
 
   it("shows the disclaimer that this is cash flow, not an account balance", () => {

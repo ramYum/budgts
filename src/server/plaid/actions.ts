@@ -106,7 +106,7 @@ export async function mapAccounts(
     if (entry.mode === "new") {
       const { data: created, error } = await supabase
         .from("accounts")
-        .insert({ user_id: user.id, name: entry.name, type: entry.type ?? "checking" })
+        .insert({ user_id: user.id, name: entry.name, type: entry.type ?? "checking", source: "plaid" })
         .select("id")
         .single();
       if (error || !created) return { error: "Could not create the account. Try again." };

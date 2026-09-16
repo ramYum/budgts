@@ -13,6 +13,7 @@ import { ConnectBank } from "@/components/plaid/connect-bank";
 import { NeedsCategory, type NeedsCategoryItem } from "@/components/plaid/needs-category";
 import { LimitedHistoryBanner } from "@/components/plaid/limited-history-banner";
 import { fetchAllRows } from "@/lib/supabase/fetch-all-rows";
+import { selectableAccounts, type SelectableAccountRow } from "@/lib/accounts/selectable-accounts";
 import { nudgeRefresh } from "@/server/plaid/service";
 import { buildCategoryLookup, suggestPlaidCategory } from "@/lib/plaid/category-map";
 
@@ -100,15 +101,27 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
       .range(from, to);
   });
 
-  const [txns, { data: accounts }, { data: categories }, { data: profile }] = await Promise.all([
-    txnsPromise,
-    supabase.from("accounts").select("id, name").eq("is_archived", false).order("name"),
-    supabase.from("categories").select("id, name, kind").eq("is_archived", false).order("kind").order("name"),
-    supabase.from("profiles").select("currency").eq("id", user.id).single(),
-  ]);
+  const [txns, { data: accounts }, { data: liveLinkedAccounts }, { data: categories }, { data: profile }] =
+    await Promise.all([
+      txnsPromise,
+      supabase.from("accounts").select("id, name, source").eq("is_archived", false).order("name"),
+      // See src/lib/accounts/selectable-accounts.ts — a disconnected bank's
+      // leftover account row must not show in the manual "Add" dropdown.
+      plaidOn
+        ? supabase.from("plaid_accounts").select("account_id").not("account_id", "is", null)
+        : Promise.resolve({ data: [] as { account_id: string | null }[] }),
+      supabase.from("categories").select("id, name, kind").eq("is_archived", false).order("kind").order("name"),
+      supabase.from("profiles").select("currency").eq("id", user.id).single(),
+    ]);
 
   const currency = profile?.currency ?? "USD";
-  const accountOpts = (accounts ?? []) as AccountOption[];
+  const liveLinkedAccountIds = new Set(
+    (liveLinkedAccounts ?? []).map((a) => a.account_id).filter((id): id is string => id != null),
+  );
+  const accountOpts: AccountOption[] = selectableAccounts(
+    (accounts ?? []) as SelectableAccountRow[],
+    liveLinkedAccountIds,
+  );
   const categoryOpts = (categories ?? []) as CategoryOption[];
 
   // Imported bank rows with no category — the one prompt V1 shows (design §3).

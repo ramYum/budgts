@@ -8,8 +8,10 @@ import { TransactionForm, type AccountOption, type CategoryOption } from "./tran
 
 /**
  * The dashboard's "Income" tile, made interactive: tapping it opens the same
- * transaction form used elsewhere, preset to a credit so it lands as income
- * without extra steps (design ask: "add manually an income amount").
+ * transaction form used elsewhere, locked to credit (money in only, income
+ * categories only) so it always lands as income (design ask: "add manually
+ * an income amount"). `accounts` is expected to already be narrowed to
+ * currently-selectable ones — see src/lib/accounts/selectable-accounts.ts.
  */
 export function IncomeTile({
   value,
@@ -46,6 +48,7 @@ export function IncomeTile({
             categories={categories}
             defaultDate={defaultDate}
             initialDirection="credit"
+            lockDirection
             onDone={() => setOpen(false)}
             submitLabel="Add"
           />

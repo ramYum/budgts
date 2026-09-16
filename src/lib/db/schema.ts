@@ -21,6 +21,12 @@ import {
 // docs/conventions.md → "Building a feature — the layer order", step 1).
 
 export const accountType = pgEnum("account_type", ["checking", "credit", "cash", "savings"]);
+// Which flow created this account. Distinct from "currently Plaid-connected"
+// (that's tracked by whether a live plaid_accounts row points here) — this
+// only says how the row originated, so a disconnected bank's leftover
+// account row still reads 'plaid' and can be told apart from a real manual
+// account. See src/lib/accounts/selectable-accounts.ts.
+export const accountSource = pgEnum("account_source", ["manual", "plaid"]);
 export const categoryKind = pgEnum("category_kind", ["expense", "income"]);
 export const txnDirection = pgEnum("txn_direction", ["debit", "credit"]);
 export const txnSource = pgEnum("txn_source", ["manual", "email", "receipt", "bank"]);
@@ -62,6 +68,7 @@ export const accounts = pgTable(
     name: text("name").notNull(),
     type: accountType("type").notNull(),
     isArchived: boolean("is_archived").notNull().default(false),
+    source: accountSource("source").notNull().default("manual"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("accounts_user_idx").on(t.userId)],

@@ -6,19 +6,25 @@ import { Overlay } from "@/components/overlay";
 import {
   clearAccountReview,
   disconnectBank,
+  mapAccounts,
   setAccountCalculationExclusionAction,
   setAccountImportingAction,
   syncConnection,
   type PlaidActionState,
 } from "@/server/plaid/actions";
-import { AccountMapping, type MappableAccount } from "./account-mapping";
+import { AccountMapping, accountLabel, guessType, type MappableAccount } from "./account-mapping";
 import { ReconnectButton } from "./reconnect-button";
 
 export type ConnectedBankAccount = {
   rowId: string;
   plaidAccountId: string;
   name: string | null;
+  officialName: string | null;
   mask: string | null;
+  /** Plaid's own account type/subtype — only used to guess a default name/type
+   * when quick-connecting a never-mapped account (see ConnectToggle). */
+  type: string | null;
+  subtype: string | null;
   linkState: "mapped" | "ignored" | "unmapped";
   mappedAccountName: string | null;
   needsReview: boolean;
@@ -164,7 +170,9 @@ function BankCard({
                     : "not set up"}
                 {a.linkState === "mapped" || (a.linkState === "ignored" && a.mappedAccountName) ? (
                   <ImportToggle account={a} />
-                ) : null}
+                ) : (
+                  <ConnectToggle account={a} plaidItemId={bank.id} />
+                )}
               </span>
             </div>
             {a.pendingSignCheckCount > 0 ? <SignCheckNotice count={a.pendingSignCheckCount} /> : null}
@@ -276,6 +284,62 @@ function ImportToggle({ account }: { account: ConnectedBankAccount }) {
         />
       </button>
       {state.error ? <span className="text-neg">{state.error}</span> : null}
+    </form>
+  );
+}
+
+/**
+ * Connect switch for one Plaid account that was never mapped to a Budgts
+ * account — "not set up" (linkState "unmapped") or previously declined via
+ * "Don't import this one" (linkState "ignored", no mappedAccountName).
+ * Always renders OFF (by construction: BankCard only mounts this component
+ * for a non-mapped account — see the row it's rendered from below) and one
+ * tap turns it on. Reuses the same `mapAccounts` action the bulk "Choose
+ * accounts to import" screen uses, in "new" mode with a guessed name/type
+ * (accountLabel/guessType — the same defaults that screen pre-fills), so
+ * this is a shortcut through that flow, not a second code path.
+ *
+ * Once connected, `linkState` becomes "mapped" and — after the
+ * `router.refresh()` below re-fetches the row — this same switch position
+ * renders as the ordinary ImportToggle instead, which is what actually
+ * offers the reversible on/off from then on (pause/resume, never a second
+ * "ignore" mapping call from here).
+ */
+function ConnectToggle({ account, plaidItemId }: { account: ConnectedBankAccount; plaidItemId: string }) {
+  const router = useRouter();
+  const [state, formAction, pending] = useActionState<PlaidActionState, FormData>(mapAccounts, {});
+
+  useEffect(() => {
+    if (state.ok) router.refresh();
+  }, [state.ok, router]);
+
+  const entries = [
+    {
+      plaidAccountId: account.plaidAccountId,
+      mode: "new",
+      name: accountLabel(account),
+      type: guessType(account),
+    },
+  ];
+
+  return (
+    <form action={formAction} className="inline-flex items-center gap-1.5">
+      <input type="hidden" name="plaidItemId" value={plaidItemId} />
+      <input type="hidden" name="entries" value={JSON.stringify(entries)} />
+      <button
+        type="submit"
+        role="switch"
+        aria-checked={false}
+        aria-label={`Connect ${account.name ?? "Account"}`}
+        disabled={pending}
+        title="Not connected — tap to start importing this account into a new Budgts account."
+        className="relative h-5 w-9 shrink-0 rounded-full bg-border transition-colors disabled:opacity-50"
+      >
+        <span aria-hidden className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow" />
+      </button>
+      {state.error || state.fieldError ? (
+        <span className="text-neg">{state.error ?? state.fieldError}</span>
+      ) : null}
     </form>
   );
 }

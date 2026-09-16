@@ -22,13 +22,18 @@ type Row = { mode: Mode; name: string; type: AccountType; existingAccountId: str
 const field =
   "w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-accent";
 
-function guessType(a: MappableAccount): AccountType {
+/** Shared with ConnectToggle (connected-banks.tsx) — the minimal shape both
+ * the bulk mapping form and the per-account quick-connect switch need to
+ * guess a sensible default name/type for a brand-new Budgts account. */
+export type GuessableAccount = Pick<MappableAccount, "name" | "officialName" | "mask" | "type" | "subtype">;
+
+export function guessType(a: GuessableAccount): AccountType {
   if (a.subtype === "savings") return "savings";
   if (a.type === "credit") return "credit";
   return "checking";
 }
 
-function accountLabel(a: MappableAccount): string {
+export function accountLabel(a: GuessableAccount): string {
   const base = a.name?.trim() || a.officialName?.trim() || "Account";
   return a.mask ? `${base} ••${a.mask}` : base;
 }

@@ -28,6 +28,8 @@ vi.mock("./reconnect-button", () => ({
   ReconnectButton: ({ itemId }: { itemId: string }) => <button type="button">Reconnect {itemId}</button>,
 }));
 
+const checkingDefaults = { officialName: null, type: "depository", subtype: "checking" };
+
 function bank(over: Partial<ConnectedBank> = {}): ConnectedBank {
   return {
     id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
@@ -40,6 +42,7 @@ function bank(over: Partial<ConnectedBank> = {}): ConnectedBank {
         rowId: "row-checking",
         plaidAccountId: "plaid-acc-checking",
         name: "Plaid Checking",
+        ...checkingDefaults,
         mask: "0000",
         linkState: "mapped",
         mappedAccountName: "Checking",
@@ -52,6 +55,9 @@ function bank(over: Partial<ConnectedBank> = {}): ConnectedBank {
         rowId: "row-saving",
         plaidAccountId: "plaid-acc-saving",
         name: "Plaid Saving",
+        officialName: null,
+        type: "depository",
+        subtype: "savings",
         mask: "1111",
         linkState: "ignored",
         mappedAccountName: null,
@@ -141,6 +147,7 @@ describe("ConnectedBanks", () => {
           rowId: "row-checking",
           plaidAccountId: "plaid-acc-checking",
           name: "Plaid Checking",
+          ...checkingDefaults,
           mask: "0000",
           linkState: "mapped",
           mappedAccountName: "Checking",
@@ -172,6 +179,7 @@ describe("ConnectedBanks", () => {
           rowId: "row-checking",
           plaidAccountId: "plaid-acc-checking",
           name: "Plaid Checking",
+          ...checkingDefaults,
           mask: "0000",
           linkState: "mapped",
           mappedAccountName: "Checking",
@@ -202,6 +210,7 @@ describe("ConnectedBanks", () => {
           rowId: "row-checking",
           plaidAccountId: "plaid-acc-checking",
           name: "Plaid Checking",
+          ...checkingDefaults,
           mask: "0000",
           linkState: "mapped",
           mappedAccountName: "Checking",
@@ -237,6 +246,7 @@ describe("ConnectedBanks", () => {
           rowId: "row-checking",
           plaidAccountId: "plaid-acc-checking",
           name: "Plaid Checking",
+          ...checkingDefaults,
           mask: "0000",
           linkState: "mapped",
           mappedAccountName: "Checking",
@@ -273,6 +283,7 @@ describe("ConnectedBanks — sign-convention 'checking this account' notice", ()
           rowId: "row-checking",
           plaidAccountId: "plaid-acc-checking",
           name: "Plaid Checking",
+          ...checkingDefaults,
           mask: "0000",
           linkState: "mapped",
           mappedAccountName: "Checking",
@@ -308,6 +319,7 @@ describe("ConnectedBanks — sign-convention 'checking this account' notice", ()
           rowId: "row-checking",
           plaidAccountId: "plaid-acc-checking",
           name: "Plaid Checking",
+          ...checkingDefaults,
           mask: "0000",
           linkState: "mapped",
           mappedAccountName: "Checking",
@@ -328,7 +340,7 @@ describe("ConnectedBanks — sign-convention 'checking this account' notice", ()
 
 // User request 2026-09-15: "Stop importing" should be a reversible switch, not
 // a one-way action requiring the mapping screen again to resume.
-describe("ConnectedBanks — import on/off switch", () => {
+describe("ConnectedBanks — import on/off switch (already-mapped accounts)", () => {
   it("renders an ON switch for a mapped account and turns it off with no confirm dialog", async () => {
     setAccountImportingAction.mockResolvedValue({ ok: true });
     const user = userEvent.setup();
@@ -357,6 +369,7 @@ describe("ConnectedBanks — import on/off switch", () => {
           rowId: "row-checking",
           plaidAccountId: "plaid-acc-checking",
           name: "Plaid Checking",
+          ...checkingDefaults,
           mask: "0000",
           linkState: "ignored",
           mappedAccountName: "Checking", // still resolvable — toggled off via the new path, not nulled
@@ -380,11 +393,88 @@ describe("ConnectedBanks — import on/off switch", () => {
     expect(fd.get("plaidAccountRowId")).toBe("row-checking");
     expect(fd.get("importing")).toBe("1");
   });
+});
 
-  it("shows plain not-imported text (no switch) for an account never mapped to anything", () => {
+// User request 2026-09-15: the accounts a bank exposes but Budgts never
+// mapped ("not set up") — or that were explicitly declined via "Don't
+// import this one" — get the same kind of one-tap switch as an already
+// mapped account, instead of plain unclickable text. Turning it on reuses
+// the exact bulk-mapping action (mapAccounts) in "new" mode with the same
+// guessed defaults the "Choose accounts to import" form pre-fills.
+describe("ConnectedBanks — connect switch (never-mapped accounts)", () => {
+  it("renders an OFF connect switch (not plain text) for an account never set up", () => {
     render(<ConnectedBanks banks={[bank()]} budgtsAccounts={[{ id: "acc-1", name: "Checking" }]} />);
-    // "Plaid Saving" fixture: linkState ignored, mappedAccountName null — nothing to resume to.
+    // "Plaid Saving" fixture: linkState ignored, mappedAccountName null — never mapped.
     expect(screen.getByText("not imported")).toBeInTheDocument();
-    expect(screen.queryByRole("switch", { name: /import.*Plaid Saving/i })).not.toBeInTheDocument();
+    const toggle = screen.getByRole("switch", { name: /connect.*Plaid Saving/i });
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+  });
+
+  it("renders an OFF connect switch for a truly unmapped (never-decided) account", () => {
+    const withUnmapped = bank({
+      accounts: [
+        {
+          rowId: "row-new",
+          plaidAccountId: "plaid-acc-new",
+          name: "Plaid Credit Card",
+          officialName: null,
+          type: "credit",
+          subtype: null,
+          mask: "2222",
+          linkState: "unmapped",
+          mappedAccountName: null,
+          needsReview: false,
+          reviewReason: null,
+          excludedFromCalculations: false,
+          pendingSignCheckCount: 0,
+        },
+      ],
+    });
+
+    render(<ConnectedBanks banks={[withUnmapped]} budgtsAccounts={[]} />);
+
+    expect(screen.getByText("not set up")).toBeInTheDocument();
+    const toggle = screen.getByRole("switch", { name: /connect.*Plaid Credit Card/i });
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+  });
+
+  it("connecting calls mapAccounts in 'new' mode with the guessed name/type and the item id", async () => {
+    mapAccounts.mockResolvedValue({ ok: true });
+    const user = userEvent.setup();
+
+    render(<ConnectedBanks banks={[bank()]} budgtsAccounts={[{ id: "acc-1", name: "Checking" }]} />);
+
+    const toggle = screen.getByRole("switch", { name: /connect.*Plaid Saving/i });
+    await user.click(toggle);
+
+    expect(mapAccounts).toHaveBeenCalledTimes(1);
+    const fd = mapAccounts.mock.calls[0][1] as FormData;
+    expect(fd.get("plaidItemId")).toBe("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+    const entries = JSON.parse(fd.get("entries") as string);
+    expect(entries).toEqual([
+      { plaidAccountId: "plaid-acc-saving", mode: "new", name: "Plaid Saving ••1111", type: "savings" },
+    ]);
+    expect(refresh).toHaveBeenCalled();
+  });
+
+  it("the switch is always OFF for a not-yet-connected account — there is no on/off toggle here, only connect", () => {
+    // Once mapAccounts succeeds, linkState flips to "mapped" and BankCard
+    // renders ImportToggle for this row instead — THAT switch (already
+    // covered above) is what offers reversible on/off from then on.
+    render(<ConnectedBanks banks={[bank()]} budgtsAccounts={[]} />);
+    expect(screen.getByRole("switch", { name: /connect.*Plaid Saving/i })).toHaveAttribute(
+      "aria-checked",
+      "false",
+    );
+  });
+
+  it("shows a field error returned by mapAccounts without crashing", async () => {
+    mapAccounts.mockResolvedValue({ fieldError: "Could not create the account. Try again." });
+    const user = userEvent.setup();
+
+    render(<ConnectedBanks banks={[bank()]} budgtsAccounts={[]} />);
+    await user.click(screen.getByRole("switch", { name: /connect.*Plaid Saving/i }));
+
+    expect(await screen.findByText("Could not create the account. Try again.")).toBeInTheDocument();
   });
 });

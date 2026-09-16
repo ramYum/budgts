@@ -34,6 +34,15 @@ export async function readObservedIsTransfer(supabase: SupabaseClient, id: strin
  * entirely, not set, when unchanged). This is the only place
  * `transfer_user_set` is ever written (design: 2026-09-12
  * transfer-ownership §4).
+ *
+ * The same conditional branch also clears `transfer_pair_id` on THIS row
+ * (design: 2026-09-16 paired-transfer detection, user-override lifecycle)
+ * -- a user's explicit transfer decision must never leave a stale
+ * relationship pointer sitting next to it. This is single-row only: the
+ * partner leg's now-one-sided `transfer_pair_id` is cleared separately, by
+ * the paired-transfer pass's own reconciliation step on its next run, not
+ * here -- this function has no reach across rows, by design, and stays
+ * exactly as narrow as it already was for `transfer_user_set`.
  */
 export async function attemptConditionalUpdate(
   supabase: SupabaseClient,
@@ -52,7 +61,7 @@ export async function attemptConditionalUpdate(
       description: fields.description,
       note: fields.note,
       is_transfer: fields.isTransfer,
-      ...(fields.isTransfer !== observed ? { transfer_user_set: true } : {}),
+      ...(fields.isTransfer !== observed ? { transfer_user_set: true, transfer_pair_id: null } : {}),
     })
     .eq("id", id)
     .eq("is_transfer", observed)

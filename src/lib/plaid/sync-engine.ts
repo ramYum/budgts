@@ -20,7 +20,10 @@ import {
 } from "./replay-containment";
 import { AMBIGUOUS_REVIEW_SAMPLE_THRESHOLD, detectSignConvention } from "./sign-convention";
 import type { SignEvidenceTxn } from "./sign-convention";
+import { isEventRole } from "./event-role";
+import { findTransferPairs, type PairingCandidate } from "./transfer-pairing";
 import type {
+  EventRole,
   NormalizeCtx,
   NormalizeSkipReason,
   PlaidNormalizedTxn,
@@ -166,7 +169,81 @@ export interface PlaidSyncStore {
    * when the account isn't flagged, or is flagged for something else.
    */
   clearReplayReviewFlag(accountId: string, reasonMarker: string): Promise<void>;
+
+  /**
+   * Paired-transfer detection (V1.5, design: docs/specs/
+   * 2026-09-16-paired-transfer-detection-design.md). USER-WIDE, not
+   * account/item-scoped — unlike replay containment and sign-convention
+   * above, a transfer's counterpart can live on a completely different
+   * Plaid Item than the one this sync just touched. Every candidacy
+   * exclusion (duplicate_of_id, transfer_user_set, removed_at, status,
+   * pending, source, transfer_pair_id, and the P2P_PAYMENT/REFUND/INCOME
+   * role exclusion) is applied here — the pure matcher trusts its input is
+   * already the eligible set.
+   */
+  findTransferPairingCandidates(userId: string): Promise<TransferPairingCandidateRow[]>;
+  /**
+   * Tier A — link only. Locks both legs (ascending id order, deadlock-free),
+   * re-validates eligibility UNDER the lock (a candidate may have gone
+   * stale since discovery: paired by a concurrent sync, user-overridden,
+   * removed, marked duplicate), and on success writes `transfer_pair_id`
+   * on both sides. Structurally incapable of touching `event_role`/
+   * `is_transfer` — those columns never appear in this method's SQL at
+   * all, by construction, not by convention. One Postgres transaction per
+   * call. Returns "skipped" (no write, no error) when re-validation fails
+   * — the pair may be reconsidered on a future sync. Takes the full leg
+   * snapshots (not just ids) purely so callers never need a second query;
+   * this method itself only ever writes `transfer_pair_id`.
+   */
+  applyTierALink(userId: string, legA: TransferPairLeg, legB: TransferPairLeg): Promise<TransferPairApplyResult>;
+  /**
+   * Tier B — corrective classify + link. Same lock-and-revalidate
+   * discipline as {@link applyTierALink}, but writes `is_transfer=true` +
+   * `event_role='TRANSFER'` on ONLY `classifyLegId` (the previously
+   * unresolved leg) — the already-transfer-shaped leg gets `transfer_pair_id`
+   * only, never a role rewrite. On success, emits one structured audit log
+   * line (tier, user id, both transaction/account ids, amount, direction,
+   * date relationship, pre-classification roles/isTransfer) — no merchant
+   * or description text. The pre-classification snapshots come from
+   * `legA`/`legB` themselves (captured by the pure matcher before any
+   * write), not a re-read after the fact.
+   */
+  applyTierBClassification(
+    userId: string,
+    legA: TransferPairLeg,
+    legB: TransferPairLeg,
+    classifyLegId: string,
+  ): Promise<TransferPairApplyResult>;
+  /**
+   * Symmetric stale-pair cleanup, run once per sync BEFORE discovery. A
+   * pair is stale if either leg is removed, marked a confirmed duplicate,
+   * user-overridden (`transfer_user_set=true`), or the relationship is no
+   * longer mutual (partner's `transfer_pair_id` doesn't point back) — e.g.
+   * a pending leg's soft-deleted after being replaced by a posted row.
+   * Never leaves a surviving transaction pointing at a dead/duplicate/
+   * overridden partner. Returns the number of pairs cleared.
+   */
+  reconcileStaleTransferPairs(userId: string): Promise<number>;
 }
+
+/** A candidate row for paired-transfer detection — see
+ * {@link PlaidSyncStore.findTransferPairingCandidates}. */
+export interface TransferPairingCandidateRow {
+  id: string;
+  accountId: string;
+  amount: number;
+  direction: "debit" | "credit";
+  occurredAt: string;
+  eventRole: string | null;
+  isTransfer: boolean;
+}
+
+/** Same shape as {@link TransferPairingCandidateRow} — the pre-write
+ * snapshot of one leg, threaded through to the apply methods so Tier B's
+ * audit log reflects the state the pure matcher actually decided on. */
+export type TransferPairLeg = TransferPairingCandidateRow;
+
+export type TransferPairApplyResult = "applied" | "skipped";
 
 export interface SyncDeps {
   userId: string;
@@ -393,6 +470,67 @@ export async function runSync(deps: SyncDeps): Promise<SyncOutcome> {
       await store.clearReplayReviewFlag(accountId, ANOMALY_DUPLICATE_REASON_MARKER);
     }
   }
+
+  // Paired-transfer detection (V1.5, design: docs/specs/
+  // 2026-09-16-paired-transfer-detection-design.md) — a post-applyPlan
+  // pass, same structural position as sign-convention/replay-containment
+  // above, but deliberately USER-WIDE rather than scoped to this sync's
+  // touched accounts: a transfer's counterpart can live on any of the
+  // user's other accounts, connected via a completely different Plaid
+  // Item than the one currently syncing. Reconcile stale relationships
+  // first (a prior pair may have gone stale since the last sync — a leg
+  // removed/duplicated/user-overridden), then discover and apply fresh
+  // pairs. Discovery is advisory only; each store.applyTier* call
+  // re-validates and locks for real, so this loop never assumes success.
+  const pairingStart = Date.now();
+  const clearedStalePairs = await store.reconcileStaleTransferPairs(userId);
+  const pairingCandidateRows = await store.findTransferPairingCandidates(userId);
+  const candidateQueryMs = Date.now() - pairingStart;
+
+  const toEventRoleOrNull = (value: string | null): EventRole | null =>
+    value != null && isEventRole(value) ? value : null;
+  const pairingCandidates: PairingCandidate[] = pairingCandidateRows.map((r) => ({
+    id: r.id,
+    accountId: r.accountId,
+    amount: r.amount,
+    direction: r.direction,
+    occurredAt: r.occurredAt,
+    eventRole: toEventRoleOrNull(r.eventRole),
+    isTransfer: r.isTransfer,
+  }));
+  const { accepted: acceptedPairs, ambiguous: ambiguousPairs } = findTransferPairs(pairingCandidates);
+
+  const candidateById = new Map(pairingCandidateRows.map((r) => [r.id, r]));
+  const applyStart = Date.now();
+  let appliedPairs = 0;
+  let skippedStalePairs = 0;
+  for (const pair of acceptedPairs) {
+    const legA = candidateById.get(pair.legA);
+    const legB = candidateById.get(pair.legB);
+    if (!legA || !legB) continue; // defensive — every accepted id came from this same candidate set
+    const result =
+      pair.tier === "A"
+        ? await store.applyTierALink(userId, legA, legB)
+        : await store.applyTierBClassification(userId, legA, legB, pair.classifyLegId as string);
+    if (result === "applied") appliedPairs += 1;
+    else skippedStalePairs += 1;
+  }
+  const applyMs = Date.now() - applyStart;
+
+  // Lightweight Scale & Infrastructure instrumentation (docs/roadmap.md's
+  // Scale & Infrastructure track) — this is a new recurring, user-wide
+  // query shape, additive to the load already under discussion there.
+  console.log("[plaid] transfer-pairing", {
+    userId,
+    candidateCount: pairingCandidates.length,
+    candidateQueryMs,
+    acceptedCount: acceptedPairs.length,
+    appliedCount: appliedPairs,
+    skippedStaleCount: skippedStalePairs,
+    ambiguousCount: ambiguousPairs.length,
+    reconciledStaleCount: clearedStalePairs,
+    applyMs,
+  });
 
   return {
     cursor: finalCursor,

@@ -13,6 +13,7 @@ import {
   runSync,
   SyncMutationDuringPagination,
   type SyncDeps,
+  type TransferPairingCandidateRow,
 } from "./sync-engine";
 import type { AccountMapEntry, NormalizeCtx, PlaidTxnInput } from "./types";
 
@@ -58,6 +59,7 @@ function fakeStore(
   initialFingerprintCounts: Record<string, number> = {},
   initialSignEvidence: Record<string, { rawAmount: number; primary: string | null }[]> = {},
   initialReviewFlags: Record<string, string> = {},
+  initialPairingRows: TransferPairingCandidateRow[] = [],
 ) {
   const calls: {
     findRefs: string[][];
@@ -67,7 +69,26 @@ function fakeStore(
     finalizedSignConventions: Array<{ plaidAccountRowId: string; convention: "standard" | "inverted" }>;
     containmentUpdates: Array<{ canonicalId: string; duplicateIds: string[] }>;
     clearedFlags: Array<{ accountId: string; reasonMarker: string }>;
-  } = { findRefs: [], plans: [], flags: [], finalizedSignConventions: [], containmentUpdates: [], clearedFlags: [] };
+    tierALinks: Array<{ legA: string; legB: string }>;
+    tierBClassifications: Array<{ legA: string; legB: string; classifyLegId: string }>;
+    reconcileCalls: number;
+  } = {
+    findRefs: [],
+    plans: [],
+    flags: [],
+    finalizedSignConventions: [],
+    containmentUpdates: [],
+    clearedFlags: [],
+    tierALinks: [],
+    tierBClassifications: [],
+    reconcileCalls: 0,
+  };
+  // In-memory pairing rows -- a real in-memory row store, not just a
+  // pass-through, so tests can seed candidates and assert on the resulting
+  // transferPairId/eventRole/isTransfer state after runSync.
+  const pairingRows = new Map<string, TransferPairingCandidateRow & { transferPairId: string | null }>(
+    initialPairingRows.map((r) => [r.id, { ...r, transferPairId: null }]),
+  );
   const reviewFlags = new Map(Object.entries(initialReviewFlags));
   // Simulates "live rows per (accountId:fingerprint), post-insert" — the same
   // semantics the real Drizzle-backed store computes with one query after the
@@ -143,8 +164,40 @@ function fakeStore(
       const current = reviewFlags.get(accountId);
       if (current && current.includes(reasonMarker)) reviewFlags.delete(accountId);
     },
+    async findTransferPairingCandidates() {
+      return [...pairingRows.values()]
+        .filter((r) => r.transferPairId === null)
+        .map(({ transferPairId: _unused, ...rest }) => rest);
+    },
+    async applyTierALink(_userId, legA, legB) {
+      calls.tierALinks.push({ legA: legA.id, legB: legB.id });
+      const a = pairingRows.get(legA.id);
+      const b = pairingRows.get(legB.id);
+      if (!a || !b || a.transferPairId !== null || b.transferPairId !== null) return "skipped";
+      a.transferPairId = legB.id;
+      b.transferPairId = legA.id;
+      return "applied";
+    },
+    async applyTierBClassification(_userId, legA, legB, classifyLegId) {
+      calls.tierBClassifications.push({ legA: legA.id, legB: legB.id, classifyLegId });
+      const a = pairingRows.get(legA.id);
+      const b = pairingRows.get(legB.id);
+      if (!a || !b || a.transferPairId !== null || b.transferPairId !== null) return "skipped";
+      a.transferPairId = legB.id;
+      b.transferPairId = legA.id;
+      const classified = pairingRows.get(classifyLegId);
+      if (classified) {
+        classified.isTransfer = true;
+        classified.eventRole = "TRANSFER";
+      }
+      return "applied";
+    },
+    async reconcileStaleTransferPairs() {
+      calls.reconcileCalls += 1;
+      return 0; // no staleness modeled in this fake -- covered by DB-integration tests
+    },
   };
-  return { store, calls, reviewFlags };
+  return { store, calls, reviewFlags, pairingRows };
 }
 
 const deps = (over: Partial<SyncDeps>): SyncDeps => ({
@@ -685,5 +738,68 @@ describe("Advancial replay containment", () => {
       }),
     );
     expect(calls.clearedFlags).toEqual([{ accountId: "b-acct-1", reasonMarker: ANOMALY_DUPLICATE_REASON_MARKER }]);
+  });
+});
+
+describe("Paired-transfer detection (V1.5) — runSync integration", () => {
+  function leg(over: Partial<TransferPairingCandidateRow> & { id: string }): TransferPairingCandidateRow {
+    return {
+      accountId: "acct-a",
+      amount: 5000,
+      direction: "debit",
+      occurredAt: "2026-09-10T12:00:00.000Z",
+      eventRole: null,
+      isTransfer: false,
+      ...over,
+    };
+  }
+
+  it("reconciles stale pairs before discovery, on every sync — even with zero candidates", async () => {
+    const { store, calls } = fakeStore();
+    await runSync(deps({ store }));
+    expect(calls.reconcileCalls).toBe(1);
+  });
+
+  it("applies a Tier A link without touching event_role/is_transfer on either leg", async () => {
+    const a = leg({ id: "a", accountId: "checking", direction: "debit", isTransfer: true, eventRole: "TRANSFER" });
+    const b = leg({ id: "b", accountId: "savings", direction: "credit", isTransfer: true, eventRole: "TRANSFER" });
+    const { store, calls, pairingRows } = fakeStore([], {}, {}, {}, [a, b]);
+    await runSync(deps({ store }));
+
+    expect(calls.tierALinks).toEqual([{ legA: "a", legB: "b" }]);
+    expect(calls.tierBClassifications).toEqual([]);
+    expect(pairingRows.get("a")).toMatchObject({ transferPairId: "b", eventRole: "TRANSFER", isTransfer: true });
+    expect(pairingRows.get("b")).toMatchObject({ transferPairId: "a", eventRole: "TRANSFER", isTransfer: true });
+  });
+
+  it("applies a Tier B classification to only the previously-unresolved leg", async () => {
+    const shaped = leg({ id: "shaped", accountId: "checking", direction: "debit", isTransfer: true, eventRole: "TRANSFER" });
+    const unresolved = leg({ id: "unresolved", accountId: "external", direction: "credit", eventRole: null });
+    const { store, calls, pairingRows } = fakeStore([], {}, {}, {}, [shaped, unresolved]);
+    await runSync(deps({ store }));
+
+    expect(calls.tierBClassifications).toEqual([{ legA: "shaped", legB: "unresolved", classifyLegId: "unresolved" }]);
+    // The already-shaped leg is untouched beyond the link.
+    expect(pairingRows.get("shaped")).toMatchObject({ eventRole: "TRANSFER", isTransfer: true, transferPairId: "unresolved" });
+    // The unresolved leg is now classified AND linked.
+    expect(pairingRows.get("unresolved")).toMatchObject({ eventRole: "TRANSFER", isTransfer: true, transferPairId: "shaped" });
+  });
+
+  it("does not reclassify a leg that already has a resolved role (PURCHASE) — no store calls at all", async () => {
+    const shaped = leg({ id: "shaped", accountId: "checking", direction: "debit", isTransfer: true });
+    const purchase = leg({ id: "purchase", accountId: "credit-card", direction: "credit", eventRole: "PURCHASE" });
+    const { store, calls, pairingRows } = fakeStore([], {}, {}, {}, [shaped, purchase]);
+    await runSync(deps({ store }));
+
+    expect(calls.tierALinks).toEqual([]);
+    expect(calls.tierBClassifications).toEqual([]);
+    expect(pairingRows.get("purchase")).toMatchObject({ eventRole: "PURCHASE", transferPairId: null });
+  });
+
+  it("is a complete no-op when there are no eligible candidates (the overwhelming common case)", async () => {
+    const { store, calls } = fakeStore();
+    await runSync(deps({ store }));
+    expect(calls.tierALinks).toEqual([]);
+    expect(calls.tierBClassifications).toEqual([]);
   });
 });

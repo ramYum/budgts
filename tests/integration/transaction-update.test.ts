@@ -55,6 +55,30 @@ describe("updateTransactionRow — optimistic conditional transfer_user_set writ
     expect(row.transfer_user_set).toBe(true);
   });
 
+  it("paired-transfer lifecycle: a genuine isTransfer change clears this row's own transfer_pair_id in the same write", async () => {
+    const partnerId = await insertBankTxn(userId, accountId, { isTransfer: true });
+    const id = await insertBankTxn(userId, accountId, { isTransfer: true, transferPairId: partnerId });
+
+    const result = await updateTransactionRow(supabase, id, fields({ isTransfer: false }));
+    expect(result.outcome).toBe("ok");
+
+    const row = await readTxn(id);
+    expect(row.transfer_user_set).toBe(true);
+    expect(row.transfer_pair_id).toBeNull();
+  });
+
+  it("editing an unrelated field (isTransfer unchanged) never clears an existing transfer_pair_id", async () => {
+    const partnerId = await insertBankTxn(userId, accountId, { isTransfer: true });
+    const id = await insertBankTxn(userId, accountId, { isTransfer: true, transferPairId: partnerId });
+
+    const result = await updateTransactionRow(supabase, id, fields({ isTransfer: true, description: "renamed" }));
+    expect(result.outcome).toBe("ok");
+
+    const row = await readTxn(id);
+    expect(row.transfer_user_set).toBe(false);
+    expect(row.transfer_pair_id).toBe(partnerId);
+  });
+
   it("test 11: submitted isTransfer equals stored -> transfer_user_set stays untouched (false)", async () => {
     const id = await insertBankTxn(userId, accountId, { isTransfer: false, transferUserSet: false });
 

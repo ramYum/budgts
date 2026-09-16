@@ -10,7 +10,8 @@
  * Constructed with an injected `db` so the DB-integration tests point it at
  * `budgts-staging` and unit code never imports it.
  */
-import { and, eq, inArray, isNotNull, isNull, like, sql, type SQL } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull, like, ne, notInArray, or, sql, type SQL } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import type * as schema from "@/lib/db/schema";
 import { plaidAccounts, plaidItems, transactions } from "@/lib/db/schema";
@@ -21,6 +22,55 @@ import type { SignEvidenceTxn } from "./sign-convention";
 import type { PlaidSyncStore, PlaidTxnRow } from "./sync-engine";
 
 export type PlaidDb = PostgresJsDatabase<typeof schema>;
+
+/** Paired-transfer detection candidacy exclusion — never a transfer
+ * counterpart, regardless of amount/date/direction coincidence. */
+const NON_TRANSFER_ROLES: string[] = ["P2P_PAYMENT", "REFUND", "INCOME"];
+
+type LockedLegRow = {
+  id: string;
+  transferPairId: string | null;
+  transferUserSet: boolean;
+  removedAt: Date | null;
+  duplicateOfId: string | null;
+};
+
+/** Locks both legs in a fixed, ascending-id order — deadlock-free even
+ * across overlapping pairs sharing a leg — and returns their current
+ * concurrency-relevant state for {@link pairStillEligible} to check UNDER
+ * the lock. Must run inside the same `db.transaction` as any write that
+ * follows. */
+async function lockBothLegs(
+  tx: Parameters<Parameters<PlaidDb["transaction"]>[0]>[0],
+  legAId: string,
+  legBId: string,
+): Promise<LockedLegRow[]> {
+  const [first, second] = [legAId, legBId].sort();
+  return tx
+    .select({
+      id: transactions.id,
+      transferPairId: transactions.transferPairId,
+      transferUserSet: transactions.transferUserSet,
+      removedAt: transactions.removedAt,
+      duplicateOfId: transactions.duplicateOfId,
+    })
+    .from(transactions)
+    .where(inArray(transactions.id, [first, second]))
+    .orderBy(transactions.id)
+    .for("update");
+}
+
+/** Re-validation under the lock — a candidate discovered by the (advisory)
+ * pure matcher may have gone stale since discovery: paired by a concurrent
+ * sync, user-overridden, removed, or marked a confirmed duplicate. Both
+ * legs must still be genuinely eligible, or the whole pair is skipped —
+ * never a partial write. */
+function pairStillEligible(rows: LockedLegRow[]): boolean {
+  return (
+    rows.length === 2 &&
+    rows.every((r) => r.transferPairId === null && !r.transferUserSet && r.removedAt === null && r.duplicateOfId === null)
+  );
+}
 
 // A single sync pass can aggregate thousands of touched refs/rows across many
 // Plaid pages before ever touching the DB (design: runSync collects up to
@@ -352,6 +402,151 @@ export function createPlaidSyncStore(db: PlaidDb): PlaidSyncStore {
         }
       }
       return { marked };
+    },
+
+    // Paired-transfer detection (V1.5, design: docs/specs/
+    // 2026-09-16-paired-transfer-detection-design.md).
+    async findTransferPairingCandidates(userId) {
+      const rows = await db
+        .select({
+          id: transactions.id,
+          accountId: transactions.accountId,
+          amount: transactions.amount,
+          direction: transactions.direction,
+          occurredAt: transactions.occurredAt,
+          eventRole: transactions.eventRole,
+          isTransfer: transactions.isTransfer,
+        })
+        .from(transactions)
+        .where(
+          and(
+            eq(transactions.userId, userId),
+            eq(transactions.source, "bank"),
+            eq(transactions.status, "confirmed"),
+            eq(transactions.pending, false),
+            isNull(transactions.removedAt),
+            isNull(transactions.duplicateOfId),
+            eq(transactions.transferUserSet, false),
+            isNull(transactions.transferPairId),
+            // Candidacy exclusion, not the write-time concurrency guarantee
+            // (that's `transfer_pair_id IS NULL` above, re-checked again
+            // under lock at write time regardless of this filter).
+            or(isNull(transactions.eventRole), notInArray(transactions.eventRole, NON_TRANSFER_ROLES)),
+          ),
+        );
+      return rows.map((r) => ({ ...r, occurredAt: r.occurredAt.toISOString() }));
+    },
+
+    async applyTierALink(_userId, legA, legB) {
+      return db.transaction(async (tx) => {
+        const rows = await lockBothLegs(tx, legA.id, legB.id);
+        if (!pairStillEligible(rows)) return "skipped";
+
+        // Tier A: transfer_pair_id ONLY on both sides. event_role/is_transfer
+        // never appear in this method's SQL — structurally incapable of
+        // touching classification, not just conventionally so.
+        await tx
+          .update(transactions)
+          .set({ transferPairId: legB.id })
+          .where(and(eq(transactions.id, legA.id), isNull(transactions.transferPairId)));
+        await tx
+          .update(transactions)
+          .set({ transferPairId: legA.id })
+          .where(and(eq(transactions.id, legB.id), isNull(transactions.transferPairId)));
+        return "applied";
+      });
+    },
+
+    async applyTierBClassification(userId, legA, legB, classifyLegId) {
+      const shapedLeg = classifyLegId === legA.id ? legB : legA;
+      const unresolvedLeg = classifyLegId === legA.id ? legA : legB;
+
+      const result = await db.transaction(async (tx) => {
+        const rows = await lockBothLegs(tx, legA.id, legB.id);
+        if (!pairStillEligible(rows)) return "skipped" as const;
+
+        // Already-correct leg: link only, exactly like Tier A.
+        await tx
+          .update(transactions)
+          .set({ transferPairId: unresolvedLeg.id })
+          .where(and(eq(transactions.id, shapedLeg.id), isNull(transactions.transferPairId)));
+
+        // Previously-unresolved leg: the ONLY write in this whole feature
+        // that ever sets event_role/is_transfer, and only on this one leg.
+        await tx
+          .update(transactions)
+          .set({ transferPairId: shapedLeg.id, isTransfer: true, eventRole: "TRANSFER" })
+          .where(and(eq(transactions.id, unresolvedLeg.id), isNull(transactions.transferPairId)));
+
+        return "applied" as const;
+      });
+
+      if (result === "applied") {
+        // Structured audit trail (design: Tier B auditability) — enough to
+        // reconstruct WHY, never merchant/description text. Retroactively,
+        // this exact state (event_role='TRANSFER' AND transfer_pair_id IS
+        // NOT NULL AND plaid_category_primary NOT IN ('TRANSFER_IN',
+        // 'TRANSFER_OUT')) is unique to a Tier B write: transfer_pair_id has
+        // no other writer anywhere in this codebase, and the only other path
+        // to event_role='TRANSFER' (adapter.ts, via resolveEventRole) always
+        // implies a TRANSFER_IN/OUT primary. That anchor breaks if anything
+        // else is ever given write access to transfer_pair_id — don't add
+        // one without re-deriving this audit query.
+        console.log("[plaid] transfer-pairing tier-b classified", {
+          tier: "B",
+          userId,
+          legAId: legA.id,
+          legBId: legB.id,
+          legAAccountId: legA.accountId,
+          legBAccountId: legB.accountId,
+          classifiedLegId: unresolvedLeg.id,
+          amount: legA.amount,
+          legADirection: legA.direction,
+          legBDirection: legB.direction,
+          legAOccurredAt: legA.occurredAt,
+          legBOccurredAt: legB.occurredAt,
+          preClassification: {
+            legAEventRole: legA.eventRole,
+            legBEventRole: legB.eventRole,
+            legAIsTransfer: legA.isTransfer,
+            legBIsTransfer: legB.isTransfer,
+          },
+        });
+      }
+      return result;
+    },
+
+    async reconcileStaleTransferPairs(userId) {
+      // Single self-join UPDATE: every row `t` with a transfer_pair_id is
+      // evaluated against its partner `p`. A row is cleared if ITS OWN state
+      // is now invalid (removed/duplicated/user-overridden) OR its partner's
+      // is, OR the relationship is no longer mutual. Because every paired
+      // row is visited once as `t` (checking itself + its partner) AND once
+      // more as some OTHER row's `p`, a single statement clears both
+      // directions symmetrically in one pass — never leaves a surviving
+      // transaction pointing at a dead/duplicate/overridden partner.
+      const partner = alias(transactions, "transfer_pairing_partner");
+      const cleared = await db
+        .update(transactions)
+        .set({ transferPairId: null })
+        .from(partner)
+        .where(
+          and(
+            eq(transactions.userId, userId),
+            eq(partner.id, transactions.transferPairId as unknown as string),
+            or(
+              isNotNull(transactions.removedAt),
+              isNotNull(transactions.duplicateOfId),
+              eq(transactions.transferUserSet, true),
+              ne(partner.transferPairId, transactions.id),
+              eq(partner.transferUserSet, true),
+              isNotNull(partner.removedAt),
+              isNotNull(partner.duplicateOfId),
+            ),
+          ),
+        )
+        .returning({ id: transactions.id });
+      return cleared.length;
     },
   };
 }

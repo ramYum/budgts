@@ -73,6 +73,26 @@ export async function mainAccountId(userId: string): Promise<string> {
   return row.id;
 }
 
+/** A second (or third, ...) account for the same user -- for paired-transfer
+ * tests, which always need two distinct accounts. */
+export async function createAccount(
+  userId: string,
+  name: string,
+  type: "checking" | "credit" | "cash" | "savings" = "checking",
+): Promise<string> {
+  // NOTE: deliberately omits `source` -- migration 0015 (accounts.source)
+  // is applied in production but not yet on budgts-staging, an unrelated
+  // pre-existing gap between the two projects (out of scope for this
+  // feature; not a schema change introduced here). The column has a
+  // NOT NULL DEFAULT in the schema, so omitting it is safe wherever it
+  // does exist too.
+  const [row] = await client<{ id: string }[]>`
+    insert into public.accounts (user_id, name, type)
+    values (${userId}, ${name}, ${type})
+    returning id`;
+  return row.id;
+}
+
 /** Insert a synthetic `source='bank'` transaction; returns its id. */
 export async function insertBankTxn(
   userId: string,
@@ -100,6 +120,9 @@ export async function insertBankTxn(
     raw: unknown;
     eventRole: string | null;
     transferUserSet: boolean;
+    transferPairId: string | null;
+    pending: boolean;
+    occurredAt: string;
   }> = {},
 ): Promise<string> {
   const v = {
@@ -123,6 +146,9 @@ export async function insertBankTxn(
     raw: null as unknown,
     eventRole: null as string | null,
     transferUserSet: false,
+    transferPairId: null as string | null,
+    pending: false,
+    occurredAt: new Date().toISOString(),
     ...over,
   };
   const [row] = await client<{ id: string }[]>`
@@ -130,13 +156,15 @@ export async function insertBankTxn(
       (user_id, account_id, category_id, amount, direction, occurred_at, description,
        source, source_ref, is_transfer, user_categorized, removed_at,
        merchant_entity_id, merchant_name, plaid_category_primary, plaid_category_detailed, plaid_pfc_confidence,
-       duplicate_of_id, status, pending_reason, plaid_account_id, raw, event_role, transfer_user_set)
+       duplicate_of_id, status, pending_reason, plaid_account_id, raw, event_role, transfer_user_set,
+       transfer_pair_id, pending)
     values
-      (${userId}, ${accountId}, ${v.categoryId}, ${v.amount}, ${v.direction}, now(), ${v.description},
+      (${userId}, ${accountId}, ${v.categoryId}, ${v.amount}, ${v.direction}, ${v.occurredAt}, ${v.description},
        'bank', ${v.sourceRef}, ${v.isTransfer}, ${v.userCategorized}, ${v.removedAt},
        ${v.merchantEntityId}, ${v.merchantName}, ${v.primary}, ${v.detailed}, ${v.confidence},
        ${v.duplicateOfId}, ${v.status}, ${v.pendingReason}, ${v.plaidAccountId},
-       ${v.raw === null ? null : JSON.stringify(v.raw)}::jsonb, ${v.eventRole}, ${v.transferUserSet})
+       ${v.raw === null ? null : JSON.stringify(v.raw)}::jsonb, ${v.eventRole}, ${v.transferUserSet},
+       ${v.transferPairId}, ${v.pending})
     returning id`;
   return row.id;
 }
@@ -149,6 +177,9 @@ export async function readTxn(id: string): Promise<{
   is_transfer: boolean;
   transfer_user_set: boolean;
   description: string;
+  event_role: string | null;
+  transfer_pair_id: string | null;
+  duplicate_of_id: string | null;
 }> {
   const [row] = await client<
     {
@@ -158,8 +189,12 @@ export async function readTxn(id: string): Promise<{
       is_transfer: boolean;
       transfer_user_set: boolean;
       description: string;
+      event_role: string | null;
+      transfer_pair_id: string | null;
+      duplicate_of_id: string | null;
     }[]
-  >`select category_id, user_categorized, removed_at, is_transfer, transfer_user_set, description
+  >`select category_id, user_categorized, removed_at, is_transfer, transfer_user_set, description,
+      event_role, transfer_pair_id, duplicate_of_id
     from public.transactions where id = ${id}`;
   return row;
 }

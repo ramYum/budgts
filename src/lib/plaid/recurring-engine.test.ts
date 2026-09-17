@@ -364,3 +364,125 @@ describe("subscription detection (V1.5) — classification layer, no effect on r
     expect(subscriptionLogs).toHaveLength(0);
   });
 });
+
+describe("bill detection (V1.5) — classification layer, no effect on recurring or subscription detection", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("REGRESSION: RunRecurringDetectionOutcome is byte-identical whether or not the underlying observations carry bill-qualifying category evidence", async () => {
+    const withoutCategory = [row("a", 0), row("b", 30), row("c", 60)];
+    const withCategory = [
+      row("a", 0, 1000, { primary: "RENT_AND_UTILITIES", detailed: "RENT_AND_UTILITIES_RENT" }),
+      row("b", 30, 1000, { primary: "RENT_AND_UTILITIES", detailed: "RENT_AND_UTILITIES_RENT" }),
+      row("c", 60, 1000, { primary: "RENT_AND_UTILITIES", detailed: "RENT_AND_UTILITIES_RENT" }),
+    ];
+
+    const { store: storeA } = fakeStore({ groups: [KEY], observations: withoutCategory });
+    const { store: storeB } = fakeStore({ groups: [KEY], observations: withCategory });
+
+    const outcomeA = await runRecurringDetectionForUser({ userId: "u1", watermark: null, store: storeA });
+    const outcomeB = await runRecurringDetectionForUser({ userId: "u1", watermark: null, store: storeB });
+
+    expect(outcomeB).toEqual(outcomeA);
+  });
+
+  it("logs a bill-detection line for an ACTIVE, PURCHASE, trusted RENT_AND_UTILITIES series", async () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const observations = [
+      row("a", 0, 1000, { primary: "RENT_AND_UTILITIES", detailed: "RENT_AND_UTILITIES_INTERNET_AND_CABLE" }),
+      row("b", 30, 1000, { primary: "RENT_AND_UTILITIES", detailed: "RENT_AND_UTILITIES_INTERNET_AND_CABLE" }),
+      row("c", 60, 1000, { primary: "RENT_AND_UTILITIES", detailed: "RENT_AND_UTILITIES_INTERNET_AND_CABLE" }),
+    ];
+    const { store } = fakeStore({ groups: [KEY], observations });
+
+    await runRecurringDetectionForUser({ userId: "u1", watermark: null, store });
+
+    const billLogs = logSpy.mock.calls.filter((call) => call[0] === "[plaid] bill-detection");
+    expect(billLogs).toHaveLength(1);
+    expect(billLogs[0][1]).toMatchObject({ userId: "u1", merchantEntityId: "m1" });
+  });
+
+  it("does not log a bill-detection line for a series without trusted category evidence", async () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const observations = [row("a", 0), row("b", 30), row("c", 60)]; // no category evidence at all
+    const { store } = fakeStore({ groups: [KEY], observations });
+
+    await runRecurringDetectionForUser({ userId: "u1", watermark: null, store });
+
+    const billLogs = logSpy.mock.calls.filter((call) => call[0] === "[plaid] bill-detection");
+    expect(billLogs).toHaveLength(0);
+  });
+
+  it("does not log a bill-detection line for a MUTED series, even with perfect bill evidence", async () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const observations = [
+      row("a", 0, 1000, { primary: "RENT_AND_UTILITIES", detailed: "RENT_AND_UTILITIES_RENT" }),
+      row("b", 30, 1000, { primary: "RENT_AND_UTILITIES", detailed: "RENT_AND_UTILITIES_RENT" }),
+      row("c", 60, 1000, { primary: "RENT_AND_UTILITIES", detailed: "RENT_AND_UTILITIES_RENT" }),
+    ];
+    const existing: ExistingSeriesRow = {
+      id: "series1",
+      cadence: "MONTHLY",
+      expectedAmount: 1000,
+      amountToleranceMinor: computeAmountToleranceMinor(1000),
+      observationCount: 3,
+      status: "MUTED",
+      overriddenByUser: false,
+    };
+    const { store } = fakeStore({ groups: [KEY], observations, existing });
+
+    await runRecurringDetectionForUser({ userId: "u1", watermark: null, store });
+
+    const billLogs = logSpy.mock.calls.filter((call) => call[0] === "[plaid] bill-detection");
+    expect(billLogs).toHaveLength(0);
+  });
+
+  it("does not log a bill-detection line for a CANDIDATE series (only 2 observations), even with perfect bill evidence", async () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const observations = [
+      row("a", 0, 1000, { primary: "RENT_AND_UTILITIES", detailed: "RENT_AND_UTILITIES_RENT" }),
+      row("b", 30, 1000, { primary: "RENT_AND_UTILITIES", detailed: "RENT_AND_UTILITIES_RENT" }),
+    ];
+    const { store } = fakeStore({ groups: [KEY], observations });
+
+    await runRecurringDetectionForUser({ userId: "u1", watermark: null, store });
+
+    const billLogs = logSpy.mock.calls.filter((call) => call[0] === "[plaid] bill-detection");
+    expect(billLogs).toHaveLength(0);
+  });
+
+  it("subscription precedence: an ACTIVE, PURCHASE, trusted-SUBSCRIPTION-category series logs subscription-detection and never bill-detection", async () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const observations = [
+      row("a", 0, 1000, { primary: "ENTERTAINMENT", detailed: "ENTERTAINMENT_TV_AND_MOVIES" }),
+      row("b", 30, 1000, { primary: "ENTERTAINMENT", detailed: "ENTERTAINMENT_TV_AND_MOVIES" }),
+      row("c", 60, 1000, { primary: "ENTERTAINMENT", detailed: "ENTERTAINMENT_TV_AND_MOVIES" }),
+    ];
+    const { store } = fakeStore({ groups: [KEY], observations });
+
+    await runRecurringDetectionForUser({ userId: "u1", watermark: null, store });
+
+    const subscriptionLogs = logSpy.mock.calls.filter((call) => call[0] === "[plaid] subscription-detection");
+    const billLogs = logSpy.mock.calls.filter((call) => call[0] === "[plaid] bill-detection");
+    expect(subscriptionLogs).toHaveLength(1);
+    expect(billLogs).toHaveLength(0);
+  });
+
+  it("a trusted-BILL-category series logs bill-detection and never subscription-detection", async () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const observations = [
+      row("a", 0, 1000, { primary: "RENT_AND_UTILITIES", detailed: "RENT_AND_UTILITIES_WATER" }),
+      row("b", 30, 1000, { primary: "RENT_AND_UTILITIES", detailed: "RENT_AND_UTILITIES_WATER" }),
+      row("c", 60, 1000, { primary: "RENT_AND_UTILITIES", detailed: "RENT_AND_UTILITIES_WATER" }),
+    ];
+    const { store } = fakeStore({ groups: [KEY], observations });
+
+    await runRecurringDetectionForUser({ userId: "u1", watermark: null, store });
+
+    const subscriptionLogs = logSpy.mock.calls.filter((call) => call[0] === "[plaid] subscription-detection");
+    const billLogs = logSpy.mock.calls.filter((call) => call[0] === "[plaid] bill-detection");
+    expect(subscriptionLogs).toHaveLength(0);
+    expect(billLogs).toHaveLength(1);
+  });
+});

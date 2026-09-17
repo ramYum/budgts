@@ -11,6 +11,7 @@
  * window, which is safe because every write here is an idempotent upsert
  * (see recurring-store.ts's `ON CONFLICT DO UPDATE`).
  */
+import { classifyBill } from "./bill-detection";
 import { detectRecurringSeries, type SeriesSnapshot, type SeriesUpdate } from "./recurring-detection";
 import { classifySubscription } from "./subscription-detection";
 import type { EventRole } from "./types";
@@ -156,6 +157,34 @@ export async function runRecurringDetectionForUser(deps: RunRecurringDetectionDe
     });
     if (isSubscription) {
       console.log("[plaid] subscription-detection", {
+        userId,
+        merchantEntityId: key.merchantEntityId,
+        accountId: key.accountId,
+        direction: key.direction,
+        cadence: result.cadence,
+        plaidCategoryDetailed: latest.plaidCategoryDetailed,
+      });
+    }
+
+    // Bill detection (V1.5) -- same classification-layer shape as
+    // subscription detection above: reads the same finalStatus/latest
+    // category evidence, never persisted, log-only. Subscription takes
+    // explicit precedence -- a series already classified as a subscription
+    // is never also evaluated as a bill. See bill-detection.ts for why
+    // this ordering is stated explicitly even though today's two trusted-
+    // detailed sets happen to be disjoint (no real transaction can satisfy
+    // both today).
+    const isBill =
+      !isSubscription &&
+      classifyBill({
+        status: finalStatus,
+        eventRole,
+        direction: key.direction,
+        plaidCategoryPrimary: latest.plaidCategoryPrimary,
+        plaidCategoryDetailed: latest.plaidCategoryDetailed,
+      });
+    if (isBill) {
+      console.log("[plaid] bill-detection", {
         userId,
         merchantEntityId: key.merchantEntityId,
         accountId: key.accountId,

@@ -20,6 +20,18 @@ describe("isPublic", () => {
     expect(isPublic("/api/plaid/test/seed")).toBe(false);
   });
 
+  it("lets the mobile-ready Route Handlers through for their own Bearer check", () => {
+    // These authenticate via getRequestUser() (cookie OR Bearer token,
+    // verified server-side) rather than the proxy's cookie-only session
+    // check. Caught missing here during live staging verification: a
+    // cookie-less mobile request was 307-redirected to /sign-in before
+    // getRequestUser() ever ran — same failure mode as recurring-scan above,
+    // just for Bearer auth instead of a bearer-secret header. The handlers
+    // themselves still return a real 401 for no/invalid auth.
+    expect(isPublic("/api/account/delete")).toBe(true);
+    expect(isPublic("/api/mobile/session")).toBe(true);
+  });
+
   it("still requires a session for ordinary app pages", () => {
     expect(isPublic("/")).toBe(false);
     expect(isPublic("/transactions")).toBe(false);

@@ -13,6 +13,16 @@ const PUBLIC_PREFIXES = [
   "/api/plaid/webhook",
   "/api/plaid/sync-due",
   "/api/plaid/recurring-scan",
+  // Mobile-ready Route Handlers authenticate themselves via
+  // getRequestUser() (web cookie OR mobile Bearer token, verified
+  // server-side against Supabase Auth) — same "has its own auth, the proxy
+  // can't see it" reasoning as the Plaid endpoints above. Without this, a
+  // cookie-less mobile request gets 307-redirected to the HTML /sign-in
+  // page before the route handler (and its Bearer check) ever runs.
+  // Unauthenticated callers still get a real 401 from the handler itself,
+  // not a weaker check — this only changes *where* that check happens.
+  "/api/account/delete",
+  "/api/mobile/",
 ];
 
 export function isPublic(pathname: string) {

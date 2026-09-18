@@ -891,6 +891,11 @@ Restated here so nothing downstream infers permission to start on it:
   is a scope decision, not a compliance determination, and 4.8 applicability
   must still be verified against the final implementation before Apple
   submission (§10).
+  - **Re-evaluated 2026-09-18** (mobile-auth implementation milestone 2,
+    `mobile/README.md`): the lock is unchanged and Apple Sign In was
+    deliberately **not** implemented — Apple Developer Program enrollment
+    still doesn't exist to configure or test against, and 4.8 remains
+    exactly as open as stated above. Not re-resolved here; carried forward.
 
 ---
 

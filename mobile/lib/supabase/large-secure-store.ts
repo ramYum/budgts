@@ -13,15 +13,22 @@
  * ciphertext in AsyncStorage (no size limit), and store only the small AES
  * key itself in SecureStore. Never invented locally — this is the vendor's
  * prescribed pattern for exactly this constraint.
+ *
+ * Random bytes come from `expo-crypto`'s `getRandomValues` rather than the
+ * community `react-native-get-random-values` polyfill: `expo-crypto` is a
+ * first-party Expo SDK module bundled in Expo Go, so this whole auth flow
+ * can be verified on a real device without a custom EAS dev-client build.
+ * `react-native-get-random-values` has real native (non-Expo-Go) code and
+ * would have forced a dev-client build for this milestone alone.
  */
-import "react-native-get-random-values";
 import * as aesjs from "aes-js";
+import * as Crypto from "expo-crypto";
 import * as SecureStore from "expo-secure-store";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export class LargeSecureStore {
   private async encrypt(key: string, value: string): Promise<string> {
-    const encryptionKey = crypto.getRandomValues(new Uint8Array(256 / 8));
+    const encryptionKey = Crypto.getRandomValues(new Uint8Array(256 / 8));
     const cipher = new aesjs.ModeOfOperation.ctr(encryptionKey, new aesjs.Counter(1));
     const encryptedBytes = cipher.encrypt(aesjs.utils.utf8.toBytes(value));
 

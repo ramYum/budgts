@@ -11,7 +11,9 @@ import postgres from "postgres";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import * as schema from "@/lib/db/schema";
 
-const STAGING_REF = "iwypmifvmtmkwtnxkfma";
+// budgts-staging-2, replacing the retired/drifted budgts-staging (old ref:
+// iwypmifvmtmkwtnxkfma) — see docs/operations/database-migrations.md.
+const STAGING_REF = "moxwnuiiueyxyypzvamc";
 const url = process.env.DIRECT_URL;
 if (!url || !url.includes(STAGING_REF)) {
   throw new Error(

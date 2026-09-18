@@ -28,7 +28,7 @@ export const KNOWN_PROJECTS: readonly KnownProject[] = [
   { ref: "wsmhstqpvbbcqpqhiqyp", label: "PRODUCTION", danger: "production" },
   { ref: "iwypmifvmtmkwtnxkfma", label: "old staging (budgts-staging, drifted, retired)", danger: "staging-legacy" },
   { ref: "imoxcyzqdbxffdumkuyf", label: "migration-validation (disposable)", danger: "validation" },
-  // Add the replacement staging project's ref here once it exists.
+  { ref: "moxwnuiiueyxyypzvamc", label: "staging (budgts-staging-2, replaces the retired project above)", danger: "staging" },
 ];
 
 export function findKnownProject(ref: string): KnownProject | null {

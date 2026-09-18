@@ -1,6 +1,6 @@
 # Budgts mobile (Expo)
 
-Auth-only milestone so far — see
+Auth + real-device/EAS readiness so far — see
 `../docs/specs/2026-09-17-mobile-app-launch-design.md` for the full track.
 No native Plaid, billing, or the wider mobile IA yet.
 
@@ -28,27 +28,17 @@ Studio needed to verify auth on a physical device.
 None of the following can be done from source — they're dashboard/account
 steps for whoever holds the Supabase and Google/Apple accounts.
 
-### Required now — Google OAuth
+### Done — Google OAuth (staging)
 
-Verified against the live `budgts-staging-2` Supabase project
-(`GET /auth/v1/settings`) while building this milestone: **the Google
-provider is currently disabled**, so `signInWithOAuth({ provider: "google" })`
-will fail end-to-end on a real device today, independent of any app code.
-To enable it:
-
-1. Google Cloud Console → OAuth consent screen (if not already done for the
-   web app's existing Google sign-in) → OAuth client ID, type **Web
-   application** (Supabase mediates the redirect centrally; the mobile app
-   does not need its own Google client type).
-2. Authorized redirect URI: `https://<project-ref>.supabase.co/auth/v1/callback`.
-3. Supabase Dashboard → Authentication → Providers → Google: paste the
-   Client ID/Secret, enable the provider.
-4. Supabase Dashboard → Authentication → URL Configuration → Redirect URLs:
-   add `budgts://auth/callback` (GoTrue rejects/ignores a `redirectTo` that
-   isn't on this allow-list, for both magic-link `emailRedirectTo` and
-   OAuth `redirectTo`).
-
-Do this per Supabase project (staging and, later, production) separately.
+Configured 2026-09-18. Verified from this repo without printing any secret:
+GoTrue's public `/auth/v1/settings` shows `google: true`, and a read-only
+Supabase Management API call confirms `external_google_enabled: true`,
+`budgts://auth/callback` is on the `uri_allow_list`, and the configured
+Google Client ID matches the one created for this project. A live browser
+round-trip through the redeployed staging web app's "Continue with Google"
+completed successfully. Production has its own separate Google OAuth client
+and Supabase config to do later, per the same steps, when that milestone
+comes up.
 
 ### If Apple Sign In is ever added later
 
@@ -75,15 +65,128 @@ and external to this repo:
 | Item | Status |
 | --- | --- |
 | Expo SDK 57 / Expo Router scaffold | Done |
-| Magic Link sign-in | Done, code-complete; needs the redirect-URL allow-list entry above to work end-to-end |
-| Google OAuth sign-in | Done, code-complete; blocked end-to-end until the provider is enabled (above) |
+| Magic Link sign-in | Done, code-complete; verified live server-side (see the mobile-auth milestone report) |
+| Google OAuth sign-in | Done, code-complete; provider config verified live, browser round-trip verified on **web** |
 | Sign in with Apple | **Not implemented** — see below |
 | Secure session persistence | Done (`lib/supabase/large-secure-store.ts`) |
 | AppState-driven token refresh | Done (`lib/supabase/auto-refresh.ts`) |
-| Bearer-token API requests | Done (`lib/auth/api.ts`, backend: `src/lib/auth/get-request-user.ts`) |
+| Bearer-token API requests | Done and live-verified against real staging (`lib/auth/api.ts`, backend: `src/lib/auth/get-request-user.ts`) |
 | Logout/session cleanup | Done (`AuthProvider.signOut`) |
-| Cold-start deep-link handling | Implemented (`app/auth/callback.tsx`); **unverified on a physical device** |
-| Physical-device run | Not performed in this environment — no device/emulator available here |
+| Cold-start deep-link handling | Implemented (`app/auth/callback.tsx`); **unverified on a physical device/simulator** |
+| `budgts://` → Android intent-filter | **Verified** via `npx expo prebuild` — see "Native config verification" below |
+| `budgts://` → iOS URL scheme | **Not verifiable from this machine** — `expo prebuild` does not generate an iOS project on Windows at all |
+| EAS build config | `eas.json` present (`development`, `preview`); not yet validated against a real EAS project (needs `eas login` + `eas init`) |
+| Physical-device/simulator run | **Not performed** — no device, no emulator, and (being Windows) no possibility of an iOS Simulator on this machine |
+
+## Native config verification (2026-09-18)
+
+Ran `npx expo prebuild --platform all` once, inspected the generated native
+projects, then deleted them (`android/`, `ios/` are git-ignored and fully
+regenerable — nothing from this is committed):
+
+- **Android**: only platform actually generated on this Windows host (see
+  below). `AndroidManifest.xml`'s `MainActivity` has the expected
+  intent-filter: `android:launchMode="singleTask"`, `android:exported="true"`,
+  categories `DEFAULT`+`BROWSABLE`, `<data android:scheme="budgts"/>` — this
+  is exactly the config a real `budgts://auth/callback` link needs to reopen
+  the running app rather than spawn a duplicate instance.
+  `expo-secure-store`'s config plugin also correctly wired Android's
+  auto-backup exclusion rules (`android:fullBackupContent`/
+  `dataExtractionRules`) so secure-storage-backed keys are excluded from
+  cloud backup, as they should be.
+- **iOS**: `expo prebuild` did not generate an `ios/` directory at all on
+  this host — Expo's CLI skips native iOS project generation outside macOS
+  (no Xcode/CocoaPods toolchain to target). This means the `CFBundleURLTypes`
+  entry for the `budgts` scheme could not be inspected from this machine,
+  full stop — not "unverified," but structurally impossible to verify here.
+  It's the same automatic, config-plugin-driven mechanism as Android
+  (`scheme` in app.json → the platform's own URL-handling config), so there's
+  no reason to expect it behaves differently, but that's an expectation, not
+  a verification.
+- `npx expo-doctor`: 20/21 checks pass, including "Validate packages against
+  React Native Directory package metadata" — the check that would flag a
+  package needing custom native code incompatible with Expo Go. The one
+  failure (duplicate `react` versions) is the same pre-existing,
+  non-blocking nested-repo artifact noted in the previous milestone
+  (`mobile/` sits inside this non-monorepo Next.js repo; EAS Build treats
+  `mobile/` as its own root and never sees the parent tree).
+
+**Conclusion for task 1 (Expo Go vs. Development Build):** Expo Go remains
+sufficient for the current auth-only feature set — confirmed by the doctor
+check above, not assumed. A development-client / EAS build only becomes
+necessary once a module outside the Expo SDK is added (native Plaid is the
+next one on the roadmap).
+
+## EAS readiness
+
+`eas.json` defines two build profiles:
+
+- `development` — `developmentClient: true`, internal distribution, iOS
+  simulator build enabled (simulator builds don't need a paid Apple
+  Developer account, unlike device builds).
+- `preview` — internal distribution, Android as a directly-installable APK
+  (no Play Console needed), iOS as a real-device (non-simulator) build.
+
+No `production` profile — deliberately omitted; there's no StoreKit/Play
+Billing, RevenueCat, or submission-readiness work done yet to justify one
+(mobile-launch spec §10/§11/§16).
+
+**What's still needed before any of this can actually run**, none of it
+performable from this repo:
+
+1. **An Expo account**, and `eas login` on a machine that has one — every
+   `eas` command (`eas config`, `eas build`) refused to even validate
+   `eas.json` locally without this: `An Expo user account is required to
+   proceed.`
+2. **`eas init`** (needs the same login) — links this project to a cloud EAS
+   project and writes `extra.eas.projectId` into `app.json`; not present yet,
+   correctly, since that step hasn't happened.
+3. **Android preview/device builds**: no Apple account needed, just the Expo
+   account above — the most reachable path to a real installable build once
+   someone logs in.
+4. **iOS builds of any kind**: needs the Apple Developer Program enrollment
+   that mobile-launch spec §10 already flags as not done. iOS *simulator*
+   builds specifically don't need a paid account, but still need a Mac (or
+   EAS's own macOS cloud builders) to ever run the result — this Windows
+   machine can do neither.
+5. `com.budgts.app` (`ios.bundleIdentifier`/`android.package` in `app.json`)
+   is a **provisional placeholder**, not a confirmed decision — the
+   mobile-launch spec has no existing bundle-identifier decision to defer to.
+   It's fine for development/preview builds; it should be explicitly
+   confirmed (or changed) before it's ever used for a real App Store
+   Connect/Play Console listing, since that binding is effectively permanent
+   once a real submission happens.
+6. `EXPO_PUBLIC_*` values for a cloud EAS build come from `eas env:create`
+   (also needs login) rather than a committed file — `.env.example` still
+   documents which three are needed.
+
+## Native auth test matrix — not run
+
+The previous milestone's request for a device/simulator-verified pass
+through cold launch, Magic Link, Google OAuth, session refresh, API auth,
+logout, and deep-link error cases (malformed link, missing code, expired
+callback, cancelled OAuth, network failure, expired session) was **not
+executed** — confirmed empirically, not assumed:
+
+- No `adb`/Android emulator on this machine (`ANDROID_HOME` unset, no SDK
+  installed).
+- This is a Windows host, so an iOS Simulator is categorically unavailable
+  (Simulator only runs on macOS) — not a missing-tool problem, an
+  operating-system one.
+
+Everything gated on "review the code, not run it on a device" was still
+done: `signInWithOtp`/`signInWithOAuth`/`verifyOtp`/`exchangeCodeForSession`
+all resolve `{ data, error }` rather than throwing on a network failure
+(confirmed against the pinned `@supabase/auth-js`'s own try/catch blocks),
+so a network failure surfaces as a normal, handled error state, not a
+crash. A cancelled Google OAuth browser sheet (`WebBrowser.openAuthSessionAsync`
+returning `"cancel"`/`"dismiss"`) is already handled as a silent no-op, not
+an error. A malformed/incomplete deep link and an expired magic-link
+`token_hash` both resolve to `parseAuthCallbackUrl`/`completeSessionFromUrl`
+returning a typed error the callback screen already displays before
+redirecting to sign-in. None of this required changing the auth
+architecture — it was already built to handle these cases; this pass
+confirmed that by reading it, not by assuming it.
 
 ## Apple Sign In — evaluated, not implemented
 

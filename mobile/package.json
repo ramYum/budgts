@@ -31,6 +31,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
+    "prebuild": "expo prebuild",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },

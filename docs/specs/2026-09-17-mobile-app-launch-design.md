@@ -158,18 +158,45 @@ configuration data, not a constant anywhere in code. See monetization spec
   (`signInWithOAuth`), both completing through `/auth/callback` (handles
   either a PKCE `code` or a direct `token_hash`+`type` verification).
 
+### Mobile sign-in methods — LOCKED (2026-09-19)
+
+- **Magic Link — LOCKED.** Mobile ships the same passwordless email flow as
+  web, adapted to the native auth architecture below.
+- **Google OAuth — LOCKED.** Mobile ships Google sign-in, adapted to the
+  native auth architecture below (PKCE + deep-link callback instead of a
+  browser redirect to a cookie-based session).
+- **Sign in with Apple — NOT INCLUDED INITIALLY.** Explicitly excluded from
+  the initial mobile launch scope by owner decision. This is a scope
+  decision, not a compliance determination — whether Apple's App Review
+  Guideline 4.8 *requires* it anyway, given Google OAuth is offered, is a
+  separate, still-open question (see §10 and the Decision Register — do not
+  read "not included initially" as "compliance risk resolved").
+- **Web authentication is unchanged by this decision.** Web keeps exactly
+  the sign-in methods it has today (magic link + Google OAuth via
+  `@supabase/ssr`/cookies, §4 "Current — web" above). This document does not
+  redesign, add to, or remove anything from web auth.
+- **IMPLEMENTATION REQUIREMENT:** do not silently add a further mobile
+  sign-in method (e.g. password auth, another OAuth provider) without
+  routing that decision back through this document first — the same
+  discipline the monetization spec applies to its own LOCKED rules.
+
 ### Mobile — architecture
 
+This follows directly from the two locked methods above — nothing here
+introduces a third method or a different mechanism per method:
+
 - **`@supabase/supabase-js`** (standard client), not the cookie-based SSR
-  client.
+  client, for both Magic Link and Google OAuth on mobile.
 - **Native persistent session storage** — secure storage such as Expo
   SecureStore, so the access/refresh token pair survives app restarts
   without living in plain storage.
-- **PKCE** for the OAuth flow, completing via a **deep-link callback**.
-  Expected callback shape: **`budgts://auth/callback`** — this is the
-  intended URL scheme; the scheme itself is not yet registered anywhere in
-  this repository (no `app.json`/Expo config exists yet, since no mobile
-  project has been created).
+- **PKCE** for the Google OAuth flow, completing via a **deep-link
+  callback**. Magic Link uses the same deep-link callback mechanism for its
+  own confirmation link. Expected callback shape:
+  **`budgts://auth/callback`** — this is the intended URL scheme; the
+  scheme itself is not yet registered anywhere in this repository (no
+  `app.json`/Expo config exists yet, since no mobile project has been
+  created).
 - **IMPLEMENTATION REQUIREMENT:** every mobile request that reaches the
   backend must authenticate with the user's own session/token. The backend
   **must verify the user's identity server-side** on every such request —
@@ -183,15 +210,16 @@ configuration data, not a constant anywhere in code. See monetization spec
 
 ### Unresolved
 
-- **OPEN ENGINEERING DECISION:** which sign-in methods ship on mobile at
-  launch (magic link only? Google OAuth? both, matching web?) is not
-  decided in any planning record this audit found. This also gates the
-  Apple "Sign in with Apple" question — see §10.
 - **OPEN ENGINEERING DECISION:** whether existing Route Handlers
   (`getSessionUser()`, cookie-only today) get a mobile-compatible auth path
   added in place, or whether mobile calls a parallel set of handlers, is not
   decided. Either is a routine, well-understood change — genuinely just not
   chosen yet.
+- **STORE/LEGAL DEPENDENCY (unchanged by the decision above):** whether
+  Apple Guideline 4.8 requires an Apple-equivalent sign-in option anyway,
+  given Google OAuth ships and Sign in with Apple does not, must be
+  verified against the final mobile implementation before App Store
+  submission — see §10.
 
 ---
 
@@ -414,15 +442,23 @@ Register) for the consolidated list.
   monetization spec §6 item 1 and §2.7.
 - **App Privacy** ("nutrition label") details — not started, depends on
   the final mobile data-collection surface.
-- **Account deletion** (Guideline 5.1.1(v)) — required; see §12, currently
-  a repository-wide gap (no account-deletion flow exists on web either).
-- **Privacy policy**, **terms** — required, do not exist yet (§12).
-- **OPEN PRODUCT DECISION / STORE-LEGAL DEPENDENCY:** whether "Sign in
-  with Apple" is required depends on Apple Guideline 4.8, which requires it
-  as an equivalent option **if** the app offers other third-party
-  sign-in (the web app already offers Google OAuth). This must be verified
-  against whichever sign-in methods §4 ultimately ships on mobile — not
-  assumed either way here.
+- **Mobile account deletion must be supported** (Guideline 5.1.1(v)) —
+  required for submission; the architecture is now designed (§12.2) but not
+  implemented, and retention periods are still open (§12.4). No
+  submission without a working deletion flow.
+- **Privacy policy**, **terms** — required before submission, do not exist
+  yet (§12). The privacy policy must disclose what account deletion
+  deletes, what it may retain, and why (§12.4 drives the exact wording once
+  resolved).
+- **Sign in with Apple — decision made, compliance question still open.**
+  §4 locks mobile sign-in to Magic Link + Google OAuth, with Sign in with
+  Apple explicitly not included initially. **This does not by itself
+  satisfy or eliminate Apple Guideline 4.8**, which can require an
+  Apple-equivalent sign-in option when other third-party sign-in is
+  offered. Whether 4.8 applies here **must be re-verified against the
+  final mobile implementation** (exact sign-in UI, what "primarily uses"
+  vs. "offers" means for this app) before submission — this document
+  states the product decision, it does not adjudicate App Review policy.
 - Store metadata, screenshots, and the standard App Review checklist — not
   started, ordinary submission work once the client exists.
 
@@ -441,18 +477,30 @@ Register) for the consolidated list.
   before being relied on (monetization spec §6 item 7, §2.8).
 - **Data Safety** form — not started, depends on final data-collection
   surface (same dependency as Apple's App Privacy label).
-- **Account deletion**, including Google's **additional** requirement of a
-  **web-accessible deletion-request link** (beyond the in-app flow Apple
-  also requires) — not started (§12).
-- **Privacy policy**, **terms** — required, do not exist yet (§12).
+- **Mobile account deletion must be supported**, including Google's
+  **additional** requirement of a **web-accessible deletion-request link**
+  (beyond the in-app flow Apple also requires, §12.2 step 1) — the
+  architecture is now designed (§12.2) but not implemented, and retention
+  periods are still open (§12.4). No submission without both the in-app
+  flow and the web-accessible path live.
+- **Privacy policy**, **terms** — required before submission, do not exist
+  yet (§12). Must disclose what account deletion deletes, what it may
+  retain, and why (§12.4).
 - Store metadata and **content rating** — not started.
+- **Authentication method requirements must be re-verified against final
+  implementation.** Google Play does not have a Sign-in-with-Apple-style
+  mandated-provider rule the way Apple's Guideline 4.8 does, but any
+  Play policy implications of the Magic Link + Google OAuth combination
+  (§4) should still be checked against Play's current developer policy at
+  submission time, not assumed unchanged from today's audit.
 
 ---
 
 ## 12. Legal/account lifecycle
 
-Current blockers, confirmed by direct repository inspection (grep across
-`src/`, no matches):
+### 12.1 Current blockers
+
+Confirmed by direct repository inspection (grep across `src/`, no matches):
 
 - **Privacy policy page does not exist.**
 - **Terms page does not exist.**
@@ -461,45 +509,160 @@ Current blockers, confirmed by direct repository inspection (grep across
   "delete my account" surface anywhere in the product today, web included.
   Already flagged as a 🔴 blocker in `docs/roadmap.md`.
 
-**IMPLEMENTATION REQUIREMENT:** account deletion must be designed as real
-account/data lifecycle behavior — removing or scheduling removal of the
-user's actual rows (transactions, accounts, budgets, goals, Plaid items,
-and, once it exists, any monetization/subscription data belonging to
-them) — **not** merely hiding the account or soft-disabling sign-in while
-data remains fully intact and queryable.
+### 12.2 Account-deletion architecture — LOCKED (2026-09-19)
 
-**OPEN PRODUCT/LEGAL DECISION — retention and deletion periods are not
-specified anywhere in this repository or in the planning record this audit
-reviewed.** This document does not invent one. Before account deletion can
-be implemented, the owner needs to decide (at minimum):
+**The governing principle:** deletion of the user's personal/application
+data is architecturally separate from retention of financial records that
+legitimately need to survive. This is **not** "retain everything forever"
+and it is **not** "hard-delete everything on request" — it is a deliberate
+split, and the exact boundary of "legitimately need to survive" is itself
+partly an open decision (§12.4), not something this document resolves by
+assumption.
 
-- Is deletion immediate, or is there a grace/recovery window first?
-- Does any data survive deletion for legal/financial record-keeping (e.g.
-  monetization ledger rows tied to a deleted user, which the monetization
-  spec already treats as immutable financial fact) — and if so, for how
-  long and under what access restriction?
-- Interaction with the monetization ledger specifically: `redemptions`,
-  `subscriptions`, `payments`, and `revenue_allocations` all carry
-  `user_id` with `ON DELETE RESTRICT` to `auth.users` (migration `0017`),
-  a deliberate deviation from every other table's `ON DELETE CASCADE` —
-  meaning **as schema currently stands, a user with any monetization
-  history cannot have their `auth.users` row hard-deleted at all** without
-  a separate, not-yet-designed anonymization or retention step. This is a
-  direct product/legal dependency this audit surfaces, not something to
-  resolve by silently changing the FK behavior.
+**Lifecycle, in order:**
+
+1. **REQUEST** — user initiates account deletion.
+   - **LOCKED:** can be initiated **from inside the mobile app.**
+   - **LOCKED:** a **web-accessible deletion-request path must also
+     exist**, independent of the mobile app being installed — this is a
+     Google Play requirement (§11) as well as good practice regardless of
+     platform.
+   - *Requires further engineering design:* the exact UI/flow for both
+     surfaces, and whether the web path is a full self-service flow or an
+     authenticated request that a backend process then executes.
+2. **Confirmation** — the user confirms intent before anything
+   irreversible happens.
+   - *Requires further engineering design:* confirmation mechanism (in-app
+     re-auth, email confirmation, a delay/undo window) — none chosen yet.
+3. **Subscription/billing handling** — checked and communicated **before**
+   data changes.
+   - **LOCKED:** deleting the Budgts account must **not** be assumed to
+     cancel an active mobile subscription. Apple/Google subscriptions are
+     billing relationships between the customer and that platform,
+     independent of whether a Budgts account exists.
+   - **LOCKED:** subscription cancellation/billing must be **clearly
+     communicated** to the user as a separate action, handled through the
+     **appropriate Apple/Google subscription-management mechanism** (each
+     platform's own "manage subscriptions" surface) — Budgts does not
+     silently cancel or silently continue billing on the user's behalf.
+   - *Requires further engineering design:* the exact in-app copy/flow that
+     communicates this distinction, and whether Budgts can/should
+     deep-link the user directly to their platform's subscription-
+     management screen.
+4. **Revoke access/sessions** — terminate the user's ability to sign in
+   and invalidate any active sessions/tokens.
+   - **LOCKED:** account deletion must terminate/revoke the user's Budgts
+     access.
+5. **Disconnect/revoke Plaid access** — for every connected bank item.
+   - **LOCKED:** Plaid credentials/access tokens and connected-bank access
+     must be removed/revoked as part of deletion, not left dangling.
+     Mirrors the existing `disconnect.ts` mechanism at the per-item level,
+     applied to every item the user has.
+6. **Delete personal/operational data** that does not legitimately need
+   retention.
+   - **LOCKED:** this is real deletion (or scheduled deletion) of the
+     user's actual rows — not soft-disabling sign-in while data stays
+     fully intact and queryable (restates the requirement from the prior
+     version of this document).
+   - *Requires further engineering design:* the exact table-by-table
+     deletion plan (transactions, accounts, budgets, goals, categories,
+     Plaid items/accounts, profile) — not enumerated here because it's
+     ordinary implementation work once §12.4's retention scope is settled,
+     not a design gap.
+7. **Retain the minimum financial records that legitimately require
+   retention.**
+   - **LOCKED:** financial/payment/revenue records that legitimately need
+     to survive must **not** be hard-deleted merely to make account
+     deletion easy.
+   - **LOCKED:** existing monetization-ledger immutability and the
+     migration `0017` `ON DELETE RESTRICT` protections **remain intact** —
+     this architecture works around that constraint, it does not weaken it
+     (§12.3).
+8. **De-identify retained records where possible.**
+   - **LOCKED (direction, not mechanism):** where legally/technically
+     appropriate, retained records should be de-identified/anonymized so
+     personal identity is not retained unnecessarily beyond what retention
+     requires.
+   - *Requires further engineering design:* the actual anonymization
+     mechanism (e.g. severing/nulling the direct `user_id` link while
+     preserving the financial fact, versus a separate pseudonymous key) is
+     not designed — it depends on §12.4's unresolved retention categories
+     and cannot be built before those are answered.
+9. **Finalize deletion** — confirm to the user that deletion is complete,
+   consistent with what was actually deleted vs. retained per the above.
+
+### 12.3 Monetization-history interaction (schema dependency)
+
+Migration `0017` **intentionally** uses `ON DELETE RESTRICT` from every
+monetization-record table (`redemptions`, `subscriptions`, `payments`,
+`revenue_allocations`) to `auth.users`, a deliberate deviation from every
+other table's `ON DELETE CASCADE` — see the migration's own comment block
+and `docs/specs/2026-09-18-monetization-ledger-design.md`.
+
+**Consequence:** a user with any monetization history **cannot** simply
+have their `auth.users` row hard-deleted under the current schema. The
+`RESTRICT` FK will reject it.
+
+**This is not a reason to weaken the FK.** `RESTRICT` is doing its job —
+protecting immutable financial history from being silently cascaded away.
+The account-deletion architecture in §12.2 must **accommodate** this
+constraint (deleting/revoking everything that isn't financial-record data,
+retaining and eventually de-identifying what is, per §12.4), not remove
+it. **Migration `0017` is not modified by this document and must not be
+modified to make deletion easier.**
+
+### 12.4 Retention — OPEN PRODUCT/LEGAL DECISION
+
+**Retention and deletion periods are not specified anywhere in this
+repository or in the planning record this audit reviewed. This document
+does not invent one.** Before account deletion can be considered
+*complete* (as opposed to architecturally designed), the owner needs to
+decide, at minimum:
+
+- **Exact retention periods** — how long each category of retained record
+  is kept after account deletion, if at all.
+- **Categories of financial records requiring retention** — which of
+  `payments`, `revenue_allocations`, `revenue_allocation_adjustments`,
+  `payouts`/`payout_allocations`, and `subscriptions` rows (and which
+  fields on them) genuinely need to survive, versus which could be
+  deleted/cascaded once no longer legally relevant.
+- **Legal/accounting basis for each retention category** — e.g. tax
+  record-keeping requirements, financial audit requirements, payment-
+  processor/App-Store dispute-window requirements — not assumed by this
+  document, since the correct basis (and duration) varies by jurisdiction
+  and record type and is a legal determination, not an engineering one.
+- **Exact de-identification/anonymization requirements** — what "de-
+  identified" must mean in practice for this data (does severing `user_id`
+  suffice, or does something else in the row remain personally
+  identifying?), and whether that bar differs by record category.
+- **Treatment of records that cannot be safely de-identified** — if some
+  retained record category cannot be de-identified while still serving its
+  retention purpose (e.g. a record a regulator might require to be traced
+  back to a specific person), the handling for that case is undecided and
+  is not assumed here.
+
+Until these are resolved, §12.2 step 7–8 (retain/de-identify) is an
+architectural direction, not an implementable spec — and this document
+treats it as such rather than filling the gap with an assumed number.
 
 ---
 
 ## 13. Launch sequencing
 
-1. **Commit this mobile architecture specification** — done by this
-   document; unblocks everything below by giving later steps something
-   concrete to build against instead of an undocumented prior conversation.
-2. **Privacy policy + terms + account deletion** — store-submission
-   blockers (§10, §11, §12). Deliberately sequenced early: small, decoupled
-   from the mobile client itself, and the account-deletion design question
-   (§12) needs the monetization-ledger FK interaction resolved before any
-   later step assumes deletion "just works."
+1. **Mobile architecture specification — COMPLETE after this change.**
+   This document, including the locked mobile-auth methods (§4) and the
+   account-deletion architecture (§12.2); unblocks everything below by
+   giving later steps something concrete to build against instead of an
+   undocumented prior conversation.
+2. **Define/implement privacy + terms + account-deletion architecture** —
+   store-submission blockers (§10, §11, §12). The architecture is now
+   specified (§12.2); the FK/monetization interaction is understood and
+   accommodated, not a blocker to *starting* this step (§12.3). **The exact
+   retention policy (§12.4) must still be resolved before the account-
+   deletion implementation itself is considered complete** — the
+   deletion/revocation/disconnect steps (§12.2 steps 1–6, 9) can be built
+   and shipped independently of that resolution; the retain/de-identify
+   steps (§12.2 steps 7–8) cannot be finished correctly until it is.
 3. **Mobile authentication** (§4) — foundational; every later mobile step
    (native Plaid Link, mobile UI, any authenticated Route Handler call)
    depends on a working mobile session.
@@ -550,8 +713,11 @@ be implemented, the owner needs to decide (at minimum):
   write → entitlement state, including idempotency (replayed event
   produces no duplicate `Payment`/`RevenueAllocation`, per monetization
   spec §7's test plan).
-- **Account deletion testing** — once designed (§12), verify actual data
-  removal/anonymization, not just sign-in becoming impossible.
+- **Account deletion testing** — verify the full §12.2 lifecycle: session/
+  access revocation, Plaid disconnect, actual personal/operational data
+  removal, that an active subscription is confirmed **not** silently
+  cancelled by account deletion, and (once §12.4 is resolved) correct
+  retention/de-identification of financial records.
 - **Deep-link authentication testing** — `budgts://auth/callback` handling
   across cold-start, warm-start, and already-running-app cases (a standard
   deep-link testing matrix, not yet exercised since the scheme isn't
@@ -580,8 +746,12 @@ Objective, checkable criteria — not a subjective quality bar:
       reimplementation exists to diverge, §8).
 - [ ] Budgets/Goals/Money Left work and match web's numbers for the same
       account.
-- [ ] Account deletion works and actually removes/anonymizes the
-      specified data (§12), not just disables sign-in.
+- [ ] Account deletion follows the full §12.2 lifecycle: access/sessions
+      revoked, Plaid access disconnected, personal/operational data
+      actually removed, subscription status clearly communicated as a
+      separate Apple/Google-managed concern (never silently assumed
+      cancelled), and retained financial records handled per whatever
+      §12.4 resolves to — not just sign-in disabled.
 - [ ] Privacy policy and terms are live and linked from the app and store
       listings.
 - [ ] Apple billing (trial → Promotional Offer → normal price) works,
@@ -647,6 +817,14 @@ Restated here so nothing downstream infers permission to start on it:
 - Mobile auth stack: `@supabase/supabase-js` + native secure storage +
   PKCE + deep-link callback (`budgts://auth/callback` as the intended
   scheme).
+- **Mobile sign-in methods: Magic Link and Google OAuth. Sign in with
+  Apple is not included initially.** Web sign-in methods are unchanged.
+- **Account-deletion architecture** (§12.2): initiable from the mobile app
+  and via a web-accessible path; terminates Budgts access; disconnects
+  Plaid; deletes personal/operational data; does **not** assume
+  subscription cancellation; retains only the minimum financial records
+  that legitimately require it, de-identified where possible; migration
+  `0017`'s immutability/FK protections are not weakened.
 - Server-side Plaid pipeline and financial domain logic are shared, not
   duplicated, between web and mobile.
 - V2/V2+ remain inactive/post-launch; not reopened by this track.
@@ -667,50 +845,80 @@ Restated here so nothing downstream infers permission to start on it:
   needs sandbox verification (monetization spec §6 item 7).
 - Which specific mobile mutations use direct-Supabase vs. Route-Handler
   transport (§6) — ordinary per-feature engineering, not a blocking gap.
-- Which sign-in methods ship on mobile at launch (§4) — gates the Apple
-  Sign-in-with-Apple applicability question (§10).
+- Account-deletion confirmation mechanism — in-app re-auth, email
+  confirmation, and/or a delay/undo window (§12.2 step 2) — not chosen.
+- Whether Budgts deep-links a deleting user directly to their platform's
+  subscription-management screen (§12.2 step 3) — not chosen.
+- The table-by-table personal/operational data deletion plan (§12.2 step
+  6) — ordinary implementation work once §12.4 settles retention scope,
+  not a design gap now.
+- The exact de-identification/anonymization mechanism for retained
+  financial records (§12.2 step 8, §12.4) — depends on the retention
+  categories being resolved first.
 
 ### OPEN PRODUCT DECISIONS
 - Multi-voucher attribution precedence — first-touch vs. last-touch when a
   user redeems more than one influencer code before their first paid
   transaction (monetization spec §6 item 4).
-- Account deletion retention/deletion periods, and how a deletion request
-  interacts with the monetization ledger's `ON DELETE RESTRICT` user FKs
-  (§12) — not specified anywhere; must be resolved before account deletion
-  can be implemented.
 - Whether the mobile v1 ships every existing web screen or a trimmed
   launch set (§7).
+- **Account-deletion retention (§12.4), not yet resolved:**
+  - Exact retention periods per record category.
+  - Which financial-record categories (`payments`, `revenue_allocations`,
+    `revenue_allocation_adjustments`, `payouts`/`payout_allocations`,
+    `subscriptions`) genuinely require retention, and which fields.
+  - The legal/accounting basis for each retention category (tax,
+    audit, payment-processor/App-Store dispute-window requirements, or
+    other — jurisdiction-dependent, not assumed here).
+  - Exact de-identification/anonymization requirements per category.
+  - Treatment of any record category that cannot be safely de-identified
+    while still serving its retention purpose.
 
 ### STORE/LEGAL DEPENDENCIES
 - Apple Developer Program enrollment (not yet done).
 - Google Play Console enrollment (not yet done).
-- Privacy policy page (does not exist).
+- Privacy policy page (does not exist; must disclose deletion/retention
+  per §12.4 once resolved).
 - Terms page (does not exist).
-- In-app account deletion, both platforms (does not exist anywhere in the
-  product, web included).
-- Google Play's additional web-accessible account-deletion-request link
-  (does not exist).
+- In-app account deletion, both platforms — architecture designed (§12.2),
+  not implemented.
+- Google Play's additional web-accessible account-deletion-request link —
+  architecture designed (§12.2 step 1), not implemented.
 - Apple App Privacy label / Google Data Safety form (not started, depend
   on final mobile data-collection surface).
-- "Sign in with Apple" applicability under Guideline 4.8 — needs
-  verification once mobile sign-in methods (§4) are chosen.
+- **"Sign in with Apple" Guideline 4.8 applicability** — mobile sign-in is
+  now locked to Magic Link + Google OAuth with no Apple sign-in (§4); this
+  is a scope decision, not a compliance determination, and 4.8 applicability
+  must still be verified against the final implementation before Apple
+  submission (§10).
 
 ---
 
 ## Contradictions found against existing repo architecture
 
 None that rise to a financial-correctness, data-integrity, security, or
-architecture-contradiction level. One dependency surfaced by writing this
-document that wasn't previously connected in any single place:
+architecture-contradiction level, in this revision or the prior one.
 
-- **Account deletion and the monetization ledger's FK design are now known
-  to interact**, and neither side's existing documentation flagged the
-  other: `docs/roadmap.md`'s account-deletion blocker note (2026-09-17)
-  predates migration `0017`'s `ON DELETE RESTRICT` choice (2026-09-18), and
-  the monetization spec's own "Contradictions found" section (written
-  2026-09-18) doesn't mention account deletion at all. This document is the
-  first place both facts are stated together — see §12 and the Decision
-  Register.
+- **Account deletion and the monetization ledger's FK design interact**
+  (first surfaced in the prior revision of this document): migration
+  `0017`'s `ON DELETE RESTRICT` from monetization tables to `auth.users`
+  means a user with monetization history cannot have that row hard-deleted
+  under the current schema. **This is now addressed, not just flagged:**
+  §12.2's lifecycle architecture and §12.3 state explicitly that the FK is
+  correct and stays as-is, and that deletion accommodates it by
+  deleting/revoking everything else and retaining-then-de-identifying the
+  financial-record minimum. The remaining gap is not architectural — it's
+  §12.4's retention-period decision, which this document correctly leaves
+  open rather than inventing.
+- **The new locked mobile-auth decision (Magic Link + Google OAuth, no
+  Apple sign-in initially) introduces no contradiction:** it doesn't add an
+  undocumented third method, doesn't change web auth (§4 "Current — web" is
+  untouched), and is applied consistently everywhere this document
+  discusses mobile sign-in (§3, §4, §10, §17). The one thing it does **not**
+  resolve — and this document does not claim it resolves — is whether Apple
+  Guideline 4.8 requires an Apple-equivalent option anyway; that stays an
+  open store/legal dependency (§10, §17), re-verified against the final
+  implementation, not assumed away by the scope decision.
 
 No existing LOCKED decision (web-free/mobile-paid, the commercial terms, the
 mobile stack, the shared-pipeline architecture) conflicts with anything

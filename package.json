@@ -17,7 +17,9 @@
     "test:plaid": "vitest run --config vitest.plaid.config.mts",
     "test:e2e": "playwright test",
     "db:generate": "drizzle-kit generate",
+    "predb:migrate": "npx tsx tools/db/preflight-migrate.ts",
     "db:migrate": "drizzle-kit migrate",
+    "db:verify-history": "npx tsx tools/db/verify-migration-history.ts",
     "screenshot": "node tools/screenshot.mjs"
   },
   "dependencies": {

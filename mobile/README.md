@@ -75,7 +75,7 @@ and external to this repo:
 | Cold-start deep-link handling | Implemented (`app/auth/callback.tsx`); **unverified on a physical device/simulator** |
 | `budgts://` → Android intent-filter | **Verified** via `npx expo prebuild` — see "Native config verification" below |
 | `budgts://` → iOS URL scheme | **Not verifiable from this machine** — `expo prebuild` does not generate an iOS project on Windows at all |
-| EAS build config | `eas.json` present (`development`, `preview`); not yet validated against a real EAS project (needs `eas login` + `eas init`) |
+| EAS build config | `eas.json` present (`development`, `preview`); linked to a real EAS project (`@budgts/budgts`, see "EAS readiness" below) and validated via `eas config` for both platforms |
 | Physical-device/simulator run | **Not performed** — no device, no emulator, and (being Windows) no possibility of an iOS Simulator on this machine |
 
 ## Native config verification (2026-09-18)
@@ -119,6 +119,14 @@ next one on the roadmap).
 
 ## EAS readiness
 
+Linked 2026-09-18 to a real EAS project: **`@budgts/budgts`**, project ID
+`4ab8a69b-67e2-49a5-94dc-5bc9f4d873a5` (`app.json`'s `extra.eas.projectId`
+and `owner: "budgts"` — both written by `eas init --account budgts
+--non-interactive`, not hand-typed). This is a fresh project created for
+this exact codebase, not the unrelated project ID from the generic Expo
+setup-page example. `eas config` now resolves both build profiles for both
+platforms without error (see below).
+
 `eas.json` defines two build profiles:
 
 - `development` — `developmentClient: true`, internal distribution, iOS
@@ -131,34 +139,32 @@ No `production` profile — deliberately omitted; there's no StoreKit/Play
 Billing, RevenueCat, or submission-readiness work done yet to justify one
 (mobile-launch spec §10/§11/§16).
 
-**What's still needed before any of this can actually run**, none of it
+**What's still needed before an actual build can run**, none of it
 performable from this repo:
 
-1. **An Expo account**, and `eas login` on a machine that has one — every
-   `eas` command (`eas config`, `eas build`) refused to even validate
-   `eas.json` locally without this: `An Expo user account is required to
-   proceed.`
-2. **`eas init`** (needs the same login) — links this project to a cloud EAS
-   project and writes `extra.eas.projectId` into `app.json`; not present yet,
-   correctly, since that step hasn't happened.
-3. **Android preview/device builds**: no Apple account needed, just the Expo
-   account above — the most reachable path to a real installable build once
-   someone logs in.
-4. **iOS builds of any kind**: needs the Apple Developer Program enrollment
-   that mobile-launch spec §10 already flags as not done. iOS *simulator*
-   builds specifically don't need a paid account, but still need a Mac (or
-   EAS's own macOS cloud builders) to ever run the result — this Windows
-   machine can do neither.
+1. ~~An Expo account and `eas login`~~ — done 2026-09-18 (account
+   `crispyphata@gmail.com`, org `budgts`).
+2. ~~`eas init`~~ — done; see the project link above.
+3. **Android preview/device builds**: no Apple account needed — this is now
+   the most reachable path to a real installable build. Just needs
+   `eas build --profile preview --platform android` to actually be run
+   (not done this session — no build was authorized).
+4. **iOS builds of any kind**: still needs the Apple Developer Program
+   enrollment that mobile-launch spec §10 already flags as not done. iOS
+   *simulator* builds specifically don't need a paid account, but still need
+   a Mac (or EAS's own macOS cloud builders) to ever run the result — this
+   Windows machine can do neither.
 5. `com.budgts.app` (`ios.bundleIdentifier`/`android.package` in `app.json`)
-   is a **provisional placeholder**, not a confirmed decision — the
+   is still a **provisional placeholder**, not a confirmed decision — the
    mobile-launch spec has no existing bundle-identifier decision to defer to.
    It's fine for development/preview builds; it should be explicitly
    confirmed (or changed) before it's ever used for a real App Store
    Connect/Play Console listing, since that binding is effectively permanent
    once a real submission happens.
 6. `EXPO_PUBLIC_*` values for a cloud EAS build come from `eas env:create`
-   (also needs login) rather than a committed file — `.env.example` still
-   documents which three are needed.
+   (now possible — the account is linked) rather than a committed file;
+   not set up this session since it wasn't needed to validate `eas.json`.
+   `.env.example` still documents which three are needed.
 
 ## Native auth test matrix — not run
 

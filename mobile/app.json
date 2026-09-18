@@ -28,6 +28,13 @@
       "expo-router",
       "expo-secure-store",
       "expo-web-browser"
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "4ab8a69b-67e2-49a5-94dc-5bc9f4d873a5"
+      }
+    },
+    "owner": "budgts"
   }
 }

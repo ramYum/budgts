@@ -85,6 +85,21 @@ export default async function SettingsPage() {
           Sign out
         </button>
       </form>
+
+      <section className="space-y-2">
+        <h2 className="px-1 text-xs font-semibold uppercase tracking-wide text-muted">Danger zone</h2>
+        <ul className="card divide-y divide-hairline overflow-hidden rounded-2xl border border-hairline">
+          <li>
+            <Link
+              href="/settings/delete-account"
+              className="flex items-center gap-3 px-4 py-3 text-sm text-neg hover:bg-surface-2"
+            >
+              <span className="flex-1">Delete account</span>
+              <NavIcon glyph="back" className="h-4 w-4 rotate-180" />
+            </Link>
+          </li>
+        </ul>
+      </section>
     </div>
   );
 }

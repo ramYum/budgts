@@ -65,8 +65,9 @@ and external to this repo:
 | Item | Status |
 | --- | --- |
 | Expo SDK 57 / Expo Router scaffold | Done |
-| Magic Link sign-in | Done, code-complete; verified live server-side (see the mobile-auth milestone report) |
-| Google OAuth sign-in | Done, code-complete; provider config verified live, browser round-trip verified on **web** |
+| Magic Link sign-in | Code-complete. **Device test 2026-09-19 found the email link opened the web app** — root cause fixed (see "Auth redirect URL contract"); needs re-test on the new build |
+| Google OAuth sign-in | Code-complete; provider config verified live, browser round-trip verified on **web**. Uses the same redirect URL as Magic Link, so the same fix applies; re-test on the new build |
+| Branded sign-in screen | Done — Poppins, cream/sun palette, real robin/sunburst art, "Use a different email" exit; tokens mirrored from web `globals.css` (`lib/theme.ts`, drift-tested) |
 | Sign in with Apple | **Not implemented** — see below |
 | Secure session persistence | Done (`lib/supabase/large-secure-store.ts`) |
 | AppState-driven token refresh | Done (`lib/supabase/auto-refresh.ts`) |
@@ -77,6 +78,34 @@ and external to this repo:
 | `budgts://` → iOS URL scheme | **Not verifiable from this machine** — `expo prebuild` does not generate an iOS project on Windows at all |
 | EAS build config | `eas.json` present (`development`, `preview`); linked to a real EAS project (`@budgts/budgts`, see "EAS readiness" below) and validated via `eas config` for both platforms |
 | Physical-device/simulator run | **Not performed** — no device, no emulator, and (being Windows) no possibility of an iOS Simulator on this machine |
+
+## Auth redirect URL contract (why Magic Link once opened the web app)
+
+Both Magic Link (`emailRedirectTo`) and Google OAuth (`redirectTo`) must send
+Supabase **exactly** `budgts://auth/callback` — the string in Supabase →
+Authentication → URL Configuration → Redirect URLs. Supabase matches it
+character for character and, on any mismatch, **silently falls back to the
+project Site URL (the web app)** instead of erroring.
+
+The trap: `Linking.createURL("/auth/callback")` (leading slash) yields
+`budgts:///auth/callback` (three slashes) in a standalone build, which is not
+allow-listed. The first Android device test hit exactly this: the email link
+opened `budgts-staging.vercel.app`. Verified read-only against the staging
+project with `GET /auth/v1/verify?token=x&type=magiclink&redirect_to=…`:
+`budgts://auth/callback` → redirected to the app; `budgts:///auth/callback`,
+`…/callback/` and `…/callback?x=1` → redirected to the Site URL.
+
+Fix: `lib/auth/callback-url.ts` builds the URL (`createURL("auth/callback")`,
+no leading slash, then normalised) and `callback-url.test.ts` runs the real
+`createURL` to pin the shape. The web Magic Link is untouched — it sends its own
+`https://…/auth/callback` from `src/server/auth.ts`.
+
+**Production checklist:** the production Supabase project needs the same
+`budgts://auth/callback` entry in its Redirect URLs before a production build.
+
+Also: the single-use code can reach the app twice on Android (the OAuth browser
+result *and* the intent-filter route), so `completeSessionFromUrl` is
+deduplicated per URL (`lib/auth/once-by-key.ts`).
 
 ## Native config verification (2026-09-18)
 

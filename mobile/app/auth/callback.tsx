@@ -1,14 +1,17 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
 import { Redirect, useLocalSearchParams } from "expo-router";
 import * as Linking from "expo-linking";
 import { completeSessionFromUrl } from "../../lib/auth/complete-session-from-url";
+import { colors } from "../../lib/theme";
 
 /**
  * Landing screen for `budgts://auth/callback` when the OS opens the app
- * directly from the magic-link email (Google OAuth instead completes inline
- * in sign-in.tsx via `WebBrowser.openAuthSessionAsync`'s own result URL, so
- * it never routes through here). Mirrors `src/app/auth/callback/route.ts`.
+ * directly from the magic-link email (Google OAuth normally completes inline
+ * in sign-in.tsx via `WebBrowser.openAuthSessionAsync`'s own result URL, but
+ * Android may ALSO route the same URL here — `completeSessionFromUrl` is
+ * deduplicated per URL so the single-use code is only exchanged once).
+ * Mirrors `src/app/auth/callback/route.ts`.
  */
 export default function AuthCallbackScreen() {
   const params = useLocalSearchParams();
@@ -47,18 +50,22 @@ export default function AuthCallbackScreen() {
 
   if (status === "done") return <Redirect href="/" />;
 
+  // The message travels to the sign-in screen, which renders it — it used to be
+  // shown here for one frame and then redirected away (a silent failure).
   if (status === "error") {
     return (
-      <View style={styles.container}>
-        <Text style={styles.error}>{error ?? "Sign-in link is invalid or expired"}</Text>
-        <Redirect href="/sign-in" />
-      </View>
+      <Redirect
+        href={{
+          pathname: "/sign-in",
+          params: { error: error ?? "Sign-in link is invalid or expired" },
+        }}
+      />
     );
   }
 
   return (
     <View style={styles.container}>
-      <ActivityIndicator />
+      <ActivityIndicator color={colors.accent} />
     </View>
   );
 }
@@ -76,6 +83,11 @@ function reconstructUrlFromParams(params: Record<string, string | string[] | und
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, gap: 12 },
-  error: { color: "#c0392b", fontSize: 14, textAlign: "center" },
+  container: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+    backgroundColor: colors.bg,
+  },
 });

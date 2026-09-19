@@ -9,5 +9,8 @@ export default defineConfig({
     environment: "node",
     include: ["lib/**/*.test.ts"],
     globals: true,
+    // expo-linking ships untranspiled ESM; callback-url.test.ts runs its real
+    // createURL against faked expo-constants to pin the redirect-URL shape.
+    server: { deps: { inline: [/expo-linking/] } },
   },
 });

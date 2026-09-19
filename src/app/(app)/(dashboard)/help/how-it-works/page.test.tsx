@@ -1,43 +1,31 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import HowItWorksPage from "./page";
+import { TOUR_TOPICS } from "@/lib/tour/topics";
 
 describe("HowItWorksPage", () => {
-  it("leads with the core convenience message", () => {
+  it("leads with the core message and says the demos never touch real accounts", () => {
     render(<HowItWorksPage />);
     expect(screen.getByRole("heading", { name: "You spend. Budgts keeps track." })).toBeInTheDocument();
-    expect(
-      screen.getByText(/Connect your accounts, spend normally, and Budgts automatically keeps track/),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/nothing here touches your accounts/)).toBeInTheDocument();
   });
 
-  it("walks the full workflow in order: connect, arrive, sort, review, budget, Money Left, track", () => {
+  it("starts the sequential walkthrough at the first step", () => {
     render(<HowItWorksPage />);
-    const headings = [
-      "Connect your accounts",
-      "Transactions arrive automatically",
-      "Budgts sorts them for you",
-      "You review the exceptions",
-      "Set your budgets",
-      "See your Money Left",
-      "Track your progress",
-    ];
+    expect(screen.getByRole("link", { name: /Start the walkthrough/ })).toHaveAttribute(
+      "href",
+      "/tour/organize",
+    );
+  });
+
+  it("lets the reader open any single explanation, in walkthrough order", () => {
+    render(<HowItWorksPage />);
     const items = screen.getAllByRole("listitem");
-    expect(items).toHaveLength(headings.length);
-    headings.forEach((heading, i) => {
-      expect(items[i]).toHaveTextContent(heading);
-      expect(items[i]).toHaveTextContent(`Step ${i + 1}`);
+    expect(items).toHaveLength(TOUR_TOPICS.length);
+    TOUR_TOPICS.forEach((t, i) => {
+      expect(items[i]).toHaveTextContent(t.question);
+      expect(items[i].querySelector("a")).toHaveAttribute("href", `/tour/${t.id}`);
     });
-  });
-
-  it("never describes Money Left as a savings balance", () => {
-    render(<HowItWorksPage />);
-    expect(screen.getByText(/not your savings-account balance/)).toBeInTheDocument();
-  });
-
-  it("links to the guided tour as a hands-on follow-up, not a gate", () => {
-    render(<HowItWorksPage />);
-    expect(screen.getByRole("link", { name: "Take the guided tour" })).toHaveAttribute("href", "/tour");
   });
 
   it("links back to Help", () => {

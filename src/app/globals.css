@@ -194,6 +194,40 @@ body {
   color: var(--text);
 }
 
+/* "How Budgts Works" demo frames (src/components/tour/demo-frame.tsx): the REAL
+ * component, non-interactive, with one part ringed. Keys match the
+ * `data-tour-target` attributes on the real components. */
+.tour-demo[data-tour-highlight="money-left"] [data-tour-target="money-left"],
+.tour-demo[data-tour-highlight="activity"] [data-tour-target="activity"],
+.tour-demo[data-tour-highlight="disconnect"] [data-tour-target="disconnect"],
+.tour-demo[data-tour-highlight="review-notice"] [data-tour-target="review-notice"],
+.tour-demo[data-tour-highlight="exclude"] [data-tour-target="exclude"] {
+  outline: 3px solid var(--coral-strong);
+  outline-offset: 3px;
+  animation: tour-ring 2s ease-in-out infinite;
+}
+
+@keyframes tour-ring {
+  0%,
+  100% {
+    outline-color: var(--coral-strong);
+  }
+  50% {
+    outline-color: var(--coral-tint);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tour-demo [data-tour-target] {
+    animation: none;
+  }
+}
+
+/* Long demos (the whole dashboard) are cropped with a soft fade, not a hard cut. */
+.tour-demo-fade {
+  mask-image: linear-gradient(to bottom, #000 82%, transparent);
+}
+
 /* First-run tour (TourWizard) step transition. */
 @keyframes tour-in {
   from {

@@ -59,6 +59,7 @@ export default async function SettingsPage() {
 
       <Section label="App">
         <Row href="/settings/appearance" label="Appearance" glyph="settings" />
+        <Row href="/help/how-it-works" label="How Budgts Works" glyph="help" />
         <Row href="/help" label="Help" glyph="help" />
         <Row href="/about" label="About Budgts" glyph="about" />
       </Section>

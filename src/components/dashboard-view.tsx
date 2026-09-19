@@ -144,7 +144,7 @@ export function DashboardView({
       ) : null}
 
       {/* the one solid hero card on the screen — light sun fill */}
-      <section className="relative overflow-hidden rounded-3xl bg-hero-fill p-4 text-on-hero">
+      <section data-tour-target="money-left" className="relative overflow-hidden rounded-3xl bg-hero-fill p-4 text-on-hero">
         <p className="text-xs font-medium">Money Left</p>
         <p
           className={`tnum font-display text-[1.9rem] font-bold leading-tight ${
@@ -301,7 +301,7 @@ export function DashboardView({
         </section>
       ) : null}
 
-      <section className="space-y-2">
+      <section data-tour-target="activity" className="space-y-2">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold">Recent activity</h2>
           <Link href="/transactions" className="text-xs font-medium text-primary hover:underline">

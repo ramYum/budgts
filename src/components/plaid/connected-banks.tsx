@@ -203,6 +203,7 @@ function BankCard({
         <button
           type="button"
           onClick={() => setConfirming(true)}
+          data-tour-target="disconnect"
           className="rounded-lg border border-neg/40 px-3 py-1.5 text-sm font-medium text-neg hover:bg-neg/5"
         >
           Disconnect
@@ -416,7 +417,10 @@ function AccountReviewNotice({ account }: { account: ConnectedBankAccount }) {
   }
 
   return (
-    <div className="space-y-1.5 rounded-lg border border-warn/40 bg-warn/10 p-2.5 text-xs text-warn">
+    <div
+      data-tour-target="review-notice"
+      className="space-y-1.5 rounded-lg border border-warn/40 bg-warn/10 p-2.5 text-xs text-warn"
+    >
       <p>{account.reviewReason}</p>
       {reviewState.error ? <p className="text-neg">{reviewState.error}</p> : null}
       {exclusionState.error ? <p className="text-neg">{exclusionState.error}</p> : null}
@@ -438,6 +442,7 @@ function AccountReviewNotice({ account }: { account: ConnectedBankAccount }) {
             <button
               type="submit"
               disabled={exclusionPending}
+              data-tour-target="exclude"
               className="rounded-md border border-warn/50 px-1.5 py-0.5 font-medium hover:bg-warn/10 disabled:opacity-50"
             >
               {exclusionPending ? "Saving…" : "Exclude from totals"}

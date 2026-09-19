@@ -15,6 +15,8 @@ export const colors = {
   onPrimaryBtn: "#0f0f0f", // ink on sun (white on sun fails contrast)
   neg: "#ff6347", // --coral-strong: errors / over-budget
   pos: "#3fa772", // --sage-strong
+  heroFill: "#ffe8b3", // --sun-light: the Money Left hero card
+  fillNear: "#f7b733", // --sun-strong: "near budget" progress fill
 } as const;
 
 /** Poppins per weight — React Native does not synthesise weights for custom

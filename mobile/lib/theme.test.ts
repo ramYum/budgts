@@ -27,6 +27,8 @@ suite("theme colors stay in sync with the web design tokens", () => {
     ["primaryBtn", "sun"],
     ["neg", "coral-strong"],
     ["pos", "sage-strong"],
+    ["heroFill", "sun-light"],
+    ["fillNear", "sun-strong"],
   ] as const)("colors.%s matches --%s", (key, cssName) => {
     expect(colors[key]).toBe(token(css, cssName));
   });

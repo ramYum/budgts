@@ -38,6 +38,21 @@ export function readPlaidError(e: unknown): PlaidErrorShape | null {
 }
 
 /**
+ * True iff Plaid is telling us the Item no longer exists — i.e. `/item/remove` on an Item
+ * that was already removed (measured against the Plaid sandbox: 400 ITEM_ERROR /
+ * ITEM_NOT_FOUND). This is the ONLY error that may be treated as a successful, idempotent
+ * removal.
+ *
+ * Deliberately narrow. INVALID_ACCESS_TOKEN (a nonexistent/malformed token) is NOT
+ * "already gone": it also appears if PLAID_ENV is misconfigured for every user, so treating
+ * it as success would silently orphan real bank connections. Rate limits, 5xx, transport
+ * failures and token-decrypt failures likewise mean "we do not know", never "removed".
+ */
+export function isPlaidItemAlreadyRemoved(e: unknown): boolean {
+  return readPlaidError(e)?.error_code === "ITEM_NOT_FOUND";
+}
+
+/**
  * Safely describe a caught sync error for logging — never the raw Plaid
  * error body (readPlaidError's `.response.data` can carry account/financial
  * detail) and never an unknown thrown value dumped verbatim. `Error#message`

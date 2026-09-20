@@ -1,8 +1,44 @@
 import { describe, expect, it } from "vitest";
-import { classifyPlaidError, describeSyncError, readPlaidError } from "./error-policy";
+import { classifyPlaidError, describeSyncError, isPlaidItemAlreadyRemoved, readPlaidError } from "./error-policy";
 import { MUTATION_DURING_PAGINATION_CODE, SyncMutationDuringPagination } from "./sync-engine";
 
 const plaidErr = (data: object) => ({ response: { data } });
+
+/**
+ * The codes below were MEASURED against the Plaid sandbox (not assumed): removing an
+ * already-removed item -> 400 ITEM_ERROR/ITEM_NOT_FOUND; a nonexistent or malformed
+ * token -> 400 INVALID_INPUT/INVALID_ACCESS_TOKEN; an unreachable Plaid -> a transport
+ * error with no `response` at all.
+ */
+describe("isPlaidItemAlreadyRemoved", () => {
+  it("is true ONLY for ITEM_NOT_FOUND — Plaid's answer for an item that was already removed", () => {
+    expect(isPlaidItemAlreadyRemoved(plaidErr({ error_type: "ITEM_ERROR", error_code: "ITEM_NOT_FOUND" }))).toBe(true);
+  });
+
+  it.each([
+    // The token itself is unusable. That is NOT "the item is gone": it would look identical if
+    // PLAID_ENV were misconfigured for every user, so treating it as success could orphan real
+    // bank connections at scale. It must fail closed.
+    ["INVALID_INPUT", "INVALID_ACCESS_TOKEN"],
+    ["RATE_LIMIT_EXCEEDED", "RATE_LIMIT_EXCEEDED"],
+    ["API_ERROR", "INTERNAL_SERVER_ERROR"],
+    ["API_ERROR", "PLANNED_MAINTENANCE"],
+    ["INSTITUTION_ERROR", "INSTITUTION_DOWN"],
+    ["ITEM_ERROR", "ITEM_LOGIN_REQUIRED"], // a live item that needs re-login is still a live item
+    ["INVALID_REQUEST", "INVALID_API_KEYS"],
+  ])("is false for %s / %s (must not be mistaken for 'already gone')", (type, code) => {
+    expect(isPlaidItemAlreadyRemoved(plaidErr({ error_type: type, error_code: code }))).toBe(false);
+  });
+
+  it("is false for anything that is not a structured Plaid error (network failure, decrypt failure, junk)", () => {
+    expect(isPlaidItemAlreadyRemoved(Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" }))).toBe(false);
+    expect(isPlaidItemAlreadyRemoved(new Error("Unsupported state or unable to authenticate data"))).toBe(false);
+    expect(isPlaidItemAlreadyRemoved(null)).toBe(false);
+    expect(isPlaidItemAlreadyRemoved(undefined)).toBe(false);
+    expect(isPlaidItemAlreadyRemoved("ITEM_NOT_FOUND")).toBe(false); // a bare string is not a Plaid error
+    expect(isPlaidItemAlreadyRemoved({})).toBe(false);
+  });
+});
 
 describe("readPlaidError", () => {
   it("reads from the SDK's response.data", () => {

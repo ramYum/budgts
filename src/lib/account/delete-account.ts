@@ -35,14 +35,21 @@
  * rather than this file (or `src/lib/plaid/client.ts`, imported transitively
  * via `disconnectPlaidItem`) going without the guard.
  *
- * Ordering note: every destructive step before the final auth-layer call is
- * naturally idempotent (deleting rows that are already gone is a no-op, and
- * disconnecting an already-disconnected Plaid Item is a defined 404). The
- * auth-layer call (hard delete, or soft-delete+ban) is deliberately LAST, so
- * a failure anywhere earlier leaves the account exactly as it was — still
- * logged in, nothing login-blocking has happened yet — and a retry simply
- * continues where it left off, rather than ever leaving a user locked out of
- * an account that's only half-deleted.
+ * Ordering: (1) every READ-ONLY prerequisite — the Auth lookup, the
+ * monetization-history check, the Plaid item list — runs before anything is
+ * destroyed, so a failed prerequisite can never follow a destructive step.
+ * (2) Plaid removal is STRICT: a local Plaid row (the only copy of the encrypted
+ * access token) is deleted only after Plaid confirmed removal or answered
+ * "already removed"; any other Plaid failure stops here with that row intact,
+ * so a retry can still finish the job and no live bank connection is ever
+ * orphaned. (3) The auth-layer call (hard delete, or soft-delete+ban) is
+ * deliberately LAST. A failure anywhere earlier leaves the account still
+ * signed-in and usable, and a retry simply continues where it left off.
+ *
+ * Only the genuine "this user does not exist" answer from Auth is idempotent
+ * success. A transient, rate-limit, credential or unrecognised Auth failure is a
+ * FAILURE: reporting it as "already deleted" would tell the user their account
+ * was deleted when it was not.
  */
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -104,29 +111,40 @@ async function deleteCascadeOwnedData(admin: SupabaseClient, userId: string): Pr
   }
 }
 
-/** Disconnects every Plaid Item this user has — best-effort at Plaid itself
- * (mirrors disconnectPlaidItem's own "revoked/expired can't be removed twice
- * but must still disconnect locally" posture), hard-fails only if the local
- * DB cleanup itself errors. Reuses the existing, already-tested disconnect
- * function rather than duplicating its logic (task: "use the existing Plaid
- * disconnect/revocation implementation where appropriate"). */
-async function disconnectAllPlaidItems(admin: SupabaseClient, userId: string): Promise<void> {
+/** The Plaid Item ids this user has. A read-only prerequisite: it runs before anything is destroyed. */
+async function listPlaidItemIds(admin: SupabaseClient, userId: string): Promise<string[]> {
   const { data: items, error } = await admin
     .from("plaid_items")
     .select("item_id")
     .eq("user_id", userId);
   if (error) throw new Error(`listing plaid_items failed: ${error.message}`);
+  return (items ?? []).map((row: { item_id: string }) => row.item_id);
+}
 
-  for (const { item_id: itemId } of items ?? []) {
+/** Removes every Plaid Item at Plaid, then locally — STRICTLY: it stops at the first
+ * item Plaid could not confirm as removed (or already removed), leaving that item's
+ * local row intact so the whole operation can be retried. Reuses the existing
+ * disconnect implementation in its fail-closed mode rather than duplicating it. */
+async function removePlaidItems(admin: SupabaseClient, userId: string, itemIds: string[]): Promise<void> {
+  for (const itemId of itemIds) {
     // Every itemId here was just selected scoped to this exact userId, so
     // calling disconnectPlaidItem with the admin (RLS-bypassing) client is
     // safe — the ownership check that normally comes from RLS is instead
     // guaranteed by this query's own `.eq("user_id", userId)` filter.
-    const result = await disconnectPlaidItem(admin, { userId, itemId, purge: false });
+    const result = await disconnectPlaidItem(admin, { userId, itemId, purge: false, strict: true });
+    // 404 = the local row vanished between the list and now (a concurrent disconnect): nothing left to do.
     if (!result.ok && result.status !== 404) {
-      throw new Error(`disconnecting Plaid item ${itemId} failed: ${result.error}`);
+      throw new Error(`removing Plaid item ${itemId} failed: ${result.error}`);
     }
   }
+}
+
+/** True only for Supabase Auth's "this user does not exist" answer (measured: 404, code
+ * `user_not_found`). Every other failure — 5xx, network, rate limit, bad key, an HTML 404 from
+ * a wrong base URL, a 404 that is not "user not found" — is NOT "already deleted". */
+function isAuthUserNotFound(err: { status?: number | null; code?: string | null; message?: string }): boolean {
+  if (err.code === "user_not_found") return true;
+  return err.status === 404 && /^user not found$/i.test((err.message ?? "").trim());
 }
 
 /**
@@ -139,20 +157,26 @@ export async function deleteAccount(
   admin: SupabaseClient,
   userId: string,
 ): Promise<DeleteAccountResult> {
-  const { data: existing, error: getErr } = await admin.auth.admin.getUserById(userId);
-  if (getErr || !existing?.user) {
-    // No such auth user — either never existed, or Path A already completed.
-    return { ok: true, alreadyDeleted: true, path: "already-deleted" };
-  }
-  if (existing.user.deleted_at) {
-    // Path B already completed for this user.
-    return { ok: true, alreadyDeleted: true, path: "already-deleted" };
-  }
-
   try {
-    await disconnectAllPlaidItems(admin, userId);
+    const { data: existing, error: getErr } = await admin.auth.admin.getUserById(userId);
+    if (getErr) {
+      // No such auth user — never existed, or Path A already completed: idempotent success.
+      if (isAuthUserNotFound(getErr)) return { ok: true, alreadyDeleted: true, path: "already-deleted" };
+      // Anything else (5xx, network, rate limit, bad key, unrecognised) means we do NOT know.
+      // Never report it as success. Name/status only: the message is not needed and not logged.
+      return { ok: false, error: `auth lookup failed (${getErr.name ?? "error"}, status ${getErr.status ?? "none"})` };
+    }
+    if (!existing?.user) return { ok: false, error: "auth lookup returned neither an error nor a user" };
+    if (existing.user.deleted_at) {
+      // Path B already completed for this user.
+      return { ok: true, alreadyDeleted: true, path: "already-deleted" };
+    }
 
+    // Every read-only prerequisite first: a failure here must find nothing destroyed yet.
     const hasHistory = await hasMonetizationHistory(admin, userId);
+    const plaidItemIds = await listPlaidItemIds(admin, userId);
+
+    await removePlaidItems(admin, userId, plaidItemIds);
 
     if (!hasHistory) {
       // Path A: nothing else to delete explicitly — hard-deleting auth.users

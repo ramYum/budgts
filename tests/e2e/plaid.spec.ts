@@ -83,12 +83,17 @@ test("connect a bank, map an account, import, categorize, disconnect, history re
     expect(exchange.accounts.length).toBeGreaterThan(0);
 
     // --- Map: the real <AccountMapping> UI, server-rendered from the DB ---
-    await page.goto("/settings");
+    // Connected banks live on their own page (moved out of Settings by the UI redesign).
+    await page.goto("/connected-banks");
     await expect(page.getByText("First Platypus Bank (Sandbox)")).toBeVisible();
     await page.getByRole("button", { name: "Choose accounts to import" }).click();
     await skipAllButFirstAccount(page);
     await page.getByRole("button", { name: "Import transactions" }).click();
-    await expect(page.getByText("not set up")).toHaveCount(0); // mapping dialog closed, list refreshed
+    // Submitting runs the mapping AND the first real Plaid sandbox sync, which can take well over the
+    // 5s default; the overlay closing is the completion signal. Bounded, and only for this step.
+    await expect(page.getByRole("button", { name: "Import transactions" })).toBeHidden({ timeout: 45_000 });
+    // Afterwards every account is either mapped ("→ name") or declined ("not imported"): none untouched.
+    await expect(page.getByText("not set up")).toHaveCount(0);
 
     // --- Import: first sync runs as part of mapping; retry for Sandbox lag ---
     await syncUntilTransactionsAppear(page);
@@ -130,7 +135,7 @@ test("connect a bank, map an account, import, categorize, disconnect, history re
     const importedRows = csvBefore.split("\n").length;
     expect(importedRows).toBeGreaterThan(1); // header + at least one imported row
 
-    await page.goto("/settings");
+    await page.goto("/connected-banks");
     await page.getByRole("button", { name: "Disconnect" }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Disconnect" }).click();
     await expect(page.getByText("First Platypus Bank (Sandbox)")).toHaveCount(0);

@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { createTestUser, deleteTestUser, hasAdminCredentials, magicTokenHash } from "./helpers/test-user";
-import { onboardAndSkipTour } from "./helpers/onboard";
+import { completeOnboarding } from "./helpers/onboard";
 
 test.skip(!hasAdminCredentials(), "needs SUPABASE_SECRET_KEY (see .env.local)");
 
@@ -8,7 +8,7 @@ test("cancelling leaves the account untouched", async ({ page }) => {
   const user = await createTestUser();
   try {
     await page.goto(`/auth/callback?token_hash=${await magicTokenHash(user.email)}&type=magiclink&next=/`);
-    await onboardAndSkipTour(page);
+    await completeOnboarding(page);
 
     await page.goto("/settings/delete-account");
     await expect(page.getByText("This can't be undone.")).toBeVisible();
@@ -27,7 +27,7 @@ test("confirming deletes the account and signs the user out", async ({ page }) =
   const user = await createTestUser();
   try {
     await page.goto(`/auth/callback?token_hash=${await magicTokenHash(user.email)}&type=magiclink&next=/`);
-    await onboardAndSkipTour(page);
+    await completeOnboarding(page);
 
     await page.goto("/settings/delete-account");
     await expect(page.getByText("This can't be undone.")).toBeVisible();

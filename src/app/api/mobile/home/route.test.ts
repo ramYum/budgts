@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { buildDemoDashboard } from "@/lib/tour/demo-data";
+import { buildDemoDashboard } from "@/test-utils/demo-dashboard";
 
 const getBearerContext = vi.fn();
 const loadMonthlyDashboard = vi.fn();

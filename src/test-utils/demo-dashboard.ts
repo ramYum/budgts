@@ -1,24 +1,18 @@
 /**
- * Controlled, synthetic data for the "How Budgts Works" walkthrough.
- *
- * The walkthrough shows the REAL dashboard / needs-category / connected-banks
- * components (not screenshots or look-alikes). They are fed from here instead
- * of the database, so viewing an explanation can never read or change a user's
- * real financial data. Everything is a plain value; the dashboard numbers come
- * from running the real `buildDashboard` / `spendTrend` / `goalsSummary` over
- * synthetic rows, so the demo can't disagree with the product's own math.
- *
- * Every id is prefixed `demo-` so nothing here can collide with a real row.
+ * Test fixture: a synthetic month of dashboard data (ids prefixed `demo-`),
+ * built by running the REAL `buildDashboard` / `spendTrend` / `goalsSummary`
+ * over synthetic rows, so it can't disagree with the product's own math.
+ * Used by the native-Home tests (`lib/mobile/home.test.ts`,
+ * `app/api/mobile/home/route.test.ts`). Relocated verbatim from the retired
+ * walkthrough's `lib/tour/demo-data.ts`; nothing else in it was needed.
  */
 import { buildDashboard, type DashboardCategory } from "@/lib/budget/dashboard";
 import { monthKey, type MonthKey } from "@/lib/budget/month";
 import { goalsSummary } from "@/lib/budget/savings";
 import { priorMonths, spendTrend } from "@/lib/budget/spend-trend";
 import type { BudgetTxn, Direction } from "@/lib/budget/types";
-import type { UncategorizedTxn } from "@/lib/plaid/group-uncategorized";
 import type { RecentActivityItem } from "@/components/dashboard-view";
-import type { ConnectedBank, ConnectedBankAccount } from "@/components/plaid/connected-banks";
-import type { AccountOption, CategoryOption } from "@/components/transaction-form";
+import type { AccountOption } from "@/components/transaction-form";
 
 const DEMO_EMAIL = "alex@example.com";
 
@@ -134,96 +128,5 @@ export function buildDemoDashboard(now: Date = new Date()) {
     ),
     recent,
     userEmail: DEMO_EMAIL,
-  };
-}
-
-function bankAccount(overrides: Partial<ConnectedBankAccount> & Pick<ConnectedBankAccount, "rowId" | "name" | "mask">): ConnectedBankAccount {
-  return {
-    plaidAccountId: `demo-plaid-${overrides.rowId}`,
-    officialName: null,
-    type: "depository",
-    subtype: "checking",
-    linkState: "mapped",
-    mappedAccountName: overrides.name,
-    needsReview: false,
-    reviewReason: null,
-    excludedFromCalculations: false,
-    pendingSignCheckCount: 0,
-    ...overrides,
-  };
-}
-
-function bank(id: string, institutionName: string, now: Date, accounts: ConnectedBankAccount[]): ConnectedBank {
-  return {
-    id,
-    itemId: `${id}-item`,
-    institutionName,
-    status: "active",
-    lastSyncedAt: new Date(now.getTime() - 25 * 60000).toISOString(),
-    accounts,
-    unmappedAccounts: [],
-  };
-}
-
-export function buildDemoBanks(now: Date = new Date()) {
-  return {
-    /** Nothing to review — used to show the Disconnect action. */
-    healthy: bank("demo-bank-healthy", "First Example Bank", now, [
-      bankAccount({ rowId: "demo-acct-1", name: "Everyday Checking", mask: "4242" }),
-      bankAccount({ rowId: "demo-acct-2", name: "Rainy-day Savings", mask: "9917", subtype: "savings" }),
-    ]),
-    /** One account Budgts flagged and the owner has not yet decided on. */
-    flagged: bank("demo-bank-flagged", "Sample Credit Union", now, [
-      bankAccount({
-        rowId: "demo-acct-3",
-        name: "Joint Checking",
-        mask: "1180",
-        needsReview: true,
-        reviewReason:
-          "This account's feed showed activity that looks duplicated — some transactions appear more than once.",
-      }),
-    ]),
-    /** An account the owner already chose to exclude. */
-    excluded: bank("demo-bank-excluded", "Sample Credit Union", now, [
-      bankAccount({
-        rowId: "demo-acct-4",
-        name: "Joint Checking",
-        mask: "1180",
-        needsReview: true,
-        excludedFromCalculations: true,
-        reviewReason:
-          "This account's feed showed activity that looks duplicated — some transactions appear more than once.",
-      }),
-    ]),
-  };
-}
-
-export function buildDemoNeedsCategory(now: Date = new Date()) {
-  const month = monthKey(now);
-  const row = (id: string, description: string, merchant: string, entity: string, amount: number, day: number, pfc: string): UncategorizedTxn => ({
-    id,
-    description,
-    merchant_name: merchant,
-    merchant_entity_id: entity,
-    amount,
-    direction: "debit",
-    occurred_at: iso(month, day),
-    account_name: "Everyday Checking",
-    pending: false,
-    plaid_category_primary: pfc,
-    suggested_category_id: null,
-  });
-
-  const categories: CategoryOption[] = CATEGORIES.map(({ id, name, kind }) => ({ id, name, kind }));
-
-  return {
-    items: [
-      row("demo-nc-1", "SQ *BLUE BOTTLE COFFEE", "Blue Bottle Coffee", "demo-merchant-bluebottle", 575, 15, "FOOD_AND_DRINK"),
-      row("demo-nc-2", "SQ *BLUE BOTTLE COFFEE", "Blue Bottle Coffee", "demo-merchant-bluebottle", 640, 11, "FOOD_AND_DRINK"),
-      row("demo-nc-3", "AMZN Mktp US*2K4", "Amazon", "demo-merchant-amazon", 3499, 13, "GENERAL_MERCHANDISE"),
-    ],
-    categories,
-    missingStandard: [] as string[],
-    currency: "USD",
   };
 }

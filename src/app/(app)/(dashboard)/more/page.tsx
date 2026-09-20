@@ -40,7 +40,6 @@ export default function MorePage() {
       </ul>
 
       <ul className="card divide-y divide-hairline overflow-hidden rounded-2xl border border-hairline">
-        <Row href="/help/how-it-works" label="How Budgts Works" glyph="help" />
         <Row href="/help" label="Help" glyph="help" />
         <Row href="/about" label="About Budgts" glyph="about" />
       </ul>

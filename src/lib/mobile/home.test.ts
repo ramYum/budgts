@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildDemoDashboard } from "@/lib/tour/demo-data";
+import { buildDemoDashboard } from "@/test-utils/demo-dashboard";
 import type { MonthlyDashboard, RecentActivity } from "@/lib/budget/home-data";
 import { buildMobileHome, MOBILE_HOME_VERSION } from "./home";
 

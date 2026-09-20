@@ -46,10 +46,12 @@ async function skipAllButFirstAccount(page: Page) {
  * up, rather than assuming the first sync landed it. Sandbox-only; production
  * banks already have history at connect time, so this race cannot occur there.
  */
-async function syncUntilTransactionsAppear(page: Page, attempts = 8) {
+async function syncUntilTransactionsAppear(page: Page, attempts = 12) {
   for (let i = 0; i < attempts; i++) {
     if (i > 0) {
-      await page.getByRole("button", { name: "Sync now" }).click();
+      // "Sync now" is on the bank's card on /connected-banks, not on /transactions.
+      await page.goto("/connected-banks");
+      await page.getByRole("button", { name: "Sync now" }).click({ timeout: 15_000 });
       await page.waitForTimeout(3000);
     }
     await page.goto("/transactions");
@@ -93,7 +95,9 @@ test("connect a bank, map an account, import, categorize, disconnect, history re
     // 5s default; the overlay closing is the completion signal. Bounded, and only for this step.
     await expect(page.getByRole("button", { name: "Import transactions" })).toBeHidden({ timeout: 45_000 });
     // Afterwards every account is either mapped ("→ name") or declined ("not imported"): none untouched.
-    await expect(page.getByText("not set up")).toHaveCount(0);
+    // The refreshed list lands a while after the overlay closes: measured 4.8s to 8.0s over five runs
+    // against a deployed staging site, i.e. routinely past the 5s default. Bounded to 30s.
+    await expect(page.getByText("not set up")).toHaveCount(0, { timeout: 30_000 });
 
     // --- Import: first sync runs as part of mapping; retry for Sandbox lag ---
     await syncUntilTransactionsAppear(page);
@@ -138,7 +142,9 @@ test("connect a bank, map an account, import, categorize, disconnect, history re
     await page.goto("/connected-banks");
     await page.getByRole("button", { name: "Disconnect" }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Disconnect" }).click();
-    await expect(page.getByText("First Platypus Bank (Sandbox)")).toHaveCount(0);
+    // Same refresh lag as after Import (measured 4.8-8.0s): the list drops the bank once the action's
+    // revalidation lands. Bounded to 30s; the assertion itself is unchanged.
+    await expect(page.getByText("First Platypus Bank (Sandbox)")).toHaveCount(0, { timeout: 30_000 });
 
     const csvAfter = await (await page.request.get("/api/export/transactions")).text();
     expect(csvAfter.split("\n").length).toBe(importedRows); // nothing lost

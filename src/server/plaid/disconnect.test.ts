@@ -164,3 +164,136 @@ describe("disconnectPlaidItem — default (manual 'disconnect bank') behaviour i
     expect(deletes).toEqual(["plaid_items"]);
   });
 });
+
+// --- Database failures while tearing the connection down -------------------------------------
+//
+// Reproduced on staging: the background sync (pg_cron, ~30s) locks `transactions` rows and then
+// updates its parent `plaid_items` row, while a disconnect deletes that parent row and cascades to
+// the same transactions. Postgres breaks the cycle by aborting one side with 40P01 (deadlock). If
+// that side is the disconnect, Plaid has already removed the Item, and the user was shown
+// "could not disconnect". A deadlock victim is meant to be retried.
+
+type DbError = { code?: string; message: string };
+type Chain = { eq: () => Chain; in: () => Chain; then: PromiseLike<{ error: DbError | null }>["then"] };
+
+const DEADLOCK: DbError = { code: "40P01", message: "deadlock detected" };
+const SERIALIZATION: DbError = { code: "40001", message: "could not serialize access" };
+
+/** A Supabase stand-in whose DELETE results are scripted per table, in order, and which records every attempt. */
+function scriptedSupabase(script: {
+  plaid_items?: (DbError | null)[];
+  transactions?: (DbError | null)[];
+  accounts?: { id: string }[];
+  accountsError?: DbError | null;
+}) {
+  const attempts: string[] = [];
+  const queues: Record<string, (DbError | null)[]> = {
+    plaid_items: [...(script.plaid_items ?? [])],
+    transactions: [...(script.transactions ?? [])],
+  };
+  const client = {
+    from(table: string) {
+      return {
+        select: () => ({
+          eq: () =>
+            Object.assign(
+              Promise.resolve({
+                data: script.accountsError ? null : (script.accounts ?? [{ id: "acct-1" }]),
+                error: script.accountsError ?? null,
+              }),
+              { maybeSingle: async () => ({ data: { id: "row-1", access_token_enc: CIPHERTEXT }, error: null }) },
+            ),
+        }),
+        delete: () => {
+          const chain: Chain = {
+            eq: () => chain,
+            in: () => chain,
+            then: (onFulfilled, onRejected) => {
+              attempts.push(table);
+              const queue = queues[table] ?? [];
+              const error = queue.length ? queue.shift()! : null;
+              return Promise.resolve({ error }).then(onFulfilled, onRejected);
+            },
+          };
+          return chain;
+        },
+      };
+    },
+  };
+  return { client: client as never, attempts };
+}
+
+const callPurge = (client: never) => disconnectPlaidItem(client, { userId: "u1", itemId: "item-1", purge: true });
+
+describe("disconnectPlaidItem — database deadlocks and other failures", () => {
+  beforeEach(() => {
+    itemRemove.mockResolvedValue({ data: {} });
+  });
+
+  it("retries the connection delete when Postgres aborts it as a deadlock victim, and then succeeds", async () => {
+    const { client, attempts } = scriptedSupabase({ plaid_items: [DEADLOCK] });
+
+    expect(await call(client)).toEqual({ ok: true, purged: false });
+    expect(attempts).toEqual(["plaid_items", "plaid_items"]);
+  });
+
+  it("does not ask Plaid to remove the Item again when only the database step is retried", async () => {
+    const { client } = scriptedSupabase({ plaid_items: [DEADLOCK, DEADLOCK] });
+
+    await call(client);
+
+    expect(itemRemove).toHaveBeenCalledTimes(1);
+  });
+
+  it("also retries a serialization failure (40001)", async () => {
+    const { client, attempts } = scriptedSupabase({ plaid_items: [SERIALIZATION] });
+
+    expect((await call(client)).ok).toBe(true);
+    expect(attempts).toEqual(["plaid_items", "plaid_items"]);
+  });
+
+  it("gives up after a bounded number of deadlocks with a generic error, so the user sees a retryable failure", async () => {
+    const { client, attempts } = scriptedSupabase({ plaid_items: Array(10).fill(DEADLOCK) });
+
+    expect(await call(client)).toEqual({ ok: false, status: 500, error: "could not disconnect" });
+    expect(attempts).toEqual(["plaid_items", "plaid_items", "plaid_items", "plaid_items"]);
+  });
+
+  it("does not retry other database errors", async () => {
+    const { client, attempts } = scriptedSupabase({ plaid_items: [{ code: "23503", message: "fk violation" }] });
+
+    expect(await call(client)).toEqual({ ok: false, status: 500, error: "could not disconnect" });
+    expect(attempts).toEqual(["plaid_items"]);
+  });
+
+  it("retries a deadlock on the transaction purge, and removes the connection only after the purge succeeded", async () => {
+    const { client, attempts } = scriptedSupabase({ transactions: [DEADLOCK] });
+
+    expect(await callPurge(client)).toEqual({ ok: true, purged: true });
+    expect(attempts).toEqual(["transactions", "transactions", "plaid_items"]);
+  });
+
+  it("does not report success when the purge the user asked for failed: the connection row is kept so they can retry", async () => {
+    const { client, attempts } = scriptedSupabase({ transactions: [{ message: "db exploded" }] });
+
+    expect(await callPurge(client)).toEqual({ ok: false, status: 500, error: "could not disconnect" });
+    expect(attempts).toEqual(["transactions"]); // plaid_items was NOT deleted
+  });
+
+  it("does not report success when the accounts to purge cannot be looked up", async () => {
+    const { client, attempts } = scriptedSupabase({ accountsError: { message: "db exploded" } });
+
+    expect(await callPurge(client)).toEqual({ ok: false, status: 500, error: "could not disconnect" });
+    expect(attempts).toEqual([]); // nothing was deleted
+  });
+
+  it("never logs a token or ciphertext while retrying", async () => {
+    const { client } = scriptedSupabase({ plaid_items: [DEADLOCK, DEADLOCK] });
+
+    await call(client);
+
+    const everything = JSON.stringify(logged);
+    expect(everything).not.toContain(PLAIN_TOKEN);
+    expect(everything).not.toContain(CIPHERTEXT);
+  });
+});

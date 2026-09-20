@@ -35,6 +35,29 @@ function describeRemovalFailure(e: unknown): string {
   return e instanceof Error ? e.name : "non-error value thrown";
 }
 
+/**
+ * Postgres aborts one side of a lock cycle (40P01, deadlock) or a conflicting concurrent
+ * transaction (40001, serialization failure); the documented remedy is to retry the statement.
+ *
+ * This is not hypothetical: the background sync (pg_cron, every ~30s) locks `transactions` rows and
+ * then updates its parent `plaid_items` row, while a disconnect deletes that parent row and cascades
+ * to the same transactions. Reproduced on staging — the disconnect was the victim, after Plaid had
+ * already removed the Item, and the user was told "could not disconnect".
+ */
+const RETRYABLE_DB_CODES = new Set(["40P01", "40001"]);
+const MAX_DB_ATTEMPTS = 4;
+
+/** Runs one DB statement, re-running it only when Postgres says it was a lock/serialization victim. */
+async function withDbRetry<T extends { error: { code?: string } | null }>(run: () => PromiseLike<T>): Promise<T> {
+  let result = await run();
+  for (let attempt = 1; attempt < MAX_DB_ATTEMPTS && result.error && RETRYABLE_DB_CODES.has(result.error.code ?? ""); attempt++) {
+    console.warn("[plaid] disconnect: retrying after database", result.error.code);
+    await new Promise((resolve) => setTimeout(resolve, 50 * 2 ** (attempt - 1) + Math.random() * 50));
+    result = await run();
+  }
+  return result;
+}
+
 export async function disconnectPlaidItem(
   supabase: SupabaseServerClient,
   args: {
@@ -83,22 +106,36 @@ export async function disconnectPlaidItem(
   }
 
   if (purge) {
-    const { data: accts } = await supabase
+    // Fail closed: the user explicitly asked for these transactions to be deleted. Carrying on after a
+    // failed lookup or delete would delete the connection (detaching the rows from any account we could
+    // still find them by) and report success with the data still there. Keeping the local row instead
+    // leaves the user a retry; removal at Plaid is idempotent, so retrying is safe.
+    const { data: accts, error: acctErr } = await supabase
       .from("plaid_accounts")
       .select("id")
       .eq("plaid_item_id", item.id);
+    if (acctErr) {
+      console.error("[plaid] purge: could not list the Item's accounts", acctErr.code);
+      return { ok: false, status: 500, error: "could not disconnect" };
+    }
     const ids = (accts ?? []).map((a) => a.id);
     if (ids.length) {
-      await supabase
-        .from("transactions")
-        .delete()
-        .eq("user_id", userId)
-        .eq("source", "bank")
-        .in("plaid_account_id", ids);
+      const { error: purgeErr } = await withDbRetry(() =>
+        supabase
+          .from("transactions")
+          .delete()
+          .eq("user_id", userId)
+          .eq("source", "bank")
+          .in("plaid_account_id", ids),
+      );
+      if (purgeErr) {
+        console.error("[plaid] purge: could not delete the Item's transactions; keeping the local Item", purgeErr.code);
+        return { ok: false, status: 500, error: "could not disconnect" };
+      }
     }
   }
 
-  const { error: delErr } = await supabase.from("plaid_items").delete().eq("id", item.id);
+  const { error: delErr } = await withDbRetry(() => supabase.from("plaid_items").delete().eq("id", item.id));
   if (delErr) {
     console.error("[plaid] item delete", delErr);
     return { ok: false, status: 500, error: "could not disconnect" };

@@ -23,6 +23,10 @@ const AUTH = {
   htmlNotFound: { name: "AuthUnknownError", status: null, code: null, message: "Unexpected token '<'" },
   // A 404 that is NOT "user not found" (wrong base URL / proxy) must never be read as "already deleted".
   otherNotFound: { name: "AuthApiError", status: 404, code: null, message: "Not Found" },
+  // What GoTrue answers when its own delete transaction fails in Postgres (measured on staging when the cascade
+  // lost a deadlock, 40P01): supabase-js classes it AuthRetryableFetchError, like EVERY 5xx, so only the
+  // status + message identify it. The delete is one atomic transaction, so nothing was deleted.
+  authDatabaseError: { name: "AuthRetryableFetchError", status: 500, code: undefined, message: "Database error deleting user" },
 };
 
 type Item = string;
@@ -36,6 +40,8 @@ interface Opts {
   disconnect?: Record<string, unknown>;
   deleteErrors?: Record<string, boolean>;
   authDeleteError?: boolean;
+  /** Scripted answers to successive HARD `auth.admin.deleteUser` calls (null = success); then falls back to `authDeleteError`. */
+  hardDeleteResults?: (object | null)[];
 }
 
 /** Records reads, Plaid removals and every mutation on ONE ordered timeline, so a test can prove ordering. */
@@ -52,6 +58,7 @@ function fakeAdmin(o: Opts = {}) {
         }),
         deleteUser: vi.fn(async (_id: string, soft: boolean) => {
           events.push(soft ? "auth:softDelete" : "auth:hardDelete");
+          if (!soft && o.hardDeleteResults?.length) return { error: o.hardDeleteResults.shift() ?? null };
           return { error: o.authDeleteError ? { message: "auth delete failed" } : null };
         }),
         updateUserById: vi.fn(async () => {
@@ -291,6 +298,100 @@ describe("deleteAccount — the two lifecycle paths", () => {
     expect((await deleteAccount(afterB.admin, "u1")).ok).toBe(true);
     expect(destructive(afterA.events)).toEqual([]);
     expect(destructive(afterB.events)).toEqual([]);
+  });
+});
+
+/**
+ * Path A's last step is one GoTrue call that deletes `auth.users` and lets Postgres cascade every owned
+ * table inside that single statement. Reproduced on staging (tests/integration/account-deletion-
+ * concurrency.test.ts): when a concurrent writer (a sync, a transfer-pairing pass) holds rows in the
+ * opposite order to the cascade, Postgres aborts the DELETE as a deadlock victim (40P01) and GoTrue
+ * answers 500 "Database error deleting user". The transaction rolled back, so NOTHING was deleted — but the
+ * Plaid Items had already been removed, and the user was told their deletion failed.
+ *
+ * Retrying that one call is safe: it is atomic, idempotent, and the irreversible Plaid step is not repeated.
+ * It is deliberately NOT a general retry: only this measured signature qualifies.
+ */
+describe("deleteAccount — Path A: Auth's own database error (a lock conflict) is retried, narrowly", () => {
+  it("retries the hard delete when Auth reports its database error, and then reports success", async () => {
+    const { admin, raw, events } = fakeAdmin({ hardDeleteResults: [AUTH.authDatabaseError, null] });
+
+    expect(await deleteAccount(admin, "u1")).toEqual({ ok: true, alreadyDeleted: false, path: "hard-delete" });
+    expect(raw.auth.admin.deleteUser).toHaveBeenCalledTimes(2);
+    expect(destructive(events)).toEqual(["auth:hardDelete", "auth:hardDelete"]);
+  });
+
+  it("does NOT repeat the irreversible Plaid removal when only the Auth step is retried", async () => {
+    const { admin, events } = fakeAdmin({ items: () => ["item-1", "item-2"], hardDeleteResults: [AUTH.authDatabaseError, AUTH.authDatabaseError, null] });
+
+    expect((await deleteAccount(admin, "u1")).ok).toBe(true);
+    expect(destructive(events)).toEqual(["disconnect:item-1", "disconnect:item-2", "auth:hardDelete", "auth:hardDelete", "auth:hardDelete"]);
+    expect(disconnectPlaidItem).toHaveBeenCalledTimes(2);
+  });
+
+  it("gives up after a bounded number of attempts and reports a failure, never success", async () => {
+    const { admin, raw } = fakeAdmin({ hardDeleteResults: Array(10).fill(AUTH.authDatabaseError) });
+
+    const result = await deleteAccount(admin, "u1");
+
+    expect(result).toEqual({ ok: false, error: "hard delete failed: Database error deleting user" });
+    expect(raw.auth.admin.deleteUser).toHaveBeenCalledTimes(3);
+  });
+
+  it("treats 'user not found' on a RETRY as done: an earlier attempt may have committed even though its answer was lost", async () => {
+    const { admin } = fakeAdmin({ hardDeleteResults: [AUTH.authDatabaseError, AUTH.notFound] });
+
+    expect(await deleteAccount(admin, "u1")).toEqual({ ok: true, alreadyDeleted: false, path: "hard-delete" });
+  });
+
+  it.each([
+    ["a 500 from upstream that is not Auth's database error", AUTH.http500],
+    ["a 502", AUTH.http502],
+    ["a 503", AUTH.http503],
+    ["a network failure", AUTH.networkDown],
+    ["a rate limit", AUTH.rateLimited],
+    ["a wrong or non-admin key", AUTH.wrongKey],
+    ["a non-JSON response", AUTH.htmlNotFound],
+    ["a 404 that is not 'user not found'", AUTH.otherNotFound],
+    ["an error with no status at all", { message: "auth delete failed" }],
+    ["the right message with the wrong status", { name: "AuthApiError", status: 400, code: null, message: "Database error deleting user" }],
+  ])("does not retry %s: one attempt, reported as a failure", async (_label, error) => {
+    const { admin, raw } = fakeAdmin({ hardDeleteResults: [error, null] });
+
+    expect((await deleteAccount(admin, "u1")).ok).toBe(false);
+    expect(raw.auth.admin.deleteUser).toHaveBeenCalledTimes(1);
+  });
+
+  it("only a RETRY reads 'user not found' as done: on the first attempt that answer keeps its existing meaning (a failure)", async () => {
+    const { admin, raw } = fakeAdmin({ hardDeleteResults: [AUTH.notFound] });
+
+    expect((await deleteAccount(admin, "u1")).ok).toBe(false);
+    expect(raw.auth.admin.deleteUser).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not add the retry to the anonymize path: its soft delete is unchanged", async () => {
+    const { admin, raw } = fakeAdmin({ history: { redemptions: { count: 1 } } });
+    raw.auth.admin.deleteUser.mockResolvedValueOnce({ error: AUTH.authDatabaseError });
+
+    expect((await deleteAccount(admin, "u1")).ok).toBe(false);
+    expect(raw.auth.admin.deleteUser).toHaveBeenCalledTimes(1);
+  });
+
+  it("never logs anything identifying while retrying", async () => {
+    const logged: unknown[][] = [];
+    const spies = (["log", "info", "warn", "error"] as const).map((level) =>
+      vi.spyOn(console, level).mockImplementation((...args: unknown[]) => void logged.push(args)),
+    );
+    try {
+      const { admin } = fakeAdmin({ hardDeleteResults: [AUTH.authDatabaseError, null] });
+
+      await deleteAccount(admin, "user-id-that-must-not-be-logged");
+
+      expect(logged.length).toBeGreaterThan(0); // it did log the retry...
+      expect(JSON.stringify(logged)).not.toContain("user-id-that-must-not-be-logged"); // ...without the user id
+    } finally {
+      for (const spy of spies) spy.mockRestore();
+    }
   });
 });
 

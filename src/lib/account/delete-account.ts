@@ -148,6 +148,39 @@ function isAuthUserNotFound(err: { status?: number | null; code?: string | null;
 }
 
 /**
+ * True only for the answer GoTrue gives when its OWN delete transaction fails in Postgres: 500 with
+ * "Database error deleting user" (measured on staging; supabase-js labels every 5xx
+ * `AuthRetryableFetchError`, so the name says nothing — status and message are the signature).
+ *
+ * Path A's delete is one atomic statement whose FK cascades take row locks in physical scan order. A
+ * writer still in flight for this user (a sync applying updates, a transfer-pairing pass) can hold
+ * rows in the opposite order, and Postgres then aborts the delete as a deadlock victim (40P01) —
+ * reproduced in tests/integration/account-deletion-concurrency.test.ts. GoTrue cannot say WHICH
+ * database error it was, so this deliberately matches nothing broader than that exact answer: a rate
+ * limit, a gateway error, a bad key or a network failure are not this and are never retried.
+ */
+function isAuthDatabaseError(err: { status?: number | null; message?: string }): boolean {
+  return err.status === 500 && /^database error deleting user$/i.test((err.message ?? "").trim());
+}
+
+/** Attempts at the hard delete, including the first. A lock conflict clears as soon as the other writer commits. */
+const MAX_HARD_DELETE_ATTEMPTS = 3;
+
+/**
+ * Path A's last step. The delete is atomic and idempotent, so re-running it after "Database error
+ * deleting user" cannot leave anything half-done; and it is the ONLY thing re-run — the Plaid
+ * removal that precedes it is irreversible and is never repeated.
+ */
+async function hardDeleteAuthUser(admin: SupabaseClient, userId: string) {
+  for (let attempt = 1; ; attempt++) {
+    const { error } = await admin.auth.admin.deleteUser(userId, false);
+    if (!error || attempt >= MAX_HARD_DELETE_ATTEMPTS || !isAuthDatabaseError(error)) return { error, attempts: attempt };
+    console.warn("[account] hard delete: Auth reported a database error (a lock conflict); retrying", { attempt });
+    await new Promise((resolve) => setTimeout(resolve, 100 * 2 ** (attempt - 1) + Math.random() * 100));
+  }
+}
+
+/**
  * Deletes (or, if monetization history exists, de-identifies) the given
  * user's account. `userId` must come from a verified session — this function
  * trusts its caller completely and performs no authentication of its own.
@@ -181,8 +214,13 @@ export async function deleteAccount(
     if (!hasHistory) {
       // Path A: nothing else to delete explicitly — hard-deleting auth.users
       // cascades every remaining CASCADE table in one Postgres operation.
-      const { error } = await admin.auth.admin.deleteUser(userId, false);
-      if (error) return { ok: false, error: `hard delete failed: ${error.message}` };
+      const { error, attempts } = await hardDeleteAuthUser(admin, userId);
+      if (error) {
+        // After a retry, "no such user" means an earlier attempt committed although its answer never
+        // reached us: the account IS deleted, which is exactly what was asked for.
+        if (attempts > 1 && isAuthUserNotFound(error)) return { ok: true, alreadyDeleted: false, path: "hard-delete" };
+        return { ok: false, error: `hard delete failed: ${error.message}` };
+      }
       return { ok: true, alreadyDeleted: false, path: "hard-delete" };
     }
 

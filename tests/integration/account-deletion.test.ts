@@ -8,6 +8,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { deleteAccount, hasMonetizationHistory } from "@/lib/account/delete-account";
 import { adminSupabase } from "@/lib/supabase/admin";
+import { disconnectPlaidItem } from "@/server/plaid/disconnect";
 import { encryptToken } from "@/lib/plaid/crypto";
 import { loadPlaidConfig } from "@/lib/plaid/config";
 import { client as pg, categoryIdByName, mainAccountId } from "./_db";
@@ -75,7 +76,9 @@ describe("deleteAccount — Path A (no monetization history)", () => {
     cleanupIds.push(userId);
     const accountId = await mainAccountId(userId);
     const categoryId = await categoryIdByName(userId, "Food / Groceries");
-    const itemId = await seedPlaidItem(userId);
+    // No Plaid item here on purpose: this test is about the table cascade. Plaid removal is
+    // strict now (an item Plaid cannot remove BLOCKS deletion), so it has its own tests with
+    // REAL sandbox items: plaid-item-removal.test.ts, and the fail-closed test below.
 
     await pg`insert into public.budgets (user_id, category_id, month, amount) values (${userId}, ${categoryId}, '2026-09-01', 10000)`;
     await pg`insert into public.savings_goals (user_id, name, target_amount) values (${userId}, 'itest goal', 5000)`;
@@ -95,8 +98,6 @@ describe("deleteAccount — Path A (no monetization history)", () => {
     expect((await pg`select 1 from public.budgets where user_id = ${userId}`).length).toBe(0);
     expect((await pg`select 1 from public.savings_goals where user_id = ${userId}`).length).toBe(0);
     expect((await pg`select 1 from public.plaid_items where user_id = ${userId}`).length).toBe(0);
-    // no dangling plaid item id left resolvable
-    expect((await pg`select 1 from public.plaid_items where item_id = ${itemId}`).length).toBe(0);
   });
 
   it("is idempotent — a second call reports alreadyDeleted", async () => {
@@ -123,7 +124,6 @@ describe("deleteAccount — Path B (has monetization history)", () => {
     cleanupIds.push(userId);
     const accountId = await mainAccountId(userId);
     const categoryId = await categoryIdByName(userId, "Food / Groceries");
-    await seedPlaidItem(userId);
     await pg`insert into public.transactions (user_id, account_id, category_id, amount, direction, occurred_at, description, source)
       values (${userId}, ${accountId}, ${categoryId}, 500, 'debit', now(), 'itest txn', 'manual')`;
 
@@ -186,5 +186,47 @@ describe("deleteAccount — Path B (has monetization history)", () => {
 
     await pg`delete from public.subscriptions where id = ${subId}`;
     await admin.auth.admin.deleteUser(userId, false);
+  });
+});
+
+/**
+ * B3, against the real Plaid sandbox. `seedPlaidItem` stores a token that DECRYPTS fine but that
+ * Plaid does not know (real answer: 400 INVALID_ACCESS_TOKEN) — the same situation as an
+ * unremovable item. Deletion must refuse, not swallow it and destroy the only retry handle.
+ * (The success and already-removed paths with REAL sandbox items are in plaid-item-removal.test.ts.)
+ */
+describe("deleteAccount — fails closed when Plaid cannot remove an Item", () => {
+  it("refuses: the account, its data and the Item's row (the retry handle) are all intact", async () => {
+    const userId = await createRealUser();
+    cleanupIds.push(userId);
+    const accountId = await mainAccountId(userId);
+    const categoryId = await categoryIdByName(userId, "Food / Groceries");
+    const itemId = await seedPlaidItem(userId);
+    await pg`insert into public.transactions (user_id, account_id, category_id, amount, direction, occurred_at, description, source)
+      values (${userId}, ${accountId}, ${categoryId}, 500, 'debit', now(), 'itest txn', 'manual')`;
+
+    const result = await deleteAccount(admin, userId);
+
+    expect(result.ok).toBe(false);
+    const { data: still } = await admin.auth.admin.getUserById(userId);
+    expect(still.user).not.toBeNull(); // still a live, usable account
+    expect(still.user!.deleted_at).toBeFalsy();
+    expect((await pg`select 1 from public.plaid_items where item_id = ${itemId}`).length).toBe(1); // retry handle kept
+    expect((await pg`select 1 from public.transactions where user_id = ${userId}`).length).toBe(1);
+    expect((await pg`select 1 from public.profiles where id = ${userId}`).length).toBe(1);
+  });
+
+  it("is retryable: once the user disconnects the unremovable Item themselves, deletion completes", async () => {
+    const userId = await createRealUser();
+    cleanupIds.push(userId);
+    const itemId = await seedPlaidItem(userId);
+
+    expect((await deleteAccount(admin, userId)).ok).toBe(false);
+
+    // The user's own "disconnect bank" is the exit for an Item Plaid can no longer remove.
+    expect(await disconnectPlaidItem(admin, { userId, itemId })).toEqual({ ok: true, purged: false });
+
+    expect(await deleteAccount(admin, userId)).toEqual({ ok: true, alreadyDeleted: false, path: "hard-delete" });
+    expect((await admin.auth.admin.getUserById(userId)).data.user).toBeNull();
   });
 });

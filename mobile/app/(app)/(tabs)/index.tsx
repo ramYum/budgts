@@ -10,17 +10,17 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { useAuth } from "../../lib/auth/auth-context";
-import type { HomeActivity, HomeCategory, MobileHome } from "../../lib/home/contract";
+import { useAuth } from "../../../lib/auth/auth-context";
+import type { HomeActivity, HomeCategory, MobileHome } from "../../../lib/home/contract";
 import {
   formatActivityDay,
   formatMoney,
   formatMonthLabel,
   formatSavingsRate,
-} from "../../lib/home/format";
-import { useHome } from "../../lib/home/use-home";
-import { colors, fonts, radii } from "../../lib/theme";
-import { PrimaryButton } from "../../components/ui";
+} from "../../../lib/home/format";
+import { useHome } from "../../../lib/home/use-home";
+import { colors, fonts, radii } from "../../../lib/theme";
+import { PrimaryButton } from "../../../components/ui";
 
 /**
  * The first real Budgts Home. Every number is computed server-side by the same
@@ -40,9 +40,9 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.header}>
         <View style={styles.brand}>
-          <Image source={require("../../assets/brand/logo-mark.png")} style={styles.mark} resizeMode="contain" />
+          <Image source={require("../../../assets/brand/logo-mark.png")} style={styles.mark} resizeMode="contain" />
           <Image
-            source={require("../../assets/brand/wordmark.png")}
+            source={require("../../../assets/brand/wordmark.png")}
             style={styles.wordmark}
             resizeMode="contain"
             accessibilityLabel="Budgts"
@@ -50,8 +50,8 @@ export default function HomeScreen() {
         </View>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Account and diagnostics"
-          onPress={() => router.push("/diagnostics")}
+          accessibilityLabel="Settings"
+          onPress={() => router.push("/settings")}
           style={styles.avatar}
         >
           <Text style={styles.avatarText}>{initial}</Text>

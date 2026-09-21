@@ -15,14 +15,17 @@ type ButtonProps = {
   disabled?: boolean;
   loading?: boolean;
   style?: StyleProp<ViewStyle>;
+  /** Stable handle for Maestro / e2e flows. */
+  testID?: string;
 };
 
 /** The one primary action per screen: Sun-yellow pill, ink label
  * (docs/BRAND_GUIDELINES.md "Primary button" — mirrors web `PrimaryButton`). */
-export function PrimaryButton({ children, onPress, disabled, loading, style }: ButtonProps) {
+export function PrimaryButton({ children, onPress, disabled, loading, style, testID }: ButtonProps) {
   const inactive = disabled || loading;
   return (
     <Pressable
+      testID={testID}
       accessibilityRole="button"
       accessibilityState={{ disabled: !!inactive, busy: !!loading }}
       onPress={onPress}
@@ -45,10 +48,11 @@ export function PrimaryButton({ children, onPress, disabled, loading, style }: B
 }
 
 /** Secondary action: hairline-outlined pill on the surface color. */
-export function OutlineButton({ children, onPress, disabled, loading, style }: ButtonProps) {
+export function OutlineButton({ children, onPress, disabled, loading, style, testID }: ButtonProps) {
   const inactive = disabled || loading;
   return (
     <Pressable
+      testID={testID}
       accessibilityRole="button"
       accessibilityState={{ disabled: !!inactive, busy: !!loading }}
       onPress={onPress}
@@ -71,9 +75,9 @@ export function OutlineButton({ children, onPress, disabled, loading, style }: B
 }
 
 /** Coral text link, like the web's `text-accent` links. */
-export function TextLink({ children, onPress }: { children: ReactNode; onPress: () => void }) {
+export function TextLink({ children, onPress, testID }: { children: ReactNode; onPress: () => void; testID?: string }) {
   return (
-    <Pressable accessibilityRole="link" onPress={onPress} hitSlop={8} style={styles.linkWrap}>
+    <Pressable testID={testID} accessibilityRole="link" onPress={onPress} hitSlop={8} style={styles.linkWrap}>
       <Text style={styles.link}>{children}</Text>
     </Pressable>
   );

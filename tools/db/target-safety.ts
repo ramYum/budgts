@@ -28,7 +28,8 @@ export const KNOWN_PROJECTS: readonly KnownProject[] = [
   { ref: "wsmhstqpvbbcqpqhiqyp", label: "PRODUCTION", danger: "production" },
   { ref: "iwypmifvmtmkwtnxkfma", label: "old staging (budgts-staging, drifted, retired)", danger: "staging-legacy" },
   { ref: "imoxcyzqdbxffdumkuyf", label: "migration-validation (disposable)", danger: "validation" },
-  { ref: "moxwnuiiueyxyypzvamc", label: "staging (budgts-staging-2, replaces the retired project above)", danger: "staging" },
+  { ref: "moxwnuiiueyxyypzvamc", label: "staging (budgts-staging-2, being replaced by Budgets-Staging-3; delete only after the replacement is verified)", danger: "staging" },
+  { ref: "uvowywszaiojboaxdmoz", label: "staging (Budgets-Staging-3, org Budgts Validation, ca-central-1; replaces budgts-staging-2)", danger: "staging" },
 ];
 
 export function findKnownProject(ref: string): KnownProject | null {

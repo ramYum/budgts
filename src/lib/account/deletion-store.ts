@@ -164,6 +164,14 @@ export function createDeletionStore(
             await tx.execute(sql`set local lock_timeout = '10s'`);
             await tx.execute(sql`set local statement_timeout = '60s'`);
 
+            // The foreign-key lookups a delete fires per row (transactions' two self-references) are plans cached PER
+            // BACKEND, and a backend that chose them while `transactions` was physically tiny keeps a sequential-scan
+            // plan after the table grows: a 25k-row delete then took ~43 s instead of ~1 s (reproduced in
+            // tests/integration/account-deletion-plan-cache.test.ts). Dropping this backend's cached plans makes the
+            // cost depend on the table as it is NOW, not on whatever the pooled connection ran before. Free when
+            // nothing is stale; it only affects this backend, which re-plans on next use.
+            await tx.execute(sql`discard plans`);
+
             // A bank connection that exists NOW is a live orphan at Plaid if we delete around it.
             const [plaid] = await tx.execute(
               sql`select (select count(*) from public.plaid_items where user_id = ${userId})::int as n`,

@@ -819,3 +819,23 @@ already de-identified resumes that tail instead of assuming it completed.
 `to_regclass`: a ledger table that does not exist yet (production before the ledger migration) means "no history",
 any other failure fails closed. This is what makes it safe to release the deletion code before the ledger
 migration is applied.
+
+**Cached foreign-key plans (release-readiness gate, 2026-09-21).** The 25k-row Path B test was intermittently
+41-46 s instead of 2.4-5 s. Reproduced deterministically and traced to Postgres's per-backend plan cache: deleting
+a `transactions` row fires two self-referencing FK lookups (`transfer_pair_id`, `duplicate_of_id`, ON DELETE SET
+NULL). After five executions on one backend Postgres may cache a *generic* plan chosen from the table's size at
+that moment and it is **not** re-planned when the table grows. A pooled backend that ran a few small deletes while
+`transactions` was physically about one page (a sequential scan is the cheapest plan for a table that small) keeps
+that sequential-scan plan, and its next 25,000-row delete does 2 x 25,000 scans: ~20 s per trigger, ~43 s total,
+the pre-index pathology returning through a stale plan. Measured on one backend with the table vacuumed to one
+page: 0-2 small deletes primed -> 0.5 s; 3 or more -> 39-41 s; `DISCARD PLANS` on that backend -> 0.5 s.
+Sixty back-to-back 25k runs without the priming condition never produced an outlier (4.2-7.5 s), and no lock,
+IO or autovacuum wait was ever observed during a run.
+
+*Path B:* `deleteOwnedData` runs `discard plans` first, so its cost depends on the table as it is now, not on what
+the pooled connection ran before (`tests/integration/account-deletion-plan-cache.test.ts`; 42 s without it, 2.5 s
+with it). *Path A:* the cascade runs on GoTrue's own backends, where this cannot be applied. With those backends
+primed the same way, a 25k/50k/100k-row hard delete took 11.3/11.6/13.3 s instead of 0.8-1.5 s (CPU-bound, no
+error, roughly flat in row count). It needs a physically tiny `transactions` table, so it should not arise once
+production holds real data, but it is not eliminated; the structural remedy (delete the owned rows in our own
+transaction first, then hard-delete `auth.users`) is a Path A design change and is left as a decision.

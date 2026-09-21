@@ -839,3 +839,20 @@ primed the same way, a 25k/50k/100k-row hard delete took 11.3/11.6/13.3 s instea
 error, roughly flat in row count). It needs a physically tiny `transactions` table, so it should not arise once
 production holds real data, but it is not eliminated; the structural remedy (delete the owned rows in our own
 transaction first, then hard-delete `auth.users`) is a Path A design change and is left as a decision.
+
+### Known V1 limitations (do not remove from this list without a recorded decision)
+
+**Path A can be slow when GoTrue's backends hold stale cached FK-lookup plans — ACCEPTED for V1 (owner decision,
+2026-09-21).** Path A's cascade runs on GoTrue's own database connections, where `discard plans` cannot be applied
+(Path B is protected; see above).
+- *Reproduced:* with GoTrue's backends primed on a physically one-page `transactions` table, a 25k / 50k / 100k-row
+  hard delete took 11.3 / 11.6 / 13.3 s, against 0.8-1.5 s unprimed. CPU-bound, no lock or IO waits, no error, and
+  correct: every owned row was removed atomically. The cost was roughly flat in row count; the reason for that
+  flatness is not understood.
+- *Worst observed:* 13.3 s (100k rows), far inside the 300 s Vercel function budget (Fluid default, Hobby ceiling).
+- *Why accepted:* the failure mode is slow, not incorrect; it needs a physically tiny `transactions` table (roughly
+  under ~8 pages by estimate), which real production data should preclude; and restructuring Path A this late in
+  hardening would add more release risk than the exposure carries.
+- *Revisit if:* real production deletion latency rises, a Path A deletion times out, or the exposure is ever
+  reproduced against a populated table. The remedy on the shelf: delete the owned rows in our own transaction
+  first (as Path B does, with `discard plans`), then hard-delete `auth.users`.

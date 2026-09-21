@@ -331,6 +331,11 @@ they're hit, without paying for headroom nobody has used yet.
 - **Production usage/cost monitoring** — Supabase DB size, connection
   counts, Plaid per-item spend, tracked against real usage rather than
   assumed.
+- **PRODUCTION-RELEASE PREREQUISITE (owner decision, 2026-09-21): the production
+  Vercel project (`budgts`) must be moved off the Hobby plan to an appropriate
+  paid/commercial plan before Budgts launches as a paid product** (Vercel's
+  terms restrict Hobby to non-commercial use). Not done yet; no plan change or
+  purchase without explicit approval.
 - **Supabase/Vercel plan upgrade** — an explicit **launch-readiness
   milestone**, not a development-phase expense. Trigger: Supabase DB size
   approaching its 500MB Free-tier cap, or a concrete dev/prod limitation —

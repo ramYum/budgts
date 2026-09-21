@@ -23,6 +23,11 @@ const PUBLIC_PREFIXES = [
   // not a weaker check — this only changes *where* that check happens.
   "/api/account/delete",
   "/api/mobile/",
+  // Billing routes each authenticate themselves, none via the web cookie: the entitlement endpoints resolve a
+  // user through getRequestUser() (cookie OR Bearer), the RevenueCat webhook verifies the provider's
+  // signature, and the cron endpoints present the CRON_SECRET bearer. An unauthenticated caller still gets a real
+  // 401 from the handler — the proxy just must not 307 a cookie-less request to the HTML sign-in page first.
+  "/api/billing/",
 ];
 
 export function isPublic(pathname: string) {

@@ -32,6 +32,15 @@ describe("isPublic", () => {
     expect(isPublic("/api/mobile/session")).toBe(true);
   });
 
+  it("lets the billing endpoints through for their own authentication (user token, provider signature, cron secret)", () => {
+    expect(isPublic("/api/billing/entitlement")).toBe(true);
+    expect(isPublic("/api/billing/entitlement/refresh")).toBe(true);
+    expect(isPublic("/api/billing/webhook/revenuecat")).toBe(true);
+    expect(isPublic("/api/billing/reminders/due")).toBe(true);
+    expect(isPublic("/api/billing/reconcile/due")).toBe(true);
+    expect(isPublic("/api/billing-audit")).toBe(false); // a sibling path is not covered by the prefix
+  });
+
   it("still requires a session for ordinary app pages", () => {
     expect(isPublic("/")).toBe(false);
     expect(isPublic("/transactions")).toBe(false);

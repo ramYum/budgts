@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const getBearerContext = vi.fn();
 vi.mock("@/lib/auth/bearer-context", () => ({ getBearerContext: (...a: unknown[]) => getBearerContext(...a) }));
 
-import { mobileError, mobileJson, mobileRoute } from "./route";
+import { mobileCommandError, mobileError, mobileJson, mobileRoute } from "./route";
 
 const ctx = { user: { id: "user-a", email: "a@example.test" }, supabase: { __as: "user-a" } };
 const req = () => new Request("https://example.test/api/mobile/x");
@@ -30,9 +30,22 @@ describe("mobileRoute", () => {
 
     const res = await mobileRoute(handler)(request);
 
-    expect(handler).toHaveBeenCalledWith(ctx, request);
+    expect(handler).toHaveBeenCalledWith(ctx, request, undefined); // no dynamic segments on this route
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true });
+  });
+
+  it("passes Next's route context (dynamic params) through to the handler", async () => {
+    getBearerContext.mockResolvedValue(ctx);
+    const handler = vi.fn(async (_c: unknown, _r: Request, route: { params: Promise<{ id: string }> }) =>
+      mobileJson({ id: (await route.params).id }),
+    );
+    const route = { params: Promise.resolve({ id: "txn-9" }) };
+
+    const res = await mobileRoute(handler)(req(), route);
+
+    expect(await res.json()).toEqual({ id: "txn-9" });
+    expect(handler).toHaveBeenCalledWith(ctx, expect.any(Request), route);
   });
 
   it("turns a thrown error into a generic 503 that leaks nothing", async () => {
@@ -45,6 +58,28 @@ describe("mobileRoute", () => {
     const body = JSON.stringify(await res.json());
     expect(body).toBe(JSON.stringify({ error: "unavailable" }));
     expect(res.headers.get("cache-control")).toBe("private, no-store");
+  });
+});
+
+describe("mobileCommandError", () => {
+  it("maps every command failure to a stable status and code", async () => {
+    const cases: [Parameters<typeof mobileCommandError>[0], number, unknown][] = [
+      [{ ok: false, error: "invalid", fieldErrors: { amount: "Enter a valid amount" } }, 422, { error: "invalid", fieldErrors: { amount: "Enter a valid amount" } }],
+      [{ ok: false, error: "missing" }, 404, { error: "not_found" }],
+      [{ ok: false, error: "conflict" }, 409, { error: "conflict" }],
+      [{ ok: false, error: "nothing_to_copy" }, 409, { error: "nothing_to_copy" }],
+    ];
+    for (const [failure, status, body] of cases) {
+      const res = mobileCommandError(failure);
+      expect(res.status).toBe(status);
+      expect(await res.json()).toEqual(body);
+    }
+  });
+
+  it("never echoes a storage failure's message", async () => {
+    const res = mobileCommandError({ ok: false, error: "failed", message: "relation \"transactions\" does not exist" });
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ error: "unavailable" });
   });
 });
 

@@ -24,14 +24,44 @@ export function mobileError(error: string, status: number, detail: Record<string
   return mobileJson({ error, ...detail }, status);
 }
 
-export function mobileRoute(
-  handler: (ctx: BearerContext, request: Request) => Promise<Response>,
-): (request: Request) => Promise<Response> {
-  return async (request) => {
+/**
+ * Maps a domain command's failure (`src/lib/command-result.ts` and the per-area result unions) to the wire: a stable code and
+ * status, never the storage error's text. One place, so every native route answers the same way for the same outcome.
+ */
+export function mobileCommandError(failure: {
+  ok: false;
+  error: string;
+  fieldErrors?: Record<string, string>;
+  /** Present on a storage failure; deliberately never sent to the client. */
+  message?: string;
+}): NextResponse {
+  switch (failure.error) {
+    case "invalid":
+      return mobileError("invalid", 422, { fieldErrors: failure.fieldErrors ?? {} });
+    case "missing":
+      return mobileError("not_found", 404);
+    case "conflict":
+      return mobileError("conflict", 409);
+    case "nothing_to_copy":
+      return mobileError("nothing_to_copy", 409);
+    default:
+      return mobileError("unavailable", 503);
+  }
+}
+
+/** Next's second route-handler argument: the dynamic segments (`[id]`), as a promise in Next 16. */
+export type RouteParams<P = Record<string, never>> = { params: Promise<P> };
+
+export function mobileRoute<P = Record<string, never>>(
+  handler: (ctx: BearerContext, request: Request, route: RouteParams<P>) => Promise<Response>,
+): (request: Request, route?: RouteParams<P>) => Promise<Response> {
+  return async (request, route) => {
     const ctx = await getBearerContext(request);
     if (!ctx) return mobileError("unauthorized", 401);
     try {
-      return await handler(ctx, request);
+      // Next always supplies the route argument; it is optional in the type only so plain (non-dynamic) routes stay callable
+      // as `GET(request)` in tests.
+      return await handler(ctx, request, route as RouteParams<P>);
     } catch {
       return mobileError("unavailable", 503);
     }

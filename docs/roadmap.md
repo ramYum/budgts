@@ -146,7 +146,8 @@ currency form (required account setup; it lands on Home), and the column `profil
 pre-removal state is preserved on the local archive branches `archive/native-home-with-claude-tour` and
 `archive/claude-tour-redesign`. The specs and plan for the tour, the live-coachmark redesign and the guide
 (`docs/specs/2026-09-15-first-run-tour-*.md`, `…how-budgts-works-*.md`, `docs/superpowers/plans/2026-09-15-first-run-tour-coachmarks.md`)
-are kept as **history / input for the replacement**, not as a description of the app. **Note:** until `mobile/native-home` is
+are kept as **history / input for the replacement**, not as a description of the app. **Approved replacement direction (owner):** a *Get
+Started* flow with an optional *Show me around* walkthrough; separate work, not started. **Note:** until `mobile/native-home` is
 merged, production still runs the old card wizard.
 
 Deferred → backlog, outside the closed redesign (see the spec's own

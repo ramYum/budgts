@@ -241,7 +241,8 @@ ingestion with the V1.5 detectors** (recurring, subscription, bill, paired-trans
 **Removed from the release path:** the first-run tour and the "How Budgts Works" guide (commit `7468365`; the old card wizard is
 gone too). `/onboarding` is now only the currency form and lands on Home. The pre-removal state lives on the local archive
 branches `archive/native-home-with-claude-tour` and `archive/claude-tour-redesign`; `profiles.tour_seen_at` (0014) remains
-for a replacement tour, which is separate work that has not started.
+for the replacement. **Approved direction:** a *Get Started* flow with an optional *Show me around* walkthrough — separate work that has not
+started; it uses `useMonetization()` (`startFreeTrial` / `restorePurchases` / `manageSubscription`) and needs no provider knowledge.
 
 **Not done yet (owner / release work):** applying migrations 0017–0022 to production and deploying; a RevenueCat project
 (webhooks need its Pro plan — free until $2,500 monthly tracked revenue) and the Apple / Google subscription products; a Resend

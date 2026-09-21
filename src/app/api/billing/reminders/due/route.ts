@@ -6,7 +6,10 @@
 import { loadBillingConfig } from "@/lib/billing/config";
 import { getServerDb } from "@/lib/billing/db";
 import { handleReminderCron } from "@/lib/billing/http";
+import { createReminderDelivery } from "@/lib/billing/wiring";
 
 export async function POST(request: Request) {
-  return handleReminderCron(request, { db: await getServerDb(), config: loadBillingConfig(), reminderDelivery: null });
+  const db = await getServerDb();
+  const config = loadBillingConfig();
+  return handleReminderCron(request, { db, config, reminderDelivery: createReminderDelivery(db, config) });
 }

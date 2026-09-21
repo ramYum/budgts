@@ -99,6 +99,33 @@ export function subscriberToSnapshot(body: unknown, now: Date, expected: "produc
   };
 }
 
+/** What the provider says about money and access for one subscriber, for the account-deletion decision. */
+export type BillingFacts =
+  | { kind: "facts"; hasPaidPeriod: boolean; hasFutureAccess: boolean }
+  | { kind: "unparseable" };
+
+/**
+ * Did this subscriber ever have a PAID period (a real charge), and could a store subscription still be running?
+ * `period_type` `trial` is a free trial (no charge); `normal` / `intro` are paid periods. Subscriptions from the other
+ * store environment (sandbox in production or the reverse) are ignored. A subscription that has expired can still have
+ * been paid: a paid-then-cancelled user keeps `hasPaidPeriod`.
+ */
+export function subscriberBillingFacts(body: unknown, now: Date, expected: "production" | "sandbox"): BillingFacts {
+  const parsed = SubscriberResponse.safeParse(body);
+  if (!parsed.success) return { kind: "unparseable" };
+  let hasPaidPeriod = false;
+  let hasFutureAccess = false;
+  for (const s of Object.values(parsed.data.subscriber.subscriptions ?? {})) {
+    if (!storeOf(s.store)) continue;
+    if ((s.is_sandbox === true) !== (expected === "sandbox")) continue;
+    const type = (s.period_type ?? "").toLowerCase();
+    if (type === "normal" || type === "intro") hasPaidPeriod = true;
+    const expires = when(s.expires_date);
+    if (expires && expires.getTime() > now.getTime()) hasFutureAccess = true;
+  }
+  return { kind: "facts", hasPaidPeriod, hasFutureAccess };
+}
+
 export class RevenueCatApiError extends Error {
   constructor(
     readonly status: number,

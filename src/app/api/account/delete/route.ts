@@ -20,6 +20,9 @@ import { getRequestUser } from "@/lib/auth/get-request-user";
 import { AdminConfigError, adminSupabase } from "@/lib/supabase/admin";
 import { deleteAccount } from "@/lib/account/delete-account";
 import { isRecentlyAuthenticated } from "@/lib/account/reauth";
+import { billingCheckFor } from "@/lib/billing/wiring";
+import { manageSubscriptionPageUrl } from "@/lib/billing/manage";
+import { loadBillingConfig } from "@/lib/billing/config";
 
 /** Every unexpected failure looks the same to the client: no detail about what broke. */
 const genericFailure = () => NextResponse.json({ error: "could not delete account" }, { status: 500 });
@@ -57,7 +60,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const result = await deleteAccount(admin, user.id);
+    const result = await deleteAccount(admin, user.id, undefined, await billingCheckFor());
     if (!result.ok) {
       console.error("[account] deletion failed", result.error);
       // Once deletion has started the account is read-only. Say so, and say that trying again finishes it:
@@ -76,7 +79,16 @@ export async function POST(request: Request) {
       return genericFailure();
     }
 
-    return NextResponse.json({ ok: true, alreadyDeleted: result.alreadyDeleted, path: result.path });
+    return NextResponse.json({
+      ok: true,
+      alreadyDeleted: result.alreadyDeleted,
+      path: result.path,
+      // Deleting the account does not cancel an Apple/Google subscription. When one may still be running, say so and
+      // point at the working store-management page (the deletion itself is never blocked by this).
+      ...("storeSubscriptionMayBeActive" in result && result.storeSubscriptionMayBeActive
+        ? { storeSubscriptionMayBeActive: true, manageSubscriptionUrl: manageSubscriptionPageUrl(loadBillingConfig().siteUrl) }
+        : {}),
+    });
   } catch (e) {
     // Never a raw error page, and never the error text: name only.
     console.error("[account] deletion crashed:", e instanceof Error ? e.name : "non-error value thrown");

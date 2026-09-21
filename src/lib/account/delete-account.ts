@@ -75,9 +75,24 @@ import { createDeletionStore, pgErrorCode, type DeletionStore } from "./deletion
 // against the pinned @supabase/auth-js version in node_modules).
 const PERMANENT_BAN_DURATION = "876000h";
 
+/**
+ * What the billing provider says about this user, asked BEFORE the Path A / Path B decision. Deleting a Budgts account
+ * never cancels an Apple/Google subscription, and the local ledger can lag the store (a charge whose webhook has not
+ * been processed yet). So the decision must not rest on stale local state alone.
+ */
+export interface BillingVerdict {
+  /** A real charge exists (or must be presumed): retain monetization history -> Path B. */
+  hasCharge: boolean;
+  /** A store subscription may still be running: tell the user to cancel it in the store. */
+  storeSubscriptionMayBeActive: boolean;
+  /** How this was determined. `local_fallback` = the provider could not be asked, so the answer is conservative. */
+  source: "provider" | "local_fallback" | "not_configured";
+}
+export type BillingCheck = (userId: string) => Promise<BillingVerdict>;
+
 export type DeleteAccountResult =
   | { ok: true; alreadyDeleted: true; path: "already-deleted" }
-  | { ok: true; alreadyDeleted: false; path: "hard-delete" | "anonymize" }
+  | { ok: true; alreadyDeleted: false; path: "hard-delete" | "anonymize"; storeSubscriptionMayBeActive?: true }
   /** `locked`: the account is now read-only (the lock was taken) and a retry will finish the deletion. */
   | { ok: false; error: string; locked: boolean };
 
@@ -182,6 +197,15 @@ async function finishAnonymization(
   return null;
 }
 
+/** A check that itself fails must not block deletion or silently pick Path A: presume nothing was verified. */
+async function askBilling(billing: BillingCheck, userId: string): Promise<BillingVerdict> {
+  try {
+    return await billing(userId);
+  } catch {
+    return { hasCharge: false, storeSubscriptionMayBeActive: false, source: "not_configured" };
+  }
+}
+
 /**
  * Deletes (or, if monetization history exists, de-identifies) the given
  * user's account. `userId` must come from a verified session — this function
@@ -193,6 +217,7 @@ export async function deleteAccount(
   admin: SupabaseClient,
   userId: string,
   store?: DeletionStore,
+  billing?: BillingCheck,
 ): Promise<DeleteAccountResult> {
   let locked = false;
   const fail = (error: string): DeleteAccountResult => ({ ok: false, error, locked });
@@ -217,7 +242,11 @@ export async function deleteAccount(
     }
 
     // Every read-only prerequisite first: a failure here must find nothing changed yet.
-    const hasHistory = await db.hasMonetizationHistory(userId);
+    // The provider is asked too: a charge the local ledger has not recorded yet (its webhook still in flight) must
+    // still force Path B, or a paying customer's record would be hard-deleted just before the charge lands.
+    const verdict = billing ? await askBilling(billing, userId) : null;
+    const hasHistory = (await db.hasMonetizationHistory(userId)) || (verdict?.hasCharge ?? false);
+    const storeFlag = verdict?.storeSubscriptionMayBeActive ? { storeSubscriptionMayBeActive: true as const } : {};
     const plaidItemIds = await listPlaidItemIds(admin, userId);
 
     // Plaid removal comes BEFORE the lock. A bank Plaid cannot remove must leave the account fully usable, so the
@@ -239,10 +268,10 @@ export async function deleteAccount(
       if (error) {
         // After a retry, "no such user" means an earlier attempt committed although its answer never
         // reached us: the account IS deleted, which is exactly what was asked for.
-        if (attempts > 1 && isAuthUserNotFound(error)) return { ok: true, alreadyDeleted: false, path: "hard-delete" };
+        if (attempts > 1 && isAuthUserNotFound(error)) return { ok: true, alreadyDeleted: false, path: "hard-delete", ...storeFlag };
         return fail(`hard delete failed: ${error.message}`);
       }
-      return { ok: true, alreadyDeleted: false, path: "hard-delete" };
+      return { ok: true, alreadyDeleted: false, path: "hard-delete", ...storeFlag };
     }
 
     // Path B: all owned data in one transaction, then de-identify what must stay.
@@ -253,7 +282,7 @@ export async function deleteAccount(
 
     const problem = await finishAnonymization(admin, db, userId, { banNeeded: true });
     if (problem) return fail(problem);
-    return { ok: true, alreadyDeleted: false, path: "anonymize" };
+    return { ok: true, alreadyDeleted: false, path: "anonymize", ...storeFlag };
   } catch (e) {
     return fail(describeError(e));
   }

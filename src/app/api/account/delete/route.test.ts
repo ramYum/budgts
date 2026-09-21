@@ -8,6 +8,8 @@ const deleteAccount = vi.fn();
 
 vi.mock("@/lib/auth/get-request-user", () => ({ getRequestUser: (...a: unknown[]) => getRequestUser(...a) }));
 vi.mock("@/lib/account/delete-account", () => ({ deleteAccount: (...a: unknown[]) => deleteAccount(...a) }));
+const BILLING_CHECK = { __billing: true };
+vi.mock("@/lib/billing/wiring", () => ({ billingCheckFor: async () => BILLING_CHECK }));
 // Keep the REAL AdminConfigError so the route's `instanceof` check is exercised, but fake the client builder.
 vi.mock("@/lib/supabase/admin", async () => {
   const actual = await vi.importActual<typeof import("@/lib/supabase/admin")>("@/lib/supabase/admin");
@@ -158,7 +160,8 @@ describe("POST /api/account/delete — identity comes only from the verified ses
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true, alreadyDeleted: false, path: "hard-delete" });
     expect(deleteAccount).toHaveBeenCalledTimes(1);
-    expect(deleteAccount).toHaveBeenCalledWith(ADMIN_CLIENT, "user-a");
+    // The store is left to its default; the billing check is the provider-aware guard that keeps a paid user off Path A.
+    expect(deleteAccount).toHaveBeenCalledWith(ADMIN_CLIENT, "user-a", undefined, BILLING_CHECK);
   });
 
   it.each([

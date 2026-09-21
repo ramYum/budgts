@@ -169,54 +169,69 @@ describe("deleteAccount (Path A) against a concurrent writer — real Postgres +
   }, 60_000);
 
   it("survives a lock cycle with a writer that touches the user's rows in the opposite order: the account ends up fully deleted", async () => {
-    const u = await seedUserWithTwoTransactions();
-    const deadlocksBefore = await deadlockCount();
-    let deletion!: Promise<DeleteAccountResult>;
-    const authCalls = recordAuthDeleteUserCalls();
+    // Which of the user's rows a cascade reaches LAST is decided by Postgres (the FK triggers fire in name order and
+    // those names embed OIDs, so it differs from one database to the next). A cycle needs the writer to hold the row the
+    // cascade reaches last, so try both holds: every attempt must satisfy the guarantees, and a real deadlock must
+    // have been produced by at least one (otherwise the scenario proved nothing).
+    const attempts: string[] = [];
+    let sawDeadlock = false;
+    for (const hold of ["last", "first"] as const) {
+      const u = await seedUserWithTwoTransactions();
+      const held = hold === "last" ? u.last : u.first;
+      const wanted = hold === "last" ? u.first : u.last;
+      const deadlocksBefore = await deadlockCount();
+      let deletion!: Promise<DeleteAccountResult>;
+      vi.restoreAllMocks(); // a spy on an already-spied method would call itself
+      const authCalls = recordAuthDeleteUserCalls();
 
-    // The writer (a sync applying updates, or a transfer-pairing pass) locks the row the cascade reaches LAST...
-    const writerOutcome = await pg
-      .begin(async (tx) => {
-        await tx`update public.transactions set description = 'itest touch 1' where id = ${u.last}`;
+      // The writer (a sync applying updates, or a transfer-pairing pass) locks one row...
+      const writerOutcome = await pg
+        .begin(async (tx) => {
+          await tx`update public.transactions set description = 'itest touch 1' where id = ${held}`;
 
-        // ...a real deletion starts and the cascade parks on that row after taking the earlier ones...
-        deletion = deleteAccount(admin, u.userId);
-        await waitForAuthUserDeleteToBlock();
+          // ...a real deletion starts and the cascade parks on that row after taking the earlier ones...
+          deletion = deleteAccount(admin, u.userId);
+          await waitForAuthUserDeleteToBlock();
 
-        // ...then the writer reaches for a row the cascade already holds. That closes the cycle.
-        await tx`update public.transactions set description = 'itest touch 2' where id = ${u.first}`;
-      })
-      .then(
-        () => "writer committed" as const,
-        (e: { code?: string }) => e,
-      );
+          // ...then the writer reaches for the other row. If the cascade already holds it, that closes the cycle.
+          await tx`update public.transactions set description = 'itest touch 2' where id = ${wanted}`;
+        })
+        .then(
+          () => "writer committed" as const,
+          (e: { code?: string }) => e,
+        );
 
-    const result = await deletion;
-    const after = await snapshot(u.userId);
-    await sleep(1_500); // pg_stat_database is flushed asynchronously
-    const deadlocks = (await deadlockCount()) - deadlocksBefore;
+      const result = await deletion;
+      const after = await snapshot(u.userId);
+      await sleep(1_500); // pg_stat_database is flushed asynchronously
+      const deadlocks = (await deadlockCount()) - deadlocksBefore;
 
-    // What actually happened (visible in the failure message if an assertion below fails).
-    const observed = JSON.stringify({
-      writer: writerOutcome === "writer committed" ? writerOutcome : `aborted:${writerOutcome.code}`,
-      deletion: describeResult(result),
-      authDeleteUserCalls: authCalls,
-      deadlocksDetected: deadlocks,
-      after,
-    });
+      // What actually happened (visible in the failure message if an assertion below fails).
+      const observed = JSON.stringify({
+        hold,
+        writer: writerOutcome === "writer committed" ? writerOutcome : `aborted:${writerOutcome.code}`,
+        deletion: describeResult(result),
+        authDeleteUserCalls: authCalls,
+        deadlocksDetected: deadlocks,
+        after,
+      });
+      attempts.push(observed);
+      if (deadlocks >= 1) sawDeadlock = true;
 
-    expect(deadlocks, `the scenario must really deadlock: ${observed}`).toBeGreaterThanOrEqual(1);
-    if (result.ok) {
-      // User-visible success must mean the deletion completed...
-      expect(after, observed).toEqual(GONE);
-    } else {
-      // ...and a reported failure must mean nothing was half-deleted, so that a retry is safe.
-      expect(after, observed).toMatchObject({ authUserExists: true, transactions: 2, profiles: 1 });
-      expect(describeResult(await deleteAccount(admin, u.userId)), `retry after a reported failure: ${observed}`).toBe("ok(hard-delete)");
+      if (result.ok) {
+        // User-visible success must mean the deletion completed...
+        expect(after, observed).toEqual(GONE);
+      } else {
+        // ...and a reported failure must mean nothing was half-deleted, so that a retry is safe.
+        expect(after, observed).toMatchObject({ authUserExists: true, transactions: 2, profiles: 1 });
+        expect(describeResult(await deleteAccount(admin, u.userId)), `retry after a reported failure: ${observed}`).toBe("ok(hard-delete)");
+      }
+      // The point of the fix: the user's request is not lost to a deadlock that a retry absorbs.
+      expect(describeResult(result), observed).toBe("ok(hard-delete)");
+      if (sawDeadlock) break;
     }
-    // The point of the fix: the user's request is not lost to a deadlock that a retry absorbs.
-    expect(describeResult(result), observed).toBe("ok(hard-delete)");
-  }, 90_000);
+    expect(sawDeadlock, `the scenario must really deadlock in at least one hold order: ${attempts.join(" || ")}`).toBe(true);
+  }, 120_000);
 
   // The Plaid removal is the one irreversible step and it runs BEFORE the auth delete. This records what
   // happens to it when the auth delete then loses a deadlock, and proves it is not repeated needlessly.

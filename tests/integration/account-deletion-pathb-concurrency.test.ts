@@ -139,46 +139,58 @@ describe("deleteAccount (Path B) against concurrent writers — real Postgres + 
   }, 60_000);
 
   it("survives a lock cycle on the user's transactions: the account ends up anonymized, not half-deleted", async () => {
-    const u = await seedPathBUser();
-    const deadlocksBefore = await deadlockCount();
-    let deletion!: Promise<DeleteAccountResult>;
+    // Which transactions row the deletion scan reaches LAST is decided by Postgres and differs between databases, so try
+    // both holds: every attempt must satisfy the guarantees, and a real deadlock must occur in at least one.
+    const attempts: string[] = [];
+    let sawDeadlock = false;
+    for (const hold of ["last", "first"] as const) {
+      const u = await seedPathBUser();
+      const held = hold === "last" ? u.last : u.first;
+      const wanted = hold === "last" ? u.first : u.last;
+      const deadlocksBefore = await deadlockCount();
+      let deletion!: Promise<DeleteAccountResult>;
 
-    // The writer (a sync applying updates, a transfer-pairing pass) locks the row the scan reaches LAST...
-    const writerOutcome = await pg
-      .begin(async (tx) => {
-        await tx`update public.transactions set description = 'itest touch 1' where id = ${u.last}`;
-        // ...a real deletion starts and parks on it after taking the earlier one...
-        deletion = deleteAccount(admin, u.userId);
-        await waitForDeleteToBlockOn("transactions");
-        // ...then the writer reaches for a row the deletion already holds. That closes the cycle.
-        await tx`update public.transactions set description = 'itest touch 2' where id = ${u.first}`;
-      })
-      .then(
-        () => "writer committed" as const,
-        (e: { code?: string }) => e,
-      );
+      // The writer (a sync applying updates, a transfer-pairing pass) locks one row...
+      const writerOutcome = await pg
+        .begin(async (tx) => {
+          await tx`update public.transactions set description = 'itest touch 1' where id = ${held}`;
+          // ...a real deletion starts and parks on it after taking the earlier one...
+          deletion = deleteAccount(admin, u.userId);
+          await waitForDeleteToBlockOn("transactions");
+          // ...then the writer reaches for the other row. If the deletion already holds it, that closes the cycle.
+          await tx`update public.transactions set description = 'itest touch 2' where id = ${wanted}`;
+        })
+        .then(
+          () => "writer committed" as const,
+          (e: { code?: string }) => e,
+        );
 
-    const result = await deletion;
-    const after = await snapshot(u.userId);
-    await sleep(1_500); // pg_stat_database is flushed asynchronously
-    const deadlocks = (await deadlockCount()) - deadlocksBefore;
-    const observed = JSON.stringify({
-      writer: writerOutcome === "writer committed" ? writerOutcome : `aborted:${writerOutcome.code}`,
-      deletion: describeResult(result),
-      deadlocksDetected: deadlocks,
-      after,
-    });
+      const result = await deletion;
+      const after = await snapshot(u.userId);
+      await sleep(1_500); // pg_stat_database is flushed asynchronously
+      const deadlocks = (await deadlockCount()) - deadlocksBefore;
+      const observed = JSON.stringify({
+        hold,
+        writer: writerOutcome === "writer committed" ? writerOutcome : `aborted:${writerOutcome.code}`,
+        deletion: describeResult(result),
+        deadlocksDetected: deadlocks,
+        after,
+      });
+      attempts.push(observed);
+      if (deadlocks >= 1) sawDeadlock = true;
 
-    expect(deadlocks, `the scenario must really deadlock: ${observed}`).toBeGreaterThanOrEqual(1);
-    if (result.ok) {
-      expectFullyAnonymized(after, `success must mean completed: ${observed}`);
-    } else {
-      // a reported failure must be retryable to completion
-      expect(describeResult(await deleteAccount(admin, u.userId)), `retry after a reported failure: ${observed}`).toBe("ok(anonymize)");
+      if (result.ok) {
+        expectFullyAnonymized(after, `success must mean completed: ${observed}`);
+      } else {
+        // a reported failure must be retryable to completion
+        expect(describeResult(await deleteAccount(admin, u.userId)), `retry after a reported failure: ${observed}`).toBe("ok(anonymize)");
+      }
+      // The point: the user's request is not lost to a deadlock that a bounded retry absorbs.
+      expect(describeResult(result), observed).toBe("ok(anonymize)");
+      if (sawDeadlock) break;
     }
-    // The point: the user's request is not lost to a deadlock that a bounded retry absorbs.
-    expect(describeResult(result), observed).toBe("ok(anonymize)");
-  }, 90_000);
+    expect(sawDeadlock, `the scenario must really deadlock in at least one hold order: ${attempts.join(" || ")}`).toBe(true);
+  }, 150_000);
 
   it("a row written after its table's turn is not silently kept: success means nothing owned is left", async () => {
     const u = await seedPathBUser();

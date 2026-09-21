@@ -16,7 +16,7 @@ import type { BudgetTxn } from "@/lib/budget/types";
 import { monthKey } from "@/lib/budget/month";
 import { runRecurringDetectionForUser } from "@/lib/plaid/recurring-engine";
 import { createRecurringStore } from "@/lib/plaid/recurring-store";
-import { cleanupUser, client, db, insertBankTxn, mainAccountId, seedUser } from "./_db";
+import { cleanupUser, client, db, insertBankTxn, mainAccountId, seedUser, dbNow } from "./_db";
 
 const store = createRecurringStore(db);
 
@@ -85,7 +85,7 @@ describe("subscription detection (DB-integration)", () => {
     }
 
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-    await runRecurringDetectionForUser({ userId, watermark: null, store });
+    await runRecurringDetectionForUser({ userId, watermark: null, store, now: await dbNow() });
 
     const series = await readSeries(merchant, checkingId, "debit");
     expect(series).not.toBeNull();
@@ -113,7 +113,7 @@ describe("subscription detection (DB-integration)", () => {
     }
 
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-    await runRecurringDetectionForUser({ userId, watermark: null, store });
+    await runRecurringDetectionForUser({ userId, watermark: null, store, now: await dbNow() });
 
     const series = await readSeries(merchant, checkingId, "debit");
     expect(series).not.toBeNull();
@@ -138,7 +138,7 @@ describe("subscription detection (DB-integration)", () => {
     }
 
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-    await runRecurringDetectionForUser({ userId, watermark: null, store });
+    await runRecurringDetectionForUser({ userId, watermark: null, store, now: await dbNow() });
 
     const series = await readSeries(merchant, checkingId, "debit");
     expect(series).not.toBeNull();
@@ -199,7 +199,7 @@ describe("subscription detection (DB-integration)", () => {
     const before = await Promise.all(ids.map(snapshot));
 
     vi.spyOn(console, "log").mockImplementation(() => {});
-    await runRecurringDetectionForUser({ userId, watermark: null, store });
+    await runRecurringDetectionForUser({ userId, watermark: null, store, now: await dbNow() });
 
     const after = await Promise.all(ids.map(snapshot));
 

@@ -18,6 +18,7 @@ import {
   insertBankTxn,
   mainAccountId,
   seedUser,
+  dbNow,
 } from "./_db";
 
 const store = createRecurringStore(db);
@@ -184,7 +185,7 @@ describe("recurring-detection lifecycle (DB-integration)", () => {
         occurredAt: daysAgo(days),
       });
     }
-    await runRecurringDetectionForUser({ userId, watermark: null, store });
+    await runRecurringDetectionForUser({ userId, watermark: null, store, now: await dbNow() });
     const series = await readSeries(merchant, checkingId, "credit");
     expect(series).not.toBeNull();
     expect(series!.status).toBe("ACTIVE");
@@ -226,7 +227,7 @@ describe("recurring-detection lifecycle (DB-integration)", () => {
         }),
       );
     }
-    await runRecurringDetectionForUser({ userId, watermark: null, store });
+    await runRecurringDetectionForUser({ userId, watermark: null, store, now: await dbNow() });
     const series = await readSeries(merchant, checkingId, "debit");
     expect(series).not.toBeNull();
     expect(series!.cadence).toBe("MONTHLY");
@@ -263,7 +264,7 @@ describe("recurring-detection lifecycle (DB-integration)", () => {
         occurredAt: daysAgo(days),
       });
     }
-    await runRecurringDetectionForUser({ userId, watermark: null, store });
+    await runRecurringDetectionForUser({ userId, watermark: null, store, now: await dbNow() });
     const seriesA = await readSeries(merchantA, checkingId, "debit");
     const seriesB = await readSeries(merchantB, checkingId, "debit");
     expect(seriesA).not.toBeNull();
@@ -293,7 +294,7 @@ describe("recurring-detection lifecycle (DB-integration)", () => {
         occurredAt: daysAgo(days),
       });
     }
-    await runRecurringDetectionForUser({ userId, watermark: null, store });
+    await runRecurringDetectionForUser({ userId, watermark: null, store, now: await dbNow() });
     const onChecking = await readSeries(merchant, checkingId, "debit");
     const onSavings = await readSeries(merchant, savingsId, "debit");
     expect(onChecking).not.toBeNull();
@@ -348,7 +349,7 @@ describe("recurring-detection lifecycle (DB-integration)", () => {
     });
     expect(afterPost).toHaveLength(3); // the posted replacement now counts
 
-    await runRecurringDetectionForUser({ userId, watermark: null, store });
+    await runRecurringDetectionForUser({ userId, watermark: null, store, now: await dbNow() });
     const series = await readSeries(merchant, checkingId, "debit");
     expect(series!.status).toBe("ACTIVE");
     expect(series!.observation_count).toBe(3);
@@ -369,14 +370,14 @@ describe("recurring-detection lifecycle (DB-integration)", () => {
         }),
       );
     }
-    await runRecurringDetectionForUser({ userId, watermark: null, store });
+    await runRecurringDetectionForUser({ userId, watermark: null, store, now: await dbNow() });
     const series = await readSeries(merchant, checkingId, "debit");
     for (const id of ids) {
       expect(await readTxnRecurringLink(id)).toBe(series!.id);
     }
 
     // Run again -- idempotent, same series id, no error, no duplicate row.
-    await runRecurringDetectionForUser({ userId, watermark: null, store });
+    await runRecurringDetectionForUser({ userId, watermark: null, store, now: await dbNow() });
     const seriesAfterSecondRun = await readSeries(merchant, checkingId, "debit");
     expect(seriesAfterSecondRun!.id).toBe(series!.id);
     for (const id of ids) {
@@ -398,7 +399,7 @@ describe("mute and user-override durability (DB-integration)", () => {
         occurredAt: daysAgo(days),
       });
     }
-    await runRecurringDetectionForUser({ userId, watermark: null, store });
+    await runRecurringDetectionForUser({ userId, watermark: null, store, now: await dbNow() });
     const created = await readSeries(merchant, checkingId, "debit");
     expect(created!.status).toBe("ACTIVE");
 
@@ -416,7 +417,7 @@ describe("mute and user-override durability (DB-integration)", () => {
       amount: 1400,
       occurredAt: daysAgo(0),
     });
-    await runRecurringDetectionForUser({ userId, watermark: null, store });
+    await runRecurringDetectionForUser({ userId, watermark: null, store, now: await dbNow() });
     const after = await readSeries(merchant, checkingId, "debit");
     expect(after!.status).toBe("MUTED"); // never reverted to ACTIVE
     expect(after!.observation_count).toBe(4); // but still tracked in the background
@@ -434,7 +435,7 @@ describe("mute and user-override durability (DB-integration)", () => {
         occurredAt: daysAgo(days),
       });
     }
-    await runRecurringDetectionForUser({ userId, watermark: null, store });
+    await runRecurringDetectionForUser({ userId, watermark: null, store, now: await dbNow() });
     const created = await readSeries(merchant, checkingId, "debit");
 
     // Simulate a user manually editing cadence/amount (no UI yet).
@@ -450,7 +451,7 @@ describe("mute and user-override durability (DB-integration)", () => {
       amount: 1000,
       occurredAt: daysAgo(0), // still within a plausible amount-match window vs 1000, irrelevant here since amount tolerance is now overridden to 1 minor unit
     });
-    await runRecurringDetectionForUser({ userId, watermark: null, store });
+    await runRecurringDetectionForUser({ userId, watermark: null, store, now: await dbNow() });
     const after = await readSeries(merchant, checkingId, "debit");
     expect(after!.cadence).toBe("ANNUAL"); // frozen, not recomputed to MONTHLY
     expect(after!.expected_amount).toBe(999999); // frozen
@@ -549,9 +550,9 @@ describe("recurring metadata never affects financial semantics (DB-integration)"
 
     const before = await Promise.all(ids.map(snapshot));
 
-    await runRecurringDetectionForUser({ userId, watermark: null, store });
+    await runRecurringDetectionForUser({ userId, watermark: null, store, now: await dbNow() });
     // Run twice to also exercise the idempotent-linking path here.
-    await runRecurringDetectionForUser({ userId, watermark: null, store });
+    await runRecurringDetectionForUser({ userId, watermark: null, store, now: await dbNow() });
 
     const after = await Promise.all(ids.map(snapshot));
 

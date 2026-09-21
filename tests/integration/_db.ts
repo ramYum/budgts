@@ -46,6 +46,18 @@ export function adminSupabase(): SupabaseClient {
   return supabaseAdmin;
 }
 
+/**
+ * A clock anchored to the DATABASE's now(). `created_at` is stamped by Postgres, while a scan's closed upper bound
+ * (`created_at <= scanStart`) comes from the caller's clock. A test that scans immediately after inserting would
+ * otherwise depend on this machine's clock being at least as fast as the database's, which is not something a test
+ * may assume (a developer machine can lag a managed database by hundreds of milliseconds).
+ */
+export async function dbNow(): Promise<() => Date> {
+  const [row] = await client<{ n: string }[]>`select now() as n`;
+  const at = new Date(row.n);
+  return () => at;
+}
+
 /** Insert a bare `auth.users` row (the trigger does the rest); return its id. */
 export async function seedUser(): Promise<string> {
   const [row] = await client<{ id: string }[]>`

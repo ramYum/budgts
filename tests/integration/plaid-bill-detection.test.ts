@@ -16,7 +16,7 @@ import type { BudgetTxn } from "@/lib/budget/types";
 import { monthKey } from "@/lib/budget/month";
 import { runRecurringDetectionForUser } from "@/lib/plaid/recurring-engine";
 import { createRecurringStore } from "@/lib/plaid/recurring-store";
-import { cleanupUser, client, db, insertBankTxn, mainAccountId, seedUser } from "./_db";
+import { cleanupUser, client, db, insertBankTxn, mainAccountId, seedUser, dbNow } from "./_db";
 
 const store = createRecurringStore(db);
 
@@ -81,7 +81,7 @@ describe("bill detection (DB-integration)", () => {
     }
 
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-    await runRecurringDetectionForUser({ userId, watermark: null, store });
+    await runRecurringDetectionForUser({ userId, watermark: null, store, now: await dbNow() });
 
     const series = await readSeries(merchant, checkingId, "debit");
     expect(series).not.toBeNull();
@@ -112,7 +112,7 @@ describe("bill detection (DB-integration)", () => {
     }
 
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-    await runRecurringDetectionForUser({ userId, watermark: null, store });
+    await runRecurringDetectionForUser({ userId, watermark: null, store, now: await dbNow() });
 
     const series = await readSeries(merchant, checkingId, "debit");
     expect(series).not.toBeNull();
@@ -139,7 +139,7 @@ describe("bill detection (DB-integration)", () => {
     }
 
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-    await runRecurringDetectionForUser({ userId, watermark: null, store });
+    await runRecurringDetectionForUser({ userId, watermark: null, store, now: await dbNow() });
 
     const series = await readSeries(merchant, checkingId, "debit");
     expect(series).not.toBeNull();
@@ -166,7 +166,7 @@ describe("bill detection (DB-integration)", () => {
     }
 
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-    await runRecurringDetectionForUser({ userId, watermark: null, store });
+    await runRecurringDetectionForUser({ userId, watermark: null, store, now: await dbNow() });
 
     const series = await readSeries(merchant, checkingId, "debit");
     expect(series).not.toBeNull();
@@ -227,7 +227,7 @@ describe("bill detection (DB-integration)", () => {
     const before = await Promise.all(ids.map(snapshot));
 
     vi.spyOn(console, "log").mockImplementation(() => {});
-    await runRecurringDetectionForUser({ userId, watermark: null, store });
+    await runRecurringDetectionForUser({ userId, watermark: null, store, now: await dbNow() });
 
     const after = await Promise.all(ids.map(snapshot));
 
@@ -255,12 +255,12 @@ describe("bill detection (DB-integration)", () => {
     }
 
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-    await runRecurringDetectionForUser({ userId, watermark: null, store });
+    await runRecurringDetectionForUser({ userId, watermark: null, store, now: await dbNow() });
     const seriesAfterFirst = await readSeries(merchant, checkingId, "debit");
 
     // Second run with watermark null again -- same re-scan semantics an
     // accidental duplicate cron invocation would have.
-    await runRecurringDetectionForUser({ userId, watermark: null, store });
+    await runRecurringDetectionForUser({ userId, watermark: null, store, now: await dbNow() });
     const seriesAfterSecond = await readSeries(merchant, checkingId, "debit");
 
     expect(seriesAfterSecond!.id).toBe(seriesAfterFirst!.id);

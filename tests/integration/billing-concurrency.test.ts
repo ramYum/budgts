@@ -27,7 +27,9 @@ const newUser = async () => {
   return id;
 };
 afterAll(async () => {
-  for (const id of users) await cleanupUser(id);
+  // A user with a real payment on the ledger cannot be hard-deleted (RESTRICT + immutable ledger: production anonymizes
+  // such accounts instead). These are synthetic itest users, so leaving the de-identifiable few behind is harmless.
+  for (const id of users) await cleanupUser(id).catch(() => {});
 });
 
 const TRIAL_END = new Date(T0 + 14 * DAY);

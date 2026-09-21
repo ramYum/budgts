@@ -6,7 +6,11 @@ from prior planning-session decisions (2026-09-17 mobile-launch planning,
 `main` after the `budgts-staging` → `budgts-staging-2` replacement was
 accepted (staging has since been replaced again, by `Budgets-Staging-3`). **Update 2026-09-21:** this began as a decisions-only
 document; the native Home, mobile auth, account deletion and V1 monetization described here are now built on branch
-`mobile/native-home` (see `docs/roadmap.md`, Native apps track). Store enrolment, RevenueCat / store products and submission are not.
+`mobile/native-home` (see `docs/roadmap.md`, Mobile Launch). Store enrolment, RevenueCat / store products and submission are not.
+**Update 2026-09-21 (owner):** Budgts is mobile-only; the web/PWA is retired only after the native apps cover all launch-required
+functionality and it is tested. That supersedes the "web stays free" line in §1 (owner-confirmed 2026-09-21; the line is left as
+history), the §7 open question is answered in `docs/specs/2026-09-21-mobile-only-transition-design.md`, and **Sign in with Apple is
+now in the iOS launch scope**, superseding the §4 exclusion.
 
 **Source of truth note.** Where this document states a business/commercial
 decision, that decision was made by the app owner in a prior conversation

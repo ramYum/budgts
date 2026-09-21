@@ -25,7 +25,7 @@ the service worker, CI.
 - **`getSessionUser`** calls `auth.getUser()` (validates the JWT with Supabase),
   not a bare cookie decode.
 - **Service worker** caches only same-origin GETs — static assets + the offline
-  page. Navigations are network-first; no user data is cached.
+  page. Navigations are network-first; no user data is cached. (Retires with the PWA.)
 - **CI** builds with placeholder env, no secrets; `npm ci` from the lockfile.
 
 ## Fixed in this checkpoint
@@ -41,7 +41,7 @@ the service worker, CI.
 - **Content-Security-Policy** — none set. Add a `headers()` block in
   `next.config.ts` (`connect-src` must include the Supabase origin + `wss:` for
   realtime; fonts are self-hosted by `next/font`). Do in a hardening pass.
-- ~~**PNG PWA icons**~~ — done: `public/icon-512.png`, `icon-maskable.png` and `src/app/apple-icon.png` exist.
+- ~~**PNG PWA icons**~~ — done, and moot: the PWA is being retired, so no further icon work is planned.
 - **Rotate** the Supabase DB password and Google client secret (shown in chat
   during setup) — see `docs/deploy.md`.
 
@@ -68,6 +68,10 @@ Verified by tests and, for the live paths, end to end against the staging projec
   flow only asks the server to re-read the provider's state. Billing responses use a stable view-model, never raw provider rows.
 - **Email cannot reach a real customer from staging.** The reminder adapter refuses recipients outside `REMINDER_EMAIL_ALLOWLIST`, and its
   errors never echo the provider's response body.
+- **The web surface is shrinking.** Budgts is mobile-only and the web/PWA UI will be retired once native covers the launch-required
+  functionality (`docs/specs/2026-09-21-mobile-only-transition-design.md`). The service worker, the cookie-session Server Actions
+  and the CSV route are in scope only while they exist. The retained surface is the Bearer and machine-to-machine routes above,
+  `/auth/callback`, the public `/manage-subscription` page and the web deletion entry — re-review it when the UI is removed.
 - **Secrets.** Only names are documented; values live in git-ignored `.env.*` files and Vercel. A scan on 2026-09-21 found no staging or
   old-project secret value in the working tree or any git history.
 

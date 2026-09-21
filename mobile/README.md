@@ -2,8 +2,14 @@
 
 Auth, the first real native Home, the store-billing (trial / purchase / restore) code, and real-device/EAS readiness so far — see
 `../docs/specs/2026-09-17-mobile-app-launch-design.md` for the full track and `../docs/specs/2026-09-21-v1-monetization-design.md`
-for billing. No native Plaid, no Settings screen, and no wider mobile IA yet. **No live store products or RevenueCat project exist**,
-so the purchase flow is unit-tested but has not run against a real store.
+for billing. **No live store products or RevenueCat project exist**, so the purchase flow is unit-tested but has not run against a
+real store.
+
+Budgts is mobile-only, so this app is the product; the web UI stays live until it covers everything below and that is tested
+(`../docs/specs/2026-09-21-mobile-only-transition-design.md`). **Still required before launch, not built yet:** currency onboarding /
+Get Started, native Plaid Link and a connected-banks screen, transactions (incl. manual entry), budgets, accounts (and goals, owner
+call), and Settings (profile, subscription / paywall / Restore Purchases, privacy / terms / support links, delete account). Most need
+a Bearer-authenticated backend path first — the web mutations are cookie-only Server Actions.
 
 ## Real-device testing (Expo Go)
 

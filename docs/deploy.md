@@ -173,11 +173,13 @@ already `https://wsmhstqpvbbcqpqhiqyp.supabase.co/auth/v1/callback` — no chang
 ## 5. Deploy + verify
 
 - Trigger a deploy (push, or Vercel "Redeploy").
-- On your phone: open the URL, install to home screen ("Add to Home Screen").
-- Sign in (magic link or Google), pick a currency, add a transaction.
-- Open the app on a second device — the transaction appears within a second
-  (Supabase Realtime).
+- Open the URL, sign in (magic link or Google), pick a currency, add a transaction.
+  The web UI is being retired (`docs/specs/2026-09-21-mobile-only-transition-design.md`), but until the native app covers the same
+  flows this is still the quickest end-to-end check that a deployment works.
+- Open it on a second device — the transaction appears within a second (Supabase Realtime).
 - Settings → Export transactions (CSV) downloads a file.
+- Native: point a device build at the deployment with `EXPO_PUBLIC_API_BASE_URL` (see `mobile/README.md`). Installing the site to
+  a home screen is no longer part of verification.
 
 ## Milestone 9 — V1 Beta (staging deploy)
 
@@ -236,5 +238,4 @@ displayed → categorize → merchant rule remembered → disconnect → history
 - The free Supabase project **pauses after 7 idle days**; the dashboard has a
   one-click restore. Use the CSV export as a backup.
 - Vercel Hobby is personal / non-commercial only.
-- PNG icons: the manifest currently uses SVG icons, which modern Android/Chrome
-  accept. For best iOS home-screen results, generate 192/512 PNGs later.
+- The PWA manifest, service worker and icons retire with the web UI; no further PWA icon work is planned.

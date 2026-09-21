@@ -2,16 +2,17 @@
 
 A commercial budget tracking app: categories, budgets vs actual, recurring bills,
 savings goals, and automatic transaction import from the user's bank (Plaid), with
-manual entry as the always-available fallback. It runs as an installable PWA
-(https://budgts.com) and as a native iOS/Android app (`mobile/`, Expo) on the same
-backend. Data lives in Supabase; per-user accounts, isolated by Row-Level Security.
+manual entry as the always-available fallback. It is a mobile-only product: a native
+iOS/Android app (`mobile/`, Expo) on a Next.js backend (APIs, auth callbacks, webhooks).
+The earlier web/PWA UI (https://budgts.com) is being retired and is not a supported
+surface. Data lives in Supabase; per-user accounts, isolated by Row-Level Security.
 Revenue is store-managed subscriptions (14-day free trial) through RevenueCat.
 
 ## Docs
 
 - [`CLAUDE.md`](CLAUDE.md) — stack, repo layout, commands, conventions, current status (read first)
-- [`docs/roadmap.md`](docs/roadmap.md) — tier ladder and what is next
-- [`docs/workflow.md`](docs/workflow.md) — execution tracker (dated history)
+- [`docs/roadmap.md`](docs/roadmap.md) — direction and priority (current: Mobile Launch)
+- [`docs/workflow.md`](docs/workflow.md) — how Claude and the owner work (autonomy, owner-gated actions)
 - [`docs/conventions.md`](docs/conventions.md) — feature layer order + ingestion-adapter contract
 - [`docs/operations/`](docs/operations/) — migration policy, staging replacement runbook
 - [`docs/specs/`](docs/specs/) — design specs (account deletion, monetization, mobile launch, Plaid ingestion, ...)

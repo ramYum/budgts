@@ -148,6 +148,20 @@
       "when": 1789988807436,
       "tag": "0020_deletion_guard_allow_bank_disconnect",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1790009702864,
+      "tag": "0021_monetization_ledger",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1790010119571,
+      "tag": "0022_entitlements_and_billing_events",
+      "breakpoints": true
     }
   ]
 }

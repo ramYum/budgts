@@ -1,6 +1,6 @@
 # "How Budgts Works" guide
 
-**Status:** shipped, static content page. **Branch:** `v1.5/first-run-tour`.
+**Status: REMOVED from the release path (2026-09-20, commit `7468365` on `mobile/native-home`).** Budgts ships with no app tour for now; a replacement will be built separately. This document is kept as **history and input for that replacement**, not as a description of the app. The pre-removal code is on the local archive branches `archive/native-home-with-claude-tour` and `archive/claude-tour-redesign`. Originally: shipped as a static content page (`/help/how-it-works`, now a 404).
 
 ## Problem
 

@@ -4,12 +4,12 @@ Use when staging must be rebuilt from an empty database (drifted ledger, or a ne
 monetization migrations `0021`/`0022`). The whole point is **build the new project, prove it, and only then delete the
 old one** — never the reverse. Production (`wsmhstqpvbbcqpqhiqyp`) is never touched by any step here.
 
-> Status 2026-09-21: replacement `Budgets-Staging-3` (ref `uvowywszaiojboaxdmoz`, org Budgts Validation, ca-central-1)
-> was created by the owner, migrated from empty (0000→0022, ledger 23/23), wired into the `budgts-staging` Vercel project,
-> and passed the integration suite, the deployed billing/deletion end-to-end check and Playwright. **Still open:** Auth
-> settings (Site URL, redirect allow-list, Google) — the Management API token cannot reach the new project (403), so the
-> owner sets them in the dashboard; then magic link + Google are verified, and only then is the old project deleted.
-> The `POST /v1/projects` 403 that blocked creation is an access limit of the project-scoped token, not a paid-plan wall.
+> Status 2026-09-21: **done.** `Budgets-Staging-3` (ref `uvowywszaiojboaxdmoz`, org Budgts Validation, ca-central-1) was created by
+> the owner, migrated from empty (0000→0022, ledger 23/23), wired into the `budgts-staging` Vercel project (Production and Preview
+> targets), scheduled for cron, configured for Auth by the owner, and verified (integration suite, deployed end-to-end checks, Playwright).
+> The old `Budgts-Staging-2` was then deleted by the owner. **Budgets-Staging-3 is the only staging project.** The Management API token
+> is project-scoped and could not create or configure projects (`POST /v1/projects` → 403, an access limit — not a paid-plan wall), so
+> project creation and Auth configuration were dashboard steps. This file is the procedure for the *next* replacement.
 
 ## 0. Safety rules (every step)
 
@@ -21,7 +21,7 @@ old one** — never the reverse. Production (`wsmhstqpvbbcqpqhiqyp`) is never to
 
 ## 1. Create the project (owner)
 
-Supabase dashboard → New project, Free plan. Suggested name `Budgts-Staging-3`, region matching the current staging.
+Supabase dashboard → New project, Free plan, in the non-production org (*Budgts Validation*). Free projects have an active-project cap; if the dashboard asks for an upgrade, stop. Pick a region and note it (the pooler host depends on it).
 Record: project ref, DB password, the pooled `DATABASE_URL` (6543) and session/direct `DIRECT_URL` (5432), the
 `sb_publishable_…` and `sb_secret_…` keys. Put them in `.env.staging` (git-ignored); keep the old values commented out
 until the old project is deleted.

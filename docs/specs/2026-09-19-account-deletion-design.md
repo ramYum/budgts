@@ -1,7 +1,9 @@
 # Account Deletion — Implementation Design
 
-**Status:** design/audit only. No code, migration, or schema change is made
-by this document. It designs the account-deletion lifecycle locked in
+**Status (updated 2026-09-21): implemented** on branch `mobile/native-home` (not on `main`, not in production) — Path A / Path B,
+the database-side write guard, FK indexes (migrations `0017`–`0020`), and the billing-provider-aware Path B decision added by the
+monetization work (`src/lib/account/`, `src/lib/billing/deletion-check.ts`). The measured results at the end of this file are the
+record of what was built and proven. The text below is the original design/audit, which made no code change itself. It designs the account-deletion lifecycle locked in
 `docs/specs/2026-09-17-mobile-app-launch-design.md` §12.2, against the
 **actual current schema** (verified directly against `schema.ts` and every
 migration file, `0000`→`0017`, not assumed).

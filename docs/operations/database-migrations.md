@@ -1,6 +1,6 @@
 # Database migration policy — permanent rules
 
-Why this file exists: `budgts-staging`'s migration ledger (`drizzle.__drizzle_migrations`)
+Why this file exists: the original staging project's (`budgts-staging`, since retired) migration ledger (`drizzle.__drizzle_migrations`)
 drifted from the repository's actual migration files — several migrations'
 schema changes are physically present in staging, but the ledger has no
 matching hash recorded for them, and it contains at least two entries whose
@@ -9,7 +9,7 @@ cause was never conclusively identified (no incident record exists from
 when it happened), but the repo's own history shows staging has been
 modified out-of-band before (`supabase/staging-plaid-cron.sql` is hand-run
 SQL, not a migration). Fresh-database validation proved the migration chain
-itself (`0000` → `0017`) is sound and reproducible — the problem was
+itself (`0000` → `0022` today) is sound and reproducible — the problem was
 process, not the SQL. This document is the permanent fix to the process.
 
 ## The rules
@@ -93,21 +93,19 @@ A schema change is written and tested locally, applied to staging via
 `db:migrate` and verified there, then applied to production via `db:migrate`
 only after staging verification passes. No environment is ever skipped.
 
-## What happened with the old staging environment
+## What happened with the old staging environments
 
-- `budgts-staging`'s migration ledger drifted from the repository's actual
-  migration history — some migrations' schema changes are present in the
-  database without a corresponding ledger entry, and the ledger contains
-  entries that don't correspond to any current repository file.
-- Fresh-database validation (a disposable Supabase project, migrated from
-  empty with `db:migrate`) proved that migrations `0000` → `0017`, including
-  the finalized monetization ledger schema, apply cleanly and reproducibly
-  from nothing. The migration chain itself was never the problem.
-- Given rules 6/7/15 above, the old staging project's ledger is not being
-  repaired in place. It is being **retired and replaced** with a fresh
-  Supabase project, migrated the normal way from empty. This is the
-  intended, sanctioned way to resolve migration-history drift when
-  forensic repair would require breaking one of the rules above.
+- The first staging project (`budgts-staging`, ref `iwypmifvmtmkwtnxkfma`) had a migration ledger that drifted from the
+  repository's actual history — some migrations' schema changes were present without a ledger entry, and the ledger held entries
+  that matched no current repository file. Root cause was never conclusively identified.
+- Fresh-database validation (a disposable Supabase project, migrated from empty with `db:migrate`) proved the migration chain itself
+  was never the problem. Given the rules above, the drifted ledger was not repaired in place: the project was **retired and
+  replaced** with a fresh one (`budgts-staging-2`), migrated the normal way from empty — the sanctioned way to resolve
+  migration-history drift when forensic repair would break one of the rules above.
+- `budgts-staging-2` was itself replaced on 2026-09-21 by **`Budgets-Staging-3`** (ref `uvowywszaiojboaxdmoz`, org *Budgts
+  Validation*) so that the monetization migrations (`0021`/`0022`) were applied from empty with no skipped or hand-stamped entries;
+  it was verified (integration suite, deployed end-to-end checks, Playwright) and then the old project was deleted. Runbook:
+  `staging-replacement.md`. **Budgets-Staging-3 is the only staging project.**
 
 ## Tooling
 
@@ -116,8 +114,9 @@ only after staging verification passes. No environment is ever skipped.
 Shared module used by every database-facing tool in this repo. Parses a
 Supabase project ref out of a connection string (works for the pooler host,
 the raw direct host, or an API URL), checks it against a small registry of
-known project refs (production, retired staging, the disposable validation
-project — update this list when projects are created/retired), and masks
+known project refs (production, the retired and deleted staging projects, the
+disposable validation project, and the current staging project — update this list when projects are created/retired; a
+retired or deleted ref is marked `staging-legacy` so the preflight refuses it), and masks
 credentials for safe logging. Nothing here is a secret — project refs are
 visible in every project URL — so this file is safe to commit.
 
@@ -192,62 +191,22 @@ Run relevant schema/integrity checks
 PASS / FAIL
 ```
 
-**What already exists and is safe to rely on today:**
-- `npm run db:migrate` and `npm run db:verify-history` are both real,
-  tested commands that work against any reachable Postgres — they don't
-  need CI-specific code, just a target.
-- The comparison logic they share is unit-tested (`tests/unit/db-migration-
-  history.test.ts`), independent of any live database.
-- This exact flow was run manually, once, against a disposable Supabase
-  project (`budgts-migration-validation`) and passed cleanly end to end —
-  proving the approach works, not just that it's theoretically sound.
+**What runs in CI today:** `tests/unit/db-migration-chain.test.ts` (part of `npm test`, so part of CI) applies the *entire*
+journal to an **empty embedded Postgres** (PGlite) with the same file reader drizzle uses. It proves order / dependency correctness,
+that no entry is skipped (including the production-like two-step release: `0000`-`0016` already applied, then `0017`-`0022`),
+and the schema guarantees the monetization design relies on. Supabase's own pieces (`auth.users`, `auth.uid()`, the `anon` /
+`authenticated` roles, the realtime publication) are a **minimal stub**, so this validates the DDL, constraints and triggers (most
+of the value) but not that a real Supabase project behaves identically.
 
-**What's genuinely unresolved — a real infrastructure gap, not neglect:**
-this repo's migrations depend on Supabase-specific primitives (`auth.users`,
-`auth.uid()`, the `authenticated`/`anon`/`service_role` roles) that a plain
-`postgres` Docker image — the obvious, simplest GitHub Actions service
-container — does not provide. Migration `0000` itself already references
-`auth.users`, so even the first migration would fail against a bare
-Postgres container. Two real options, neither committed to `.github/workflows/`
-yet because neither has been verified to actually work in this environment
-(no Docker is available here to test either one):
-
-1. **Supabase CLI local stack** (`supabase/setup-cli` GitHub Action +
-   `supabase start`) — the faithful option. Supabase's local dev stack
-   bundles a real `auth`/`storage`/`realtime` schema set and the platform
-   roles, so migrations run against something structurally equivalent to a
-   real project. Open question to resolve before wiring this up: `supabase
-   start` auto-applies `supabase/migrations/*.sql` itself (via its own,
-   separate `supabase_migrations.schema_migrations` tracking table) as part
-   of bringing up the local stack — if that happens before `npm run
-   db:migrate` runs, drizzle-kit will hit "already exists" on every
-   statement, since Supabase CLI will have already created everything
-   through its own mechanism. This needs to be tested and solved (likely:
-   start the stack with migration auto-apply disabled, or point `db:migrate`
-   at a schema Supabase CLI leaves untouched) before this can be trusted in
-   CI. This repo's `supabase/migrations` directory already happens to sort
-   correctly under Supabase CLI's own lexical-order migration discovery, so
-   there's no renaming work needed if this path is chosen — but the
-   auto-apply conflict above still needs solving.
-2. **Bare `postgres` container + a minimal hand-written `auth` schema
-   stub** — lower setup complexity, but a hand-rolled stub can't be trusted
-   to match real Supabase's `auth.users` shape exactly, so a pass here
-   would validate the DDL/constraint/trigger logic (most of the value) but
-   wouldn't fully guarantee a real Supabase project behaves identically.
-
-**Remaining CI provisioning step:** someone with a Docker-capable
-environment needs to build and actually run one of the two options above,
-confirm it produces a genuinely fresh, migration-free target before
-`db:migrate` runs, and wire it into `.github/workflows/` gated on changes
-under `supabase/migrations/**` or `src/lib/db/schema.ts` (mirroring how
-`ci.yml`'s existing job triggers). Until then, fresh-database validation
-happens manually — which is exactly how `0017` was validated before this
-document existed, and remains a fully legitimate way to validate a
-migration in the meantime.
+**What is still manual:** the faithful check — `db:migrate` on a genuinely fresh *real* Supabase project, then
+`npm run db:verify-history` — done for `0000`-`0017` on the disposable validation project and for `0000`-`0022` on
+`Budgets-Staging-3` (23/23 ledger entries). A Supabase-CLI-based CI job remains an option if the stub ever proves too weak
+(open question: `supabase start` auto-applies `supabase/migrations` through its own tracking table, which would collide with
+drizzle's).
 
 ## Test coverage
 
-`tests/unit/db-migration-history.test.ts` — the comparison logic covers:
+`tests/unit/db-migration-chain.test.ts` — the whole chain from empty, no entry skipped (above). `tests/unit/db-migration-history.test.ts` — the comparison logic covers:
 exact match (clean), missing migration (gap before a later recorded one),
 unexpected ledger entry, hash mismatch (file edited after being applied),
 ordering anomaly, malformed ledger row data, a genuinely fresh database

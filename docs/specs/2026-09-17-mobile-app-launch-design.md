@@ -4,8 +4,9 @@
 from prior planning-session decisions (2026-09-17 mobile-launch planning,
 2026-09-18 monetization planning) and the repository audit run against
 `main` after the `budgts-staging` → `budgts-staging-2` replacement was
-accepted. No mobile code, dependencies, migrations, or schema changes exist
-yet — this document records decisions and architecture only.
+accepted (staging has since been replaced again, by `Budgets-Staging-3`). **Update 2026-09-21:** this began as a decisions-only
+document; the native Home, mobile auth, account deletion and V1 monetization described here are now built on branch
+`mobile/native-home` (see `docs/roadmap.md`, Native apps track). Store enrolment, RevenueCat / store products and submission are not.
 
 **Source of truth note.** Where this document states a business/commercial
 decision, that decision was made by the app owner in a prior conversation
@@ -389,11 +390,13 @@ spec, and nothing in this document implements any of the items below.**
 - **Schema + migration `0017`** (`partners`, `vouchers`, `redemptions`,
   `subscriptions`, `payments`, `revenue_allocations`,
   `revenue_allocation_adjustments`, `payouts`, `payout_allocations`,
-  `platform_commission_rates`): **implemented and applied**, verified this
-  session against a clean migration chain (`0000`→`0017`) on
-  `budgts-staging-2`.
-- **Everything above the schema is not yet built.** Outstanding layers,
-  all `⏳ not started` per `docs/roadmap.md`'s monetization delivery track:
+  `platform_commission_rates`): **implemented** as migration `0021` (it was numbered `0017` in this
+  spec; the deletion work took `0017`–`0020`) and verified on a clean migration chain (`0000`→`0022`) on the
+  current staging project (`Budgets-Staging-3`); not applied to production.
+- **Update 2026-09-21:** the subscription / entitlement / billing-provider layers of this list have since been built (see
+  `docs/specs/2026-09-21-v1-monetization-design.md` and `docs/roadmap.md`, Native apps track). Only the **partner / voucher / redemption /
+  revenue-allocation / payout** layers below remain not started (their tables are inert).
+- **Everything above the schema is not yet built** *(as originally written; see the update above)*. Outstanding layers:
   - Zod validation for the seven entities
   - Domain calculations (commissionable-proceeds math, §1.3/§2.5 of the
     monetization spec)
@@ -695,7 +698,7 @@ treats it as such rather than filling the gap with an assumed number.
   `src/lib/plaid/*`; this coverage is inherited by mobile for free since
   the same modules are reused, not reimplemented (§6).
 - **DB integration tests** — the existing `npm run test:integration` suite
-  (currently 103/103 against `budgts-staging-2`) already covers
+  (currently 163/163 against `Budgets-Staging-3`) already covers
   categorization, transfer pairing, recurring/subscription/bill detection,
   Money Left, account exclusion, etc. at the data layer; mobile reuses this
   coverage the same way.

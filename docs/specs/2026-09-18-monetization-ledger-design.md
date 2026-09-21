@@ -3,9 +3,12 @@
 > **Update 2026-09-21 (implementation).** (1) The ledger migration described here as `0017` is now **`0021_monetization_ledger`** (the deletion-hardening work took 0017–0020); its DDL is unchanged. (2) The **free trial is 14 days** (owner decision), not the 7 days written below. (3) A trial-only user creates **no** ledger rows: `subscriptions`/`payments` are written only at the first actual paid charge; the trial lives in the separate `entitlements` table (0022). See `2026-09-21-v1-monetization-design.md`.
 
 
-**Status:** spec-only. No schema, migration, Zod, domain logic, server action,
-UI, Apple/Google billing, or RevenueCat integration has been implemented from
-this document yet.
+**Status (updated 2026-09-21):** the **schema is implemented** as migration `0021_monetization_ledger` (all ten tables, the immutability /
+append-only triggers, RESTRICT foreign keys) and is applied on staging only. The provider-neutral billing domain that writes it
+(`src/lib/billing/`: entitlement + reducer, RevenueCat adapter, `recordPaidCharge` for confirmed charges, reminders) is implemented per
+`2026-09-21-v1-monetization-design.md`. **Only `subscriptions` and `payments` are written today**; the partner / voucher / redemption /
+revenue-allocation / payout tables exist but are deliberately **inert** (no functionality invented for them). Everything below that
+describes those flows is still design only. Not applied to production.
 
 **Track:** parallel to the main V1 → V1.5 → Mobile Launch → V2 → V2+ ladder in
 `docs/roadmap.md` — see "Roadmap placement" at the end of this file. This is

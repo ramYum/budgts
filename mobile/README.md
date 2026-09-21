@@ -1,8 +1,9 @@
 # Budgts mobile (Expo)
 
-Auth + real-device/EAS readiness so far — see
-`../docs/specs/2026-09-17-mobile-app-launch-design.md` for the full track.
-No native Plaid, billing, or the wider mobile IA yet.
+Auth, the first real native Home, the store-billing (trial / purchase / restore) code, and real-device/EAS readiness so far — see
+`../docs/specs/2026-09-17-mobile-app-launch-design.md` for the full track and `../docs/specs/2026-09-21-v1-monetization-design.md`
+for billing. No native Plaid, no Settings screen, and no wider mobile IA yet. **No live store products or RevenueCat project exist**,
+so the purchase flow is unit-tested but has not run against a real store.
 
 ## Real-device testing (Expo Go)
 
@@ -30,7 +31,9 @@ steps for whoever holds the Supabase and Google/Apple accounts.
 
 ### Done — Google OAuth (staging)
 
-Configured 2026-09-18. Verified from this repo without printing any secret:
+Configured 2026-09-18 on the original staging project; **re-done on the current staging project `Budgets-Staging-3` on 2026-09-21**
+(its callback `https://uvowywszaiojboaxdmoz.supabase.co/auth/v1/callback` must be an authorized redirect URI of the Google OAuth client).
+The text below describes the first verification. Verified from this repo without printing any secret:
 GoTrue's public `/auth/v1/settings` shows `google: true`, and a read-only
 Supabase Management API call confirms `external_google_enabled: true`,
 `budgts://auth/callback` is on the `uri_allow_list`, and the configured
@@ -77,6 +80,8 @@ and external to this repo:
 | `budgts://` → Android intent-filter | **Verified** via `npx expo prebuild` — see "Native config verification" below |
 | `budgts://` → iOS URL scheme | **Not verifiable from this machine** — `expo prebuild` does not generate an iOS project on Windows at all |
 | EAS build config | `eas.json` present (`development`, `preview`); linked to a real EAS project (`@budgts/budgts`, see "EAS readiness" below) and validated via `eas config` for both platforms |
+| Native Home | Done — `app/(app)` Home over `GET /api/mobile/home` (Bearer); currency formatting verified on a device under Hermes |
+| Store billing (trial / purchase / restore) | Code-complete and unit-tested (`lib/billing/*`, `react-native-purchases` behind a provider port; the server decides access). **Not exercised against a real store** — no RevenueCat project or Apple/Google products yet. The manage-subscription action exists in `use-monetization.ts`; there is no mobile Settings screen to host it yet |
 | Physical-device/simulator run | **Not performed** — no device, no emulator, and (being Windows) no possibility of an iOS Simulator on this machine |
 
 ## Auth redirect URL contract (why Magic Link once opened the web app)
@@ -164,9 +169,8 @@ platforms without error (see below).
 - `preview` — internal distribution, Android as a directly-installable APK
   (no Play Console needed), iOS as a real-device (non-simulator) build.
 
-No `production` profile — deliberately omitted; there's no StoreKit/Play
-Billing, RevenueCat, or submission-readiness work done yet to justify one
-(mobile-launch spec §10/§11/§16).
+No `production` profile — deliberately omitted until store products, a RevenueCat project and submission-readiness work exist to justify one
+(the billing *code* is done; the live store configuration is not — mobile-launch spec §10/§11/§16).
 
 **What's still needed before an actual build can run**, none of it
 performable from this repo:

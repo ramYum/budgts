@@ -138,30 +138,16 @@ and typography unchanged.
 redesigned fill + type hierarchy, mascot mirrored on the insight card —
 the final redesign pass.
 
-**First-run tour** (branch `v1.5/first-run-tour`): the deferred 3-screen
-onboarding wizard, expanded into a convenience-first pitch and picked up on
-its own merits once Plaid went live in production. Welcome → Every purchase,
-tracked (phone tap/card/online order, auto-captured once a bank is
-connected) → Currency (`/onboarding`, unchanged data flow), then Connect your
-bank → Sorted for you (auto-categorization) → Know what's left → All set
-(`/tour`). Shown once to new users and once to every already-onboarded user
-(`profiles.tour_seen_at`); replayable from Help. Every pitch card
-self-hides where its claim wouldn't be true (Plaid off, or a bank already
-connected). Spec: `docs/specs/2026-09-15-first-run-tour-design.md`. **This
-is the currently-live tour** — a live-coachmark redesign (v2, spotlight +
-tooltip on the real button on the real page) has been fully specced
-(`docs/specs/2026-09-15-first-run-tour-live-coachmarks-design.md`) and
-planned (`docs/superpowers/plans/2026-09-15-first-run-tour-coachmarks.md`)
-but **not implemented** — none of its tasks have run yet.
-
-**"How Budgts Works" guide** (`/help/how-it-works`, branch
-`v1.5/first-run-tour`): a permanent, static Help page teaching the
-end-to-end mental model (connect → transactions arrive → auto-categorize →
-review exceptions → set a budget → Money Left → track progress) — what the
-tour shows *where* for, this teaches *how the workflow fits together and
-why it's convenient*. Linked from a new entry card at the top of `/help`
-and from the live tour's final card. No DB reads, no new dependency. Spec:
-`docs/specs/2026-09-15-how-budgts-works-guide-design.md`.
+**First-run tour and "How Budgts Works" guide — REMOVED from the release path (commit `7468365`, on branch
+`mobile/native-home`).** Budgts ships with **no app tour for now**; a replacement will be built separately before launch. Removed:
+`/tour`, `/tour/[topic]`, `/help/how-it-works`, the first-run redirect, every entry point in More / Settings / Help, and all
+tour-only code (the old card wizard that production still runs is gone on this branch too). Kept: `/onboarding`, now only the
+currency form (required account setup; it lands on Home), and the column `profiles.tour_seen_at` (0014) for the replacement. The
+pre-removal state is preserved on the local archive branches `archive/native-home-with-claude-tour` and
+`archive/claude-tour-redesign`. The specs and plan for the tour, the live-coachmark redesign and the guide
+(`docs/specs/2026-09-15-first-run-tour-*.md`, `…how-budgts-works-*.md`, `docs/superpowers/plans/2026-09-15-first-run-tour-coachmarks.md`)
+are kept as **history / input for the replacement**, not as a description of the app. **Note:** until `mobile/native-home` is
+merged, production still runs the old card wizard.
 
 Deferred → backlog, outside the closed redesign (see the spec's own
 §"remaining issues" classification): a Net Worth tab on Insights (spec
@@ -307,10 +293,23 @@ the data underneath (V1–V2) is trustworthy.
 
 ## Delivery track (parallel) — Native apps
 
-Not a capability tier. Expo / React Native + Expo Router; reuse domain logic +
-Supabase; EAS Build (required — owner is on Windows, cannot build iOS locally).
-Prereqs: Apple Developer Program ($99/yr), Google Play Console ($25 once). Can
-run alongside any tier above once V1 is stable. Target: a few months.
+Not a capability tier. Expo / React Native + Expo Router in `mobile/`; reuses the web backend (`/api/mobile/*` with a Bearer
+token); EAS Build (required — the owner is on Windows and cannot build iOS locally). Design: `docs/specs/2026-09-17-mobile-app-launch-design.md`.
+Prereqs: Apple Developer Program ($99/yr), Google Play Console ($25 once) — neither is enrolled yet.
+
+**State (2026-09-21), all on branch `mobile/native-home` (PR #1, draft), none on `main` or in production:**
+- ✅ First real native Home (`/api/mobile/home`) and mobile auth (`budgts://auth/callback`); Hermes currency formatting verified on a device.
+- ✅ **Account deletion** (an App Store / Play requirement): Path A hard delete / Path B anonymize-and-keep-ledger, fail-closed, database-side
+  write guard, FK indexes, deadlock and plan-cache hardening (migrations 0017–0020). Spec: `docs/specs/2026-09-19-account-deletion-design.md`.
+- ✅ **V1 monetization** (code + staging-verified): 14-day store-managed free trial that auto-converts; full monetization ledger (0021),
+  `entitlements` and `billing_events` (0022); provider-neutral entitlement domain with one `hasPremium` decision; RevenueCat adapter
+  (signed webhook, environment fence, reconciliation); server-authoritative trial / purchase / restore on mobile; trial-end reminder
+  (Resend adapter, cron-driven, idempotent); Manage Subscription in Settings, `/manage-subscription` and the deletion flow; deletion that
+  consults the billing provider so a paid user can never be hard-deleted. Spec: `docs/specs/2026-09-21-v1-monetization-design.md`.
+- ⏳ **Owner / release work not done:** RevenueCat project (webhooks need Pro — free until $2,500 monthly tracked revenue) and Apple / Google
+  subscription products; Resend account + verified sending domain (owner-owned DNS); custom SMTP for auth mail (Supabase's built-in sender is
+  limited to a few emails an hour); Apple / Google enrolment; a mobile Settings screen (the manage-subscription action exists in the billing
+  hook only); a replacement first-run tour; production migrations 0017–0022 and deploy; Vercel plan upgrade (below).
 
 ## Delivery track (parallel) — Scale & Infrastructure
 

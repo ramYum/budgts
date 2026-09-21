@@ -6,9 +6,12 @@ WAT framework" below).
 
 ## What this project is
 
-A **commercial budget tracking app** ("Budgts"). Today it is an installable
+A **commercial budget tracking app** ("Budgts"). Live today as an installable
 **PWA** (one codebase for phone + desktop) backed by the cloud, so data syncs
-across a user's devices. Per-user accounts; no household/shared budgets in v1.
+across a user's devices; a native iOS/Android app (Expo, `mobile/`) is being built on the
+same backend for the app stores. Per-user accounts; no household/shared budgets in v1.
+Revenue is store-managed subscriptions with a 14-day free trial (see the Roadmap and
+`docs/specs/2026-09-21-v1-monetization-design.md`).
 
 ### The goal — read this before every decision
 
@@ -67,10 +70,16 @@ What carries over is the **spirit**:
 | Concern | Choice |
 | --- | --- |
 | App framework | Next.js (App Router) + TypeScript + React |
-| Hosting | Vercel. Supabase is currently on the Free/Nano tier (500MB DB, pauses after 7 idle days) and Vercel is on Hobby — both deliberately deferred to a launch-readiness milestone, not an oversight. Upgrade trigger: Supabase DB size approaching its 500MB cap, or a concrete dev/prod limitation, whichever comes first. |
+| Hosting | Vercel. Supabase is currently on the Free/Nano tier (500MB DB, pauses after 7 idle days) and Vercel is on Hobby — both deliberately deferred to a launch-readiness milestone, not an oversight. Upgrade trigger: Supabase DB size approaching its 500MB cap, or a concrete dev/prod limitation, whichever comes first. **Hobby's terms are non-commercial, so Vercel must be upgraded before Budgts is sold** (`docs/roadmap.md`, Scale & Infrastructure). |
+| Environments | **Production:** Supabase `wsmhstqpvbbcqpqhiqyp` + Vercel project `budgts` (a push to `main` deploys it). **Staging (the only one):** Supabase `Budgets-Staging-3` `uvowywszaiojboaxdmoz` (org *Budgts Validation*) + Vercel project `budgts-staging`, Plaid Sandbox, RevenueCat sandbox. Earlier staging projects are retired/deleted; `tools/db/target-safety.ts` is the registry and refuses them. |
 | PWA | web app manifest + service worker (app-shell caching) |
+| Native app | Expo / React Native in `mobile/` (own `package.json`, EAS Build). Native Home is backed by `/api/mobile/*` with a Bearer token; see `mobile/README.md` |
+| Bank data | Plaid — live in production, Sandbox in staging |
+| Subscriptions | Store-managed (Apple / Google) through RevenueCat, kept at the provider boundary only (`src/lib/billing/revenuecat/`, `mobile/lib/billing/`); server-authoritative entitlement in `src/lib/billing/`. No web billing in V1. Design: `docs/specs/2026-09-21-v1-monetization-design.md` |
+| Email | Resend (transactional trial-end reminder) behind the neutral `ReminderDelivery` port — adapter built, **not live** (no account or verified domain yet) |
+| Scheduling | Supabase `pg_cron` + `pg_net` calling the app's cron endpoints (`supabase/*.sql`, run by hand once per environment; not migrations) |
 | Data / auth / storage / realtime | Supabase (Postgres, Auth, Storage, Realtime) |
-| DB access | `supabase-js` with the user's session for all reads/writes; Drizzle for **migrations only** |
+| DB access | `supabase-js` with the user's session for all user-request reads/writes (RLS enforces isolation); Drizzle for **migrations and schema**. Trusted server-only paths (Plaid engines, account deletion, billing) use a direct server connection — see Conventions |
 | Security | Row-Level Security on **every** table, scoped to `auth.uid()` — the enforcement, not a backstop |
 | Validation | Zod schemas shared client + server |
 | Forms | React Hook Form |
@@ -83,25 +92,36 @@ What carries over is the **spirit**:
 ```
 CLAUDE.md  AGENTS.md  README.md
 next.config.ts  tsconfig.json  eslint.config.mjs  postcss.config.mjs
-vitest.config.ts  vitest.setup.ts  playwright.config.ts  drizzle.config.ts
-.env.local.example  .nvmrc
+vitest.config.mts  vitest.integration.config.mts  vitest.plaid.config.mts
+playwright.config.ts  drizzle.config.ts  .env.local.example  .nvmrc
 docs/
   conventions.md          # layer order for a feature + ingestion-adapter contract
-  specs/                  # YYYY-MM-DD-<topic>-design.md
-  roadmap.md
+  roadmap.md              # tier ladder / what is next
+  workflow.md             # execution tracker (dated, append-only history)
+  security.md  deploy.md  BRAND_GUIDELINES.md
+  Thirdparties.md         # every outside service: active, planned, ruled out
+  operations/             # database-migrations.md (migration policy), staging-replacement.md
+  specs/                  # YYYY-MM-DD-<topic>-design.md (deletion, monetization, mobile launch, ...)
+  superpowers/plans/      # historical implementation plans (not living docs)
 src/
-  app/                    # Next.js routes (App Router)
+  app/                    # Next.js routes: (app)/(auth) UI, api/{account,billing,mobile,plaid,export}, manage-subscription
   components/
   lib/
     db/                   # Drizzle schema + client
-    ingestion/            # IngestionAdapter interface + adapters + landTransaction()
-    budget/               # budget-vs-actual, recurring, goals domain logic (pure, tested)
-    validation/           # Zod schemas
-  server/                 # server actions / route handlers
+    budget/  categories/  accounts/  validation/   # pure domain logic + Zod (tested)
+    ingestion/  plaid/    # IngestionAdapter + landTransaction(); Plaid sync/detection engines
+    account/              # deleteAccount (Path A / Path B), deletion store
+    billing/              # entitlement domain, reducer, RevenueCat adapter, ledger writer, reminders, Resend adapter
+    auth/  mobile/  supabase/
+  server/                 # server actions
+mobile/                   # Expo app (own package.json + README)
 supabase/
-  migrations/             # SQL migrations: tables, RLS policies, handle_new_user() seed trigger
+  migrations/             # SQL migrations 0000-0022 (tables, RLS, guards, ledger, entitlements)
+  billing-cron.sql  staging-plaid-cron.sql   # pg_cron job templates (per environment, by hand)
+tools/                    # db/ (migrate preflight, history verifier, target registry) + dev scripts
 tests/
-  unit/                   # Vitest specs that don't sit next to source
+  unit/                   # Vitest specs that don't sit next to source (incl. migration-chain test on embedded Postgres)
+  integration/            # real-Postgres suites against STAGING only (`npm run test:integration`)
   e2e/                    # Playwright
 ```
 
@@ -122,22 +142,31 @@ export, middleware, or `next.config` change, read the relevant guide under
 | `npm run lint` | ESLint |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run test` | Vitest — unit + component |
-| `npm run test:e2e` | Playwright e2e |
+| `npm run test:integration` | Real-Postgres integration suites — **Budgets-Staging-3 only** (the harness refuses any other ref); loads `.env.staging` |
+| `npm run test:plaid` | Plaid sandbox-backed suites |
+| `npm run test:e2e` | Playwright e2e (against a running app; point `PLAYWRIGHT_BASE_URL` at staging, never production) |
 | `npm run db:generate` | Drizzle: emit a SQL migration from `schema.ts` changes |
-| `npm run db:migrate` | Apply migrations (uses `DIRECT_URL`, non-pooled) |
+| `npm run db:migrate` | Apply migrations (uses `DIRECT_URL`, non-pooled). A preflight refuses to run without `MIGRATE_CONFIRM_REF=<the target's project ref>` |
+| `npm run db:verify-history` | Read-only: does the target's migration ledger match the repo files? |
 
 ## Environment variables
 
-Names only. Real values live in `.env.local` (git-ignored) and in the Vercel
-project settings. Never commit secrets. Keep `.env.local.example` in sync.
+Names only. Real values live in `.env.local` / `.env.staging` (both git-ignored) and in the Vercel
+project settings. Never commit secrets. Keep `.env.local.example` in sync. Production and staging use **separate**
+values for every secret.
 
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (`sb_publishable_…` — client-safe)
-- `NEXT_PUBLIC_SITE_URL` (base URL for magic-link + OAuth redirect callbacks)
-- `SUPABASE_SECRET_KEY` (`sb_secret_…` — server only, never exposed to the client)
-- `DATABASE_URL` (Drizzle `db:generate` — transaction pooler, port 6543)
-- `DIRECT_URL` (Drizzle `db:migrate` — session pooler / direct, port 5432)
-- `ANTHROPIC_API_KEY` (V2 — email / receipt ingestion only)
+- Supabase: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (`sb_publishable_…`, client-safe),
+  `SUPABASE_SECRET_KEY` (`sb_secret_…`, server only), `NEXT_PUBLIC_SITE_URL` (magic-link / OAuth callbacks)
+- Database: `DATABASE_URL` (transaction pooler, port 6543 — runtime; Drizzle generate), `DIRECT_URL` (session pooler / direct,
+  port 5432 — `db:migrate`)
+- Plaid: `PLAID_CLIENT_ID`, `PLAID_SECRET`, `PLAID_ENV`, `PLAID_TOKEN_ENC_KEY`, `PLAID_OAUTH_REDIRECT_URI`,
+  `NEXT_PUBLIC_PLAID_ENABLED`, `PLAID_TEST_SEED_ENABLED` (staging only)
+- Cron: `CRON_SECRET` (bearer for `/api/plaid/sync-due` and the `/api/billing/*/due` jobs)
+- Billing (server only): `REVENUECAT_WEBHOOK_SIGNING_SECRET`, `REVENUECAT_WEBHOOK_AUTH`, `REVENUECAT_SECRET_API_KEY`,
+  `BILLING_ENVIRONMENT` (`sandbox` on staging; a deployment quarantines events from the other environment)
+- Email: `RESEND_API_KEY`, `EMAIL_FROM`, `REMINDER_EMAIL_ALLOWLIST` (non-empty on staging so it can never email a customer)
+- Mobile (public SDK keys, in `mobile/.env` / EAS, not here): `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY`, `EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY`
+- V2: `ANTHROPIC_API_KEY` (email / receipt ingestion only)
 
 ## Conventions
 
@@ -145,7 +174,7 @@ project settings. Never commit secrets. Keep `.env.local.example` in sync.
   display string only at the UI edge. Never store or compute with floats.
 - **Every table has RLS** scoped to the owner. All request-time DB access goes
   through the user's `supabase` client, so RLS *is* the isolation guard. Set
-  `user_id` explicitly on inserts (RLS `WITH CHECK`). Drizzle = migrations only.
+  `user_id` explicitly on inserts (RLS `WITH CHECK`). The one exception is **trusted server-only work that is not a user request**: the Plaid sync / detection engines, account deletion, and billing (RevenueCat webhook, cron, reconcile). Those use a direct server connection (`DATABASE_URL`, which bypasses RLS) and must take the user id from a verified identity or a verified provider payload — never from request input — and stay behind the `Db` port / store modules (`src/lib/billing/db.ts`, `src/lib/account/deletion-store.ts`, `src/lib/plaid/*-store.ts`).
 - **TDD.** Domain logic in `src/lib/budget/` and adapters get failing unit
   tests first (`superpowers:test-driven-development`).
 - **Feature work follows the layer order in `docs/conventions.md`** — schema +
@@ -159,8 +188,24 @@ project settings. Never commit secrets. Keep `.env.local.example` in sync.
   that category's spend.
 - **Dates:** store timestamps in UTC; `budgets.month` is the first day of the
   month as a `date`.
-- **Branches:** `phase-N/<short-topic>`. Conventional-ish commit subjects.
-  Commit or push only when the user asks.
+- **Third parties are tracked in `docs/Thirdparties.md`.** Whenever a change
+  adds, removes or replaces an outside service (SaaS, API, hosting, store
+  account, SDK that talks to a vendor), update that file in the same change.
+  When a doc or spec starts planning a new one, add it under "Planned".
+- **Migrations follow `docs/operations/database-migrations.md`:** a committed file for every schema change, applied only by
+  `npm run db:migrate` (with the preflight ref confirmation), never hand-run, hand-stamped or skipped; a deployed migration is
+  immutable. Cron/extension setup (`supabase/*.sql`) is configuration, not a migration.
+- **Access is decided in one place.** `hasPremium(entitlement, now)` in `src/lib/billing/` is the only premium decision and
+  never trusts a stored state past `accessUntil`. Only the RevenueCat webhook and the reconcile/refresh paths write an
+  entitlement, and only through the pure reducer. A trial is never ledgered (no `payments` row); a real charge always is.
+- **Account deletion has two paths and never guesses.** `deleteAccount` (`src/lib/account/`): no monetization-ledger history →
+  Path A, hard delete; any confirmed charge (local ledger **or** as reported by the billing provider) → Path B, anonymize and
+  keep the immutable ledger. It fails closed, never blocks on the billing check, and tells the user that deleting the account
+  does not cancel an App Store / Google Play subscription. Spec: `docs/specs/2026-09-19-account-deletion-design.md`.
+- **Integration tests are staging-only and environment-independent.** They must not assume a cascade/lock order or that the
+  local clock is at least the database's (`dbNow()` in `tests/integration/_db.ts`), and never touch production.
+- **Branches:** `phase-N/<short-topic>` (native/mobile work: `mobile/<topic>`). Conventional-ish commit subjects.
+  Commit or push only when the user asks. **A push to `main` deploys production.**
 
 ## Definition of done (a slice/feature)
 
@@ -179,44 +224,29 @@ project settings. Never commit secrets. Keep `.env.local.example` in sync.
 
 See `docs/roadmap.md` (tier ladder) and `docs/workflow.md` (execution tracker).
 
-**Shipped:** Phase 1 (core budgeting slice — live at https://budgts.com) and
-Phase 2a (savings goals, `2d46178`).
+**Live in production (`main`, https://budgts.com):** Phase 1 core budgeting, Phase 2a savings goals, the UI redesign v2 and
+the robin / "Budgts" rebrand (Home-first, Money-Left-led; visual source of truth `docs/BRAND_GUIDELINES.md`), and **Plaid
+ingestion with the V1.5 detectors** (recurring, subscription, bill, paired-transfer). Manual entry stays as the fallback.
 
-**Shipped:** **UI redesign v2** — the "Budgt" brand (black-cat mascot,
-cream/coral/sage/sky/lavender/pink palette, Poppins) and a Home-first,
-Money-Left-led information architecture across every screen. Presentation-
-layer only; see `docs/BRAND_GUIDELINES.md` (the visual source of truth) and
-`docs/specs/2026-09-13-ui-redesign-brand-guidelines-spec.md` (screen/IA
-behavior, still current outside its superseded brand sections — see its
-header) plus `docs/roadmap.md`'s "UI Redesign" section for what's deferred.
+**On branch `mobile/native-home` (PR #1, draft) — NOT on `main`; nothing here is deployed to production:**
+- the first real native Home (`/api/mobile/home`) and mobile auth (Bearer session, `budgts://auth/callback`);
+- **account deletion** (Path A / Path B, database-side write guard, FK indexes, deadlock / plan-cache hardening; migrations
+  0017–0020);
+- **V1 monetization** — the full monetization ledger (0021) plus `entitlements` and `billing_events` (0022), the
+  provider-neutral entitlement domain, the RevenueCat adapter, server-authoritative trial / purchase / restore, the trial-end
+  reminder (Resend adapter, cron-driven), Manage Subscription (Settings, `/manage-subscription`, the deletion flow), and deletion
+  that consults the billing provider. Verified end to end on staging (`Budgets-Staging-3`); see
+  `docs/specs/2026-09-21-v1-monetization-design.md`.
 
-**Shipped:** **Mascot/logo rebrand** — the black-cat mascot and "Budgt" name
-were replaced with a robin mascot and the "Budgts" name/wordmark (matching
-the live domain), sourced from `Logo Assets V2`. Palette and typography
-(cream/coral/sage/sky/lavender/pink, Poppins) are unchanged — this was a
-mascot/logo/name swap, not a full visual rebrand. `docs/BRAND_GUIDELINES.md`
-is up to date; the UI redesign v2 note above is historical only for its
-brand details.
+**Removed from the release path:** the first-run tour and the "How Budgts Works" guide (commit `7468365`; the old card wizard is
+gone too). `/onboarding` is now only the currency form and lands on Home. The pre-removal state lives on the local archive
+branches `archive/native-home-with-claude-tour` and `archive/claude-tour-redesign`; `profiles.tour_seen_at` (0014) remains
+for a replacement tour, which is separate work that has not started.
 
-**In progress:** **First-run tour** — a convenience-first onboarding wizard
-(auto-capture + auto-categorization pitch, then Connect your bank → Sorted
-for you → Know what's left) replacing the old single-screen onboarding.
-Code, tests, `lint`/`typecheck`/`test`/`build` all green on branch
-`v1.5/first-run-tour`; migration `0014` (`profiles.tour_seen_at`) and an e2e
-run against a real Supabase project are still pending — see
-`docs/workflow.md`. Spec: `docs/specs/2026-09-15-first-run-tour-design.md`.
-This card-wizard version is what's **currently live**; a live-coachmark
-redesign (v2) has been specced and planned but not implemented — see
-`docs/workflow.md` for the exact status.
+**Not done yet (owner / release work):** applying migrations 0017–0022 to production and deploying; a RevenueCat project
+(webhooks need its Pro plan — free until $2,500 monthly tracked revenue) and the Apple / Google subscription products; a Resend
+account with a verified sending domain (DNS records are the owner's); Apple / Google developer enrolment and store submission;
+a Vercel plan upgrade (Hobby is non-commercial) and, as data grows, Supabase.
 
-**Shipped:** **"How Budgts Works" guide** — a permanent static Help page
-(`/help/how-it-works`) teaching the end-to-end workflow (connect →
-transactions arrive → auto-categorize → review exceptions → budget → Money
-Left → track progress); linked from `/help` and the tour's final card.
-Spec: `docs/specs/2026-09-15-how-budgts-works-guide-design.md`.
-
-**Next:** **V1 — Plaid transaction ingestion** (the primary automatic path;
-manual entry stays as a fallback) → **V1.5** (recurring / subscription / bill
-detection over synced data + paired-transfer detection) → **V2** (email /
-receipt ingestion + spending intelligence) → **V2+** (AI financial assistant).
-Native apps are a parallel delivery track, not a numbered phase.
+**Next:** production release preparation (owner-approved), then store submission. V2 (email / receipt ingestion + spending
+intelligence) and V2+ (AI assistant) are post-launch possibilities. Native apps are a parallel delivery track, not a numbered phase.

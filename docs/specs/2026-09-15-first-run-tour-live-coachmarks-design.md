@@ -1,6 +1,6 @@
 # First-run tour v2 — live coachmarks
 
-**Status:** approved, supersedes the tour half of
+**Status: REMOVED from the release path (2026-09-20, commit `7468365` on `mobile/native-home`).** Budgts ships with no app tour for now; a replacement will be built separately. This document is kept as **history and input for that replacement**, not as a description of the app. The pre-removal code is on the local archive branches `archive/native-home-with-claude-tour` and `archive/claude-tour-redesign`. Originally: approved, superseding the tour half of
 `docs/specs/2026-09-15-first-run-tour-design.md`. **Branch:**
 `v1.5/first-run-tour`.
 

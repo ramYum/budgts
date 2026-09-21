@@ -1,6 +1,6 @@
 # "How Budgts Works" walkthrough (replaces the v1 card tour)
 
-**Status:** implemented on `main` (committed locally; not pushed). Supersedes
+**Status: REMOVED from the release path (2026-09-20, commit `7468365` on `mobile/native-home`).** Budgts ships with no app tour for now; a replacement will be built separately. This document is kept as **history and input for that replacement**, not as a description of the app. The pre-removal code is on the local archive branches `archive/native-home-with-claude-tour` and `archive/claude-tour-redesign`. Originally: implemented (commit `7ae1764`, never pushed) — it superseded
 the card-wizard `/tour` described in `2026-09-15-first-run-tour-design.md` and the
 static page in `2026-09-15-how-budgts-works-guide-design.md`. `/onboarding` is
 unchanged (it still uses `TourWizard`/`TourCard`).

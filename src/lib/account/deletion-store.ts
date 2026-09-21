@@ -47,6 +47,24 @@ const PLAID_TABLES: ReadonlyArray<readonly [string, string]> = [
 ];
 const MUST_BE_EMPTY = [...OWNED_DELETE_ORDER, ...PLAID_TABLES];
 
+/**
+ * Owned tables that come from a LATER migration than the deletion release (0022: the V1 subscription entitlement).
+ * A database that has not received that migration simply has no such table, which must never break a deletion —
+ * exactly like the ledger check below. Where present they are deleted explicitly (Path B keeps the auth.users row, so
+ * no CASCADE removes them) and verified empty. The financial ledger and `billing_events` are deliberately NOT here:
+ * they are retained history.
+ */
+const OPTIONAL_OWNED: ReadonlyArray<readonly [table: string, column: string]> = [["entitlements", "user_id"]];
+
+async function presentOptionalOwned(exec: Exec): Promise<Array<readonly [string, string]>> {
+  const present: Array<readonly [string, string]> = [];
+  for (const entry of OPTIONAL_OWNED) {
+    const [row] = await exec.execute(sql`select to_regclass(${"public." + entry[0]}) is not null as present`);
+    if ((row as { present: boolean }).present) present.push(entry);
+  }
+  return present;
+}
+
 export interface DeletionStore {
   /** True if the user has any row in a monetization-ledger table that EXISTS. Absent tables count as "no history". */
   hasMonetizationHistory(userId: string): Promise<boolean>;
@@ -101,7 +119,7 @@ export async function retryOnDeadlock<T>(
 
 /** How many owned rows exist, in ONE round trip (one statement, so also one consistent snapshot). */
 async function countOwned(exec: Exec, userId: string): Promise<number> {
-  const parts = MUST_BE_EMPTY.map(
+  const parts = [...MUST_BE_EMPTY, ...(await presentOptionalOwned(exec))].map(
     ([table, column]) =>
       sql`(select count(*) from ${sql.identifier("public")}.${sql.identifier(table)} where ${sql.identifier(column)} = ${userId})`,
   );
@@ -175,6 +193,13 @@ export function createDeletionStore(
             }
 
             const deleted: Record<string, number> = {};
+            // Owned tables from later migrations (present only where that migration has been applied).
+            for (const [table, column] of await presentOptionalOwned(tx)) {
+              const result = await tx.execute(
+                sql`delete from ${sql.identifier("public")}.${sql.identifier(table)} where ${sql.identifier(column)} = ${userId}`,
+              );
+              deleted[table] = (result as unknown as { count: number }).count;
+            }
             for (const [table, column] of OWNED_DELETE_ORDER) {
               const result = await tx.execute(
                 sql`delete from ${sql.identifier("public")}.${sql.identifier(table)} where ${sql.identifier(column)} = ${userId}`,

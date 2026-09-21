@@ -7,11 +7,18 @@ import { NextResponse } from "next/server";
 import { loadPlaidConfig } from "@/lib/plaid/config";
 import { plaidClient } from "@/lib/plaid/client";
 import { getSessionUser } from "@/lib/supabase/server";
+import { isAccountDeleting } from "@/lib/account/deletion-store";
 import { accessTokenForUserItem } from "@/server/plaid/service";
 
 export async function POST(request: Request) {
   const user = await getSessionUser();
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
+  // A deleting account must not start a new bank connection: it would be a live Item at Plaid that the
+  // deletion (which already removed the user's Items) never sees.
+  if (await isAccountDeleting(user.id)) {
+    return NextResponse.json({ error: "account_deletion_in_progress" }, { status: 409 });
+  }
 
   let body: { itemId?: string } = {};
   try {

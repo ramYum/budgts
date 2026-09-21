@@ -1,0 +1,13 @@
+-- Hand-authored. Companion to 0019 (the account-deletion write guard).
+--
+-- 0019 made every user-originated INSERT/UPDATE/DELETE fail once a deletion row exists. That is right for creating
+-- and changing data, but a locked user must still be able to DELETE a bank connection: account deletion removes the
+-- user's Plaid Items at Plaid first, and if Plaid cannot remove one (an invalid or revoked token) the user's own
+-- "disconnect this bank, then retry" is the only way out. With DELETE on plaid_items blocked, that user would be
+-- stranded. Deleting a connection row cannot create user-owned data, so exempting it leaves the guard's purpose
+-- (no new data after deletion starts) intact. INSERT and UPDATE on plaid_items stay blocked.
+--
+-- Rollback (manual, reversible):
+--   CREATE POLICY "deletion guard delete" ON "plaid_items" AS RESTRICTIVE FOR DELETE TO authenticated
+--     USING ((SELECT public.account_accepts_writes()));
+DROP POLICY "deletion guard delete" ON "plaid_items";

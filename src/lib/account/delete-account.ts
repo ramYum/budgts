@@ -6,45 +6,59 @@
  *
  * Design authority: docs/specs/2026-09-19-account-deletion-design.md. Two
  * paths, branching on whether the user has any monetization-ledger history
- * (redemptions/subscriptions/payments/revenue_allocations), because migration
- * 0017's `ON DELETE RESTRICT` from those tables to `auth.users` makes a hard
- * delete impossible for such a user — see that design doc §2/§7 for the full
- * FK analysis. Never touches migration 0017's schema or its immutable rows.
+ * (redemptions/subscriptions/payments/revenue_allocations): the ledger's
+ * `ON DELETE RESTRICT` to `auth.users` makes a hard delete impossible for such
+ * a user. The check itself is in SQL and treats a ledger table that does not
+ * exist yet (production before the ledger migration) as "no history" — see
+ * `deletion-store.ts`. This file never touches the ledger tables or their rows.
+ *
+ * THE LOCK. `markDeleting` writes a row in `account_deletions` that makes every
+ * user-originated INSERT/UPDATE/DELETE fail through RESTRICTIVE RLS policies
+ * (migration 0019; deleting a bank connection stays allowed, migration 0020),
+ * whatever the user's JWT says. Revoking sessions is not enough: an access
+ * token stays valid until `exp`, and on Path B the auth.users row is kept, so
+ * no FK would refuse a stale token's write. Reads keep working, sign-in keeps
+ * working, and the refresh sessions are deliberately NOT revoked when the lock
+ * is taken — the user must still be able to call this endpoint again if an
+ * attempt fails. They are revoked at completion (Path A: the user is gone;
+ * Path B: the soft delete). The lock is taken AFTER the first Plaid removal
+ * pass: a bank Plaid cannot remove must leave the account fully usable so the
+ * user can disconnect it themselves and retry. A failure after the lock leaves
+ * a read-only account that a retry finishes; `DeleteAccountResult.locked`
+ * tells the caller so.
  *
  * Path A (no monetization history): hard-delete `auth.users` — every
  * `ON DELETE CASCADE` table (profiles, accounts, categories, transactions,
  * budgets, savings_goals, savings_contributions, plaid_items, plaid_accounts,
- * plaid_merchant_rules, recurring_series) is removed by Postgres in the same
- * operation. Nothing else to do.
+ * plaid_merchant_rules, recurring_series, account_deletions) is removed by
+ * Postgres in the same operation.
  *
  * Path B (has monetization history): `auth.users` cannot be deleted, so it is
- * de-identified in place instead (Supabase's `deleteUser(id, true)` "soft
- * delete" — verified empirically against this project's own staging database
- * before this was written: it scrubs email/phone/metadata/identity data,
- * revokes every active session immediately, and leaves the row's `id`
- * resolvable, which is exactly what the RESTRICT-protected tables need).
- * `updateUserById(id, { ban_duration: ... })` is added on top as defense in
- * depth against any future sign-in path this audit didn't independently
- * verify (Google OAuth specifically — see the design doc's Open Engineering
- * Decisions). The CASCADE tables are then deleted explicitly, since nothing
- * cascades from an `auth.users` row that was never actually removed.
+ * de-identified in place (Supabase's `deleteUser(id, true)` "soft delete" —
+ * verified empirically against this project's own staging database: it scrubs
+ * email/phone/metadata/identity data, revokes every active session, and leaves
+ * the row's `id` resolvable, which is exactly what the RESTRICT-protected
+ * tables need) and permanently banned (defense in depth against any sign-in
+ * path not independently verified). The user's owned data is removed FIRST, in
+ * ONE database transaction (`store.deleteOwnedData`): all of it or none, in a
+ * fixed order, verified empty before it commits, retried only when Postgres
+ * picked it as a deadlock victim. "Success" is only reported after a final
+ * sweep confirms no owned row survives.
  *
- * Server-only (see `import "server-only"` below) — imported directly by
- * tests/integration/account-deletion.test.ts, which is why
- * vitest.integration.config.mts aliases `server-only` to its own `empty.js`
- * rather than this file (or `src/lib/plaid/client.ts`, imported transitively
- * via `disconnectPlaidItem`) going without the guard.
+ * Server-only (see `import "server-only"` below). Imported directly by
+ * tests/integration/account-deletion*.test.ts, which is why
+ * vitest.integration.config.mts aliases `server-only` to its own `empty.js`.
  *
  * Ordering: (1) every READ-ONLY prerequisite — the Auth lookup, the
  * monetization-history check, the Plaid item list — runs before anything is
- * destroyed, so a failed prerequisite can never follow a destructive step.
- * (2) Plaid removal is STRICT: a local Plaid row (the only copy of the encrypted
- * access token) is deleted only after Plaid confirmed removal or answered
- * "already removed"; any other Plaid failure stops here with that row intact,
- * so a retry can still finish the job and no live bank connection is ever
- * orphaned. (3) The auth-layer call (hard delete, or soft-delete+ban) is
- * deliberately LAST. A failure anywhere earlier leaves the account still
- * signed-in and usable, and a retry simply continues where it left off.
+ * changed, so a failed prerequisite can never follow a destructive step.
+ * (2) Plaid removal is STRICT: a local Plaid row (the only copy of the
+ * encrypted access token) is deleted only after Plaid confirmed removal or
+ * answered "already removed"; any other Plaid failure stops here with that row
+ * intact and the account fully usable, so a retry can still finish the job and
+ * no live bank connection is ever orphaned. (3) The lock, then a second Plaid
+ * pass for anything connected in the window. (4) The data/auth-layer steps. A
+ * failure anywhere after (3) leaves the account read-only and retryable.
  *
  * Only the genuine "this user does not exist" answer from Auth is idempotent
  * success. A transient, rate-limit, credential or unrecognised Auth failure is a
@@ -54,6 +68,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { disconnectPlaidItem } from "@/server/plaid/disconnect";
+import { createDeletionStore, pgErrorCode, type DeletionStore } from "./deletion-store";
 
 // Matches the Supabase SDK's own documented example for a functionally
 // permanent ban (`GoTrueAdminApi.updateUserById` doc comment, verified
@@ -63,55 +78,10 @@ const PERMANENT_BAN_DURATION = "876000h";
 export type DeleteAccountResult =
   | { ok: true; alreadyDeleted: true; path: "already-deleted" }
   | { ok: true; alreadyDeleted: false; path: "hard-delete" | "anonymize" }
-  | { ok: false; error: string };
+  /** `locked`: the account is now read-only (the lock was taken) and a retry will finish the deletion. */
+  | { ok: false; error: string; locked: boolean };
 
-/**
- * True if this user has any row in a migration-0017 monetization table.
- * Determines which of the two deletion paths applies — see module doc.
- */
-export async function hasMonetizationHistory(
-  admin: SupabaseClient,
-  userId: string,
-): Promise<boolean> {
-  const checks = await Promise.all([
-    admin.from("redemptions").select("id", { head: true, count: "exact" }).eq("user_id", userId),
-    admin.from("subscriptions").select("id", { head: true, count: "exact" }).eq("user_id", userId),
-    admin.from("payments").select("id", { head: true, count: "exact" }).eq("user_id", userId),
-    admin
-      .from("revenue_allocations")
-      .select("id", { head: true, count: "exact" })
-      .eq("user_id", userId),
-  ]);
-  for (const { error, count } of checks) {
-    if (error) throw new Error(`monetization-history check failed: ${error.message}`);
-    if ((count ?? 0) > 0) return true;
-  }
-  return false;
-}
-
-/** CASCADE-from-auth.users tables not already handled by Plaid disconnect
- * (plaid_items/plaid_accounts), in an order that respects the one internal
- * RESTRICT among them: transactions.account_id -> accounts.id. Everything
- * else here is CASCADE or SET NULL internally, so order is otherwise free. */
-async function deleteCascadeOwnedData(admin: SupabaseClient, userId: string): Promise<void> {
-  const steps: Array<[table: string, column: string]> = [
-    ["transactions", "user_id"],
-    ["recurring_series", "user_id"],
-    ["savings_contributions", "user_id"],
-    ["savings_goals", "user_id"],
-    ["budgets", "user_id"],
-    ["plaid_merchant_rules", "user_id"],
-    ["categories", "user_id"],
-    ["accounts", "user_id"],
-    ["profiles", "id"],
-  ];
-  for (const [table, column] of steps) {
-    const { error } = await admin.from(table).delete().eq(column, userId);
-    if (error) throw new Error(`deleting ${table} failed: ${error.message}`);
-  }
-}
-
-/** The Plaid Item ids this user has. A read-only prerequisite: it runs before anything is destroyed. */
+/** The Plaid Item ids this user has. A read-only prerequisite: it runs before anything is changed. */
 async function listPlaidItemIds(admin: SupabaseClient, userId: string): Promise<string[]> {
   const { data: items, error } = await admin
     .from("plaid_items")
@@ -181,62 +151,121 @@ async function hardDeleteAuthUser(admin: SupabaseClient, userId: string) {
 }
 
 /**
+ * Path B's tail, after the owned data is gone and the auth user is de-identified: make sure the permanent ban
+ * landed, prove no owned row survives (deleting again if a server-side writer added one), and record completion.
+ * Idempotent, and also the resume point when an earlier attempt stopped between these steps.
+ * Returns an error message, or null when everything is verified.
+ */
+async function finishAnonymization(
+  admin: SupabaseClient,
+  store: DeletionStore,
+  userId: string,
+  { banNeeded }: { banNeeded: boolean },
+): Promise<string | null> {
+  if (banNeeded) {
+    const { error } = await admin.auth.admin.updateUserById(userId, { ban_duration: PERMANENT_BAN_DURATION });
+    if (error) return `post-deletion ban failed: ${error.message}`;
+  }
+  let left = await store.countOwnedRows(userId);
+  if (left > 0) {
+    // Something server-side (a sync, a scan) wrote for this user after the transaction. Sweep it, once.
+    await store.deleteOwnedData(userId);
+    left = await store.countOwnedRows(userId);
+  }
+  if (left > 0) return `${left} owned rows remain after deletion`;
+  try {
+    await store.markDeleted(userId);
+  } catch (e) {
+    // Cosmetic: the lock row already blocks writes as 'deleting'. Never fail a completed deletion over it.
+    console.warn("[account] could not record completion of deletion:", e instanceof Error ? e.name : "non-error value");
+  }
+  return null;
+}
+
+/**
  * Deletes (or, if monetization history exists, de-identifies) the given
  * user's account. `userId` must come from a verified session — this function
  * trusts its caller completely and performs no authentication of its own.
- * Idempotent: calling it again after a completed deletion is a safe no-op.
+ * Idempotent: calling it again after a completed deletion is a safe no-op, and
+ * calling it again after a failure resumes where that attempt stopped.
  */
 export async function deleteAccount(
   admin: SupabaseClient,
   userId: string,
+  store?: DeletionStore,
 ): Promise<DeleteAccountResult> {
+  let locked = false;
+  const fail = (error: string): DeleteAccountResult => ({ ok: false, error, locked });
   try {
+    const db = store ?? createDeletionStore();
     const { data: existing, error: getErr } = await admin.auth.admin.getUserById(userId);
     if (getErr) {
       // No such auth user — never existed, or Path A already completed: idempotent success.
       if (isAuthUserNotFound(getErr)) return { ok: true, alreadyDeleted: true, path: "already-deleted" };
       // Anything else (5xx, network, rate limit, bad key, unrecognised) means we do NOT know.
       // Never report it as success. Name/status only: the message is not needed and not logged.
-      return { ok: false, error: `auth lookup failed (${getErr.name ?? "error"}, status ${getErr.status ?? "none"})` };
+      return fail(`auth lookup failed (${getErr.name ?? "error"}, status ${getErr.status ?? "none"})`);
     }
-    if (!existing?.user) return { ok: false, error: "auth lookup returned neither an error nor a user" };
+    if (!existing?.user) return fail("auth lookup returned neither an error nor a user");
     if (existing.user.deleted_at) {
-      // Path B already completed for this user.
+      // Path B's auth step already ran. Resume its tail rather than assuming it finished: an earlier attempt
+      // may have stopped before the ban, or before the sweep proved nothing owned is left.
+      locked = true;
+      const problem = await finishAnonymization(admin, db, userId, { banNeeded: !existing.user.banned_until });
+      if (problem) return fail(problem);
       return { ok: true, alreadyDeleted: true, path: "already-deleted" };
     }
 
-    // Every read-only prerequisite first: a failure here must find nothing destroyed yet.
-    const hasHistory = await hasMonetizationHistory(admin, userId);
+    // Every read-only prerequisite first: a failure here must find nothing changed yet.
+    const hasHistory = await db.hasMonetizationHistory(userId);
     const plaidItemIds = await listPlaidItemIds(admin, userId);
 
+    // Plaid removal comes BEFORE the lock. A bank Plaid cannot remove must leave the account fully usable, so the
+    // user can disconnect it themselves and retry — locking first would strand them behind their own lock.
     await removePlaidItems(admin, userId, plaidItemIds);
 
+    // From here the account is read-only for the user's own (possibly stale) tokens...
+    await db.markDeleting(userId);
+    locked = true;
+
+    // ...and any bank connected in the window before the lock took effect is a live Item the first pass never saw.
+    // (Once locked, the link-token/exchange routes refuse and the guard blocks the insert, so nothing new can appear.)
+    const lateItemIds = await listPlaidItemIds(admin, userId);
+    if (lateItemIds.length > 0) await removePlaidItems(admin, userId, lateItemIds);
+
     if (!hasHistory) {
-      // Path A: nothing else to delete explicitly — hard-deleting auth.users
-      // cascades every remaining CASCADE table in one Postgres operation.
+      // Path A: hard-deleting auth.users cascades every remaining table (and the lock row) in one operation.
       const { error, attempts } = await hardDeleteAuthUser(admin, userId);
       if (error) {
         // After a retry, "no such user" means an earlier attempt committed although its answer never
         // reached us: the account IS deleted, which is exactly what was asked for.
         if (attempts > 1 && isAuthUserNotFound(error)) return { ok: true, alreadyDeleted: false, path: "hard-delete" };
-        return { ok: false, error: `hard delete failed: ${error.message}` };
+        return fail(`hard delete failed: ${error.message}`);
       }
       return { ok: true, alreadyDeleted: false, path: "hard-delete" };
     }
 
-    // Path B: delete everything reachable, then de-identify what must stay.
-    await deleteCascadeOwnedData(admin, userId);
+    // Path B: all owned data in one transaction, then de-identify what must stay.
+    await db.deleteOwnedData(userId);
 
     const { error: softErr } = await admin.auth.admin.deleteUser(userId, true);
-    if (softErr) return { ok: false, error: `soft delete failed: ${softErr.message}` };
+    if (softErr) return fail(`soft delete failed: ${softErr.message}`);
 
-    const { error: banErr } = await admin.auth.admin.updateUserById(userId, {
-      ban_duration: PERMANENT_BAN_DURATION,
-    });
-    if (banErr) return { ok: false, error: `post-deletion ban failed: ${banErr.message}` };
-
+    const problem = await finishAnonymization(admin, db, userId, { banNeeded: true });
+    if (problem) return fail(problem);
     return { ok: true, alreadyDeleted: false, path: "anonymize" };
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "account deletion failed" };
+    return fail(describeError(e));
   }
+}
+
+/**
+ * What goes in a failure result (and from there into the server log). A database error is reported by its
+ * SQLSTATE only: drizzle's own wrapper embeds the SQL text AND its parameters — the user id — in its message.
+ */
+function describeError(e: unknown): string {
+  const code = pgErrorCode(e);
+  if (code) return `database error (${code})`;
+  const message = e instanceof Error ? e.message : "account deletion failed";
+  return /^failed query/i.test(message) ? "database error" : message;
 }

@@ -446,6 +446,26 @@ export const plaidWebhookEvents = pgTable("plaid_webhook_events", {
   error: text("error"),
 });
 
+// Account-deletion lock (design: docs/specs/2026-09-19-account-deletion-design.md, "write guard"). A row here
+// means the user's account is being — or has been — deleted, and every user-originated INSERT/UPDATE/DELETE is
+// refused by a RESTRICTIVE RLS policy (migration 0019), whatever the user's JWT says. It has to be database
+// state, not token state: a signed-out user's access token stays valid until it expires, and for a
+// de-identified (Path B) account the auth.users row is kept, so no foreign key would refuse the write either.
+//   'deleting' — started; the account is read-only. Not terminal: the deletion API is retryable.
+//   'deleted'  — finished (Path B only; on Path A the row is cascaded away with the auth user).
+// Server-only: deny-all RLS for every client role; written by the deletion code through a trusted connection.
+export const accountDeletions = pgTable(
+  "account_deletions",
+  {
+    // equals auth.users.id (FK, ON DELETE CASCADE, added in the migration)
+    userId: uuid("user_id").primaryKey(),
+    state: text("state").notNull().default("deleting"),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [check("account_deletions_state_valid", sql`${t.state} in ('deleting','deleted')`)],
+);
+
 // Per-merchant category memory. On a user correction, (user_id, merchant_entity_id)
 // → category_id; the categorizer consults this before the static PFC map.
 export const plaidMerchantRules = pgTable(

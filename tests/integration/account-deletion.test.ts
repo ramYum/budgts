@@ -6,7 +6,8 @@
  * verified empirically before this was written).
  */
 import { afterEach, describe, expect, it } from "vitest";
-import { deleteAccount, hasMonetizationHistory } from "@/lib/account/delete-account";
+import { deleteAccount } from "@/lib/account/delete-account";
+import { createDeletionStore } from "@/lib/account/deletion-store";
 import { adminSupabase } from "@/lib/supabase/admin";
 import { disconnectPlaidItem } from "@/server/plaid/disconnect";
 import { encryptToken } from "@/lib/plaid/crypto";
@@ -53,11 +54,13 @@ async function seedPlaidItem(userId: string): Promise<string> {
   return itemId;
 }
 
-describe("hasMonetizationHistory", () => {
+describe("hasMonetizationHistory (the store's SQL check)", () => {
+  const store = createDeletionStore();
+
   it("is false for a plain user", async () => {
     const userId = await createRealUser();
     cleanupIds.push(userId);
-    expect(await hasMonetizationHistory(admin, userId)).toBe(false);
+    expect(await store.hasMonetizationHistory(userId)).toBe(false);
   });
 
   it("is true once a subscriptions row exists", async () => {
@@ -66,7 +69,23 @@ describe("hasMonetizationHistory", () => {
     await pg`
       insert into public.subscriptions (user_id, platform, platform_subscription_id, plan, status)
       values (${userId}, 'apple', ${"itest-sub-" + crypto.randomUUID()}, 'monthly', 'trialing')`;
-    expect(await hasMonetizationHistory(admin, userId)).toBe(true);
+    expect(await store.hasMonetizationHistory(userId)).toBe(true);
+  });
+
+  // Production has no ledger tables until the monetization migration is applied there. The check must give an
+  // explicit, correct answer for that state — "no history can exist" — rather than depend on how a client
+  // library happens to treat a missing table. Simulated here with a table name that genuinely does not exist.
+  it("treats a ledger table that does not exist as 'no history', while still checking the tables that do", async () => {
+    const userId = await createRealUser();
+    cleanupIds.push(userId);
+    const missingFirst = createDeletionStore({ ledgerTables: ["itest_no_such_ledger_table", "subscriptions"] });
+    expect(await missingFirst.hasMonetizationHistory(userId)).toBe(false);
+
+    await pg`
+      insert into public.subscriptions (user_id, platform, platform_subscription_id, plan, status)
+      values (${userId}, 'google', ${"itest-sub-" + crypto.randomUUID()}, 'annual', 'active')`;
+    expect(await missingFirst.hasMonetizationHistory(userId)).toBe(true); // the absent table did not hide the real one
+    expect(await createDeletionStore({ ledgerTables: ["itest_no_such_ledger_table"] }).hasMonetizationHistory(userId)).toBe(false);
   });
 });
 

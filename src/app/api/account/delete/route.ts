@@ -60,6 +60,19 @@ export async function POST(request: Request) {
     const result = await deleteAccount(admin, user.id);
     if (!result.ok) {
       console.error("[account] deletion failed", result.error);
+      // Once deletion has started the account is read-only. Say so, and say that trying again finishes it:
+      // the user must never be left guessing why nothing they do is saving, or how to get out of it.
+      if (result.locked) {
+        return NextResponse.json(
+          {
+            error: "account_deletion_incomplete",
+            retryable: true,
+            message:
+              "We couldn't finish deleting your account. It is now read-only until the deletion completes — please try again.",
+          },
+          { status: 500 },
+        );
+      }
       return genericFailure();
     }
 

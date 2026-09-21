@@ -767,3 +767,55 @@ Reviewed against `docs/specs/2026-09-17-mobile-app-launch-design.md` and
 - V2/V2+ — untouched, not referenced.
 - Migration `0017` — not modified; every finding in §7 explicitly works
   within its existing constraints.
+
+---
+
+## Addendum (2026-09-21) — deletion hardening: what measurement changed
+
+**Migration numbering.** Everywhere above, "migration `0017`" means the monetization-**ledger** migration
+(`0017_superb_iron_monger`, still uncommitted WIP, hand-applied to staging only). On the release-candidate branch
+the numbers `0017`–`0019` belong to the deletion-hardening migrations below. The ledger migration must be
+**renumbered and re-stamped** (a journal `when` later than `0019`'s, or drizzle's timestamp-only skip logic will
+never apply it anywhere that already ran `0019`) when it is integrated.
+
+| Migration | What | Why |
+| --- | --- | --- |
+| `0017_deletion_fk_indexes` | partial indexes on `transactions.transfer_pair_id`, `duplicate_of_id`, `recurring_stream_id`, `plaid_account_id` | Postgres does not index FK columns; deleting a parent row runs a lookup on every FK pointing at it. Measured: a 25,000-transaction user spent ~50 s in **each** of the two self-referencing triggers (the DELETE itself: ~50 ms). PostgREST cancelled it at 8 s (57014); GoTrue's hard delete (Path A) returned 504 after ~36 s with nothing committed. |
+| `0018_transactions_account_fk_index` | index on `transactions.account_id` | the RESTRICT lookup on account delete cannot use the existing partial (fingerprint) index; 25–100 ms/account warm, 1.6–10 s cold at 250k rows |
+| `0019_account_deletion_write_guard` | `account_deletions` table, `account_accepts_writes()`, RESTRICTIVE policies on the 11 user-owned tables | see below |
+
+Not indexed, on evidence: `plaid_accounts.account_id`, `recurring_series.account_id`, `budgets.category_id`,
+`plaid_merchant_rules.category_id` (1–17 ms at 250k rows, small tables). Revisit `transactions` once it holds
+several million rows. Known residual: `DELETE FROM plaid_items` nulls `transactions.plaid_account_id` on every row
+of that account (~100 µs/row, 2.6 s at 25k rows — inherent update work, not a missing index).
+
+**The deletion lock (the stale-JWT write window).** Revoking sessions does not stop an access token already
+issued (valid until `exp`), and on Path B the `auth.users` row is kept, so no FK refuses its writes. Measured:
+a token issued *before* a completed Path B deletion still inserted a row (`201 Created`). The lock is database
+state: a row in `account_deletions` makes every user-originated INSERT/UPDATE/DELETE fail through RESTRICTIVE
+policies (`account_accepts_writes()`, `SECURITY DEFINER`, empty `search_path`, EXECUTE only for `authenticated`).
+Reads and sign-in still work. Refresh sessions are **not** revoked when the lock is taken — the user must be able
+to call the endpoint again — only at completion (Path A: the user is gone; Path B: the soft delete + permanent
+ban). `account_deletions.state`: `deleting` (read-only, retryable) → `deleted` (Path B, recorded after a final
+sweep verifies nothing owned survives). Path A cascades the row away with the auth user.
+
+*When the lock is taken.* After the first Plaid removal pass succeeds, not before. A Plaid failure (an Item Plaid
+cannot remove) therefore leaves the account **fully usable**, as it always did, and the user's own escape hatch —
+disconnecting the bank themselves, then retrying — still works. Once locked, Plaid Items are listed again and any
+that appeared in the window are removed too. `DELETE` on `plaid_items` is the one write the guard does **not**
+block (migration `0020`): removing a bank connection cannot create data, and a locked user must never be unable to
+disconnect a bank Plaid cannot remove. `/api/plaid/link-token` and `/api/plaid/exchange` refuse for a deleting
+account (409 `account_deletion_in_progress`); if the lock lands between the token exchange and the insert (42501),
+the just-created Item is removed at Plaid so no live connection is orphaned.
+
+**Path B is one transaction.** `store.deleteOwnedData` (`src/lib/account/deletion-store.ts`) deletes every owned
+row in a fixed order over the server's direct connection (no 8 s PostgREST limit, real SQLSTATEs, no privileged
+SQL function for a client to call), verifies zero rows remain *inside* the transaction, and rolls back completely
+otherwise. Retried only for 40P01 (measured), bounded, backoff; `57014`, `55P03`, `23503` and everything else
+surface as a failure. `deleteAccount` finishes with ban → sweep → `markDeleted`, and a retry on an account that is
+already de-identified resumes that tail instead of assuming it completed.
+
+**The ledger check no longer depends on a client-library quirk.** `hasMonetizationHistory` is SQL guarded by
+`to_regclass`: a ledger table that does not exist yet (production before the ledger migration) means "no history",
+any other failure fails closed. This is what makes it safe to release the deletion code before the ledger
+migration is applied.

@@ -4,9 +4,12 @@ Use when staging must be rebuilt from an empty database (drifted ledger, or a ne
 monetization migrations `0021`/`0022`). The whole point is **build the new project, prove it, and only then delete the
 old one** — never the reverse. Production (`wsmhstqpvbbcqpqhiqyp`) is never touched by any step here.
 
-> Status at the time of writing: **step 1 is blocked.** The Management API token in `.env.staging` is project-scoped
-> (it can see only the current staging project) and `POST /v1/projects` returns `403`. It is an access limit, not a
-> paid-plan wall. The new project must be created by the owner in the Supabase dashboard (or a broader token supplied).
+> Status 2026-09-21: replacement `Budgets-Staging-3` (ref `uvowywszaiojboaxdmoz`, org Budgts Validation, ca-central-1)
+> was created by the owner, migrated from empty (0000→0022, ledger 23/23), wired into the `budgts-staging` Vercel project,
+> and passed the integration suite, the deployed billing/deletion end-to-end check and Playwright. **Still open:** Auth
+> settings (Site URL, redirect allow-list, Google) — the Management API token cannot reach the new project (403), so the
+> owner sets them in the dashboard; then magic link + Google are verified, and only then is the old project deleted.
+> The `POST /v1/projects` 403 that blocked creation is an access limit of the project-scoped token, not a paid-plan wall.
 
 ## 0. Safety rules (every step)
 
@@ -65,6 +68,17 @@ trial-reminder sweep. Run it through the SQL editor only because it schedules `p
 | Playwright | `npm run test:e2e` pointed at staging |
 
 Do not proceed until everything is green. Any red item: fix forward and re-run; the old project stays untouched.
+
+## Lessons from the first replacement
+
+- The pooler region is not shown by the API for a project the token cannot reach; probe `aws-0-<region>.pooler.supabase.com`
+  with the project user (`postgres.<ref>`). Free projects' direct host is IPv6-only, so Vercel needs the pooler URL.
+- Vercel: `NEXT_PUBLIC_*` values are inlined at build time, so re-pointing them needs a redeploy. Update only the
+  **Production** target of `budgts-staging` (its Preview values belong to the retired project and are stale).
+- Tests must not assume a cascade/lock order or that this machine's clock is at least the database's: both differ per
+  database (`docs` of the two Path A/B deadlock tests and `dbNow()` in `tests/integration/_db.ts`).
+- The production DB adapter is drizzle's postgres-js client, whose date serializers are pass-throughs: `fromPostgres`
+  converts Dates at the port. Only a run over that real connection shows this; embedded Postgres hides it.
 
 ## 5. Delete the old project (owner-confirmed, last)
 

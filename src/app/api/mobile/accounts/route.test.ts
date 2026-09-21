@@ -36,6 +36,8 @@ describe("GET /api/mobile/accounts", () => {
     expect(await res.json()).toEqual({
       version: 1,
       accounts: [{ id: "a1", name: "Wallet", type: "cash", source: "manual", archived: false, selectable: true }],
+      // The server's own list, so the app's type picker never offers a value the server would reject.
+      accountTypes: ["checking", "credit", "cash", "savings"],
     });
     expect(loadAccounts).toHaveBeenCalledWith(supabase, true);
   });

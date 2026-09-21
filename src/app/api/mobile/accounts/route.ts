@@ -8,9 +8,15 @@ import { createAccount } from "@/lib/accounts/commands";
 import { MOBILE_API_VERSION, loadAccounts } from "@/lib/mobile/reads";
 import { mobileCommandError, mobileError, mobileJson, mobileRoute } from "@/lib/mobile/route";
 import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
+import { ACCOUNT_TYPES } from "@/lib/validation/account";
 
 export const GET = mobileRoute(async ({ supabase }) => {
-  return mobileJson({ version: MOBILE_API_VERSION, accounts: await loadAccounts(supabase, plaidUiEnabled()) });
+  return mobileJson({
+    version: MOBILE_API_VERSION,
+    accounts: await loadAccounts(supabase, plaidUiEnabled()),
+    // Additive field (compatibility rule, spec §4A): the account types the server accepts, for the app's type picker.
+    accountTypes: [...ACCOUNT_TYPES],
+  });
 });
 
 export const POST = mobileRoute(async ({ user, supabase }, request) => {

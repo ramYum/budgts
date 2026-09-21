@@ -58,7 +58,14 @@ Verified by tests and, for the live paths, end to end against the staging projec
   environment, so a sandbox purchase cannot grant production access or write a production ledger row.
 - **Mobile auth.** `/api/mobile/*` and `/api/account/delete` accept a Supabase access token as a Bearer token, verified by
   Supabase (`getUser`), with cookies ignored on the Bearer path; a tampered token is a 401. The deep link is `budgts://auth/callback`,
-  which must be in the project's redirect allow-list.
+  which must be in the project's redirect allow-list. Sign in with Apple uses Supabase's native ID-token path (a hashed nonce to
+  Apple, the raw nonce to Supabase) and needs no deep link.
+- **The native data API is one Bearer boundary with RLS as defense in depth.** Every `/api/mobile/*` data route goes through the
+  same wrapper: a verified user, a Supabase client carrying the caller's own JWT, no-store responses, and a generic 503 that leaks
+  nothing. Writes call the shared domain commands, so validation and ledger rules are the same as the web's. The list cursor is
+  validated strictly before it reaches a PostgREST filter. Cross-user isolation (another user's transaction / account id looks
+  identical to a missing one, and their data never appears in a list) is verified live against staging by
+  `tests/e2e/mobile-data-api.spec.ts`.
 - **Account deletion is fail-closed and step-up protected.** Requires a recent real sign-in (403 `reauth_required` otherwise); the
   first step of a deletion locks the account read-only via a database-side write guard, so a late write cannot resurrect or orphan data;
   Auth errors are never treated as "already deleted"; Plaid Item removal is strict. No response reveals which server setting is missing.

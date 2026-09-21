@@ -5,17 +5,24 @@ Auth, the first real native Home, the store-billing (trial / purchase / restore)
 for billing. **No live store products or RevenueCat project exist**, so the purchase flow is unit-tested but has not run against a
 real store.
 
-Budgts is mobile-only, so this app is the product; the web UI stays live until it covers everything below and that is tested
-(`../docs/specs/2026-09-21-mobile-only-transition-design.md`). **Still required before launch, not built yet:** currency onboarding /
-Get Started, native Plaid Link and a connected-banks screen, transactions (incl. manual entry), budgets, accounts (and goals, owner
-call), and Settings (profile, subscription / paywall / Restore Purchases, privacy / terms / support links, delete account). Most need
-a Bearer-authenticated backend path first — the web mutations are cookie-only Server Actions.
+Budgts is mobile-only, so this app is the product; the web UI stays live until it covers the launch-required functionality and that is
+tested (`../docs/specs/2026-09-21-mobile-only-transition-design.md`, which has the full audit and status).
+
+**Built (typechecked and unit-tested; not yet run on a device):** the signed-in shell (profile gate, tabs), Get Started (currency),
+Settings (subscription status, restore, manage, legal links, delete account, sign-out), the paywall, and Sign in with Apple. The
+server side of transactions, accounts, categories and budgets is built and verified live on staging
+(`GET/POST … /api/mobile/{transactions,accounts,categories,budgets}`).
+
+**Still required before launch, not built yet:** screens for transactions (incl. manual entry), budgets and accounts; native Plaid
+Link and a connected-banks screen; the Get Started bank and trial steps; the Maestro suite; and device verification. (Goals, category
+management and in-app CSV export are post-launch.)
 
 ## Real-device testing (Expo Go)
 
-This app currently uses **no native module outside the Expo SDK's own**, so
-it runs directly in **Expo Go** — no EAS dev-client build, Xcode, or Android
-Studio needed to verify auth on a physical device.
+Sign-in (Magic Link, Google, Sign in with Apple), Home and the account screens run in **Expo Go** — no EAS dev-client build, Xcode or
+Android Studio needed to verify them on a physical device. Store billing (`react-native-purchases`) and, later, native Plaid are
+native modules outside the Expo SDK, so those need an **EAS development build**; until then the paywall reports that subscriptions
+are unavailable rather than faking anything.
 
 1. Copy `.env.example` to `.env.local` and fill in:
    - `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` —
@@ -49,25 +56,17 @@ completed successfully. Production has its own separate Google OAuth client
 and Supabase config to do later, per the same steps, when that milestone
 comes up.
 
-### If Apple Sign In is ever added later
+### Sign in with Apple — external setup (owner)
 
-Not implemented in this milestone (see "Apple Sign In" below for why).
-If a later decision reverses that, all of the following are prerequisite
-and external to this repo:
+Implemented in code (see "Sign in with Apple" at the end of this file). These steps are prerequisite and external to this repo:
 
-1. **Apple Developer Program enrollment** — per the mobile-launch spec §10,
-   not yet done at all.
-2. An Apple **Services ID** (App ID + "Sign in with Apple" capability
-   enabled), redirect URI `https://<project-ref>.supabase.co/auth/v1/callback`.
-3. A **Sign in with Apple key** (.p8), its Key ID, and the Apple Team ID —
-   entered into Supabase Dashboard → Authentication → Providers → Apple.
-4. The native app needs the `expo-apple-authentication` config plugin and
-   the "Sign in with Apple" capability added to its iOS bundle identifier —
-   requires the bundle identifier to exist in an Apple Developer account
-   first (step 1).
-5. `budgts://auth/callback` already being on Supabase's redirect allow-list
-   (same entry Google needs above) covers Apple too, since both complete
-   through the same deep link.
+1. **Apple Developer Program enrolment** — not yet done.
+2. The iOS bundle identifier (`com.budgts.app` is still provisional) registered in that account with the **Sign in with Apple**
+   capability.
+3. Supabase Dashboard → Authentication → Providers → Apple: enabled, with the app's bundle identifier in the authorized client ids
+   (the native ID-token flow). A Services ID and `.p8` key are only needed for a browser-based Apple flow, which Budgts does not use.
+4. `app.json` already carries `ios.usesAppleSignIn` and the `expo-apple-authentication` config plugin. The flow does not use
+   `budgts://auth/callback`.
 
 ## What's implemented vs. still open
 
@@ -77,7 +76,9 @@ and external to this repo:
 | Magic Link sign-in | Code-complete. **Device test 2026-09-19 found the email link opened the web app** — root cause fixed (see "Auth redirect URL contract"); needs re-test on the new build |
 | Google OAuth sign-in | Code-complete; provider config verified live, browser round-trip verified on **web**. Uses the same redirect URL as Magic Link, so the same fix applies; re-test on the new build |
 | Branded sign-in screen | Done — Poppins, cream/sun palette, real robin/sunburst art, "Use a different email" exit; tokens mirrored from web `globals.css` (`lib/theme.ts`, drift-tested) |
-| Sign in with Apple | **Not implemented** — see below |
+| Sign in with Apple | Code-complete and unit-tested (`lib/auth/apple-sign-in.ts`), iOS only. **Not run on a device**; needs Apple Developer enrolment and the Supabase Apple provider — see "Sign in with Apple" below |
+| Signed-in shell, Get Started, Settings, paywall, delete account | Code-complete, typechecked, pure logic unit-tested (`lib/profile`, `lib/account`, `lib/billing/describe.ts`). **Not run on a device** |
+| Data API (transactions, accounts, categories, budgets) | Server side built and verified live on staging; **no native screens yet** |
 | Secure session persistence | Done (`lib/supabase/large-secure-store.ts`) |
 | AppState-driven token refresh | Done (`lib/supabase/auto-refresh.ts`) |
 | Bearer-token API requests | Done and live-verified against real staging (`lib/auth/api.ts`, backend: `src/lib/auth/get-request-user.ts`) |
@@ -87,7 +88,7 @@ and external to this repo:
 | `budgts://` → iOS URL scheme | **Not verifiable from this machine** — `expo prebuild` does not generate an iOS project on Windows at all |
 | EAS build config | `eas.json` present (`development`, `preview`); linked to a real EAS project (`@budgts/budgts`, see "EAS readiness" below) and validated via `eas config` for both platforms |
 | Native Home | Done — `app/(app)` Home over `GET /api/mobile/home` (Bearer); currency formatting verified on a device under Hermes |
-| Store billing (trial / purchase / restore) | Code-complete and unit-tested (`lib/billing/*`, `react-native-purchases` behind a provider port; the server decides access). **Not exercised against a real store** — no RevenueCat project or Apple/Google products yet. The manage-subscription action exists in `use-monetization.ts`; there is no mobile Settings screen to host it yet |
+| Store billing (trial / purchase / restore) | Code-complete and unit-tested (`lib/billing/*`, `react-native-purchases` behind a provider port; the server decides access). **Not exercised against a real store** — no RevenueCat project or Apple/Google products yet. The paywall and Settings screens host it |
 | Physical-device/simulator run | **Not performed** — no device, no emulator, and (being Windows) no possibility of an iOS Simulator on this machine |
 
 ## Auth redirect URL contract (why Magic Link once opened the web app)
@@ -233,33 +234,20 @@ redirecting to sign-in. None of this required changing the auth
 architecture — it was already built to handle these cases; this pass
 confirmed that by reading it, not by assuming it.
 
-## Apple Sign In — evaluated, not implemented
+## Sign in with Apple (iOS)
 
-Re-evaluated 2026-09-18 during the mobile-auth milestone. The mobile-launch
-spec §4/§10/§17 **locks** mobile sign-in to Magic Link + Google OAuth and
-explicitly excludes Sign in with Apple from the initial launch scope — this
-is a product decision, not something this milestone can override by
-implementing it anyway. That lock is unchanged by this review.
+**In the iOS launch scope** (owner decision 2026-09-21, superseding the earlier exclusion — see
+`../docs/specs/2026-09-21-mobile-only-transition-design.md` §1). It also answers App Store guideline 4.8, which asks for an
+Apple-equivalent option when Google sign-in is offered.
 
-The spec separately flags a still-open compliance question: whether Apple
-App Review Guideline 4.8 requires an Apple-equivalent sign-in option
-*because* Google OAuth is offered. That question is **not resolved by this
-review** — it explicitly needs re-verification against the *final* mobile
-implementation at App Store submission time, and this repo has no Apple
-Developer Program enrollment yet to even test against. Implementing Apple
-Sign In speculatively now, without that account, without Supabase-side
-Apple provider config, and against a scope decision that hasn't changed,
-would be inventing product/compliance scope this repo doesn't own.
+**How it works** — `lib/auth/apple-sign-in.ts` (unit-tested) orchestrates it over injected dependencies; `lib/auth/apple-native.ts`
+wires `expo-apple-authentication` and `expo-crypto`; the sign-in screen shows Apple's own button only where the OS reports it can run.
+Apple's sheet returns an identity token, which `supabase.auth.signInWithIdToken({ provider: "apple" })` turns into a session. This is
+Supabase's native path: **no browser and no `budgts://auth/callback`**. The nonce binds the two — Apple gets the SHA-256 hash of a
+fresh random value, Supabase the raw value. Cancelling Apple's sheet is a quiet no-op, and error text from Apple or Supabase never
+reaches the screen.
 
-**If** the owner later decides Apple Sign In is needed (either to reverse
-the scope decision, or because 4.8 is determined to require it), the
-correct native mechanism is Expo's `expo-apple-authentication` (wraps
-`ASAuthorizationAppleIDProvider` — no custom OAuth flow), feeding its
-identity token into `supabase.auth.signInWithIdToken({ provider: "apple",
-token })`, which is Supabase's documented native (non-web-redirect) path
-for Apple and would **not** need `budgts://auth/callback` at all — a
-different completion shape from Magic Link/Google's deep-link path,
-because it doesn't go through a browser. That's a real architectural
-difference worth knowing about before starting: it would sit in
-`lib/auth/`, alongside the existing flows, but wouldn't reuse
-`complete-session-from-url.ts`.
+**Not yet run on a device** (this machine has no iOS). It needs the external setup above: Apple Developer enrolment, the bundle
+identifier registered with the Sign in with Apple capability, and Supabase's Apple provider enabled with the app's bundle identifier
+as an authorized client id (per Supabase's docs for native sign-in; confirm at setup). The Services ID and `.p8` key are only needed
+for a browser-based Apple flow, which Budgts does not use. `app.json` already has `ios.usesAppleSignIn` and the config plugin.

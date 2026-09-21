@@ -77,8 +77,8 @@ docs/          conventions.md (feature layer order + ingestion contract) · road
                workflow.md (how Claude and the owner work) · security.md · deploy.md · BRAND_GUIDELINES.md
                Thirdparties.md (every outside service) · operations/ (database-migrations, staging-replacement)
                specs/ (YYYY-MM-DD-<topic>-design.md) · superpowers/plans/ (historical, not living)
-src/app/       api/{account,billing,mobile,plaid,export}, auth/callback, plaid-oauth, manage-subscription (kept);
-               (app) (auth) web UI screens (being retired — no new features)
+src/app/       api/{account,billing,mobile,plaid,export}, auth/callback, plaid-oauth, manage-subscription, (legal) pages,
+               .well-known/*, app/plaid-oauth (kept); (app) (auth) web UI screens (being retired — no new features)
 src/lib/       db/ budget/ categories/ accounts/ validation/ (pure, tested) · ingestion/ plaid/
                account/ (deleteAccount) · billing/ (entitlement, RevenueCat adapter, ledger, reminders) · auth/ mobile/ supabase/
 src/server/    server actions
@@ -121,6 +121,8 @@ staging use **separate** secrets. Never commit secrets; keep `.env.local.example
 - **Billing:** `REVENUECAT_WEBHOOK_SIGNING_SECRET`, `REVENUECAT_WEBHOOK_AUTH`, `REVENUECAT_SECRET_API_KEY`,
   `BILLING_ENVIRONMENT` (`sandbox` on staging; events from the other environment are quarantined)
 - **Email:** `RESEND_API_KEY`, `EMAIL_FROM`, `REMINDER_EMAIL_ALLOWLIST` (non-empty on staging)
+- **Native links / support:** `APPLE_APP_ID` (`<TEAMID>.<bundle id>`), `ANDROID_PACKAGE_NAME`, `ANDROID_CERT_SHA256` (each unset =
+  its `/.well-known/*` route answers 404), `SUPPORT_EMAIL` (shown on `/support`)
 - **Mobile** (`mobile/.env` / EAS): `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY`, `EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY`
 - **V2:** `ANTHROPIC_API_KEY`
 
@@ -176,9 +178,12 @@ Direction and priority live in `docs/roadmap.md`; this is a snapshot.
 - **Live in production (`main`, https://budgts.com), served today by the web app being retired:** core budgeting, savings goals, UI redesign v2 and the robin /
   "Budgts" rebrand (`docs/BRAND_GUIDELINES.md`), Plaid ingestion with the V1.5 detectors (recurring, subscription, bill,
   paired transfer).
-- **On branch `mobile/native-home` (PR #1, draft) — not on `main`, nothing deployed:** native Home and mobile auth;
-  account deletion (migrations 0017–0020); V1 monetization — ledger (0021), `entitlements` + `billing_events` (0022),
-  RevenueCat adapter, trial / purchase / restore, trial-end reminder, Manage Subscription. Verified end to end on staging.
+- **On branch `mobile/native-home` (PR #1, draft) — not on `main`, nothing deployed:** native Home, mobile auth and Sign in
+  with Apple; the signed-in shell (Get Started, Settings, paywall, delete account); the native data API (transactions, accounts,
+  categories, budgets); account deletion (migrations 0017–0020); V1 monetization — ledger (0021), `entitlements` +
+  `billing_events` (0022), RevenueCat adapter, trial / purchase / restore, trial-end reminder, Manage Subscription; and the draft
+  privacy / terms / support / deletion pages. Server side verified on staging; native screens not yet run on a device. Native
+  screens for transactions, budgets and accounts, and native Plaid, are next.
 - **Removed from the release path:** the first-run tour and "How Budgts Works" guide (`7468365`); `/onboarding` is now
   only the currency form. The old versions live on local `archive/*` branches. **Approved direction:** a *Get Started*
   flow with an optional *Show me around* walkthrough — not started; it uses `useMonetization()` and needs no provider

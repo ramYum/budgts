@@ -46,23 +46,23 @@ obsolete, safe to retire (only after the §7 gate).
 | Feature | Web today | Native | Group | Notes |
 | --- | --- | --- | --- | --- |
 | Sign-in: Magic Link, Google | ✅ | ✅ code done (device re-test pending) | 1 | |
-| **Sign in with Apple (iOS)** | ❌ | ❌ | 1 | Approved. `expo-apple-authentication` → Supabase `signInWithIdToken` (no browser deep link). Needs Apple Developer enrolment + Supabase Apple provider (external) |
+| **Sign in with Apple (iOS)** | ❌ | ✅ code; needs Apple Developer + Supabase Apple provider | 1 | Approved. `expo-apple-authentication` → Supabase `signInWithIdToken` (no browser deep link). Needs Apple Developer enrolment + Supabase Apple provider (external) |
 | Sign-out | ✅ | ✅ | 1 | |
-| First-run currency choice / onboarding | ✅ enforced by layout redirect | ❌ | 1 | A native-only new user has no way to set a currency |
+| First-run currency choice / onboarding | ✅ enforced by layout redirect | ✅ code (Get Started); device test pending | 1 | A native-only new user has no way to set a currency |
 | Home (Money Left, Savings Rate, spending) | ✅ | ✅ read-only | 1 | Deeper drill-downs can follow |
 | Connect bank (Plaid Link, incl. OAuth banks) | ✅ `react-plaid-link` | ❌ | 1 | Needs `react-native-plaid-link-sdk` (dev / EAS build), Bearer link-token / exchange, HTTPS universal / app-link redirect |
 | Connected banks: status, reconnect, disconnect, "exclude from totals" | ✅ | ❌ | 1 | No silent failure states: held / stale / errored items must be visible and fixable |
-| Transactions: list, search, filter | ✅ | ❌ | 1 | |
-| Edit / categorize / transfer toggle; needs-category queue | ✅ | ❌ | 1 | |
-| Manual entry: add, edit, delete | ✅ | ❌ | 1 | "Manual entry remains a permanent fallback" |
-| Budgets: view vs actual, set, copy from last month | ✅ | ❌ | 1 | |
-| Accounts: list, add manual, archive, importing toggle | ✅ | ❌ | 1 | |
-| Trial / paywall, Restore Purchases | ❌ (no web billing) | hook only | 1 | Store requirement; needs UI |
-| Subscription status + Manage Subscription | ✅ page | hook only | 1 | |
-| Delete account (in-app) | ✅ page | ❌ | 1 | Apple requires in-app initiation; `/api/account/delete` is ready |
-| Profile (email) and Settings shell | ✅ | ❌ | 1 | The "required Settings / account-management surfaces" release-gate item |
-| Privacy / terms / support links in app | ❌ | ❌ | 1 | Needs hosted pages (§5) |
-| Get Started flow (currency → connect bank → trial) | ❌ (tour removed) | ❌ | 1 | Approved direction |
+| Transactions: list, search, filter | ✅ | API ✅ · screen ❌ | 1 | |
+| Edit / categorize / transfer toggle; needs-category queue | ✅ | API ✅ · screen ❌ | 1 | The list flags `uncategorized`; no dedicated queue screen yet |
+| Manual entry: add, edit, delete | ✅ | API ✅ (idempotent create) · screen ❌ | 1 | "Manual entry remains a permanent fallback" |
+| Budgets: view vs actual, set, copy from last month | ✅ | API ✅ · screen ❌ | 1 | |
+| Accounts: list, add manual, archive, importing toggle | ✅ | API ✅ (list, add, rename, archive) · importing toggle and screen ❌ | 1 | |
+| Trial / paywall, Restore Purchases | ❌ (no web billing) | ✅ screen (runs once store products exist) | 1 | Store requirement; needs UI |
+| Subscription status + Manage Subscription | ✅ page | ✅ Settings | 1 | |
+| Delete account (in-app) | ✅ page | ✅ screen | 1 | Apple requires in-app initiation; `/api/account/delete` is ready |
+| Profile (email) and Settings shell | ✅ | ✅ | 1 | The "required Settings / account-management surfaces" release-gate item |
+| Privacy / terms / support links in app | ❌ | ✅ links; hosted pages built as drafts | 1 | Legal wording awaits owner approval (§5) |
+| Get Started flow (currency → connect bank → trial) | ❌ (tour removed) | 🔄 currency step built; bank + trial steps pending | 1 | Approved direction |
 | **Savings goals** | ✅ | ❌ | **2** | **Deferred until after launch (owner, 2026-09-21)** |
 | Category management: create, rename, archive | ✅ | ❌ | 2 | Post-launch (owner). Seeded categories + a picker cover launch |
 | CSV export (in-app) | ✅ route | ❌ | 2 | Post-launch (owner). The route is kept |
@@ -118,6 +118,25 @@ Foundations first, so later features are thin. Each step ships with tests and ke
    `mobile/lib/api/`; per-resource contracts in `mobile/lib/<area>/contract.ts` with drift tests, the way Home's contract works. `mobile/`
    is its own package, so it cannot import `src/lib`; the wire contract is the shared surface.
 7. **Where direct device access to Supabase is allowed:** Auth only. Anything else needs a written reason here.
+
+## 4B. Implementation status (2026-09-21)
+
+**Built:** the shared Bearer route helper; profile + currency onboarding; a shared command layer for transactions, accounts and
+budgets (the web Server Actions are now thin adapters over it); the native data API v1 — `/api/mobile/{profile, onboarding,
+transactions, transactions/:id, accounts, accounts/:id, categories, budgets, budgets/copy}`; the privacy / terms / support /
+account-deletion pages (draft wording) and the association-file routes; Sign in with Apple; and the native shell — profile gate, Get
+Started (currency), Settings (subscription, restore, manage, legal links, delete account, sign-out) and the paywall.
+
+**Verified:** web unit suite (1210 tests), mobile suite (151), typecheck, lint and the CI-equivalent build; and a **live contract
+test on the deployed staging server** (`tests/e2e/mobile-data-api.spec.ts`) covering the currency-set-once rule, idempotent creates,
+keyset paging, filters, budgets and — the important one — that one user cannot see or change another's data. **Not verified:**
+anything on a device or emulator; the native screens are typechecked but have not been run.
+
+**Still to build (group 1):** native screens for transactions, accounts and budgets; native Plaid Link and the connected-banks
+screen (needs Bearer link-token / exchange / item routes with the native parameters, `react-native-plaid-link-sdk` and a dev build);
+the Get Started bank and trial steps; the Maestro suite; and real-device verification. **External:** Apple Developer enrolment and the
+Supabase Apple provider; RevenueCat and the store products; the association identifiers (`APPLE_APP_ID`, `ANDROID_PACKAGE_NAME`,
+`ANDROID_CERT_SHA256`); `SUPPORT_EMAIL`; and the owner's final legal wording.
 
 ## 5. Web/server surface that must remain, and compliance / link infrastructure
 

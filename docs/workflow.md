@@ -156,13 +156,16 @@ Do not turn routine implementation details into owner decisions.
 
 *Snapshot 2026-09-21; direction lives in `docs/roadmap.md`.*
 
-* **Active work:** Mobile Launch. The monetization + staging block is pushed on `mobile/native-home` (PR #1, draft). The native
-  app has sign-in and a read-only Home; the rest of the launch-required native surface is not built. Audit and proposed scope:
-  `docs/specs/2026-09-21-mobile-only-transition-design.md`.
-* **Blockers / open:** the native transport gap (web mutations are cookie-only Server Actions and the Plaid routes are cookie-only,
-  so each native mutation needs a Bearer route or direct RLS access); no native currency onboarding; native Plaid needs an EAS
-  dev build, and iOS builds need an Apple Developer enrolment that has not been done; no device or emulator on the dev machine;
-  privacy / terms / support / web-deletion pages and universal-link files do not exist.
+* **Active work:** Mobile Launch on `mobile/native-home` (PR #1, draft). Built this phase: the shared native transport (Bearer
+  routes over shared domain commands), the native data API (profile / onboarding, transactions, accounts, categories, budgets —
+  verified live on staging), the native shell (Get Started, Settings, paywall, delete account), Sign in with Apple, and the draft
+  privacy / terms / support / deletion pages with the association files. Status and remaining work:
+  `docs/specs/2026-09-21-mobile-only-transition-design.md` §4B.
+* **Next:** native screens for transactions, accounts and budgets; the Bearer Plaid routes and native Plaid Link with the
+  connected-banks screen; the Get Started bank and trial steps; the Maestro suite.
+* **Blockers / open:** no device or emulator on the dev machine, so no native screen has been run; native Plaid and store billing
+  need an EAS dev build; iOS builds and Sign in with Apple need an Apple Developer enrolment that has not been done; RevenueCat,
+  store products and the association identifiers are not configured; the owner's final Privacy Policy and Terms wording.
 * **Owner decisions (2026-09-21):** the web/PWA is retired only after native covers all launch-required functionality and it is tested;
   launch scope approved with Goals, category management and in-app CSV export deferred; "web stays free" superseded; Sign in with
   Apple added to iOS scope; native testing model approved (no paid infrastructure); compliance / native-link infrastructure approved

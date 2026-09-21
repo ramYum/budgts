@@ -17,15 +17,35 @@ export interface Db {
   transaction<R>(fn: (tx: Db) => Promise<R>): Promise<R>;
 }
 
+const TIMESTAMPTZ_OID = 1184;
+
+/** drizzle replaces the date serializers of the postgres-js client it wraps (see db.test.ts), so a Date must go in as text. */
+const toParam = (v: unknown): unknown => (v instanceof Date ? v.toISOString() : v);
+
+/** ...and the same replacement returns timestamptz columns as text; turn them back into Dates, by column TYPE (never by looks). */
+function toRows<T>(result: unknown): T[] {
+  const rows = result as Row[] & { columns?: { name: string; type: number }[] };
+  const dateColumns = (rows.columns ?? []).filter((c) => c.type === TIMESTAMPTZ_OID).map((c) => c.name);
+  if (dateColumns.length === 0) return Array.from(rows) as unknown as T[];
+  return Array.from(rows, (row) => {
+    const out: Row = { ...row };
+    for (const name of dateColumns) {
+      const v = out[name];
+      if (typeof v === "string") out[name] = new Date(v);
+    }
+    return out;
+  }) as unknown as T[];
+}
+
 /** Adapts a postgres-js client (or one of its transactions) to the port. */
 export function fromPostgres(client: postgres.Sql | postgres.TransactionSql): Db {
   const inTransaction = (t: postgres.TransactionSql): Db => ({
-    query: async <T = Row>(text: string, params: unknown[] = []) => (await t.unsafe(text, params as never[])) as unknown as T[],
+    query: async <T = Row>(text: string, params: unknown[] = []) => toRows<T>(await t.unsafe(text, params.map(toParam) as never[])),
     transaction: (fn) => fn(inTransaction(t)), // already inside one: join it
   });
   const root = client as postgres.Sql;
   return {
-    query: async <T = Row>(text: string, params: unknown[] = []) => (await root.unsafe(text, params as never[])) as unknown as T[],
+    query: async <T = Row>(text: string, params: unknown[] = []) => toRows<T>(await root.unsafe(text, params.map(toParam) as never[])),
     transaction: <R>(fn: (tx: Db) => Promise<R>) => root.begin(async (t) => fn(inTransaction(t))) as Promise<R>,
   };
 }

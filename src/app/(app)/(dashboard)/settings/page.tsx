@@ -44,6 +44,7 @@ export default async function SettingsPage() {
       <Section label="Your account">
         <Row href="/settings/profile" label="Profile" glyph="settings" />
         <Row href="/settings/security" label="Security" glyph="connected-banks" />
+        <Row href="/settings/subscription" label="Subscription / Billing" glyph="settings" />
       </Section>
 
       <Section label="Your money">

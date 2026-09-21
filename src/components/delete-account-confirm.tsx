@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { SecondaryLinkButton } from "@/components/ui";
+import { DELETION_SUBSCRIPTION_NOTICE } from "@/lib/billing/manage";
 
 const CONFIRM_PHRASE = "DELETE";
 
@@ -62,10 +63,12 @@ export function DeleteAccountConfirm() {
           <li>You&apos;ll be signed out and won&apos;t be able to sign back into this account.</li>
         </ul>
         <p className="text-sm text-muted">
-          <strong className="text-text">An active mobile subscription is not affected.</strong>{" "}
-          Deleting your Budgts account does not cancel Apple or Google billing — manage or cancel
-          your subscription directly from your phone&apos;s App Store / Play Store subscription
-          settings.
+          <strong className="text-text">{DELETION_SUBSCRIPTION_NOTICE}</strong> If you have one, cancel it in the store
+          first —{" "}
+          <a href="/manage-subscription" className="font-medium text-heading underline underline-offset-2">
+            Manage subscription
+          </a>
+          .
         </p>
       </div>
 

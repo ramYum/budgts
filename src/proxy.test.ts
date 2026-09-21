@@ -39,6 +39,8 @@ describe("isPublic", () => {
     expect(isPublic("/api/billing/reminders/due")).toBe(true);
     expect(isPublic("/api/billing/reconcile/due")).toBe(true);
     expect(isPublic("/api/billing-audit")).toBe(false); // a sibling path is not covered by the prefix
+    expect(isPublic("/manage-subscription")).toBe(true); // the reminder email link works signed out
+    expect(isPublic("/manage-subscription-admin")).toBe(false);
   });
 
   it("still requires a session for ordinary app pages", () => {

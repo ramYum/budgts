@@ -28,6 +28,8 @@ const PUBLIC_PREFIXES = [
   // signature, and the cron endpoints present the CRON_SECRET bearer. An unauthenticated caller still gets a real
   // 401 from the handler — the proxy just must not 307 a cookie-less request to the HTML sign-in page first.
   "/api/billing/",
+  // The public "Manage subscription" landing page (the reminder email links here; it must work signed out).
+  "/manage-subscription",
 ];
 
 export function isPublic(pathname: string) {

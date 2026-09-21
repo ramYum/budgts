@@ -256,3 +256,7 @@ repository-ahead-of-database "pending" tail (correctly *not* treated as
 drift). `tests/unit/db-target-safety.test.ts` covers ref extraction across
 the connection-string shapes this repo actually uses, credential masking,
 and the confirm/mismatch/unparseable paths of `requireConfirmedRef`.
+
+## Replacing a staging project
+
+See `docs/operations/staging-replacement.md` for the build-new, verify, then delete-old procedure.

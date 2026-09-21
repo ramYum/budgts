@@ -30,6 +30,16 @@ const PUBLIC_PREFIXES = [
   "/api/billing/",
   // The public "Manage subscription" landing page (the reminder email links here; it must work signed out).
   "/manage-subscription",
+  // Store-required pages the native app links to, reachable without an account or the app installed: privacy policy,
+  // terms, support, and the account-deletion request path (mobile-only transition spec §5).
+  "/privacy",
+  "/terms",
+  "/support",
+  "/account-deletion",
+  // Universal-link / app-link association files (fetched by Apple and Google, never signed in) and the native return path
+  // (`/app/*`, e.g. Plaid OAuth) whose web fallback page must load when the app is not installed.
+  "/.well-known/",
+  "/app/",
 ];
 
 export function isPublic(pathname: string) {

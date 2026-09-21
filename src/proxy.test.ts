@@ -1,6 +1,24 @@
 import { describe, expect, it } from "vitest";
 import { isPublic } from "./proxy";
 
+describe("isPublic — native-app compliance and link pages", () => {
+  it("serves the store-required legal, support and deletion-request pages without a session", () => {
+    for (const p of ["/privacy", "/terms", "/support", "/account-deletion"]) expect(isPublic(p)).toBe(true);
+  });
+
+  it("serves the universal-link / app-link association files and the native return path without a session", () => {
+    expect(isPublic("/.well-known/apple-app-site-association")).toBe(true);
+    expect(isPublic("/.well-known/assetlinks.json")).toBe(true);
+    expect(isPublic("/app/plaid-oauth")).toBe(true);
+  });
+
+  it("does not loosen anything next to them", () => {
+    expect(isPublic("/privacy-settings")).toBe(false);
+    expect(isPublic("/supportive")).toBe(false);
+    expect(isPublic("/application")).toBe(false);
+  });
+});
+
 describe("isPublic", () => {
   it("lets Plaid's server-to-server endpoints through without a session", () => {
     // Plaid's webhook (JWT-signed) and the pg_cron pollers (bearer secret)

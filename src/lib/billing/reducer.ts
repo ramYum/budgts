@@ -45,7 +45,10 @@ export function reduce(current: EntitlementFields, ev: DomainEvent, now: Date): 
   if (current.lastProviderEventAt && ev.occurredAt.getTime() < current.lastProviderEventAt.getTime()) {
     return { next: current, applied: false, reason: "stale" };
   }
-  const noop = (): ReduceResult => ({ next: withEventClock(current, ev.occurredAt), applied: false, reason: "noop" });
+  // A no-op changes nothing, INCLUDING the ordering clock: if it advanced the clock, an event that carries real
+  // information but happened EARLIER (delivered late) would then look stale and be lost — e.g. a cancellation that
+  // arrives before the conversion it follows must not make that conversion stale.
+  const noop = (): ReduceResult => ({ next: current, applied: false, reason: "noop" });
   const done = (patch: Partial<EntitlementFields>): ReduceResult => ({
     next: withEventClock({ ...current, ...identity(current, ev), ...patch }, ev.occurredAt),
     applied: true,

@@ -258,3 +258,19 @@ describe("failure is loud and atomic", () => {
     ).rejects.toThrow(/non-charge/);
   });
 });
+
+describe("out-of-order: a cancellation delivered BEFORE the purchase it follows", () => {
+  it("still ends with the entitlement the user paid for, and asks for reconciliation so auto-renew is right", async () => {
+    const u = await createAuthUser(pg);
+    const otx = `otx-${u}`;
+    // The cancellation (later in real time) arrives first, while we know nothing about this user.
+    const cancel = await processRevenueCatEvent(deps({ now: () => new Date(T0 + 21 * DAY) }), mapped(u, { type: "CANCELLATION", cancel_reason: "UNSUBSCRIBE", event_timestamp_ms: T0 + 20 * DAY, original_transaction_id: otx }));
+    expect(cancel).toMatchObject({ status: "processed", applied: false, needsReconcile: true });
+    expect((await loadEntitlement(db, u))?.state).toBe("none");
+    // ...then the conversion it followed. It must NOT be stale, and money is ledgered.
+    const conv = await processRevenueCatEvent(deps({ now: () => new Date(T0 + 21 * DAY) }), conversionEvent(u, T0 + 14 * DAY, { original_transaction_id: otx }));
+    expect(conv).toMatchObject({ status: "processed", applied: true, charged: true });
+    expect(await loadEntitlement(db, u)).toMatchObject({ state: "active", accessUntil: new Date(T0 + 44 * DAY) });
+    expect((await ledger(u)).payments).toBe(1);
+  });
+});

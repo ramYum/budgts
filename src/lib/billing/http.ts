@@ -84,7 +84,8 @@ export async function handleRevenueCatWebhook(request: Request, deps: HttpDeps):
     return json({ status: "failed" }, 500);
   }
   // Anything the mapper could not confidently apply asks the provider for its own view (best effort).
-  if (parsed.event.needsReconcile && parsed.event.userId && outcome.status !== "quarantined" && outcome.status !== "duplicate") {
+  const wantsReconcile = parsed.event.needsReconcile || (outcome.status === "processed" && outcome.needsReconcile === true);
+  if (wantsReconcile && parsed.event.userId && outcome.status !== "quarantined" && outcome.status !== "duplicate") {
     try {
       await refreshEntitlement({ db: deps.db, config: deps.config, now: deps.now, fetchImpl: deps.fetchImpl }, parsed.event.userId);
     } catch {

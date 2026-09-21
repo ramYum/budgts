@@ -295,3 +295,24 @@ describe("hasPremium and the view-model", () => {
     expect(keys).toEqual(["accessUntil", "canStartTrial", "hasPremium", "isTrial", "productId", "renewal", "status", "store", "trialEndsAt", "willRenew"]);
   });
 });
+
+describe("a no-op event must not make older, informative events look stale", () => {
+  it("a cancellation delivered BEFORE the conversion it follows is a no-op that does not block the conversion", () => {
+    const cancelAt = new Date(T0.getTime() + 20 * DAY);
+    const conversionAt = TRIAL_END;
+    // Delivery order is inverted: the later cancellation arrives while we know nothing about this user.
+    const afterCancel = reduce(emptyEntitlement(), ev(cancelAt, { type: "auto_renew_changed", willRenew: false }), cancelAt);
+    expect(afterCancel.applied).toBe(false);
+    expect(afterCancel.next.lastProviderEventAt).toBeNull(); // the ordering clock did NOT move
+    // ...so the earlier conversion is still applied, and the user has the access they paid for.
+    const afterConversion = reduce(afterCancel.next, paid(conversionAt, PERIOD_END, "trial_conversion"), cancelAt);
+    expect(afterConversion.reason).toBe("applied");
+    expect(afterConversion.next).toMatchObject({ state: "active", accessUntil: PERIOD_END });
+  });
+
+  it("only an APPLIED event moves the ordering clock", () => {
+    const t = new Date(T0.getTime() + DAY);
+    expect(reduce(emptyEntitlement(), ev(t, { type: "expired" }), t).next.lastProviderEventAt).toBeNull();
+    expect(reduce(emptyEntitlement(), trialStarted(t), t).next.lastProviderEventAt).toEqual(t);
+  });
+});

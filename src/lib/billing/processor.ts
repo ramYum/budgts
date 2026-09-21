@@ -26,7 +26,7 @@ import { PROVIDER } from "./revenuecat/map";
 import { accountIsDeleting, finishEvent, lockEntitlement, recordEvent, recordFailure, saveEntitlement, userExists, type EventIdentity } from "./store";
 
 export type ProcessOutcome =
-  | { status: "processed"; applied: boolean; charged: boolean; duplicateCharge: boolean; entitlementSkipped?: "account_deleting" }
+  | { status: "processed"; applied: boolean; charged: boolean; duplicateCharge: boolean; entitlementSkipped?: "account_deleting"; needsReconcile?: true }
   | { status: "duplicate" }
   | { status: "ignored"; reason: string }
   | { status: "quarantined"; reason: string }
@@ -95,12 +95,16 @@ export async function processRevenueCatEvent(deps: ProcessDeps, m: MappedRevenue
       const { userId: _owner, ...currentFields } = current;
       void _owner;
       const result = reduce({ ...emptyEntitlement(), ...currentFields }, m.domain, now);
-      if (result.reason !== "stale") {
+      if (result.applied) {
         await saveEntitlement(tx, ownerId, result.next);
         await syncSubscriptionStatus(tx, m.platformSubscriptionId, result.next.state);
       }
       await finishEvent(tx, rec.id, { status: "processed", internalType: m.domain.type, error: result.reason === "stale" ? "stale: older than the last applied event" : null });
-      return { status: "processed", applied: result.applied, charged, duplicateCharge };
+      // An event about a user we know NOTHING about (state 'none') that changed nothing — typically a cancellation or
+      // expiration delivered before the purchase it follows — carried information we could not use. The provider's own
+      // view repairs it, so ask for that instead of leaving (for example) auto-renew wrong until the scheduled sweep.
+      const needsReconcile = result.reason === "noop" && current.state === "none";
+      return { status: "processed", applied: result.applied, charged, duplicateCharge, ...(needsReconcile ? { needsReconcile: true as const } : {}) };
     });
   } catch (err) {
     const error = err instanceof Error ? err.message : "unknown error";

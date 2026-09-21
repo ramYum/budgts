@@ -93,3 +93,13 @@ export async function createAuthUser(pg: PGlite, id: string = crypto.randomUUID(
   await pg.query(`insert into auth.users (id, email) values ($1, $2)`, [id, `${id}@example.test`]);
   return id;
 }
+
+/** Adapts a PGlite (or one of its transactions) to the billing `Db` port, so production SQL runs unchanged in tests. */
+export function asBillingDb(pg: PGlite | { query: PGlite["query"] }): import("../../../src/lib/billing/db").Db {
+  const isRoot = "transaction" in pg;
+  return {
+    query: async <T>(text: string, params: unknown[] = []) => (await pg.query(text, params)).rows as T[],
+    transaction: <R>(fn: (tx: import("../../../src/lib/billing/db").Db) => Promise<R>) =>
+      isRoot ? (pg as PGlite).transaction((tx) => fn(asBillingDb(tx))) : fn(asBillingDb(pg)),
+  };
+}

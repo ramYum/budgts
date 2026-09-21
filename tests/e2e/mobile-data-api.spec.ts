@@ -19,8 +19,27 @@ const nextMonth = (() => {
   return new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 7);
 })();
 
-async function json(res: Awaited<ReturnType<APIRequestContext["get"]>>) {
-  return (await res.json()) as Record<string, any>;
+type Account = { id: string; name: string; source: string; archived: boolean; selectable: boolean };
+/** `/categories` rows carry `kind`; `/budgets` rows carry `budget`. */
+type Category = { id: string; kind: string; budget: number };
+type Txn = { id: string; description: string; amount: number };
+/** The union of every field this test reads from the native API's JSON bodies (asserted where it matters). */
+type Body = {
+  error: string;
+  id: string;
+  email: string;
+  onboarded: boolean;
+  currency: string;
+  supportedCurrencies: string[];
+  fieldErrors: Record<string, string>;
+  categories: Category[];
+  accounts: Account[];
+  items: Txn[];
+  nextCursor: string;
+};
+
+async function json(res: Awaited<ReturnType<APIRequestContext["get"]>>): Promise<Body> {
+  return (await res.json()) as Body;
 }
 
 test("no /api/mobile data route answers without a Bearer token", async ({ request }) => {
@@ -74,12 +93,12 @@ test("native data API end to end, with cross-user isolation", async ({ request }
     expect(res.status()).toBe(422);
 
     body = await json(await request.get("/api/mobile/accounts", { headers: headersA }));
-    expect(body.accounts.find((x: any) => x.id === accountId)).toMatchObject({ name: "Wallet", source: "manual", selectable: true, archived: false });
+    expect(body.accounts.find((x) => x.id === accountId)).toMatchObject({ name: "Wallet", source: "manual", selectable: true, archived: false });
 
     expect((await request.patch(`/api/mobile/accounts/${accountId}`, { headers: headersA, data: { name: "Cash", type: "cash" } })).status()).toBe(200);
     expect((await request.patch(`/api/mobile/accounts/${accountId}`, { headers: headersA, data: { archived: true } })).status()).toBe(200);
     body = await json(await request.get("/api/mobile/accounts", { headers: headersA }));
-    expect(body.accounts.find((x: any) => x.id === accountId)).toMatchObject({ name: "Cash", archived: true, selectable: false });
+    expect(body.accounts.find((x) => x.id === accountId)).toMatchObject({ name: "Cash", archived: true, selectable: false });
     await request.patch(`/api/mobile/accounts/${accountId}`, { headers: headersA, data: { archived: false } });
 
     // ── transactions: create (idempotent), page, filter, edit, delete ───────────────────────────────────────
@@ -123,14 +142,14 @@ test("native data API end to end, with cross-user isolation", async ({ request }
     const page2 = await json(await request.get(`/api/mobile/transactions?month=${thisMonth}&limit=2&cursor=${encodeURIComponent(body.nextCursor)}`, { headers: headersA }));
     expect(page2.items).toHaveLength(1);
     expect(page2.nextCursor).toBeNull();
-    const ids = [...body.items, ...page2.items].map((t: any) => t.id);
+    const ids = [...body.items, ...page2.items].map((t) => t.id);
     expect(new Set(ids).size).toBe(3);
 
     // Filters.
     body = await json(await request.get(`/api/mobile/transactions?month=${thisMonth}&category=${catOne.id}`, { headers: headersA }));
     expect(body.items).toHaveLength(2);
     body = await json(await request.get(`/api/mobile/transactions?month=${thisMonth}&search=${encodeURIComponent("50%_off")}`, { headers: headersA }));
-    expect(body.items.map((t: any) => t.description)).toEqual(["Groceries 50%_off"]); // LIKE metacharacters are literal
+    expect(body.items.map((t) => t.description)).toEqual(["Groceries 50%_off"]); // LIKE metacharacters are literal
     expect((await request.get(`/api/mobile/transactions?month=${thisMonth}&cursor=garbage`, { headers: headersA })).status()).toBe(422);
 
     // Edit and delete.
@@ -145,16 +164,16 @@ test("native data API end to end, with cross-user isolation", async ({ request }
     expect(res.status()).toBe(200);
     body = await json(await request.get(`/api/mobile/budgets?month=${thisMonth}`, { headers: headersA }));
     expect(body).toMatchObject({ version: 1, month: thisMonth, currency: "EUR" });
-    expect(body.categories.find((c: any) => c.id === catOne.id)).toMatchObject({ budget: 40000 });
+    expect(body.categories.find((c) => c.id === catOne.id)).toMatchObject({ budget: 40000 });
 
     res = await request.post("/api/mobile/budgets/copy", { headers: headersA, data: { month: nextMonth } });
     expect(res.status()).toBe(200);
     body = await json(await request.get(`/api/mobile/budgets?month=${nextMonth}`, { headers: headersA }));
-    expect(body.categories.find((c: any) => c.id === catOne.id)).toMatchObject({ budget: 40000 });
+    expect(body.categories.find((c) => c.id === catOne.id)).toMatchObject({ budget: 40000 });
 
     expect((await request.put("/api/mobile/budgets", { headers: headersA, data: { categoryId: catOne.id, month: thisMonth, amount: "" } })).status()).toBe(200);
     body = await json(await request.get(`/api/mobile/budgets?month=${thisMonth}`, { headers: headersA }));
-    expect(body.categories.find((c: any) => c.id === catOne.id).budget).toBe(0);
+    expect(body.categories.find((c) => c.id === catOne.id)?.budget).toBe(0);
 
     // Nothing to copy from an empty month.
     res = await request.post("/api/mobile/budgets/copy", { headers: headersA, data: { month: "2001-02" } });
@@ -164,7 +183,7 @@ test("native data API end to end, with cross-user isolation", async ({ request }
     body = await json(await request.get(`/api/mobile/transactions?month=${thisMonth}`, { headers: headersB }));
     expect(body.items).toHaveLength(0);
     body = await json(await request.get("/api/mobile/accounts", { headers: headersB }));
-    expect(body.accounts.find((x: any) => x.id === accountId)).toBeUndefined();
+    expect(body.accounts.find((x) => x.id === accountId)).toBeUndefined();
 
     expect((await request.patch(`/api/mobile/transactions/${first}`, { headers: headersB, data: txn("05") })).status()).toBe(404);
     expect((await request.delete(`/api/mobile/transactions/${first}`, { headers: headersB })).status()).toBe(404);

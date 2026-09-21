@@ -13,7 +13,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams } from "expo-router";
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
+import * as AppleAuthentication from "expo-apple-authentication";
 import { supabase } from "../lib/supabase/client";
+import { isAppleSignInAvailable, signInWithAppleNative } from "../lib/auth/apple-native";
 import { buildAuthCallbackUrl } from "../lib/auth/callback-url";
 import { completeSessionFromUrl } from "../lib/auth/complete-session-from-url";
 import { isPlausibleEmail, normalizeEmail } from "../lib/auth/email";
@@ -30,7 +32,7 @@ function redirectUri() {
   return buildAuthCallbackUrl(Linking.createURL);
 }
 
-type Pending = null | "email" | "google";
+type Pending = null | "email" | "google" | "apple";
 
 export default function SignInScreen() {
   // `error` arrives here when a deep-link callback failed (expired/used link,
@@ -40,6 +42,14 @@ export default function SignInScreen() {
   const [sentTo, setSentTo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<Pending>(null);
+  // Sign in with Apple is iOS-only; the button appears only where the OS says it can run.
+  const [appleAvailable, setAppleAvailable] = useState(false);
+  useEffect(() => {
+    if (Platform.OS !== "ios") return;
+    void isAppleSignInAvailable()
+      .then(setAppleAvailable)
+      .catch(() => setAppleAvailable(false));
+  }, []);
 
   // Seeded into state (not read straight from params) so retrying clears it.
   useEffect(() => {
@@ -100,6 +110,20 @@ export default function SignInScreen() {
       if (!completion.ok) setError(completion.error);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Google sign-in failed");
+    } finally {
+      setPending(null);
+    }
+  }
+
+  async function signInWithApple() {
+    if (pending) return;
+    setError(null);
+    setPending("apple");
+    try {
+      const result = await signInWithAppleNative();
+      // "signed_in": the auth listener moves the app on. "cancelled": the user dismissed Apple's sheet — nothing to say.
+      if (result.status === "error") setError(result.message);
+      else if (result.status === "unavailable") setError("Sign in with Apple isn't available on this device.");
     } finally {
       setPending(null);
     }
@@ -171,7 +195,7 @@ export default function SignInScreen() {
 
                   <PrimaryButton
                     onPress={sendMagicLink}
-                    disabled={!canSend || pending === "google"}
+                    disabled={!canSend || pending === "google" || pending === "apple"}
                     loading={pending === "email"}
                   >
                     Email me a sign-in link
@@ -185,12 +209,25 @@ export default function SignInScreen() {
                 </View>
 
                 <OutlineButton
+                  testID="sign-in-google"
                   onPress={signInWithGoogle}
-                  disabled={pending === "email"}
+                  disabled={pending === "email" || pending === "apple"}
                   loading={pending === "google"}
                 >
                   Continue with Google
                 </OutlineButton>
+
+                {appleAvailable ? (
+                  // Apple's own button (App Store guideline 4.8 / HIG), the same size and prominence as Google's.
+                  <AppleAuthentication.AppleAuthenticationButton
+                    testID="sign-in-apple"
+                    buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                    buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                    cornerRadius={24}
+                    style={styles.appleButton}
+                    onPress={() => void signInWithApple()}
+                  />
+                ) : null}
               </>
             )}
           </View>
@@ -269,4 +306,5 @@ const styles = StyleSheet.create({
   rule: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: colors.border },
   dividerText: { fontFamily: fonts.regular, fontSize: 12, color: colors.muted },
   sent: { gap: 24 },
+  appleButton: { height: 48, width: "100%" },
 });

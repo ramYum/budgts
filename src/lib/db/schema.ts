@@ -231,6 +231,32 @@ export const transactions = pgTable(
     // watermarking has no natural WHERE condition to narrow on the way
     // merchant_entity_id's nullability does for the other index.
     index("transactions_user_created_idx").on(t.userId, t.createdAt),
+    // Foreign-key lookup indexes. Postgres does not index a referencing column, and deleting a parent
+    // row runs a lookup on EVERY foreign key that points at it. Without these the lookup scans the whole
+    // table once per deleted row: measured on staging, deleting a 25,000-transaction user spent ~50 s in
+    // EACH of the two self-referencing triggers (the DELETE itself took ~50 ms), which timed out account
+    // deletion on both paths. Partial (column is not null): most rows never set these, so the indexes stay
+    // small and cost nothing on ordinary inserts. Design: docs/specs/2026-09-19-account-deletion-design.md.
+    //  - transfer_pair_id / duplicate_of_id: self-references, SET NULL, hit once per deleted transaction.
+    //  - recurring_stream_id: SET NULL when a recurring_series row goes (~150 ms/row at 250k rows).
+    //  - plaid_account_id: SET NULL when a plaid_accounts row goes, i.e. on every bank disconnect.
+    index("transactions_transfer_pair_idx")
+      .on(t.transferPairId)
+      .where(sql`${t.transferPairId} is not null`),
+    index("transactions_duplicate_of_idx")
+      .on(t.duplicateOfId)
+      .where(sql`${t.duplicateOfId} is not null`),
+    index("transactions_recurring_stream_idx")
+      .on(t.recurringStreamId)
+      .where(sql`${t.recurringStreamId} is not null`),
+    index("transactions_plaid_account_idx")
+      .on(t.plaidAccountId)
+      .where(sql`${t.plaidAccountId} is not null`),
+    // account_id is NOT NULL, so this one is a plain (not partial) index. It backs the RESTRICT lookup that
+    // runs when an account row is deleted (25-100 ms per account at 250k rows, warm cache; 1.6-10 s cold) and
+    // the Plaid purge, which deletes transactions by account. The existing account+fingerprint index is
+    // partial (fingerprint is not null) so Postgres cannot use it for either.
+    index("transactions_account_idx").on(t.accountId),
     // Defense-in-depth for qualify.ts's Important #2 finding (design:
     // 2026-09-12 qualify-integration final review) — event_role stays
     // plain nullable text (no enum type), but a malformed value can never

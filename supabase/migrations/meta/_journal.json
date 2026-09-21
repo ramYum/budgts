@@ -120,6 +120,20 @@
       "when": 1789586889475,
       "tag": "0016_classy_maginty",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1789986745169,
+      "tag": "0017_deletion_fk_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1789986947477,
+      "tag": "0018_transactions_account_fk_index",
+      "breakpoints": true
     }
   ]
 }

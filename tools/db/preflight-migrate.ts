@@ -40,7 +40,7 @@ if (identity.known?.danger === "production") {
   console.log("\n🔴🔴🔴 THIS IS THE PRODUCTION PROJECT. 🔴🔴🔴");
 }
 if (identity.known?.danger === "staging-legacy") {
-  console.log("\n🔴 THIS IS THE OLD, RETIRED, DRIFTED STAGING PROJECT — it is not meant to receive further migrations. 🔴");
+  console.log("\n🔴 THIS IS A RETIRED OR DELETED STAGING PROJECT — it is not meant to receive migrations. 🔴");
 }
 
 const confirmed = process.env.MIGRATE_CONFIRM_REF;

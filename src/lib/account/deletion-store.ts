@@ -115,13 +115,7 @@ async function defaultDb(): Promise<Db> {
 }
 
 export function createDeletionStore(
-  opts: {
-    db?: Db;
-    ledgerTables?: readonly string[];
-    sleep?: (ms: number) => Promise<void>;
-    /** Per-statement timing inside the atomic delete (name, milliseconds). Off by default; used to diagnose slow runs. */
-    onStep?: (name: string, ms: number) => void;
-  } = {},
+  opts: { db?: Db; ledgerTables?: readonly string[]; sleep?: (ms: number) => Promise<void> } = {},
 ): DeletionStore {
   const getDb = async () => opts.db ?? (await defaultDb());
   const ledgerTables = opts.ledgerTables ?? LEDGER_TABLES;
@@ -182,12 +176,10 @@ export function createDeletionStore(
 
             const deleted: Record<string, number> = {};
             for (const [table, column] of OWNED_DELETE_ORDER) {
-              const startedAt = Date.now();
               const result = await tx.execute(
                 sql`delete from ${sql.identifier("public")}.${sql.identifier(table)} where ${sql.identifier(column)} = ${userId}`,
               );
               deleted[table] = (result as unknown as { count: number }).count;
-              opts.onStep?.(table, Date.now() - startedAt);
             }
 
             // "Success" must mean nothing owned survives: verify inside the same transaction, roll back if not.

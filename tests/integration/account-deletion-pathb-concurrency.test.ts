@@ -254,8 +254,7 @@ describe("deleteAccount (Path B) against concurrent writers — real Postgres + 
       [u.userId, u.accountId, u.categoryId],
     );
     // Time each database step (the rest of the elapsed time is the Auth Admin API and Plaid calls).
-    const perTableMs: Record<string, number> = {};
-    const base = createDeletionStore({ onStep: (table, ms) => void (perTableMs[table] = ms) });
+    const base = createDeletionStore();
     const stepMs: Record<string, number> = {};
     const timed = <A extends unknown[], R>(name: string, fn: (...a: A) => Promise<R>) =>
       async (...a: A) => {
@@ -277,7 +276,7 @@ describe("deleteAccount (Path B) against concurrent writers — real Postgres + 
     const result = await deleteAccount(admin, u.userId, store);
     const elapsedMs = Date.now() - started;
     const after = await snapshot(u.userId);
-    console.info(`[pathB 25k txns] ${describeResult(result)} in ${elapsedMs}ms; db steps ms=${JSON.stringify(stepMs)}; per-table delete ms=${JSON.stringify(perTableMs)}; leftovers=${JSON.stringify(leftovers(after))}`);
+    console.info(`[pathB 25k txns] ${describeResult(result)} in ${elapsedMs}ms; db steps ms=${JSON.stringify(stepMs)}; leftovers=${JSON.stringify(leftovers(after))}`);
     expect(describeResult(result), `elapsed ${elapsedMs}ms`).toBe("ok(anonymize)");
     expectFullyAnonymized(after, `elapsed ${elapsedMs}ms`);
   }, 180_000);

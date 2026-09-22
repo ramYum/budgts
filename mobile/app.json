@@ -11,7 +11,9 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.budgts.app",
       "usesAppleSignIn": true,
-      "associatedDomains": ["applinks:budgts.com"]
+      "associatedDomains": [
+        "applinks:budgts.com"
+      ]
     },
     "android": {
       "adaptiveIcon": {
@@ -25,8 +27,17 @@
         {
           "action": "VIEW",
           "autoVerify": true,
-          "data": [{ "scheme": "https", "host": "budgts.com", "pathPrefix": "/app" }],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "data": [
+            {
+              "scheme": "https",
+              "host": "budgts.com",
+              "pathPrefix": "/app"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
@@ -38,7 +49,15 @@
       "expo-secure-store",
       "expo-web-browser",
       "expo-font",
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 25
+          }
+        }
+      ]
     ],
     "extra": {
       "router": {},

@@ -105,7 +105,11 @@ export default function ConnectedBanksScreen() {
         currentPlatform(),
       );
       setReconnectingId(null);
-      if (outcome.status === "error") setMessage(outcome.message);
+      if (outcome.status === "unavailable") {
+        setMessage("Bank connections aren't available in this build yet.");
+      } else if (outcome.status === "error") {
+        setMessage(outcome.message);
+      }
       if (outcome.status === "ok" || outcome.status === "error") {
         invalidate("accounts");
         await reload();

@@ -93,7 +93,9 @@ export default function MapAccountsScreen() {
 
               <ChipRow>
                 <Chip label="New account" selected={r.mode === "new"} onPress={() => update(i, { mode: "new" })} testID={`mode-new-${i}`} />
-                <Chip label="Existing account" selected={r.mode === "existing"} onPress={() => update(i, { mode: "existing" })} testID={`mode-existing-${i}`} />
+                {existingAccounts.length > 0 ? (
+                  <Chip label="Existing account" selected={r.mode === "existing"} onPress={() => update(i, { mode: "existing" })} testID={`mode-existing-${i}`} />
+                ) : null}
                 <Chip label="Don't import" selected={r.mode === "ignore"} onPress={() => update(i, { mode: "ignore" })} testID={`mode-ignore-${i}`} />
               </ChipRow>
 

@@ -1,15 +1,24 @@
 # Budgts V1 Monetization — Implementation Design
 
-**Status:** authoritative for the V1 subscription implementation (2026-09-21). Where this differs from
-`2026-09-18-monetization-ledger-design.md` (the financial ledger) or `2026-09-17-mobile-app-launch-design.md`, this
-document reflects the owner's later decisions and says so.
+**Status:** authoritative for the V1 subscription implementation (2026-09-21; commercial terms and the reminder
+decision updated 2026-09-22, see below). Where this differs from `2026-09-18-monetization-ledger-design.md` (the
+financial ledger) or `2026-09-17-mobile-app-launch-design.md`, this document reflects the owner's later decisions and
+says so.
+
+**Update 2026-09-22 (owner decision, supersedes conflicting text below):** trial length reverts to **7 days**
+(the 2026-09-21 change to 14 days is obsolete); annual price is **$79.99** (was $69 as a placeholder); monthly stays
+**$9.99**. Budgts' own trial-end reminder (§7) is **removed from V1** — no Budgts-generated email/push reminder, no
+`ReminderDelivery`/Resend adapter, no `billing-reminders` cron. Apple/Google's own store-required billing notices are
+unaffected. RevenueCat project "Budgts" has been created by the owner. Google Play developer enrollment exists
+(personal account) with identity verification pending.
 
 ## 1. The model (owner decisions)
 
-- **14-day free trial, store-managed.** The user explicitly taps *Start your 14-day free trial*; Apple/Google handles
+- **7-day free trial, store-managed.** The user explicitly taps *Start your 7-day free trial*; Apple/Google handles
   payment authorization. It never starts silently — not at sign-up, sign-in, currency choice, onboarding, first Home, or
   bank connect. It auto-converts to paid and auto-renews unless cancelled before the trial ends. There is no second
-  "Subscribe" step. (The earlier specs said 7 days; **14 supersedes them**.)
+  "Subscribe" step. (The 2026-09-21 revision briefly said 14 days; **the 2026-09-22 decision reverts to 7, which is
+  authoritative**.) Monthly is **$9.99**, annual is **$79.99** (owner decision 2026-09-22).
 - **Apple App Store on iOS, Google Play on Android, RevenueCat as the normalization/entitlement layer** — already
   locked in the mobile launch spec, so no new vendor was introduced.
 - **Plaid stays exclusively for financial-data connectivity.** A linked bank never authorizes, funds or implies consent
@@ -99,24 +108,21 @@ RevenueCat (secret key, server-side) for its view of that user and reduces the s
 webhook and the "restore purchases / after purchase" path. Throttled to once per 30 s per user. A scheduled job
 (`/api/billing/reconcile/due`, hourly) re-checks live entitlements. A sandbox subscriber can never grant production access.
 
-## 7. Trial-end reminder
+## 7. Trial-end reminder — REMOVED FROM V1 (owner decision 2026-09-22)
 
-Budgts sends its own reminder ~24 h before the trial converts. The domain (`reminders.ts`) knows the trial end, whether
-the reminder is due (only for a trial that will actually convert, i.e. not already cancelled), and whether it has been
-sent. `claimReminder` is one atomic `UPDATE … RETURNING` with a lease, so racing workers yield exactly one claim, the same
-trial is never reminded twice, an extended trial is reminded again, and a crashed worker's claim expires instead of losing
-the reminder. A delivery failure only releases the claim; it never touches access state.
+**Historical record, no longer implemented.** V1 originally planned for Budgts to send its own reminder ~24 h before
+the trial converts, via a `reminders.ts` domain module (`claimReminder`/`findDueReminderUserIds`, an atomic
+`UPDATE … RETURNING` claim with a lease so racing workers yield exactly one claim) and a `ReminderDelivery` port with
+a Resend email adapter. The owner removed this from V1 on 2026-09-22: **Budgts sends no trial-end reminder of any
+kind** — no email, no push, no 24-hour lead requirement, no delivery-channel decision to make. `reminders.ts`,
+`src/lib/billing/email/resend.ts` and the `/api/billing/reminders/due` cron route have been deleted; the
+`billing-reminders` pg_cron job has been unscheduled wherever it was running. Apple/Google may still send their own
+store-required billing notices — that is unaffected and outside Budgts' control. The disclosure users see is now
+just the store's own renewal disclosure at the paywall (no separate "we'll remind you" promise).
 
-> Approved disclosure before starting the trial: *"We'll send you a reminder one day before your 14-day free trial ends
-> and your paid subscription begins."* Reminder copy: *"Your free trial ends tomorrow. Your subscription will
-> automatically begin at [PRICE] per [BILLING PERIOD] unless you cancel before then."* (`composeTrialEndReminder`).
-
-**OWNER DECISION — notification delivery (not made here).** The repo has **no** email/push infrastructure (no vendor
-dependency in web or mobile; Supabase Auth's built-in magic-link mail is not a general channel and is rate-limited). No
-vendor was added. Until a channel is chosen the reminder cron *reports what is due and claims nothing*. Options: push via
-`expo-notifications` (Expo Push); transactional email via a provider (e.g. Resend, Postmark); or both. Whichever is picked
-implements the one-method `ReminderDelivery` port and gets recorded in `docs/Thirdparties.md`. Note the store also sends
-its own trial-ending notices for some trials; Budgts' reminder is in addition.
+Reminder-related database columns on `entitlements` (`reminder_for_trial_ends_at`, `reminder_claimed_at`,
+`reminder_sent_at`) are left in place, inert and unused, rather than creating migration churn to remove them from an
+already-applied migration (0022).
 
 ## 8. Mobile
 
@@ -138,18 +144,23 @@ opens the store's own page.
 | server | `CRON_SECRET` | already used by the Plaid poller |
 | mobile (public) | `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY` / `…_ANDROID_API_KEY` | RevenueCat public SDK keys |
 
+(No email/push config: Budgts sends no trial-end reminder in V1 — see §7.)
+
 Production and staging use separate RevenueCat projects/keys/secrets. `supabase/billing-cron.sql` schedules the two cron
 routes (run by hand per environment, after the migrations).
 
 ## 10. Blocked on the owner / external (not fabricated)
 
-1. **Apple Developer + Google Play Console enrollment** and subscription products (monthly $9.99, annual $69, each with a
-   14-day free introductory offer) — and their RevenueCat offering/entitlement mapping. Suggested product ids contain
-   `monthly` / `annual`; the mapper also infers the plan from the purchased period's length.
-2. **RevenueCat project**: webhook URL, signing secret / authorization value, `app_user_id` = Supabase user id, public and
-   secret keys — per environment. RevenueCat's subscriber-object field names used by reconciliation follow the documented
-   v1 shape but have **not** been verified against a live sandbox response.
-3. **Notification channel** (§7).
+1. **Apple Developer + Google Play Console enrollment** and subscription products (monthly $9.99, annual $79.99 —
+   locked 2026-09-22 — each with a 7-day free introductory offer) — and their RevenueCat offering/entitlement mapping.
+   Suggested product ids contain `monthly` / `annual`; the mapper also infers the plan from the purchased period's
+   length. Google Play: personal developer account created 2026-09-22, identity verification pending. Apple: not
+   enrolled.
+2. **RevenueCat project**: created 2026-09-22 (project "Budgts"). Still needed: webhook URL, signing secret /
+   authorization value, `app_user_id` = Supabase user id, public and secret keys — per environment; store products to
+   map (blocked on Google Play verification). RevenueCat's subscriber-object field names used by reconciliation follow
+   the documented v1 shape but have **not** been verified against a live sandbox response.
+3. ~~Notification channel (§7)~~ — moot: Budgts sends no trial-end reminder in V1 (owner decision 2026-09-22, see §7).
 4. Apple cannot express *"7-day trial → 3 discounted paid periods → normal price"* in one product (ledger spec §2): the
    influencer-discount path remains an open engineering spike and is unchanged by V1.
 5. Refunds are recorded in `billing_events` and revoke access; a ledger reversal row (`revenue_allocation_adjustments`)
@@ -160,9 +171,14 @@ routes (run by hand per environment, after the migrations).
 
 ## 11. Tests
 
-Server-side: reducer (33), RevenueCat adapter (31), persistence/processor (19), services + reminders + gate (22), HTTP (17), deletion ×
-billing (8), migration chain from empty (13), mobile (23) — 143 server-side + 23 mobile. Database-level suites run on real embedded Postgres (PGlite) with
-the repo's real migration chain, independent of the shared staging database.
+Full suite verified 2026-09-22 after the 7-day/reminder-removal change: **1223 server/web tests, 220 mobile tests, all
+passing** (`npm test`, `npm --prefix mobile test`); typecheck and lint clean on both. Database-level suites run on real
+embedded Postgres (PGlite) with the repo's real migration chain, independent of the shared staging database. The
+reminder-claim/sweep test coverage (`service.db.test.ts`, `http.db.test.ts`, `email/resend.test.ts`, and the
+concurrency-race coverage in `tests/integration/billing-concurrency.test.ts`) was removed along with the feature; the
+real-staging-Postgres concurrency suite (`billing-concurrency.test.ts`) could not be re-run in this worktree (no local
+`.env.staging` `DIRECT_URL`), but its edit is a straight block deletion with no surviving external references,
+confirmed by a clean `tsc --noEmit`.
 
 ## 12. Staging
 

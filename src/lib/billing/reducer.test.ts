@@ -22,7 +22,7 @@ function run(events: DomainEvent[], now: Date, from: EntitlementFields = emptyEn
 }
 
 describe("trial start", () => {
-  it("a user with nothing starts a 14-day trial: trialing, entitled until the trial's authoritative end", () => {
+  it("a user with nothing starts a trial: trialing, entitled until the trial's authoritative end", () => {
     const r = reduce(emptyEntitlement(), trialStarted(), T0);
     expect(r.applied).toBe(true);
     expect(r.next).toMatchObject({ state: "trialing", willRenew: true, trialEndsAt: TRIAL_END, accessUntil: TRIAL_END, trialStartedAt: T0, provider: "revenuecat", store: "apple", productId: "budgts_monthly" });

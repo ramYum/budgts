@@ -129,11 +129,12 @@ Current code includes:
 * billing/account integration tests
 * migrations `0021` and `0022`
 
-Current subscription direction:
+Current subscription direction (locked 2026-09-22):
 
-* Monthly and annual plans
-* **14-day trial**
+* Monthly ($9.99) and annual ($79.99) plans
+* **7-day trial**
 * Mobile subscriptions only
+* No Budgts-generated trial-end reminder (store/platform notices only)
 
 Next work:
 

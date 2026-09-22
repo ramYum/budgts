@@ -16,9 +16,9 @@ function priceLine(o: Offer): string {
 
 /**
  * Paywall / trial screen. Everything shown comes from the store (price, trial length) or the server (entitlement); a
- * purchase only counts once the server confirms it (`useMonetization`). The approved reminder disclosure is shown before the
- * trial starts (docs/specs/2026-09-21-v1-monetization-design.md §7). The auto-renewal wording below is the standard store
- * disclosure and should get a final wording review before store submission.
+ * purchase only counts once the server confirms it (`useMonetization`). Budgts does not send its own trial-end
+ * reminder (owner decision 2026-09-22) — only the store's own renewal disclosure below applies. That wording is the
+ * standard store disclosure and should get a final wording review before store submission.
  */
 export default function PaywallScreen() {
   const router = useRouter();
@@ -30,13 +30,9 @@ export default function PaywallScreen() {
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <Text style={styles.title} accessibilityRole="header">
-          {m.canStartTrial ? "Start your 14-day free trial" : "Budgts subscription"}
+          {m.canStartTrial ? "Start your 7-day free trial" : "Budgts subscription"}
         </Text>
-        <Text style={styles.lead}>
-          {m.canStartTrial
-            ? "Try Budgts free for 14 days. We'll send you a reminder one day before your 14-day free trial ends and your paid subscription begins."
-            : "Subscribe to keep using Budgts."}
-        </Text>
+        <Text style={styles.lead}>{m.canStartTrial ? "Try Budgts free for 7 days." : "Subscribe to keep using Budgts."}</Text>
 
         {m.hasPremium ? (
           <View style={styles.card}>

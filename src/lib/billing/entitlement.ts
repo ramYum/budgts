@@ -103,12 +103,28 @@ export interface EntitlementView {
   productId: string | null;
   store: Store | null;
   /**
-   * The account has never had a trial or a purchase, so the "Start your 14-day free trial" offer applies.
+   * The account has never had a trial or a purchase, so the "Start your 7-day free trial" offer applies.
    * A hint only: the STORE is the authority on trial eligibility and shows its own sheet.
    */
   canStartTrial: boolean;
   /** What renewal costs when the provider told us; the app should prefer the store's localized price. */
   renewal: { amount: number; currency: string } | null;
+}
+
+/** A renewal price, formatted for display (e.g. "$9.99"). Amounts are integer minor units; never invented here. */
+export function formatPrice(p: Price): string {
+  const exp = (() => {
+    try {
+      return new Intl.NumberFormat("en-US", { style: "currency", currency: p.currency }).resolvedOptions().maximumFractionDigits ?? 2;
+    } catch {
+      return 2;
+    }
+  })();
+  try {
+    return new Intl.NumberFormat("en-US", { style: "currency", currency: p.currency }).format(p.amount / 10 ** exp);
+  } catch {
+    return `${(p.amount / 10 ** exp).toFixed(exp)} ${p.currency}`;
+  }
 }
 
 export function toEntitlementView(e: EntitlementFields | null | undefined, now: Date = new Date()): EntitlementView {

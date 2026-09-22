@@ -1,5 +1,5 @@
 /**
- * The purchase FLOW: how the app moves from "tap Start your 14-day free trial" to a confirmed entitlement — with the
+ * The purchase FLOW: how the app moves from "tap Start your 7-day free trial" to a confirmed entitlement — with the
  * SERVER as the only authority on whether the user has Premium.
  *
  * The rule this file exists to enforce: a store sheet reporting success is NOT entitlement. After any purchase (and on
@@ -83,7 +83,7 @@ export function createPurchaseFlow(deps: FlowDeps) {
     },
 
     /**
-     * Start the purchase sheet for an offer (the "Start your 14-day free trial" action). Access is granted only if the
+     * Start the purchase sheet for an offer (the "Start your 7-day free trial" action). Access is granted only if the
      * SERVER confirms afterwards.
      */
     async startPurchase(offer: Offer): Promise<FlowState> {

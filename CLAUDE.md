@@ -6,8 +6,8 @@ Project instructions. They sit **under** the global `~/.claude/CLAUDE.md` and ad
 
 A **commercial budgeting app** ("Budgts"). **Supported surfaces: iOS and Android only** — a native Expo app
 (`mobile/`) on the Next.js / Supabase backend. The user-facing web/PWA product is being retired and is not a supported
-surface. Per-user accounts; no shared budgets in v1. Revenue is store-managed subscriptions with a 14-day free trial
-(`docs/specs/2026-09-21-v1-monetization-design.md`).
+surface. Per-user accounts; no shared budgets in v1. Revenue is store-managed subscriptions with a 7-day free trial,
+$9.99/month or $79.99/year (`docs/specs/2026-09-21-v1-monetization-design.md`, owner decision 2026-09-22).
 
 **Web/server infrastructure is kept** (and is not removed just because the PWA is retired) wherever the native apps or
 outside services depend on it: backend APIs (`/api/*`), the auth / OAuth callback (`/auth/callback`), Plaid webhooks and
@@ -44,7 +44,7 @@ per user, chosen at signup.
 | Vercel | `budgts` — a push to `main` deploys it | `budgts-staging` |
 | Plaid / billing | Plaid live; billing not configured | Plaid Sandbox; RevenueCat sandbox |
 
-- **Production changes need explicit owner approval:** migrations, deploys, env vars, Supabase, RevenueCat / Resend
+- **Production changes need explicit owner approval:** migrations, deploys, env vars, Supabase, RevenueCat
   config, store products. Never delete or modify the production Supabase project.
 - `tools/db/target-safety.ts` is the registry of known projects; it refuses retired or deleted ones. Earlier staging
   projects are gone — never reference or restore them.
@@ -63,8 +63,7 @@ per user, chosen at signup.
 | Data / auth | Supabase Postgres + Auth; RLS on **every** table, scoped to `auth.uid()` — the enforcement, not a backstop |
 | DB access | `supabase-js` with the user's session for user requests; Drizzle for migrations and schema; a direct server connection only for trusted server work (see Conventions) |
 | Bank data | Plaid |
-| Subscriptions | Apple / Google via RevenueCat, confined to the provider boundary (`src/lib/billing/revenuecat/`, `mobile/lib/billing/`); server-authoritative entitlement in `src/lib/billing/`. No web billing in V1 |
-| Email | Resend (trial-end reminder) behind the `ReminderDelivery` port — built, **not live** (no account or verified domain) |
+| Subscriptions | Apple / Google via RevenueCat, confined to the provider boundary (`src/lib/billing/revenuecat/`, `mobile/lib/billing/`); server-authoritative entitlement in `src/lib/billing/`. No web billing in V1. 7-day trial, $9.99/month, $79.99/year (owner decision 2026-09-22); no Budgts-generated trial-end reminder |
 | Scheduling | Supabase `pg_cron` + `pg_net` calling the app's cron endpoints (`supabase/*.sql`, run by hand once per environment; not migrations) |
 | Validation / forms / charts | Zod (shared client + server) · React Hook Form · Recharts (consult the `dataviz` skill before building a chart) |
 | AI (V2) | Claude API, `claude-sonnet-5` (consult the `claude-api` skill) |
@@ -80,7 +79,7 @@ docs/          conventions.md (feature layer order + ingestion contract) · road
 src/app/       api/{account,billing,mobile,plaid,export}, auth/callback, plaid-oauth, manage-subscription, (legal) pages,
                .well-known/*, app/plaid-oauth (kept); (app) (auth) web UI screens (being retired — no new features)
 src/lib/       db/ budget/ categories/ accounts/ validation/ (pure, tested) · ingestion/ plaid/
-               account/ (deleteAccount) · billing/ (entitlement, RevenueCat adapter, ledger, reminders) · auth/ mobile/ supabase/
+               account/ (deleteAccount) · billing/ (entitlement, RevenueCat adapter, ledger) · auth/ mobile/ supabase/
 src/server/    server actions
 mobile/        Expo app
 supabase/      migrations/ 0000–0022 · billing-cron.sql, staging-plaid-cron.sql (per-environment, by hand)
@@ -120,7 +119,6 @@ staging use **separate** secrets. Never commit secrets; keep `.env.local.example
 - **Cron:** `CRON_SECRET`
 - **Billing:** `REVENUECAT_WEBHOOK_SIGNING_SECRET`, `REVENUECAT_WEBHOOK_AUTH`, `REVENUECAT_SECRET_API_KEY`,
   `BILLING_ENVIRONMENT` (`sandbox` on staging; events from the other environment are quarantined)
-- **Email:** `RESEND_API_KEY`, `EMAIL_FROM`, `REMINDER_EMAIL_ALLOWLIST` (non-empty on staging)
 - **Native links / support:** `APPLE_APP_ID` (`<TEAMID>.<bundle id>`), `ANDROID_PACKAGE_NAME`, `ANDROID_CERT_SHA256` (each unset =
   its `/.well-known/*` route answers 404), `SUPPORT_EMAIL` (shown on `/support`)
 - **Mobile** (`mobile/.env` / EAS): `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY`, `EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY`
@@ -181,16 +179,18 @@ Direction and priority live in `docs/roadmap.md`; this is a snapshot.
 - **On branch `mobile/native-home` (PR #1, draft) — not on `main`, nothing deployed:** native Home, mobile auth and Sign in
   with Apple; the signed-in shell (Get Started, Settings, paywall, delete account); the native data API (transactions, accounts,
   categories, budgets); account deletion (migrations 0017–0020); V1 monetization — ledger (0021), `entitlements` +
-  `billing_events` (0022), RevenueCat adapter, trial / purchase / restore, trial-end reminder, Manage Subscription; and the draft
+  `billing_events` (0022), RevenueCat adapter, trial / purchase / restore, Manage Subscription (7-day trial, $9.99/mo,
+  $79.99/yr, no Budgts-generated reminder — owner decision 2026-09-22); and the draft
   privacy / terms / support / deletion pages. Server side verified on staging; native screens not yet run on a device. Native
   screens for transactions, budgets and accounts, and native Plaid, are next.
 - **Removed from the release path:** the first-run tour and "How Budgts Works" guide (`7468365`); `/onboarding` is now
   only the currency form. The old versions live on local `archive/*` branches. **Approved direction:** a *Get Started*
   flow with an optional *Show me around* walkthrough — not started; it uses `useMonetization()` and needs no provider
   knowledge.
-- **Not done (owner / release work):** migrations 0017–0022 and the deploy on production; RevenueCat project (webhooks
-  need its Pro plan) and the Apple / Google products; a Resend account with a verified domain; developer enrolment and
-  store submission; Vercel upgrade (Hobby is non-commercial), and Supabase as data grows.
+- **Not done (owner / release work):** migrations 0017–0022 and the deploy on production; RevenueCat store products
+  (project itself created 2026-09-22; webhooks need its Pro plan) and the Apple / Google products — Google Play
+  developer enrollment exists (personal account, identity verification pending), Apple not enrolled; developer
+  enrolment and store submission; Vercel upgrade (Hobby is non-commercial), and Supabase as data grows.
 - **Next:** external monetization setup, then production release preparation (owner-approved), then store submission.
   V2 (email / receipt ingestion, spending intelligence) and V2+ (AI assistant) come after launch.
 

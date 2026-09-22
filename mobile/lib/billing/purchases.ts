@@ -15,7 +15,7 @@ export type Offer = {
   /** The store-localized price string, exactly as the store shows it (e.g. "$9.99"). Prefer this over any server price. */
   priceString: string;
   plan: Plan | null;
-  /** The free-trial length the STORE will apply, when the offer carries one. The UI copy says 14; this lets it be checked. */
+  /** The free-trial length the STORE will apply, when the offer carries one. The UI copy says 7; this lets it be checked. */
   trialDays: number | null;
   /** Opaque handle the implementation needs to start the purchase. */
   handle: unknown;

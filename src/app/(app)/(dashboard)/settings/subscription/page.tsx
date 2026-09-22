@@ -2,10 +2,9 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { getServerDb } from "@/lib/billing/db";
-import type { EntitlementView } from "@/lib/billing/entitlement";
+import { formatPrice, type EntitlementView } from "@/lib/billing/entitlement";
 import { getEntitlementView } from "@/lib/billing/service";
 import { APPLE_MANAGE_URL, GOOGLE_MANAGE_URL, manageUrlFor } from "@/lib/billing/manage";
-import { formatPrice } from "@/lib/billing/reminders";
 import { getSessionUser } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Subscription" };
@@ -37,8 +36,9 @@ function describe(e: EntitlementView): { headline: string; detail: string } {
 
 /**
  * Settings -> Subscription / Billing: a normal, predictable place to see subscription status and find the way to manage
- * or cancel it. Deliberately quiet — the Manage Subscription link lives here (and in the reminder email and the
- * account-deletion flow), not on the main pages — but never hidden or made harder to reach.
+ * or cancel it. Deliberately quiet — the Manage Subscription link lives here (and in the account-deletion flow), not on
+ * the main pages — but never hidden or made harder to reach. Budgts does not send its own trial-end reminder (owner
+ * decision 2026-09-22); Apple/Google send any store-required billing notices.
  */
 export default async function SubscriptionPage() {
   const user = await getSessionUser();

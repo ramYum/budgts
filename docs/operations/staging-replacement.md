@@ -42,14 +42,14 @@ until the old project is deleted.
 
 **Vercel `budgts-staging` only** (never the production project): `DATABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`,
 `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `CRON_SECRET`, the RevenueCat staging values
-(`REVENUECAT_*`, `BILLING_ENVIRONMENT=sandbox`), and for reminder email a **staging** `RESEND_API_KEY`, `EMAIL_FROM` and a
-**non-empty `REMINDER_EMAIL_ALLOWLIST`**. Existing Plaid sandbox values stay. Redeploy.
+(`REVENUECAT_*`, `BILLING_ENVIRONMENT=sandbox`). Existing Plaid sandbox values stay. Redeploy. Budgts sends no
+trial-end reminder in V1 (owner decision 2026-09-22), so there is no Resend/email config to set.
 
 **Plaid sandbox:** webhook and redirect URIs point at the staging site (unchanged host, so normally nothing to do —
 confirm).
 
-**Cron:** `plaid-sync-due` (existing staging SQL), and `supabase/billing-cron.sql` for billing reconciliation and the
-trial-reminder sweep. Run it through the SQL editor only because it schedules `pg_cron` jobs; it changes no schema.
+**Cron:** `plaid-sync-due` (existing staging SQL), and `supabase/billing-cron.sql` for billing reconciliation. Run it
+through the SQL editor only because it schedules `pg_cron` jobs; it changes no schema.
 
 **Test users:** recreate only the e2e/integration users the suites need.
 
@@ -59,11 +59,10 @@ trial-reminder sweep. Run it through the SQL editor only because it schedules `p
 | --- | --- |
 | Fresh migration chain | `npx vitest run tests/unit/db-migration-chain.test.ts` |
 | Web / mobile / monetization unit | `npm test`; `npm --prefix mobile test` |
-| Staging integration incl. concurrency | `npm run test:integration` (includes `billing-concurrency.test.ts`: reminder-claim race, multi-worker sweeps, duplicate webhooks, same-transaction-id, mixed ordering) |
+| Staging integration incl. concurrency | `npm run test:integration` (includes `billing-concurrency.test.ts`: duplicate webhooks, same-transaction-id, mixed ordering) |
 | Auth, magic link, mobile Bearer, native Home | `mobile-auth`, `mobile-home` integration tests + a manual magic-link sign-in |
 | Plaid sandbox | connect → sync → disconnect; deletion Path A and Path B; stale-JWT lock |
 | Entitlement + webhook | signed RevenueCat fixture webhooks against the staging URL; `GET /api/billing/entitlement`; reconcile cron |
-| Reminder cron | `GET /api/billing/reminders/due` with the cron bearer; allowlist prevents real recipients |
 | Trial-only deletion = Path A; paid-history = Path B | integration tests + one manual walk-through |
 | Playwright | `npm run test:e2e` pointed at staging |
 

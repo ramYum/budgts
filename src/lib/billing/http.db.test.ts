@@ -9,7 +9,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import { asBillingDb, createAuthUser, newMigratedDb } from "../../../tests/unit/helpers/pglite-db";
 import { loadBillingConfig, type BillingConfig } from "./config";
 import type { Db } from "./db";
-import { handleEntitlementGet, handleEntitlementRefresh, handleReconcileCron, handleReminderCron, handleRevenueCatWebhook, type HttpDeps } from "./http";
+import { handleEntitlementGet, handleEntitlementRefresh, handleReconcileCron, handleRevenueCatWebhook, type HttpDeps } from "./http";
 import { rcBody, DAY, T0 } from "./revenuecat/fixtures";
 import { signRevenueCatBody } from "./revenuecat/verify";
 import { loadEntitlement } from "./store";
@@ -196,24 +196,14 @@ describe("POST /api/billing/webhook/revenuecat", () => {
 });
 
 describe("cron endpoints", () => {
-  const req = (auth?: string) => new Request("https://budgts.test/api/billing/reminders/due", { method: "POST", headers: auth ? { authorization: auth } : {} });
+  const req = (auth?: string) => new Request("https://budgts.test/api/billing/reconcile/due", { method: "POST", headers: auth ? { authorization: auth } : {} });
 
   it("401 without the shared secret, with a wrong one, and when none is configured", async () => {
-    for (const handler of [handleReminderCron, handleReconcileCron]) {
+    for (const handler of [handleReconcileCron]) {
       expect((await handler(req(), deps())).status).toBe(401);
       expect((await handler(req("Bearer wrong"), deps())).status).toBe(401);
       expect((await handler(req("Bearer cron-secret-value"), deps({}, { cronSecret: null }))).status).toBe(401);
     }
-  });
-
-  it("with the secret: the reminder sweep reports due work WITHOUT a delivery channel and claims nothing", async () => {
-    const u = await createAuthUser(pg);
-    const end = new Date(NOW.getTime() + 3 * 3_600_000);
-    await pg.query(`insert into entitlements (user_id, state, will_renew, trial_ends_at, access_until, product_id, store) values ($1,'trialing',true,$2,$2,'budgts_monthly','apple')`, [u, end]);
-    const r = await handleReminderCron(req("Bearer cron-secret-value"), deps());
-    expect(r.status).toBe(200);
-    expect(await json(r)).toMatchObject({ delivery: "unconfigured", claimed: 0 });
-    expect((await loadEntitlement(db, u))?.reminderClaimedAt).toBeNull();
   });
 
   it("with the secret: the reconcile sweep runs and reports", async () => {

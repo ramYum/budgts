@@ -20,7 +20,7 @@ export type EntitlementView = {
   accessUntil: string | null;
   productId: string | null;
   store: StoreName | null;
-  /** The account has never had a trial or purchase: the "Start your 14-day free trial" offer applies. A hint; the store is the authority. */
+  /** The account has never had a trial or purchase: the "Start your 7-day free trial" offer applies. A hint; the store is the authority. */
   canStartTrial: boolean;
   renewal: { amount: number; currency: string } | null;
 };

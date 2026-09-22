@@ -50,7 +50,7 @@ the service worker, CI.
 Verified by tests and, for the live paths, end to end against the staging project (`Budgets-Staging-3`).
 
 - **Machine-to-machine endpoints authenticate themselves.** The Plaid webhook is signature-verified. Cron endpoints
-  (`/api/plaid/sync-due`, `/api/billing/reminders/due`, `/api/billing/reconcile/due`) require `CRON_SECRET` as a bearer, compared
+  (`/api/plaid/sync-due`, `/api/billing/reconcile/due`) require `CRON_SECRET` as a bearer, compared
   with `timingSafeEqual`. The RevenueCat webhook requires an HMAC-SHA256 signature (`t=<unix s>,v1=<hex>` over the raw body, 5-minute
   tolerance) and optionally an Authorization value; unconfigured means 503, never open. None of them reads a user id from a request
   body or URL — the affected user comes from the verified payload.
@@ -73,8 +73,6 @@ Verified by tests and, for the live paths, end to end against the staging projec
   a deletion that must keep the ledger anonymizes the account instead. RLS is on every table (25 public tables, checked on staging).
 - **Entitlement cannot be forged from the client.** Premium is decided server-side by `hasPremium(entitlement, now)`; the mobile purchase
   flow only asks the server to re-read the provider's state. Billing responses use a stable view-model, never raw provider rows.
-- **Email cannot reach a real customer from staging.** The reminder adapter refuses recipients outside `REMINDER_EMAIL_ALLOWLIST`, and its
-  errors never echo the provider's response body.
 - **The web surface is shrinking.** Budgts is mobile-only and the web/PWA UI will be retired once native covers the launch-required
   functionality (`docs/specs/2026-09-21-mobile-only-transition-design.md`). The service worker, the cookie-session Server Actions
   and the CSV route are in scope only while they exist. The retained surface is the Bearer and machine-to-machine routes above,
@@ -89,4 +87,4 @@ Verified by tests and, for the live paths, end to end against the staging projec
   `docs/deploy.md`), and the Budgets-Staging-3 database password. Revoke the stale Supabase access token in `.env.staging` (it is
   scoped to a deleted project and unused).
 - **Production-side items not yet done** (release preparation, not started): applying migrations 0017–0022, and configuring production
-  RevenueCat / Resend credentials with their own separate values.
+  RevenueCat credentials with their own separate values.

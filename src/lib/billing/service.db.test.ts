@@ -1,20 +1,16 @@
 // @vitest-environment node
 /**
- * Refresh / reconcile services, the trial-end reminder claim logic, and the Premium decision — against REAL Postgres
- * with the repo's real migration chain (embedded PGlite). The provider is a stubbed `fetch` returning
- * documented-shape RevenueCat subscriber objects; no network is touched.
+ * Refresh / reconcile services, and the Premium decision — against REAL Postgres with the repo's real migration
+ * chain (embedded PGlite). The provider is a stubbed `fetch` returning documented-shape RevenueCat subscriber
+ * objects; no network is touched.
  */
 import type { PGlite } from "@electric-sql/pglite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { asBillingDb, createAuthUser, newMigratedDb } from "../../../tests/unit/helpers/pglite-db";
 import { loadBillingConfig, type BillingConfig } from "./config";
 import type { Db } from "./db";
-import { hasPremium, type EntitlementFields } from "./entitlement";
+import { hasPremium } from "./entitlement";
 import { getPremiumDecision } from "./gate";
-import {
-  claimReminder, composeTrialEndReminder, findDueReminderUserIds, isReminderDue, markReminderSent,
-  releaseReminderClaim, runReminderSweep, type ReminderDelivery,
-} from "./reminders";
 import { conversionEvent, DAY, T0, trialEvent } from "./revenuecat/fixtures";
 import { processRevenueCatEvent } from "./processor";
 import { getEntitlementView, reconcileStale, refreshEntitlement, type RefreshDeps } from "./service";
@@ -33,7 +29,7 @@ afterAll(async () => {
 const HOUR = 3_600_000;
 const config = (over: Partial<BillingConfig> = {}): BillingConfig => ({ ...loadBillingConfig({}), secretApiKey: "sk_test_secret", environment: "production", ...over });
 
-/** Inserts an entitlement row directly (the reminder logic reads only these columns). */
+/** Inserts an entitlement row directly. */
 async function seedEntitlement(userId: string, o: Partial<Record<string, unknown>> = {}) {
   const trialEnds = (o.trial_ends_at as Date | undefined) ?? new Date(T0 + 14 * DAY);
   const row: Record<string, unknown> = { state: "trialing", will_renew: true, trial_ends_at: trialEnds, access_until: trialEnds, product_id: "budgts_monthly", store: "apple", trial_started_at: new Date(T0), ...o };
@@ -44,185 +40,6 @@ async function seedEntitlement(userId: string, o: Partial<Record<string, unknown
     [userId, row.state, row.store, row.product_id, row.will_renew, row.trial_started_at, row.trial_ends_at, row.access_until, row.renewal_price_amount ?? null, row.renewal_price_currency ?? null, row.reminder_for_trial_ends_at ?? null, row.reminder_claimed_at ?? null, row.reminder_sent_at ?? null, row.last_reconciled_at ?? null],
   );
 }
-
-describe("trial-end reminder: when it is due", () => {
-  const trialEnd = new Date(T0 + 14 * DAY);
-
-  it("is due only in the 24 hours before the authoritative trial end", async () => {
-    const u = await createAuthUser(pg);
-    await seedEntitlement(u, { trial_ends_at: trialEnd });
-    const due = async (at: Date) => (await findDueReminderUserIds(db, at)).includes(u);
-    expect(await due(new Date(trialEnd.getTime() - 25 * HOUR))).toBe(false);
-    expect(await due(new Date(trialEnd.getTime() - 24 * HOUR))).toBe(true); // boundary: "one day before"
-    expect(await due(new Date(trialEnd.getTime() - HOUR))).toBe(true);
-    expect(await due(new Date(trialEnd.getTime() - 1000))).toBe(true);
-    expect(await due(trialEnd)).toBe(false); // the trial has ended: too late to warn
-    expect(await due(new Date(trialEnd.getTime() + HOUR))).toBe(false);
-  });
-
-  it("is never due for a trial the user already cancelled, or for any non-trial state", async () => {
-    const at = new Date(trialEnd.getTime() - 2 * HOUR);
-    const cancelled = await createAuthUser(pg);
-    await seedEntitlement(cancelled, { will_renew: false, trial_ends_at: trialEnd });
-    const active = await createAuthUser(pg);
-    await seedEntitlement(active, { state: "active", trial_ends_at: trialEnd });
-    const expired = await createAuthUser(pg);
-    await seedEntitlement(expired, { state: "expired", trial_ends_at: trialEnd });
-    const ids = await findDueReminderUserIds(db, at, 1000);
-    for (const u of [cancelled, active, expired]) expect(ids).not.toContain(u);
-  });
-
-  it("the pure isReminderDue agrees with the database claim predicate across states", async () => {
-    const at = new Date(trialEnd.getTime() - 2 * HOUR);
-    const cases: Array<[string, Partial<Record<string, unknown>>]> = [
-      ["fresh trial", {}],
-      ["cancelled", { will_renew: false }],
-      ["already sent", { reminder_for_trial_ends_at: trialEnd, reminder_claimed_at: new Date(at.getTime() - HOUR), reminder_sent_at: new Date(at.getTime() - HOUR) }],
-      ["lease held", { reminder_for_trial_ends_at: trialEnd, reminder_claimed_at: new Date(at.getTime() - 5 * 60_000) }],
-      ["lease stale", { reminder_for_trial_ends_at: trialEnd, reminder_claimed_at: new Date(at.getTime() - 20 * 60_000) }],
-      ["reminded for an OLDER trial", { reminder_for_trial_ends_at: new Date(trialEnd.getTime() - 5 * DAY), reminder_claimed_at: new Date(at.getTime() - HOUR), reminder_sent_at: new Date(at.getTime() - HOUR) }],
-      ["expired", { state: "expired" }],
-    ];
-    const dbIds = new Map<string, string>();
-    for (const [name, over] of cases) {
-      const u = await createAuthUser(pg);
-      await seedEntitlement(u, { trial_ends_at: trialEnd, ...over });
-      dbIds.set(name, u);
-    }
-    const dueInDb = new Set(await findDueReminderUserIds(db, at, 1000));
-    for (const [name] of cases) {
-      const e = (await loadEntitlement(db, dbIds.get(name)!))! as EntitlementFields;
-      expect(isReminderDue(e, at), name).toBe(dueInDb.has(dbIds.get(name)!));
-    }
-  });
-});
-
-describe("trial-end reminder: claim, idempotency, races and leases", () => {
-  const trialEnd = new Date(T0 + 14 * DAY);
-  const at = new Date(trialEnd.getTime() - 2 * HOUR);
-
-  it("the first claim wins and carries the payload; a second claim for the same trial gets nothing", async () => {
-    const u = await createAuthUser(pg);
-    await seedEntitlement(u, { trial_ends_at: trialEnd, renewal_price_amount: 999, renewal_price_currency: "USD" });
-    const first = await claimReminder(db, u, at);
-    expect(first).toMatchObject({ userId: u, productId: "budgts_monthly", store: "apple", renewalPrice: { amount: 999, currency: "USD" } });
-    expect(first?.trialEndsAt.getTime()).toBe(trialEnd.getTime());
-    expect(await claimReminder(db, u, at)).toBeNull();
-  });
-
-  it("two workers racing for the same user: exactly one claims (no duplicate reminder)", async () => {
-    const u = await createAuthUser(pg);
-    await seedEntitlement(u, { trial_ends_at: trialEnd });
-    const results = await Promise.all([claimReminder(db, u, at), claimReminder(db, u, at), claimReminder(db, u, at), claimReminder(db, u, at)]);
-    expect(results.filter(Boolean)).toHaveLength(1);
-  });
-
-  it("after the reminder is SENT it is never claimable again for that trial", async () => {
-    const u = await createAuthUser(pg);
-    await seedEntitlement(u, { trial_ends_at: trialEnd });
-    const p = await claimReminder(db, u, at);
-    await markReminderSent(db, u, p!.trialEndsAt, at);
-    expect(await claimReminder(db, u, new Date(at.getTime() + 30 * 60_000))).toBeNull();
-    expect((await findDueReminderUserIds(db, new Date(at.getTime() + HOUR), 1000))).not.toContain(u);
-  });
-
-  it("a crashed worker's claim expires (lease) so the reminder is retried, not lost", async () => {
-    const u = await createAuthUser(pg);
-    await seedEntitlement(u, { trial_ends_at: trialEnd });
-    expect(await claimReminder(db, u, at)).not.toBeNull();
-    expect(await claimReminder(db, u, new Date(at.getTime() + 10 * 60_000))).toBeNull(); // lease still held
-    expect(await claimReminder(db, u, new Date(at.getTime() + 16 * 60_000))).not.toBeNull(); // lease expired, nothing was sent
-  });
-
-  it("releasing a claim (failed delivery) makes it claimable again at once", async () => {
-    const u = await createAuthUser(pg);
-    await seedEntitlement(u, { trial_ends_at: trialEnd });
-    const p = await claimReminder(db, u, at);
-    await releaseReminderClaim(db, u, p!.trialEndsAt);
-    expect(await claimReminder(db, u, at)).not.toBeNull();
-  });
-
-  it("a DIFFERENT (extended) trial end is reminded again; the same trial never twice", async () => {
-    const u = await createAuthUser(pg);
-    await seedEntitlement(u, { trial_ends_at: trialEnd });
-    const p = await claimReminder(db, u, at);
-    await markReminderSent(db, u, p!.trialEndsAt, at);
-    const extended = new Date(trialEnd.getTime() + 7 * DAY);
-    await pg.query(`update entitlements set trial_ends_at = $2, access_until = $2 where user_id = $1`, [u, extended]);
-    expect(await claimReminder(db, u, at)).toBeNull(); // not inside the new trial's last 24h yet
-    const later = new Date(extended.getTime() - 3 * HOUR);
-    expect(await claimReminder(db, u, later)).not.toBeNull();
-  });
-});
-
-describe("trial-end reminder: the sweep", () => {
-  const trialEnd = new Date(T0 + 14 * DAY);
-  const at = new Date(trialEnd.getTime() - 2 * HOUR);
-  const seedDue = async () => {
-    const u = await createAuthUser(pg);
-    await seedEntitlement(u, { trial_ends_at: trialEnd });
-    return u;
-  };
-  const only = (u: string) => (ids: string[]) => ids.filter((x) => x === u);
-
-  it("with NO delivery channel configured it reports what is due but claims NOTHING (no reminder is silently consumed)", async () => {
-    const u = await seedDue();
-    const r = await runReminderSweep({ db, delivery: null, now: () => at });
-    expect(r.delivery).toBe("unconfigured");
-    expect(r.due).toBeGreaterThanOrEqual(1);
-    expect(r.claimed).toBe(0);
-    const [row] = (await pg.query<{ reminder_claimed_at: Date | null }>(`select reminder_claimed_at from entitlements where user_id = $1`, [u])).rows;
-    expect(row.reminder_claimed_at).toBeNull();
-  });
-
-  it("delivers once, records it sent, and repeated cron runs send nothing more", async () => {
-    const u = await seedDue();
-    const delivered: string[] = [];
-    const delivery: ReminderDelivery = { deliver: async (p) => void delivered.push(p.userId) };
-    const first = await runReminderSweep({ db, delivery, now: () => at });
-    expect(first.delivery).toBe("configured");
-    expect(only(u)(delivered)).toHaveLength(1);
-    await runReminderSweep({ db, delivery, now: () => new Date(at.getTime() + 5 * 60_000) });
-    await runReminderSweep({ db, delivery, now: () => new Date(at.getTime() + 60 * 60_000) });
-    expect(only(u)(delivered)).toHaveLength(1); // three cron runs, one reminder for this user
-  });
-
-  it("a delivery FAILURE releases the claim, retries next run, and never alters the entitlement", async () => {
-    const u = await seedDue();
-    const before = await loadEntitlement(db, u);
-    let attempts = 0;
-    const flaky: ReminderDelivery = {
-      deliver: async (p) => {
-        if (p.userId !== u) return;
-        if (++attempts === 1) throw new Error("push provider down");
-      },
-    };
-    const r1 = await runReminderSweep({ db, delivery: flaky, now: () => at });
-    expect(r1.failed).toBeGreaterThanOrEqual(1);
-    const mid = await loadEntitlement(db, u);
-    expect({ state: mid?.state, willRenew: mid?.willRenew, accessUntil: mid?.accessUntil }).toEqual({ state: before?.state, willRenew: before?.willRenew, accessUntil: before?.accessUntil });
-    expect(mid?.reminderClaimedAt).toBeNull(); // claim was released
-    await runReminderSweep({ db, delivery: flaky, now: () => new Date(at.getTime() + 60_000) });
-    expect(attempts).toBe(2); // retried and succeeded
-    expect((await loadEntitlement(db, u))?.reminderSentAt).not.toBeNull();
-  });
-});
-
-describe("trial-end reminder copy", () => {
-  const base = { userId: "u", trialEndsAt: new Date(T0), store: "apple" as const };
-  it("uses the provider's price and billing period when known", () => {
-    const m = composeTrialEndReminder({ ...base, productId: "budgts_monthly", renewalPrice: { amount: 999, currency: "USD" } });
-    expect(m.title).toBe("Your free trial ends tomorrow");
-    expect(m.body).toBe("Your free trial ends tomorrow. Your subscription will automatically begin at $9.99 per month unless you cancel before then. You can manage or cancel in the App Store.");
-    expect(composeTrialEndReminder({ ...base, productId: "budgts_annual", renewalPrice: { amount: 6900, currency: "USD" } }).body).toContain("$69.00 per year");
-  });
-  it("never invents a price, and points at the right store", () => {
-    const m = composeTrialEndReminder({ ...base, store: "google", productId: "budgts_monthly", renewalPrice: null });
-    expect(m.body).toContain("at the price shown in your store unless you cancel");
-    expect(m.body).toContain("Google Play");
-    expect(composeTrialEndReminder({ ...base, store: null, productId: null, renewalPrice: { amount: 1500, currency: "JPY" } }).body).toContain("¥1,500");
-  });
-});
 
 // ---------------------------------------------------------------------------------------------------------------------
 

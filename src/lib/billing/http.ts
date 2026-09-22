@@ -18,7 +18,6 @@ import { getRequestUser } from "@/lib/auth/get-request-user";
 import type { BillingConfig } from "./config";
 import type { Db } from "./db";
 import { processRevenueCatEvent } from "./processor";
-import { runReminderSweep, type ReminderDelivery } from "./reminders";
 import { mapRevenueCatEvent } from "./revenuecat/map";
 import { SIGNATURE_HEADER, verifyRevenueCatWebhook } from "./revenuecat/verify";
 import { getEntitlementView, reconcileStale, refreshEntitlement } from "./service";
@@ -28,8 +27,6 @@ export interface HttpDeps {
   config: BillingConfig;
   now?: () => Date;
   fetchImpl?: typeof fetch;
-  /** The reminder delivery channel. None exists yet; when null the sweep reports without claiming. */
-  reminderDelivery?: ReminderDelivery | null;
 }
 
 const NO_STORE = { "Cache-Control": "no-store" };
@@ -105,12 +102,6 @@ function cronAuthorized(request: Request, config: BillingConfig): boolean {
   const a = Buffer.from(presented);
   const b = Buffer.from(config.cronSecret);
   return a.length === b.length && timingSafeEqual(a, b);
-}
-
-export async function handleReminderCron(request: Request, deps: HttpDeps): Promise<Response> {
-  if (!cronAuthorized(request, deps.config)) return json({ error: "unauthorized" }, 401);
-  const result = await runReminderSweep({ db: deps.db, delivery: deps.reminderDelivery ?? null, now: deps.now });
-  return json(result);
 }
 
 export async function handleReconcileCron(request: Request, deps: HttpDeps): Promise<Response> {

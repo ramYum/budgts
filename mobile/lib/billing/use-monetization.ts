@@ -94,7 +94,7 @@ export function useMonetization() {
     else if (next.kind === "not_confirmed" && next.entitlement) setEntitlement(next.entitlement);
   }, []);
 
-  /** "Start your 14-day free trial". Defaults to the first offer that carries a free trial. */
+  /** "Start your 7-day free trial". Defaults to the first offer that carries a free trial. */
   const startFreeTrial = useCallback(
     async (offer?: Offer) => {
       const chosen = offer ?? offers.find((o) => o.trialDays !== null) ?? offers[0];

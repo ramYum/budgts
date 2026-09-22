@@ -59,7 +59,6 @@ export default function PrivacyPage() {
         <li>Vercel: hosting.</li>
         <li>Plaid: connecting to your bank.</li>
         <li>RevenueCat, Apple and Google: subscriptions and purchases; Apple and Google also for optional sign-in.</li>
-        <li>Resend: trial-reminder email (when enabled).</li>
       </ul>
       <p>[Owner to confirm: statement on selling or sharing personal information, and international transfers.]</p>
 

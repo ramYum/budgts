@@ -6,7 +6,7 @@ manual entry as the always-available fallback. It is a mobile-only product: a na
 iOS/Android app (`mobile/`, Expo) on a Next.js backend (APIs, auth callbacks, webhooks).
 The earlier web/PWA UI (https://budgts.com) is being retired and is not a supported
 surface. Data lives in Supabase; per-user accounts, isolated by Row-Level Security.
-Revenue is store-managed subscriptions (14-day free trial) through RevenueCat.
+Revenue is store-managed subscriptions (7-day free trial, $9.99/month or $79.99/year) through RevenueCat.
 
 ## Docs
 

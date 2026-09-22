@@ -3,8 +3,9 @@ import type { Metadata } from "next";
 export const metadata: Metadata = { title: "Terms of Service" };
 
 /**
- * DRAFT terms (see `../legal-status.ts`). Subscription facts (14-day trial, store billing, cancellation in the store) come
- * from docs/specs/2026-09-21-v1-monetization-design.md. Pricing and legal terms are the owner's: marked [Owner to confirm].
+ * DRAFT terms (see `../legal-status.ts`). Subscription facts (7-day trial, $9.99/month, $79.99/year, store billing,
+ * cancellation in the store) come from docs/specs/2026-09-21-v1-monetization-design.md (owner decision 2026-09-22).
+ * Remaining legal terms are the owner's: marked [Owner to confirm].
  */
 export default function TermsPage() {
   return (
@@ -20,7 +21,10 @@ export default function TermsPage() {
 
       <h2 className="pt-2 font-semibold text-heading">Subscriptions and the free trial</h2>
       <ul className="list-disc space-y-1 pl-5">
-        <li>Budgts offers a 14-day free trial that you start yourself in the app. [Owner to confirm: plans and prices.]</li>
+        <li>
+          Budgts offers a 7-day free trial that you start yourself in the app. After the trial, your subscription
+          automatically begins at $9.99/month or $79.99/year, depending on the plan you chose, unless you cancel first.
+        </li>
         <li>
           Subscriptions are billed by Apple or Google. Unless you cancel at least 24 hours before the trial or period ends,
           the subscription starts or renews automatically and your store account is charged.

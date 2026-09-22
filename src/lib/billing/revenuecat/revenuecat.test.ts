@@ -119,7 +119,7 @@ describe("trial start is an ACCESS event with NO charge (it must never create le
     expect(m.chargeProblem).toBeNull();
   });
 
-  it("drives the reducer to trialing with a 14-day authoritative end", () => {
+  it("drives the reducer to trialing with the event's authoritative end", () => {
     const m = trial();
     const r = reduce(emptyEntitlement(), m.domain!, new Date(T0));
     expect(r.next).toMatchObject({ state: "trialing", store: "apple", productId: "budgts_monthly" });

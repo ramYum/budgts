@@ -65,7 +65,7 @@ export default function SettingsScreen() {
           <View style={styles.actions}>
             {!m.hasPremium ? (
               <PrimaryButton testID="settings-open-paywall" onPress={() => router.push("/paywall")}>
-                {m.canStartTrial ? "Start your 14-day free trial" : "View subscription options"}
+                {m.canStartTrial ? "Start your 7-day free trial" : "View subscription options"}
               </PrimaryButton>
             ) : null}
             {subscribed ? (

@@ -43,13 +43,13 @@ Everything under "Milestone 9" is the original staging build and is history. Tod
   (`git archive HEAD` into a scratch directory + copy that project's `.vercel/project.json`, then `vercel deploy --prod` there) —
   never `vercel deploy` from the repo root.
 - **Staging-only env** beyond the Milestone 9 list: `BILLING_ENVIRONMENT=sandbox`, `REVENUECAT_WEBHOOK_SIGNING_SECRET` (a
-  staging value), and — once Resend exists — a staging `RESEND_API_KEY` / `EMAIL_FROM` with a **non-empty**
-  `REMINDER_EMAIL_ALLOWLIST`. `DATABASE_URL` is the ca-central-1 pooler URL (Vercel is IPv4; the direct host is IPv6-only).
+  staging value). `DATABASE_URL` is the ca-central-1 pooler URL (Vercel is IPv4; the direct host is IPv6-only). Budgts sends
+  no trial-end reminder in V1 (owner decision 2026-09-22), so there is no Resend/email config to set.
 - **Supabase Auth on staging:** Site URL `https://budgts-staging.vercel.app`; redirect allow-list
   `https://budgts-staging.vercel.app/**`, `http://localhost:3000/**`, `budgts://auth/callback`; Email (magic link) and Google
   enabled. Google's OAuth client must list `https://uvowywszaiojboaxdmoz.supabase.co/auth/v1/callback` as an authorized redirect URI.
 - **Cron on staging** (pg_cron + pg_net, applied from the templates in `supabase/`): `plaid-sync-due` (every 30 s),
-  `billing-reminders` (every 15 min), `billing-reconcile` (hourly at :07).
+  `billing-reconcile` (hourly at :07). `billing-reminders` was unscheduled 2026-09-22 (reminder feature removed from V1).
 - **Production is separate and untouched by staging work.** Applying migrations `0017`-`0022` to production and deploying the
   `mobile/native-home` work are release-preparation steps that need explicit owner approval.
 

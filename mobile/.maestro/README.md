@@ -21,6 +21,9 @@ a local emulator/device or a CI runner with one.
 ```sh
 maestro test .maestro/flows/currency-onboarding.yaml
 maestro test .maestro/flows/add-transaction.yaml
+maestro test .maestro/flows/budget.yaml
+maestro test .maestro/flows/connect-bank-smoke.yaml
+maestro test .maestro/flows/delete-account.yaml   # destructive — disposable test account only, see the flow's own comment
 ```
 
 Sign-in is the one flow that needs an out-of-band secret — see `flows/sign-in.yaml`'s own comment.
@@ -30,9 +33,16 @@ Sign-in is the one flow that needs an out-of-band secret — see `flows/sign-in.
 - `flows/currency-onboarding.yaml` — Get Started: pick a currency, skip the bank step, land on Home.
 - `flows/add-transaction.yaml` — Activity → Add → save → appears in the list. Assumes a signed-in, onboarded session
   with at least one account (run after `currency-onboarding.yaml`, or against a seeded test account).
+- `flows/budget.yaml` — Budgets: set an amount on the default "Food / Groceries" category, confirm it's reflected.
+  Relies on the standard seeded category set (`src/lib/categories/standard.ts`), not a fixture.
+- `flows/connect-bank-smoke.yaml` — **smoke only**: confirms Plaid Link actually launches from Connected Banks.
+  Deliberately does not complete a real Sandbox institution login (Plaid's own native UI isn't ours to give testIDs
+  to) — the staging contract test (`tests/e2e/mobile-plaid-api.spec.ts`) covers the full connect chain by bypassing
+  Link's UI on purpose; this flow is the one piece that bypass can't reach (does Link launch on a device at all).
+- `flows/delete-account.yaml` — Settings → Delete account → confirm → submit → signed out. **Destructive and
+  irreversible** — run only against a disposable, seed-only test account, per its own file comment.
 - `flows/sign-in.yaml` — opens the app via a magic-link deep link. The `token_hash` must be minted out-of-band (the
   same `magicTokenHash` helper the Playwright e2e suite uses, `tests/e2e/helpers/test-user.ts`) and substituted before
   running; Maestro has no way to read a real inbox itself.
-- **Not yet written:** connect-bank (needs a real Plaid Sandbox institution login inside Link's own UI, which the
-  contract test bypasses on purpose — this one can't be bypassed for a true device test) and Sign in with Apple
-  (Apple's system UI is generally not automatable this way at all; expect this to stay a manual real-device check).
+- **Not written, and not expected to be scriptable this way:** Sign in with Apple (Apple's system UI is generally not
+  automatable in Maestro; expect this to stay a manual real-device check).

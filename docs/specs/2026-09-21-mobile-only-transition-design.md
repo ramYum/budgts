@@ -190,11 +190,13 @@ Playwright remains valid for the retained web / server surfaces. The native mode
 2. **Staging Bearer / API contract and integration tests** for every `/api/mobile/*` route, extending `tests/integration` and
    `mobile-bearer-auth.spec.ts`.
 3. **A small Maestro suite** of critical native flows (sign-in through a Supabase-generated `token_hash` deep link, currency onboarding,
-   manual transaction, budget, delete account), Android emulator first, iOS via macOS CI / EAS later. Maestro's CLI is free and open
-   source; **Maestro Cloud and other paid runners are not purchased.** Prepared, not yet run — `mobile/.maestro/` has `config.yaml` and
-   three flows (`sign-in.yaml`, `currency-onboarding.yaml`, `add-transaction.yaml`); budget and delete-account flows, and a connect-bank
-   flow, are not written yet. This machine has no emulator/device to run any of them against (see below); `mobile/.maestro/README.md`
-   has the prerequisites and current status.
+   manual transaction, budget, connect-bank, delete account), Android emulator first, iOS via macOS CI / EAS later. Maestro's CLI is
+   free and open source; **Maestro Cloud and other paid runners are not purchased.** Prepared, not yet run — `mobile/.maestro/` has
+   `config.yaml` and six flows (`sign-in.yaml`, `currency-onboarding.yaml`, `add-transaction.yaml`, `budget.yaml`,
+   `connect-bank-smoke.yaml`, `delete-account.yaml`). Connect-bank is smoke-only (confirms Plaid Link launches; a full Sandbox login
+   isn't reliably scriptable in Plaid's own native UI — the staging contract test covers the full chain by bypassing that UI on
+   purpose) and delete-account is destructive (disposable test account only). This machine has no emulator/device to run any of them
+   against (see below); `mobile/.maestro/README.md` has the prerequisites and current status.
 4. **Real-device / TestFlight / Play internal testing** for what needs real platform behavior: Plaid OAuth banks, Google and Apple
    sign-in, cold / warm deep links, sandbox purchase / restore / cancel, deletion with paid history.
 

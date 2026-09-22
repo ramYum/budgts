@@ -1,0 +1,21 @@
+# Connect bank — SMOKE ONLY: confirms Plaid Link actually opens from Connected Banks, not a full connect. Completing a
+# real Sandbox institution login lives inside Plaid's own native Link UI, which this repo doesn't control and can't
+# give stable testIDs to, so a full connect+import assertion isn't reliably scriptable here (the staging contract
+# test, tests/e2e/mobile-plaid-api.spec.ts, covers that end-to-end by bypassing Link's UI via /api/plaid/test/seed —
+# this flow is the piece that bypass can't cover: does Link actually launch on a device). The "Plaid" text match is
+# best-effort against Plaid's own UI and may need adjusting once this is actually run. Requires a dev build with the
+# native Plaid module (not Expo Go) — this opens real Sandbox Link.
+# Unexecuted — see .maestro/README.md.
+appId: com.budgts.app
+---
+- launchApp
+- tapOn:
+    id: "tab-settings"
+- tapOn:
+    id: "settings-connected-banks"
+- tapOn:
+    id: "connect-bank"
+- assertVisible:
+    text: "Plaid"
+    timeout: 15000
+- pressKey: Back

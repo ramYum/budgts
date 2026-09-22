@@ -9,13 +9,11 @@ Budgts is mobile-only, so this app is the product; the web UI stays live until i
 tested (`../docs/specs/2026-09-21-mobile-only-transition-design.md`, which has the full audit and status).
 
 **Built (typechecked and unit-tested; not yet run on a device):** the signed-in shell (profile gate, tabs), Get Started (currency),
-Settings (subscription status, restore, manage, legal links, delete account, sign-out), the paywall, and Sign in with Apple. The
-server side of transactions, accounts, categories and budgets is built and verified live on staging
-(`GET/POST … /api/mobile/{transactions,accounts,categories,budgets}`).
+Settings (subscription status, restore, manage, legal links, delete account, sign-out), the paywall, Sign in with Apple, and
+**Activity, add/edit transaction, Budgets and Accounts** screens over the native data API (verified live on staging).
 
-**Still required before launch, not built yet:** screens for transactions (incl. manual entry), budgets and accounts; native Plaid
-Link and a connected-banks screen; the Get Started bank and trial steps; the Maestro suite; and device verification. (Goals, category
-management and in-app CSV export are post-launch.)
+**Still required before launch, not built yet:** native Plaid Link and a connected-banks screen; the Get Started bank and trial
+steps; the Maestro suite; and device verification. (Goals, category management and in-app CSV export are post-launch.)
 
 ## Real-device testing (Expo Go)
 

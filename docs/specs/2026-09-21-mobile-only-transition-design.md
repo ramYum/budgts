@@ -52,11 +52,11 @@ obsolete, safe to retire (only after the §7 gate).
 | Home (Money Left, Savings Rate, spending) | ✅ | ✅ read-only | 1 | Deeper drill-downs can follow |
 | Connect bank (Plaid Link, incl. OAuth banks) | ✅ `react-plaid-link` | ❌ | 1 | Needs `react-native-plaid-link-sdk` (dev / EAS build), Bearer link-token / exchange, HTTPS universal / app-link redirect |
 | Connected banks: status, reconnect, disconnect, "exclude from totals" | ✅ | ❌ | 1 | No silent failure states: held / stale / errored items must be visible and fixable |
-| Transactions: list, search, filter | ✅ | API ✅ · screen ❌ | 1 | |
-| Edit / categorize / transfer toggle; needs-category queue | ✅ | API ✅ · screen ❌ | 1 | The list flags `uncategorized`; no dedicated queue screen yet |
-| Manual entry: add, edit, delete | ✅ | API ✅ (idempotent create) · screen ❌ | 1 | "Manual entry remains a permanent fallback" |
-| Budgets: view vs actual, set, copy from last month | ✅ | API ✅ · screen ❌ | 1 | |
-| Accounts: list, add manual, archive, importing toggle | ✅ | API ✅ (list, add, rename, archive) · importing toggle and screen ❌ | 1 | |
+| Transactions: list, search, filter | ✅ | ✅ Activity tab (keyset paging) | 1 | |
+| Edit / categorize / transfer toggle; needs-category queue | ✅ | ✅ edit form; list flags `uncategorized` | 1 | No dedicated queue screen — a filter tap surfaces them |
+| Manual entry: add, edit, delete | ✅ | ✅ (idempotent create) | 1 | "Manual entry remains a permanent fallback" |
+| Budgets: view vs actual, set, copy from last month | ✅ | ✅ Budgets tab | 1 | |
+| Accounts: list, add manual, archive, importing toggle | ✅ | ✅ list, add, rename, archive | 1 | The importing indicator (mid-sync state) is not shown yet |
 | Trial / paywall, Restore Purchases | ❌ (no web billing) | ✅ screen (runs once store products exist) | 1 | Store requirement; needs UI |
 | Subscription status + Manage Subscription | ✅ page | ✅ Settings | 1 | |
 | Delete account (in-app) | ✅ page | ✅ screen | 1 | Apple requires in-app initiation; `/api/account/delete` is ready |
@@ -124,19 +124,22 @@ Foundations first, so later features are thin. Each step ships with tests and ke
 **Built:** the shared Bearer route helper; profile + currency onboarding; a shared command layer for transactions, accounts and
 budgets (the web Server Actions are now thin adapters over it); the native data API v1 — `/api/mobile/{profile, onboarding,
 transactions, transactions/:id, accounts, accounts/:id, categories, budgets, budgets/copy}`; the privacy / terms / support /
-account-deletion pages (draft wording) and the association-file routes; Sign in with Apple; and the native shell — profile gate, Get
-Started (currency), Settings (subscription, restore, manage, legal links, delete account, sign-out) and the paywall.
+account-deletion pages (draft wording) and the association-file routes; Sign in with Apple; the native shell — profile gate, Get
+Started (currency), Settings (subscription, restore, manage, legal links, delete account, sign-out) and the paywall; and native
+**Activity** (list, search, category filter, keyset paging), **add/edit manual transaction** (idempotent create, server field
+errors, optimistic-conflict handling), **Budgets** (view vs actual, inline set, copy last month) and **Accounts** (list, add,
+rename/retype, archive) screens. A shared `invalidate()` signal keeps Activity, Budgets, Accounts and Home in sync after a save.
 
-**Verified:** web unit suite (1210 tests), mobile suite (151), typecheck, lint and the CI-equivalent build; and a **live contract
-test on the deployed staging server** (`tests/e2e/mobile-data-api.spec.ts`) covering the currency-set-once rule, idempotent creates,
-keyset paging, filters, budgets and — the important one — that one user cannot see or change another's data. **Not verified:**
-anything on a device or emulator; the native screens are typechecked but have not been run.
+**Verified:** web unit suite (1210 tests), mobile suite (198), typecheck and the CI-equivalent build both green; and a **live
+contract test on the deployed staging server** (`tests/e2e/mobile-data-api.spec.ts`) covering the currency-set-once rule, idempotent
+creates, keyset paging, filters, budgets and — the important one — that one user cannot see or change another's data. **Not
+verified:** anything on a device or emulator; the native screens are typechecked and unit-tested (pure logic) but have not been run.
 
-**Still to build (group 1):** native screens for transactions, accounts and budgets; native Plaid Link and the connected-banks
-screen (needs Bearer link-token / exchange / item routes with the native parameters, `react-native-plaid-link-sdk` and a dev build);
-the Get Started bank and trial steps; the Maestro suite; and real-device verification. **External:** Apple Developer enrolment and the
-Supabase Apple provider; RevenueCat and the store products; the association identifiers (`APPLE_APP_ID`, `ANDROID_PACKAGE_NAME`,
-`ANDROID_CERT_SHA256`); `SUPPORT_EMAIL`; and the owner's final legal wording.
+**Still to build (group 1):** native Plaid Link and the connected-banks screen (needs Bearer link-token / exchange / item routes
+with the native parameters, `react-native-plaid-link-sdk` and a dev build); the Get Started bank and trial steps; the Maestro suite;
+and real-device verification. **External:** Apple Developer enrolment and the Supabase Apple provider; RevenueCat and the store
+products; the association identifiers (`APPLE_APP_ID`, `ANDROID_PACKAGE_NAME`, `ANDROID_CERT_SHA256`); `SUPPORT_EMAIL`; and the
+owner's final legal wording.
 
 ## 5. Web/server surface that must remain, and compliance / link infrastructure
 

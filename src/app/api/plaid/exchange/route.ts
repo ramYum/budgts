@@ -10,7 +10,7 @@ import { z } from "zod";
 import { plaidClient } from "@/lib/plaid/client";
 import { loadPlaidConfig } from "@/lib/plaid/config";
 import { encryptToken } from "@/lib/plaid/crypto";
-import { createClient, getSessionUser } from "@/lib/supabase/server";
+import { getRequestContext } from "@/lib/auth/request-context";
 import { isAccountDeleting } from "@/lib/account/deletion-store";
 
 const Body = z.object({
@@ -21,8 +21,9 @@ const Body = z.object({
 });
 
 export async function POST(request: Request) {
-  const user = await getSessionUser();
-  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const ctx = await getRequestContext(request);
+  if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const { user } = ctx;
 
   // Refuse BEFORE the token exchange: exchanging creates a live Item at Plaid, which a deleting account
   // (whose Items were already removed) would then never disconnect.
@@ -50,7 +51,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "could not connect the bank" }, { status: 502 });
   }
 
-  const supabase = await createClient();
+  const supabase = ctx.supabase;
 
   // Same-institution guard: steer to reconnect instead of a duplicate Item.
   if (institution?.institution_id) {

@@ -10,7 +10,7 @@
 import { NextResponse } from "next/server";
 import { Products } from "plaid";
 import { plaidClient } from "@/lib/plaid/client";
-import { getSessionUser } from "@/lib/supabase/server";
+import { getRequestContext } from "@/lib/auth/request-context";
 
 function seedEnabled(): boolean {
   return process.env.PLAID_ENV === "sandbox" && process.env.PLAID_TEST_SEED_ENABLED === "1";
@@ -19,8 +19,10 @@ function seedEnabled(): boolean {
 export async function POST(request: Request) {
   if (!seedEnabled()) return NextResponse.json({ error: "not found" }, { status: 404 });
 
-  const user = await getSessionUser();
-  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  // Bearer too (not just the web cookie session): the native Plaid contract test seeds a sandbox public_token the
+  // same way the web e2e suite does, over Bearer, since there is no native Link UI to drive in CI.
+  const ctx = await getRequestContext(request);
+  if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const body = (await request.json().catch(() => ({}))) as { institutionId?: string };
   const institutionId =

@@ -158,6 +158,41 @@ sending an unregistered `redirect_uri` makes Plaid reject **every**
 `/link/token/create` call, not just OAuth ones, so this would break
 connecting or reconnecting any bank, not only the OAuth ones.
 
+### Native OAuth redirect (Plaid Link on iOS/Android) — owner action required
+
+**Finding, 2026-09-21:** this does **not** need a per-environment (staging
+vs. production) redirect — iOS Universal Links / Android App Links are
+matched by the OS against the app's bundle/package id (`com.budgts.app`,
+the same for every build) and the domain's `.well-known/*` association
+file, never against which backend a given build talks to
+(`EXPO_PUBLIC_API_BASE_URL`). `/app/plaid-oauth` is a static fallback page
+with no backend calls (`src/app/app/plaid-oauth/page.tsx`), so every build
+— staging-pointed or production-pointed — can safely use the **same, fixed**
+`https://budgts.com/app/plaid-oauth` redirect URI, served from production.
+There is no real staging/production conflict here; an earlier version of
+this doc's spec (§9) flagged one, in error.
+
+**To turn it on**, once Apple Developer enrolment and the Play package are
+set up (`APPLE_APP_ID`, `ANDROID_PACKAGE_NAME`, `ANDROID_CERT_SHA256` — see
+`src/lib/native-links.ts`, and §5/§9 of
+`docs/specs/2026-09-21-mobile-only-transition-design.md`):
+
+1. Plaid dashboard → Developers → API → **Allowed redirect URIs** — add
+   `https://budgts.com/app/plaid-oauth` (note the `/app/` prefix — distinct
+   from the web redirect above) under the environment(s) in use.
+2. On **both** the `budgts` (production) and `budgts-staging` Vercel
+   projects, set:
+   - `PLAID_NATIVE_OAUTH_REDIRECT_URI=https://budgts.com/app/plaid-oauth`
+     (yes, the production URL on both — see the finding above)
+   - `ANDROID_PACKAGE_NAME=com.budgts.app`
+3. Redeploy each.
+
+**Not yet done as of 2026-09-21:** attempted from this session on
+`budgts-staging` via `vercel env add`; the harness's own permission
+classifier denies Bash secret-store writes regardless of target (staging or
+production), so this needs to be run by hand or with that permission
+granted. Same "don't set before the dashboard step" rule as above applies.
+
 ## 4. Point Supabase at the deployed URL
 
 Supabase dashboard → Authentication → **URL Configuration**:

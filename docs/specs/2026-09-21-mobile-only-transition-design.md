@@ -213,11 +213,18 @@ CI runner or a physical device.
 - **No device verification is possible on this machine**; none has been done for native auth, Plaid Link, or the OAuth-bank handoff.
 - **Plaid OAuth on native** needs the association files, redirect URIs in the Plaid dashboard, and probably a Plaid review — external lead
   time.
-- **Associated Domains / App Links are hardcoded to `budgts.com`** (`mobile/app.json`), needed for the native Plaid OAuth-bank
-  continuation and for Universal/App Links generally. A build pointed at `budgts-staging` cannot use them — the domain would still
-  resolve to production's association file. This is a real architectural tension (one native build config vs. one association domain
-  per environment) that hasn't been resolved; noted here rather than decided unilaterally. It only blocks OAuth-institution bank
-  connects from a staging/dev build, not production once it ships.
+- ~~Associated Domains / App Links staging vs. production tension~~ — **investigated and resolved 2026-09-21, no architecture change
+  needed.** iOS Universal Links / Android App Links are matched by the OS against the app's bundle/package id (`com.budgts.app`, fixed
+  for every build) and the domain's `.well-known/*` association file — never against which backend a given build's
+  `EXPO_PUBLIC_API_BASE_URL` points at. `/app/plaid-oauth` (`src/app/app/plaid-oauth/page.tsx`) is a static fallback page with no
+  backend calls, so a **single, fixed** `https://budgts.com/app/plaid-oauth` redirect URI, served from production, works for every
+  build regardless of which backend it talks to. `src/lib/plaid/native-link-params.ts` has no host-matching restriction, so no code
+  change was needed — only configuration (`docs/deploy.md`, "Native OAuth redirect"). **Still open (external/config, not
+  architectural):** `PLAID_NATIVE_OAUTH_REDIRECT_URI` and `ANDROID_PACKAGE_NAME` need setting on both Vercel projects; this session
+  attempted the `budgts-staging` side via `vercel env add` and was denied by the harness's own secret-store-write permission
+  classifier (independent of GateGuard and the owner gates above) — needs the owner, or that permission, to actually run it. The
+  underlying `APPLE_APP_ID`/`ANDROID_PACKAGE_NAME`/`ANDROID_CERT_SHA256` values still need Apple Developer enrolment and the Play
+  package, unchanged from before.
 - **Lesson from this round:** the proxy's cookie-based route gate (`src/proxy.ts`) doesn't know about routes that add Bearer auth in
   place — it redirected authenticated-by-Bearer Plaid requests to `/sign-in` (200 HTML, not the JSON the client expected) until the
   route was added to `PUBLIC_PREFIXES`. Only the live staging contract test caught it; unit tests mock the proxy away. Any future route

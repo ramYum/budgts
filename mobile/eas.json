@@ -22,6 +22,12 @@
       "android": {
         "buildType": "apk"
       }
+    },
+    "preview-play": {
+      "extends": "preview",
+      "android": {
+        "buildType": "app-bundle"
+      }
     }
   }
 }

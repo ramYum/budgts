@@ -2,10 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { createAccount as createAccountCommand, setAccountArchived as archiveCommand, updateAccount as updateCommand } from "@/lib/accounts/commands";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
-import { accountFormSchema } from "@/lib/validation/account";
 
 export type AccountActionState = { error?: string; fieldError?: string; ok?: boolean };
+
+const MISSING_ACCOUNT = "That account no longer exists. Refresh and try again.";
 
 function revalidate() {
   for (const p of ["/transactions", "/settings"]) revalidatePath(p);
@@ -17,16 +19,17 @@ async function withUser() {
   return { user, supabase: await createClient() };
 }
 
+const firstFieldError = (fieldErrors: Record<string, string>) => Object.values(fieldErrors)[0] ?? "Invalid account";
+
+/** Web adapters: FormData in, `AccountActionState` out. The rules live in `@/lib/accounts/commands`, shared with the native
+ * `/api/mobile/accounts*` routes. */
 export async function createAccount(
   _prev: AccountActionState,
   formData: FormData,
 ): Promise<AccountActionState> {
-  const parsed = accountFormSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { fieldError: parsed.error.issues[0]?.message ?? "Invalid account" };
-
   const { user, supabase } = await withUser();
-  const { error } = await supabase.from("accounts").insert({ user_id: user.id, ...parsed.data });
-  if (error) return { error: error.message };
+  const result = await createAccountCommand(supabase, user.id, Object.fromEntries(formData));
+  if (!result.ok) return result.error === "invalid" ? { fieldError: firstFieldError(result.fieldErrors) } : { error: result.message };
   revalidate();
   return { ok: true };
 }
@@ -37,12 +40,13 @@ export async function updateAccount(
 ): Promise<AccountActionState> {
   const id = String(formData.get("id") ?? "");
   if (!id) return { error: "Missing account id" };
-  const parsed = accountFormSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { fieldError: parsed.error.issues[0]?.message ?? "Invalid account" };
 
   const { supabase } = await withUser();
-  const { error } = await supabase.from("accounts").update(parsed.data).eq("id", id);
-  if (error) return { error: error.message };
+  const result = await updateCommand(supabase, id, Object.fromEntries(formData));
+  if (!result.ok) {
+    if (result.error === "invalid") return { fieldError: firstFieldError(result.fieldErrors) };
+    return { error: result.error === "missing" ? MISSING_ACCOUNT : result.message };
+  }
   revalidate();
   return { ok: true };
 }
@@ -56,8 +60,8 @@ export async function setAccountArchived(
   if (!id) return { error: "Missing account id" };
 
   const { supabase } = await withUser();
-  const { error } = await supabase.from("accounts").update({ is_archived: archived }).eq("id", id);
-  if (error) return { error: error.message };
+  const result = await archiveCommand(supabase, id, archived);
+  if (!result.ok) return { error: result.error === "missing" ? MISSING_ACCOUNT : result.message };
   revalidate();
   return { ok: true };
 }

@@ -14,18 +14,18 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { disconnectPlaidItem } from "@/server/plaid/disconnect";
-import { createClient, getSessionUser } from "@/lib/supabase/server";
+import { getRequestContext } from "@/lib/auth/request-context";
 
 const Body = z.object({ itemId: z.string().min(1), purge: z.boolean().optional() });
 
 export async function DELETE(request: Request) {
-  const user = await getSessionUser();
-  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const ctx = await getRequestContext(request);
+  if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const { user, supabase } = ctx;
 
   const parsed = Body.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "invalid body" }, { status: 400 });
 
-  const supabase = await createClient();
   const result = await disconnectPlaidItem(supabase, {
     userId: user.id,
     itemId: parsed.data.itemId,

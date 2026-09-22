@@ -2,10 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { landTransaction, normalizeManual, supabaseTransactionStore } from "@/lib/ingestion";
 import { createClient } from "@/lib/supabase/server";
-import { updateTransactionRow } from "@/server/transaction-update";
-import { transactionFormSchema } from "@/lib/validation/transaction";
+import {
+  createManualTransaction,
+  deleteTransactionById,
+  updateManualTransaction,
+} from "@/lib/transactions/commands";
 
 export type TxnActionState = {
   error?: string;
@@ -15,15 +17,6 @@ export type TxnActionState = {
 
 const MISSING_ROW = "That transaction no longer exists. Refresh and try again.";
 const CONFLICT_ROW = "This transaction changed while you were editing it. Refresh and try again.";
-
-function fieldErrors(issues: { path: PropertyKey[]; message: string }[]): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const i of issues) {
-    const key = String(i.path[0] ?? "form");
-    out[key] ??= i.message;
-  }
-  return out;
-}
 
 async function requireUser() {
   const supabase = await createClient();
@@ -39,24 +32,15 @@ function revalidate() {
   revalidatePath("/");
 }
 
+/** The web adapters below only translate FormData in and `TxnActionState` out: the rules live in `@/lib/transactions/commands`,
+ * shared with the native `/api/mobile/transactions*` routes. */
 export async function createTransaction(
   _prev: TxnActionState,
   formData: FormData,
 ): Promise<TxnActionState> {
-  const raw = Object.fromEntries(formData);
-  const parsed = transactionFormSchema.safeParse(raw);
-  if (!parsed.success) return { fieldErrors: fieldErrors(parsed.error.issues) };
-
   const { supabase, user } = await requireUser();
-  try {
-    await landTransaction(
-      supabaseTransactionStore(supabase),
-      user.id,
-      normalizeManual(parsed.data),
-    );
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : "Could not save the transaction" };
-  }
+  const result = await createManualTransaction(supabase, user.id, Object.fromEntries(formData));
+  if (!result.ok) return result.error === "invalid" ? { fieldErrors: result.fieldErrors } : { error: result.message };
   revalidate();
   return { ok: true };
 }
@@ -68,28 +52,16 @@ export async function updateTransaction(
   const id = String(formData.get("id") ?? "");
   if (!id) return { error: "Missing transaction id" };
 
-  const raw = Object.fromEntries(formData);
-  const parsed = transactionFormSchema.safeParse(raw);
-  if (!parsed.success) return { fieldErrors: fieldErrors(parsed.error.issues) };
-
   const { supabase } = await requireUser();
-  const n = normalizeManual(parsed.data);
-  const result = await updateTransactionRow(supabase, id, {
-    accountId: n.accountId,
-    categoryId: n.categoryId,
-    amount: n.amount,
-    direction: n.direction,
-    occurredAt: n.occurredAt,
-    description: n.description,
-    note: n.note,
-    isTransfer: n.isTransfer,
-  });
-  // RLS makes another user's rows invisible rather than erroring, and a
-  // genuine optimistic-concurrency conflict is a distinct case from that --
-  // see transaction-update.ts for the conditional-write mechanism.
-  if (result.outcome === "missing") return { error: MISSING_ROW };
-  if (result.outcome === "conflict") return { error: CONFLICT_ROW };
-
+  const result = await updateManualTransaction(supabase, id, Object.fromEntries(formData));
+  if (!result.ok) {
+    if (result.error === "invalid") return { fieldErrors: result.fieldErrors };
+    // RLS makes another user's rows invisible rather than erroring, and a genuine optimistic-concurrency conflict is a
+    // distinct case from that — see transaction-update.ts for the conditional-write mechanism.
+    if (result.error === "missing") return { error: MISSING_ROW };
+    if (result.error === "conflict") return { error: CONFLICT_ROW };
+    return { error: result.message };
+  }
   revalidate();
   return { ok: true };
 }
@@ -97,13 +69,8 @@ export async function updateTransaction(
 export async function deleteTransaction(id: string): Promise<TxnActionState> {
   if (!id) return { error: "Missing transaction id" };
   const { supabase } = await requireUser();
-  const { data, error } = await supabase
-    .from("transactions")
-    .delete()
-    .eq("id", id)
-    .select("id");
-  if (error) return { error: error.message };
-  if (!data?.length) return { error: MISSING_ROW };
+  const result = await deleteTransactionById(supabase, id);
+  if (!result.ok) return { error: result.error === "missing" ? MISSING_ROW : result.message };
   revalidate();
   return { ok: true };
 }

@@ -1,889 +1,184 @@
-# Budgts — Project Workflow
+## How we work
 
-The living plan. Updated at every checkpoint. `docs/roadmap.md` is the
-phase-level summary; this file is the execution tracker + decisions + change log.
+Claude is the primary implementation agent for this repository.
 
----
+The owner defines product direction and makes consequential business/product decisions. Claude is expected to make normal engineering decisions independently and continue working without requesting approval for routine implementation choices.
 
-## 1. Status board
+### Claude may act independently
 
-| # | Checkpoint | Scope | Status | Commit |
-| --- | --- | --- | --- | --- |
-| 0 | Foundation | `CLAUDE.md`, `docs/`, scaffold (Next 16 + Supabase toolchain), gates green | ✅ done | `62e9389` |
-| 1a | Data layer + budget math | Schema, RLS migration, `handle_new_user` trigger, `src/lib/budget/*` (TDD) | ✅ done | `38fbd81` |
-| 1b | Auth + app shell | Supabase SSR clients, `src/proxy.ts`, `/auth/callback`, magic-link + Google, onboarding, `(app)` guard, nav shell | ✅ done | `e5c358a` |
-| 1c | Transactions CRUD | `transactionFormSchema`, ingestion seam, server actions, `/transactions` UI, full-flow e2e | ✅ done | `88cbe5c` |
-| — | Brand pass + hardening | Budgts identity, Volt Lime + Deep Pine palette, Poppins/Inter, `Logo`, full semantic-token system in `globals.css`; plus dedupe-race recovery, `getSessionUser` request-cache, `normalizeManual`, JPY dropped + 2-decimal currency guard, onboarding missing-profile handling, first component test | ✅ done | (see commit) |
-| 1c.2 | Accounts + categories management | `/settings`: category + account create / rename / recolour / archive; category-name links to filtered transactions everywhere; `?category=` filter banner. Zod + e2e | ✅ done | (this commit) |
-| 1d | Budgets + dashboard | `budgetFormSchema` + `setBudget`/`copyBudgetsFromPreviousMonth`; `buildDashboard` view-model; `/budgets` inline editor; `/` five tiles + budget-vs-actual bars (over/near/under, brand colours) + month switcher + `RealtimeRefresh`; `?category=` transaction filter | ✅ done | (this commit) |
-| 1e | Polish + deploy | Service worker (installable + `/offline` fallback), CSV export route + Settings button, GitHub Actions CI, manual security review (3 fixes: open-redirect, CSV injection, proxy prefix), `docs/deploy.md`. | ✅ code done | `f31cd1a` |
-| — | Brand: final look | Iterated to: **Avocado (#EEF4E2) page wash**, white cards, **Deep Pine** primary buttons + balance card + active-tab pill, **Volt Lime** only for the logo mark (always on a pine rounded-square badge) + progress fills. `docs/deploy.md` colour budget + `brand/*` re-rendered. | ✅ done | `f31cd1a` |
-| — | Ship | Pushed `main` → `ramYum/budgts`; Vercel project `budgts` (team `tocino`) live at **https://budgts.com** (Cloudflare DNS, apex + www→apex). Supabase auth URL config + `NEXT_PUBLIC_*` env vars set. | ✅ live 2026-09-09 | `f31cd1a` |
-| — | Post-ship fix | Proxy matcher was 307-redirecting `/sw.js` → `/sign-in`, so the service worker never registered in prod (PWA not installable / no offline). Added `sw.js` to the matcher exclusion + an e2e guard. Deployed; `https://budgts.com/sw.js` verified `200 application/javascript`, no console errors logged out. | ✅ live 2026-09-09 | `c58b27f` |
-| 2a | Savings goals | `savings_goals` + `savings_contributions` (RLS, realtime, migration `0003`). Standalone contribution ledger — no transactions, no account balances. `goalProgress`/`goalsSummary` domain (TDD). Server actions incl. a separate `withdrawFromGoal` (negates) so users never type a minus. `/goals` screen + a 5th bottom-nav tab. Zod + domain + component + e2e. Spec: `docs/specs/2026-09-09-…-phase-2a-…`. | ✅ done | `2d46178` |
-| V1 | Plaid ingestion — built + staging-accepted | See §4 milestone tracker M1–M9 + workstreams A–E. | ✅ done (staging) | see §4 |
-| V1+ | Budget-correctness chain + Money Left / Savings Rate / account-exclusion | Sign-convention → event-role → budget-effect → `qualify.ts` integration → transfer-ownership; Money Left + Savings Rate dashboard tiles; account calculation-exclusion safety valve. See §7 change log. | ✅ done | `4590520` |
-| — | **V1 → production promotion** | `main` fast-forwarded `5b668b2→4590520`; migration `0012` applied directly to the production Supabase project (`wsmhstqpvbbcqpqhiqyp`); deployed via the existing `budgts` Vercel project. Shipped with Plaid UI still flag-gated off. | ✅ live 2026-09-13 | `4590520` |
-| — | **UI redesign — Budgt brand + IA overhaul** | Design system, responsive app shell (sidebar/bottom-nav), Home hierarchy, Budgets category cards + Category Detail, Activity search/filter, transfer toggle, new More/Insights/Accounts/Connected-Banks/Help/About + reorganized Settings. Presentation-layer only — no financial-semantics changes. **v2 brand pass**: new palette/typeface from `Budgts Reference V2.png` + real cropped assets from `Assets V2.svg`, replacing the original brand tokens — see `docs/BRAND_GUIDELINES.md`. See §"UI redesign" below and `docs/roadmap.md`. | ✅ merged to `main`, live | `d469d4b`, `05d4a1d`, `f9e2642` |
-| — | **Logo-asset correction** | The v2 pass's `Assets V2.svg` auto-crops had visible edge/bleed defects. Replaced `public/brand/*` and every generated app icon with the brand owner's own finished exports (`Downloads/Logo Assets/`); sign-in/onboarding hero now uses the real sunburst lockup instead of a CSS-simulated glow. Dropped the unused solid-color mark/blob/sparkle variants (unreferenced in code). `docs/BRAND_GUIDELINES.md` updated. | ✅ done | `8b6af93` |
-| — | **Advancial replay containment** | Advancial Federal Credit Union's confirmed feed defect (docs/specs/2026-09-12-advancial-...) recurred on a fresh connection — 7,280/7,450 rows were replayed copies. One-time closed-set remediation executed (owner-approved). Built automatic containment scoped strictly to `institution_id = ins_116484` (`replay-containment.ts`), wired into `sync-engine.ts` — never a general rule, structurally unreachable for any other institution/user. 12 new tests. | ✅ done | `c20678c` |
-| — | **1000-row query cap — income/spend silently wrong** | Root cause of a real report ("income isn't showing"): every unbounded `transactions` `.select()` across Home/Budgets/Insights/Activity/CSV-export silently caps at PostgREST's default 1000 rows — a heavy Plaid feed (post-Advancial-replay, 1,209 September rows) pushed a manually-entered $1,850 income transaction out of the fetched page entirely, so it was never even considered, not merely miscategorized. Added `fetchAllRows` (paginated, ordered by `id` for determinism, test-first) and applied it to every affected query. Verified live against the real account: Income tile corrected $0 → $1,850.00. | ✅ done | `8846123` |
-| — | **Milestone 10 — Plaid Production cutover** | `NEXT_PUBLIC_PLAID_ENABLED` was flipped on directly in the Vercel dashboard at some point after the 2026-09-13 promotion — **not captured in a commit or doc update at the time**. Discovered 2026-09-14 by querying the production `plaid_items` table directly: 3 real connections (**Capital One**, **SoFi**, **Advancial Federal Credit Union**), all connected 2026-09-11, with live sync cursors. Every "flag-gated off" statement elsewhere in this doc and in `docs/roadmap.md` / `docs/deploy.md` describes that earlier, now-superseded state — left as historical record rather than rewritten. See memory `plaid-live-in-production.md` for the verification trail. | ✅ done (retroactively documented) | — |
-| — | **Breakdown-chart tooltip stacking fix** | The spending-breakdown donut's center "This month" total overlay rendered after the chart in DOM order with no explicit `z-index`, so it sat above the Recharts hover/touch tooltip instead of the tooltip appearing in front. Gave the `Tooltip` an explicit `wrapperStyle={{ zIndex: 10 }}` and the overlay `z-0`. Verified live (throwaway test user, hover triggered against the real component). | ✅ done | `5465ac3` |
-| — | **Dismiss button on the budgets-exceed-income banner** | The Home warning banner (shown when this month's category budgets add up to more than income) gained a per-month dismiss control, persisted via `sessionStorage` (tab/app-session scoped — reappears on a fresh session, stays hidden across tab switches). | ✅ done | `f795d3e` |
-| — | **UI redesign — COMPLETE (closed 2026-09-14)** | Final passes: robin mascot + "Budgts" name/wordmark rebrand from `Logo Assets V2` (replaces the black cat and "Budgt"; resolves the in-app-name vs `budgts.com` mismatch; palette/typography unchanged), then the Money Left hero card redesign (light-coral fill, reworked hierarchy, mirrored mascot on the insight card). Owner marked the redesign completed. Leftover deferred items (onboarding wizard, Insights Net Worth tab, per-category top merchants, Notifications screen) are now standalone backlog, not redesign scope — see `docs/roadmap.md`. | ✅ complete, live | `22067c0`, `d0e48f2`, `b08cfcf` |
-| — | **Production smoke test + hydration fix** | Authenticated prod smoke test (throwaway user 22/22; all 3 Plaid-connected accounts read-only) and PWA installability checks, details in §6. It surfaced React #418 hydration mismatches for any non-UTC viewer on `/connected-banks` ("Last synced" relative time / zone-less date) and `/transactions` (Needs-a-category dates, zone-less). Fixed test-first: dates pinned to the stored UTC day, and relative "Last synced" shown only after hydration via `useSyncExternalStore`. New `src/test-utils/hydration.tsx` server-renders under one `TZ` and hydrates under another. Also fixed the stale e2e smoke manifest assertion (`4d3cc4d`). Rule added to `docs/conventions.md` → Common mistakes. | ✅ done | `4d3cc4d`, `2b4f3c7` |
-| — | **First-run tour (v1 — currently live)** | The deferred 3-screen onboarding wizard, rebuilt as a convenience-first pitch (auto-capture + auto-categorization) picked up once Plaid went live. New `profiles.tour_seen_at` (migration `0014`), pure `buildTourSteps` (TDD), shared `TourCard`/`TourWizard`, `/onboarding` restructured (Welcome → Every purchase, tracked → Currency) feeding into new `/tour` (Connect your bank → Sorted for you → Know what's left → All set), dashboard gate, Help replay link (now also links to the new How Budgts Works guide — see below). Domain + component tests green, e2e specs updated to a shared `onboardAndSkipTour` helper + new `tour.spec.ts`. `lint`/`typecheck`/`test`/`build` all green on branch `v1.5/first-run-tour`. Spec: `docs/specs/2026-09-15-first-run-tour-design.md`. **Migration `0014` not yet applied to production** — blocked by the auto-mode production-deploy guard, needs the owner to run `npm run db:migrate` before this deploys (see gate's fail-safe in the spec). E2E not run in this session: `.env.local` points at the live production Supabase project with no separate dev/staging DB, so an e2e run here would create/delete real rows against prod. A **v2 redesign (live coachmarks, spotlight + tooltip on the real button on the real page)** has since been fully specced and planned — `docs/specs/2026-09-15-first-run-tour-live-coachmarks-design.md`, `docs/superpowers/plans/2026-09-15-first-run-tour-coachmarks.md` — **but that plan's tasks have not been executed**; this v1 tour is still what actually runs today. | 🔄 code done, prod migration + e2e run pending owner action | — |
-| — | **"How Budgts Works" guide** | Permanent static Help page (`/help/how-it-works`) teaching the end-to-end workflow: connect → transactions arrive automatically → auto-categorize → review exceptions → set a budget → Money Left → track progress. Core message: "You spend. Budgts keeps track." Linked from a new entry card atop `/help` and from the v1 tour's final card. No DB reads, no new dependency; 3 new `NavIcon` glyphs (`categorize`/`review`/`money-left`) added to the existing shared icon set. Component tests for the guide page, the updated Help page, and the tour's new link. `lint`/`typecheck`/`test`/`build` all green. Spec: `docs/specs/2026-09-15-how-budgts-works-guide-design.md`. | ✅ done | — |
+Claude may, when reasonably necessary:
 
-Legend: ✅ done · 🔄 in progress · ⏳ planned
+* inspect and modify the codebase
+* choose implementation details and internal architecture
+* refactor existing code
+* add, remove, or update normal dependencies
+* create and modify tests
+* create database migrations
+* apply migrations to staging/test environments
+* configure staging and sandbox services
+* create test data and clean it up
+* run development, test, lint, typecheck, build, integration, and e2e commands
+* create working branches
+* commit completed work
+* push feature branches
+* create or update draft pull requests
+* investigate and fix failures discovered during implementation
+* update project documentation
 
-**Shipped through V1 + the budget-correctness/Money-Left/account-exclusion
-work** (`4590520`, live on production since 2026-09-13), **and Plaid bank-
-connect itself is live in production** — the flag was turned on in Vercel at
-some point after that promotion (undocumented at the time; confirmed
-2026-09-14 against real `plaid_items` rows, see the change-log entry above).
-Money Left and Savings Rate are live now
-regardless, since they run over all transactions. **The UI redesign is
-complete** (closed 2026-09-14, `b08cfcf`). Next: **V1.5** (recurring /
-subscription / bill detection over synced data + paired-transfer detection),
-**V2** (email / receipt ingestion + spending intelligence), **V2+** (AI
-assistant). Full ladder: `docs/roadmap.md`; working detail: §4 below.
+Claude does not need owner approval for each of these actions.
 
----
+Use judgment. Prefer reversible actions and preserve existing working behavior unless there is a clear reason to change it.
 
-## 2. Product — locked decisions
+### Documentation authority
 
-| Area | Decision |
-| --- | --- |
-| Shape now | Installable **PWA** (Next.js). One codebase, phone + desktop. |
-| Shape later | **Native-apps delivery track** (parallel, not a numbered tier — can start once V1 is stable): native iOS + Android via **Expo/React Native** for App Store + Play Store. Domain logic (`src/lib/budget/*`, `src/lib/validation/*`) and the Supabase backend carry over unchanged; the Next.js frontend is rebuilt. |
-| Users | Single user per account. "Add another income source" = another income transaction/category, not multi-user. Household sharing: deferred, not planned. |
-| Persistence | Supabase (Postgres + Auth + Realtime + Storage). Cloud, multi-device. |
-| Data access | `supabase-js` with the user's session for **all** reads/writes — RLS is the isolation guard. Drizzle = migrations only. |
-| Auth | Magic link + Google OAuth. No password. |
-| Currency | One per user, picked at onboarding. Restricted to **2-decimal** currencies (the money layer hardcodes a 2-decimal exponent; guarded by a test). |
-| Money | Integer **minor units** end to end. Format only at the display edge. |
-| Categories | Seeded by trigger (migration 0002): **Insurances, Personal Care, Housing, Entertainment, Transportation, Food / Groceries** (expense); Salary, Other Income. Editable in Settings — rename, recolour, add, archive. Budgets are per category; the bill/merchant goes in the transaction description. Tapping a category name opens its transactions. |
-| Transfers | `is_transfer` flag (manual toggle for now). Excluded from every rollup. Paired-transfer detection in **V1.5** (needs Plaid transactions to match the two legs against). |
-| Refunds | A `credit` in the original expense category. Nets against that category's spend. No special type. |
-| Budget rollover | **None.** A month's budget never carries forward — next month starts at whatever you set. Unspent budget simply raises that month's Net savings. |
-| Savings | **Two separate things, both shown.** *Net savings* = derived per month (`income − spend`), a dashboard tile in 1d. *Savings goals* = named targets with progress, own table — shipped in **Phase 2a** (`2d46178`). |
-| Ingestion sources | 1. **Bank connect via Plaid** (**V1** — the primary path) · 2. Manual (done — fallback for cash / unsupported banks) · 3. Email purchase-notification parsing (**V2**) · 4. Receipt photo (**V2**). All go through one `IngestionAdapter` + `landTransaction()`. |
-| feature set | Categories + spend · budgets vs actual · recurring/subscription/bill tracking · savings goals. Savings goals shipped (Phase 2a); recurring tracking is **automatic detection over synced transactions in V1.5**, not manual recurring-rule entry. |
+Project documentation is a living source of truth.
 
+Claude is authorized and expected to update documentation whenever implementation or an approved decision makes existing documentation inaccurate, following the notice rule below.
 
-### Dashboard tiles (checkpoint 1d)
+This includes:
 
-Mirrors the summary block of the owner's spreadsheet.
+* `CLAUDE.md`
+* `docs/roadmap.md`
+* `docs/workflow.md`
+* `docs/conventions.md`
+* `docs/Thirdparties.md`
+* relevant files under `docs/specs/`
 
-| Tile | Formula | Spreadsheet equivalent |
-| --- | --- | --- |
-| Income | Σ (credit − debit) over income categories | Total Salary |
-| Spent | Σ (debit − credit) over expense + uncategorized | Actual Cost |
-| **Net savings** | Income − Spent | Actual Savings |
-| Budgeted | Σ budget rows for the month | Projected Cost |
-| Left to spend | Budgeted − expense-category actuals | the unspent remainder |
+Do not leave known-stale documentation behind simply because updating documentation was not explicitly requested.
 
-`rollup()` already returns every one of these. Unspent budget needs no special
-handling: not spending it *is* what makes Net savings higher. Label the 1d
-dashboard header **"so far this month"** so partial-month figures read as a
-running total, not a verdict. A true *Projected savings* tile (Income −
-Budgeted) needs an **expected** monthly income; that arrives in **V1.5** from
-Plaid's recurring-income detection, not a typed-in field.
+Documentation responsibilities:
 
----
+* `CLAUDE.md` — durable engineering and project rules
+* `roadmap.md` — product direction and major priorities
+* `workflow.md` — current execution state, active work, blockers, and important decisions
+* `specs/` — detailed feature/design decisions
+* `Thirdparties.md` — external-service state
+* `conventions.md` — reusable engineering conventions
 
-## 3. Architecture
+When implementation supersedes an old plan, update the authoritative document rather than preserving contradictory instructions.
 
-**Stack:** Next.js 16 (App Router, `src/`) on Vercel · Supabase · `supabase-js` +
-`@supabase/ssr` · Zod · Recharts · Vitest + Testing Library · Playwright ·
-Drizzle (migrations only).
+Do not silently override a locked owner decision. If implementation reveals that a locked decision should change, surface the conflict to the owner.
 
-**Module map**
+### Documentation change notice
 
-```
-src/lib/budget/        pure domain logic — money, monthKey, monthlyActuals,
-                       budgetVsActual, rollup, qualify   (no framework imports)
-src/lib/validation/    Zod schemas — auth, profile, transaction  (portable)
-src/lib/ingestion/     NormalizedTxn / IngestionAdapter / TransactionStore,
-                       ManualAdapter, landTransaction, supabaseTransactionStore
-src/lib/supabase/      server.ts (+ getSessionUser), client.ts, proxy.ts
-src/proxy.ts           session refresh + auth gate  (Next 16: was middleware.ts)
-src/server/            "use server" actions — auth, onboarding, transactions
-src/app/(auth)/        sign-in
-src/app/(app)/         auth guard, onboarding, (dashboard) group
-src/components/        UI — Logo, Overlay, transaction-form/list, add-transaction
-supabase/migrations/   0000 schema + RLS + trigger, 0001 category reseed
-```
+Before editing any `.md` file, Claude must first tell the owner:
 
-**Portability rule:** anything under `src/lib/budget` and `src/lib/validation`
-stays free of Next.js / React imports so it moves to the Expo app verbatim.
-`src/lib/ingestion` depends only on a `SupabaseClient` type, not Next.
+* which file(s) it intends to change
+* why the update is needed
+* what will be added, removed, or corrected
 
-**Data model:** `profiles`, `accounts`, `categories`, `transactions`, `budgets`
-— every table RLS-scoped to `auth.uid()`, FK to `auth.users` on delete cascade.
-Full spec: `docs/specs/2026-09-07-budget-app-phase-1-design.md`.
+For routine documentation maintenance, Claude may proceed after giving that notice and does not need to wait for approval.
 
----
+Claude must stop and get owner approval first if the documentation change would alter:
 
-## 4. Roadmap beyond Phase 2a — V1 → V2+
+* product direction
+* pricing
+* trial duration
+* monetization policy
+* revenue-share terms
+* major UX direction
+* major architecture decisions
+* locked owner decisions
 
-Phase 1 (manual core) and Phase 2a (savings goals, `2d46178`) are shipped. What
-follows is sequenced as capability tiers — **V1 → V1.5 → V2 → V2+** — Plaid
-first, because a self-filling ledger is the differentiator. Manual entry stays
-the fallback; email / receipt ingestion is deferred behind Plaid + the
-intelligence built on it. Tier overview + the at-a-glance tree: `docs/roadmap.md`.
+Recording a decision the owner has already made is routine maintenance. Changing or extending what was decided is not.
 
-### V1 — Plaid transaction ingestion (primary path)
+### Work continuously
 
-The cleanest automatic source: Plaid returns structured transactions with a
-stable `transaction_id`, so there is nothing to parse and dedupe is exact.
-**This is now the primary ingestion path**, not a late add-on; manual entry
-(`ManualAdapter`) stays as the fallback for cash and unsupported institutions.
+Do not stop after every checkpoint solely to request permission to continue.
 
-**Flow.** Plaid Link (hosted UI) produces a `public_token`; the server exchanges
-it for an `access_token`, stored per institution **server-side only and
-encrypted at rest**. The cursor-based `/transactions/sync` endpoint pulls added,
-modified and removed transactions; `PlaidAdapter.normalize()` maps each to a
-`NormalizedTxn` with `source: 'bank'` and `sourceRef: transaction_id`, then
-`landTransaction()` persists it. Plaid's `SYNC_UPDATES_AVAILABLE` webhook
-triggers a pull, with a daily cron as backstop. Plaid accounts map onto our
-`accounts` rows so the user sees familiar names. Incoming transactions are
-auto-categorized (Plaid's `personal_finance_category` as the seed) and flow
-through the existing budget-vs-actual / dashboard view-models unchanged.
+Continue through logically related work while:
 
-**New tables** (both RLS-scoped; the access token never reaches the client):
-`plaid_items` (item_id, institution, access_token, sync cursor, status) and
-`plaid_accounts` (plaid account_id to our `accounts.id`).
+* the direction is already established
+* the actions are reversible
+* tests remain meaningful
+* no owner-gated boundary is crossed
 
-**Nothing else in the core changes.** `IngestionAdapter`, `landTransaction`, the
-`(user_id, source, source_ref)` unique index and the transfer/refund rules were
-designed for exactly this.
+Use checkpoints for verification and reporting, not automatic stopping points.
 
-**Cost and friction.** Sandbox is free and needs no application — all V1 build
-happens there. Production needs a Plaid account plus a short application, then
-roughly **$0.30–$1.50 per connected item per month** for Transactions. Coverage
-is strong in US / CA / UK / EU. If an institution is missing, TrueLayer /
-GoCardless / a regional aggregator drop into the same adapter interface with no
-other change.
+At meaningful checkpoints:
 
-**Removals matter.** Plaid's sync reports deleted transactions; the adapter must
-handle them (mark or remove) or the numbers silently drift.
+1. run the relevant quality gates
+2. fix problems within scope
+3. update affected documentation
+4. commit the coherent work
+5. continue if the next work is already authorized
 
-#### V1 — build status (milestone tracker)
+### Owner-gated actions
 
-Design + step sequence: `docs/specs/2026-09-09-v1-plaid-transaction-ingestion-design.md`
-(§31 steps, §32 resolved decisions). Everything is built against **budgts-staging**
-(Supabase project `iwypmifvmtmkwtnxkfma`) + Plaid **Sandbox** — the production
-database (`wsmhstqpvbbcqpqhiqyp`) and Plaid Production are untouched.
+Stop and request owner approval before:
 
-| M | Scope | Status |
-| --- | --- | --- |
-| 1 | Plaid foundation — `src/lib/plaid/{config,client,crypto}.ts`; AES-256-GCM at-rest `access_token` encryption (`PLAID_TOKEN_ENC_KEY`) | ✅ done |
-| 2 | Pure logic core (TDD) — `types.ts`, `adapter.ts` (`normalizePlaidTxn`), `category-map.ts` (PFC primary → category, throws on unknown), `apply-sync.ts` (added/modified/removed reducer, `user_categorized` sticky, pending→posted carry-over) | ✅ done |
-| 3 | Ingestion landing + sync engine — `land.ts`, `sync-engine.ts` (cursor page loop, mutation-during-pagination restart, cursor persisted post-commit) | ✅ done |
-| 4 | Webhook authentication — `webhook-verify.ts` (ES256 JWT, `request_body_sha256`, `iat` freshness) | ✅ done |
-| 5 | Real persistence + **DB-integration test tier** — `sync-store.ts` (atomic `applyPlan`: batch `insert … on conflict do nothing returning`, updates, soft-deletes, cursor/status write), `item-store.ts`, `merchant-rules.ts`. `npm run test:integration` → real staging Postgres, synthetic fixtures, no Plaid. Caught + fixed: a 23505 inside `db.transaction()` aborts the whole PG transaction (Drizzle wraps the code) → the single-insert retry pattern was wrong there. | ✅ done |
-| 6 | API routes — `POST /api/plaid/{link-token,exchange,webhook,sync-due}`, `DELETE /api/plaid/item`; pure `webhook-dispatch.ts` + `error-policy.ts` | ✅ done |
-| 7 | Plaid Sandbox live + **Plaid-integration test tier** — Sandbox `client_id`/`secret` in git-ignored `.env.staging`; `sync-item.ts` (`{db, client}` injected, extracted from the `server-only` `service.ts`). `npm run test:plaid` → real Sandbox → staging Postgres: real txn shapes normalize, `syncItem` lands bank rows with every Plaid column + cursor, second sync idempotent, `fire_webhook` accepted. | ✅ done |
-| 8 | Disconnect — `DELETE /api/plaid/item`: `/item/remove` + drop `plaid_items` (accounts cascade). **Imported transactions are retained** via `transactions.plaid_account_id ON DELETE SET NULL` (financial-integrity rule, design §24). `purge:true` is the only path that deletes bank rows, behind an explicit confirm. | ✅ done |
+* merging into `main`
+* deploying to production
+* applying production database migrations
+* modifying or deleting production customer data
+* force-pushing or rewriting shared Git history
+* making irreversible production/external-service changes
+* purchasing services or changing paid plans
+* changing pricing, trial periods, commissions, or monetization policy
+* making significant product/UX-direction changes
+* making a major architecture change with substantial long-term cost or lock-in
+* making a documentation change that alters any area listed under "Documentation change notice"
 
-**Remaining V1 workstreams.** Ordering note: `pg_net` (B) and the webhook
-round-trip (C) both call *into* a public `https://` URL, so they can only be
-**verified** once the app is deployed — M9 runs first, then B and C are wired at
-and checked against the deployed URL.
+If uncertain whether something crosses one of these boundaries, explain the decision and ask.
 
-| # | Workstream | Status |
-| --- | --- | --- |
-| A | **Plaid UI** — behind `NEXT_PUBLIC_PLAID_ENABLED` (off in prod). Built: `<ConnectBank>` + `<LinkHandoff>` (`react-plaid-link@5`), `<AccountMapping>` (new / existing / skip → `mapAccounts` + first sync), `<NeedsCategory>` inline categorize (`user_categorized = true` + `plaid_merchant_rules` upsert), `<ConnectedBanks>` (status, "Sync now", `<ReconnectButton>` update-mode, disconnect), shared `disconnectPlaidItem` (route + action, §24 comment). Wired into `/settings` (`BankConnections`) + `/transactions` (needs-category surface, connect prompt, `removed_at IS NULL` guard on the ledger/dashboard/export reads). 11 new component tests. typecheck · lint · test 249 · build green. | ✅ built — live verification pending M9 |
-| M9 | **Deploy V1 Beta** — new Vercel project **`budgts-staging`** (team tocino), Production branch `v1-plaid-beta`, wired **entirely to staging**: `NEXT_PUBLIC_SUPABASE_URL/PUBLISHABLE_KEY` = staging (`iwypmifvmtmkwtnxkfma`), `NEXT_PUBLIC_SITE_URL` = the deploy origin, `DATABASE_URL` = staging tx pooler, Plaid Sandbox keys, `PLAID_TOKEN_ENC_KEY`, `CRON_SECRET`, `NEXT_PUBLIC_PLAID_ENABLED=1`, `PLAID_TEST_SEED_ENABLED=1`. Staging Supabase auth: Site URL + `**` redirects set (magic link). `budgts.com` / `main` untouched. **Live at `https://budgts-staging.vercel.app`.** | ✅ deployed + acceptance chain walked (2026-09-10) |
-| B | **Automation** — on budgts-staging: `pg_cron` 1.6.4 + `pg_net` 0.20.4 enabled, `plaid-sync-due` job scheduled every 30s (`supabase/staging-plaid-cron.sql` run with `{{DEPLOY_URL}}` = `https://budgts-staging.vercel.app`, `{{CRON_SECRET}}` = the Vercel env value). **Found + fixed a real bug while proving it fires:** the root proxy (`src/proxy.ts`) redirected every unauthenticated request to `/sign-in`, including Plaid's webhook and this poller — neither carries a session cookie — so `pg_net` was logging a 200 of sign-in-page HTML instead of the poller's JSON, and the item never advanced. Fixed by exempting `/api/plaid/webhook` + `/api/plaid/sync-due` (both already self-authenticate) from the session gate (`b6e3e88`, +`src/proxy.test.ts`). **Proven firing** post-deploy: `net._http_response` shows `{"ran":1,"results":[{"itemId":"...","ok":true,"inserts":2,...}]}`, `cron.job_run_details` shows consecutive `succeeded` runs ~30s apart, and the flipped item's `needs_sync` cleared with `last_synced_at` advancing to match. | ✅ done — verified firing (2026-09-11) |
-| C | **E2E + webhook round-trip.** **Webhook round-trip — fully verified, real data**, twice (2026-09-11 and again on re-check): `sandboxItemFireWebhook` → `plaid_webhook_events` gains a `verified:true, TRANSACTIONS/SYNC_UPDATES_AVAILABLE, handled:true` row within 5s → `plaid_items.needs_sync` set → the (B) poller clears it within 30s, `last_synced_at` advanced. `pg_cron`'s `plaid-sync-due` reconfirmed active, ticking every 30s, all runs `succeeded`. `tests/e2e/plaid.spec.ts` **committed and PASSING** for real against `budgts-staging.vercel.app`, once the owner placed the staging Supabase Admin key in `.env.staging` (untracked, gitignored, never printed): connect via `/api/plaid/test/seed`+`/api/plaid/exchange` → map → import with Sandbox-lag retries → categorize → merchant-rule regression check → disconnect → CSV unchanged. `1 passed` (2 fixes needed first — see below). **The full acceptance-criteria list was also walked twice, live, directly against staging** (see the 2026-09-11 changelog entries) — connect, map, import, auto-categorization, Needs-a-category, the notification bell + deep link + live count decrement, standard-category addition (archive→pick→un-archive), a freshly-created merchant rule + blanks-only backfill (verified at the DB level: corrected row `user_categorized=true`, backfilled sibling `user_categorized=false`, both share one new `plaid_merchant_rules` row), disconnect without purge, and history retention (20/20 rows kept, unlinked, none removed) — all PASS. Two test-infrastructure fixes made along the way (both test-only, no production code): (1) `playwright.config.ts` always spun up a needless local `npm run build && npm run start` even when `PLAYWRIGHT_BASE_URL` pointed at an already-live deployment — now skips `webServer` when that var is set; (2) `plaid.spec.ts`'s categorize assertion matched by merchant *text*, which broke on Plaid Sandbox's canned dataset legitimately containing several identically-described transactions (e.g. repeat "Uber 063015 SF**POOL**" rides) that share one `merchant_entity_id` and correctly all backfill at once — fixed to assert the row count shrinks (and never regrows after Re-scan) instead of an exact/text-based match. **Sandbox-only limitation found earlier (not a Budgts defect, unrelated to the above):** a brand-new item's first `/transactions/sync` call can race Plaid Sandbox's own async transaction generation; once empty, Sandbox does not deliver the dataset through the *same* cursor lineage afterward. Production is unaffected — real linked banks already have history at connect time. No production code changed. | ✅ done |
-| — | **Owner acceptance pass** — Claude walked the full chain on `budgts-staging.vercel.app` 2026-09-10 (see change log). Owner does their own hands-on pass — judging *the product*. | ⏳ owner |
-| E | **Categorization intelligence + notification** (design §18, plan `.claude/plans/whimsical-tumbling-origami.md`) — deterministic evidence chain R1 user rule → R2 Budgts merchant knowledge (`merchant-knowledge.ts` ~115 chains + pure `merchant-name.ts` normalizer) → R3 trusted PFC `detailed` allowlist → R4 gated PFC primary (unchanged). LOW-confidence bypass for R2/R3 only. Correction backfill (blanks-only) + `rescanUncategorized` + "Re-scan" button + auto-add standard category. **Header bell** (`NeedsCategoryBell`, dashboard layout, behind `plaidUiEnabled()`) is the notification surface — count of the needs-category predicate, links to `/transactions#needs-category`; layout `RealtimeRefresh(["transactions"])` keeps it fresh. No notifications table / feed / push. **No migration.** +60 unit, +3 DB-integration, +1 Plaid-Sandbox. **Live-verified** on `budgts-staging.vercel.app` @ `182dfce` (2026-09-11, Playwright): bell shows the real count, links to `/transactions#needs-category` and lands there, resolving one row drops the count live (no reload) and the other ambiguous rows stay untouched, persists across a hard reload. No defects. **Closed.** | ✅ done — approved & closed |
-| D | **Docs reflect reality** — this tracker + design-doc §13/§18/§31 + `docs/deploy.md` M9 runbook. | ✅ current |
+### Decision making
 
-**M9 acceptance chain** (run against the deployed URL):
+For ordinary technical questions, Claude should decide rather than ask the owner to choose between implementation details they should not need to manage.
 
-```
-domain → login → Budgts UI → Connect a bank → Plaid Sandbox → account mapping
-      → transactions imported → transactions displayed → categorize transaction
-      → merchant rule remembered → disconnect → historical transactions remain
-```
+Before choosing:
 
-**V1 complete gate** — declared done only when every row is green:
+1. inspect the existing implementation
+2. check the relevant specs and conventions
+3. consider maintainability, security, cost, and product scale
+4. choose the simplest sound solution
+5. test it
+6. document meaningful decisions
 
-```
-BACKEND     unit 296 ✅   DB-integration 18 ✅   Plaid-Sandbox 6 ✅
-UI          Link · account mapping · categorization · reconnect · disconnect   ✅ built
-CATEGORIZE  evidence chain: obvious merchants auto-filed at LOW confidence,     ✅ done
-            corrections backfill, only genuine ambiguity asks the user (§18)
-DEPLOY      M9 — budgts-staging.vercel.app, staging-wired                       ✅ live
-ACCEPTANCE  full chain walked on the deploy (connect→map→import→display→        ✅ Claude
-            categorize→merchant rule→disconnect→history remains)                  · owner pass ⏳
-AUTOMATION  pg_cron · pg_net → sync-due, verified firing                        ✅ (B)
-E2E         webhook round-trip verified ✅ (twice); full acceptance list       ✅ (C)
-            walked live on staging ✅ (twice); tests/e2e/plaid.spec.ts
-            PASSING against the real staging deployment
-QUALITY     typecheck · lint · build · production-readiness                     ✅ (gates green)
-```
+When several approaches are reasonable, Claude may select one and explain the tradeoff afterward.
 
-V1.5 (recurring / transfer intelligence) does not start until the gate is green.
-Milestone 10 = Production cutover (owner-gated, §27 / §32): Plaid Production
-keys, `PLAID_ENV = production`, link a real account. **Gate is green** —
-Milestone 10 happened (flag flipped on in Vercel, 3 real accounts connected
-2026-09-11, discovered/documented retroactively 2026-09-14; see §1's change-log
-entry and memory `plaid-live-in-production.md`). V1.5 is unblocked.
+Escalate only when the choice materially affects product behavior, business policy, production safety, cost, or long-term architecture.
 
-### V1.5 — Recurring & transfer intelligence
+### Reporting
 
-Detection over the synced ledger, **not** manual rule entry. Every detected
-pattern is a suggestion the user confirms, edits or mutes.
+At meaningful checkpoints, report:
 
-- **Recurring / subscription / bill detection.** Find repeating merchant +
-  amount + interval. Plaid's `/transactions/recurring/get` (`outflow_streams` /
-  `inflow_streams`) is the seed; our own pass covers what Plaid misses and any
-  manual / cash data. Classify outflows as subscriptions vs bills; show a
-  subscriptions list with monthly total; surface upcoming and missed bills on
-  the dashboard.
-- **Recurring income.** `inflow_streams` gives predicted paycheck amount,
-  cadence and next date — self-maintaining "expected monthly income". Enables a
-  real *projected savings* tile (expected income − budgeted) and a "your
-  paycheck didn't arrive" alert, the mirror of missed-bill detection.
-- **User confirmation / muting.** Detected streams persist only when confirmed;
-  muted streams don't re-surface. This **replaces the earlier plan of a
-  user-entered `recurring_rules` table** — no one types a cadence unless they
-  want to override.
-- **Paired transfer detection.** Match the two legs of a transfer / card
-  payment (opposite amounts, near dates, linked accounts) and link them so
-  neither counts as spend. Runs **after** Plaid ingestion because it needs both
-  legs as real transactions.
+* what changed
+* important decisions Claude made and why
+* documentation updated
+* tests and verification performed
+* known risks or unresolved issues
+* anything requiring owner approval
+* what Claude intends to work on next
 
-### V2 — Ingestion breadth + spending intelligence
+Do not turn routine implementation details into owner decisions.
 
-Only once V1 + V1.5 are stable.
+### Current execution state
 
-- **Email / receipt ingestion.** Per-user inbound address → provider webhook →
-  `EmailAdapter` → Claude extraction → `pending_review` queue with confirm/fix
-  UI, dedupe on `Message-ID`. PWA camera capture → Supabase Storage → Claude
-  vision parse → "which card/account?" popup → transaction with the image
-  attached. Covers cash, split bills and institutions Plaid can't reach. Open:
-  inbound-email provider (Cloudflare Email Routing / Postmark / Mailgun),
-  domain; Claude vision vs dedicated OCR (small bake-off first).
-- **Spending intelligence.** Advanced insights (trends, category drift,
-  merchant breakdowns); cash-flow forecasting from recurring in/out + budgeted
-  discretionary; safe-to-spend (today's headroom after known bills + goal
-  contributions); net worth (Plaid `/accounts/balance`, assets − liabilities,
-  tracked over time).
+*Snapshot 2026-09-21; direction lives in `docs/roadmap.md`.*
 
-### V2+ — AI financial assistant
+* **Active work:** Mobile Launch on `mobile/native-home` (PR #1, draft). Built this phase: the shared native transport (Bearer
+  routes over shared domain commands), the native data API (profile / onboarding, transactions, accounts, categories, budgets —
+  verified live on staging), native Activity/Budgets/Accounts screens, native **Plaid Link, Connected Banks and account mapping**
+  (`/api/mobile/plaid/*` dual-authed and shared with the web Server Actions; `react-native-plaid-link-sdk` v13 adapter; verified
+  live on staging via `tests/e2e/mobile-plaid-api.spec.ts`), the native shell (Get Started — currency then an optional bank-connect
+  step — Settings, paywall, delete account), Sign in with Apple, and the draft privacy / terms / support / deletion pages with the
+  association files. A Maestro suite is scaffolded (`mobile/.maestro/`, 3 of the planned 5 flows) but not runnable on this machine.
+  Status and remaining work: `docs/specs/2026-09-21-mobile-only-transition-design.md` §4B.
+* **Next:** the Get Started trial step (blocked on RevenueCat/store products); the remaining Maestro flows (budget, delete-account,
+  connect-bank); real-device verification of everything built so far, starting with whatever an EAS dev build makes possible first.
+* **Blockers / open:** no device or emulator on the dev machine, so no native screen — including Plaid Link itself — has been run;
+  native Plaid and store billing need an EAS dev build; iOS builds and Sign in with Apple need an Apple Developer enrolment that has
+  not been done; RevenueCat, store products and the association identifiers are not configured; `mobile/app.json`'s Associated
+  Domains / App Links are hardcoded to `budgts.com`, so a staging-pointed build can't complete an OAuth-bank Plaid connection (open
+  design tension, not yet resolved — see the transition spec §9); the owner's final Privacy Policy and Terms wording.
+* **Owner decisions (2026-09-21):** the web/PWA is retired only after native covers all launch-required functionality and it is tested;
+  launch scope approved with Goals, category management and in-app CSV export deferred; "web stays free" superseded; Sign in with
+  Apple added to iOS scope; native testing model approved (no paid infrastructure); compliance / native-link infrastructure approved
+  to build. Still the owner's: the final Privacy Policy and Terms wording.
+* **Native architecture:** Bearer route handlers over shared `src/lib` domain services; the device uses Supabase for auth only
+  (`docs/specs/2026-09-21-mobile-only-transition-design.md` §4A).
+* **Not started (owner-gated):** production migrations 0017–0022 and deploy; RevenueCat, Resend and store-product setup.
 
-Natural-language layer over the model; only meaningful once V1–V2 data is
-trustworthy. AI assistant (ask about spending / budgets / goals in plain
-language); purchase affordability ("can I afford this?" vs safe-to-spend +
-forecast + goals); financial recommendations (overspend, unused subscriptions,
-goal pace); advanced automation (proactive nudges, categorization learning).
+### Infrastructure observations
 
-### Delivery track (parallel) — Native apps (App Store + Play Store)
-
-Not a capability tier — can run alongside any tier once V1 is stable.
-Expo/React Native + Expo Router; reuse domain logic + Supabase; EAS Build
-(required — owner is on Windows, cannot build iOS locally). Prereqs: Apple
-Developer Program ($99/yr), Google Play Console ($25 once). Target: a few months.
-
----
-
-## 5. How we work
-
-- **Layer order** for every feature: schema+migration, Zod, domain logic (TDD),
-  server action, UI, e2e. Detail + gates: `docs/conventions.md`.
-- **TDD** for all logic in `src/lib/*` — failing test first, watch it fail,
-  minimal code, refactor. UI + wiring verified by build + e2e.
-- **Checkpointed.** Each checkpoint ends with all gates green, a commit, and a
-  pause for owner review before the next.
-- **Gates:** `npm run lint` · `typecheck` · `test` · `build` · `test:e2e`
-  all green before a checkpoint commit.
-- **Parallel-work protocol.** Claude owns logic / data / server actions /
-  tests / this doc. Owner owns brand: `brand/`, tokens in `globals.css`,
-  `Logo`, and visual styling. When both need the same file, the owner's pass
-  takes it first; Claude rebases logic on top at the checkpoint boundary.
-- **Git:** one commit per checkpoint, subject `Phase N<x>: ...`. Owner's brand
-  commits are separate.
-- **This file** is updated at the start and end of every checkpoint.
-
----
-
-## 6. Open items / pending decisions
-
-| Item | Owner | Notes |
-| --- | --- | --- |
-| ~~Reorder email vs Plaid ingestion~~ | resolved | **2026-09-09** — decided: **Plaid is the primary ingestion path (V1)**; recurring / subscription / bill intelligence is **V1.5**, running on synced transaction data; email / receipt ingestion drops to **V2**. Rationale: a self-filling ledger is the differentiator, and pattern detection needs a transaction history to run against. Roadmap restructured to V1 / V1.5 / V2 / V2+ (`docs/roadmap.md`). |
-| ~~Confirm Google provider enabled in Supabase~~ | done | **2026-09-08** — owner enabled the Google provider and confirmed the `http://localhost:3000/**` redirect URL. |
-| Brand pass reaches a stopping point | owner | Then Claude commits it and resumes 1c.2 / 1d. |
-| **CSV export / backup** | Claude | Missing from the plan and worth adding. Supabase free projects pause after 7 idle days; a one-click export is cheap insurance. Slot into 1e. |
-| ~~Expected monthly income~~ | resolved | Income comes **from the bank** (Plaid, **V1.5** recurring-income detection). No manual field, no recurring-rule entry. Plaid's recurring-transactions endpoint yields the predicted paycheck amount + cadence, which feeds a real *Projected savings* tile in V1.5. Until then, 1d tiles read "so far this month". |
-| **CI workflow** | Claude | Gates are run by hand. Add GitHub Actions running lint/typecheck/test/build (+ e2e) in 1e. |
-| **Security review before deploy** | Claude | Run `/security-review` in 1e — RLS policies, the service-key path, OAuth redirect allowlist. |
-| ~~1c.2 vs fold into 1d~~ | done | Built as a standalone `/settings` screen after 1d. |
-| ~~Git branch cleanup~~ | done | `main` fast-forwarded to `dbeea74`. Work continues on `phase-1/core-slice`; `main` is ff-merged at each checkpoint. |
-| ~~Rotate the DB password / Google client secret~~ | done | Intentionally skipped for this personal project (owner's call, 2026-09-09). Not a pending task. |
-| ~~Vercel project + deploy~~ | done | **2026-09-09** — `main` pushed, Vercel project live at `https://budgts.com` (custom domain via Cloudflare DNS), env vars + Supabase auth URLs set. See `docs/deploy.md` "Current deployment" + memory `deployment.md`. |
-| Verify on real devices | owner | `deploy.md` step 5 — install the PWA on a phone, sign in via magic link + Google, add a transaction, confirm it syncs to a second device. **2026-09-15: everything automatable is verified on `https://budgts.com`** (Chromium, Pixel 7 emulation): installable with zero installability errors (checked in a normal profile — Playwright's default incognito context always reports `in-incognito`), SW registers + controls the page, manifest "Budgts" / standalone / scope `/`, both 512×512 PNG icons (any + maskable), `apple-touch-icon` + iOS web-app meta + theme-color present, offline navigation falls back to `/offline`, no console errors. **Still owner-only:** the physical install on an Android phone (Chrome → Install app) and an iPhone (Safari → Add to Home Screen), sign-in inside the installed app, and cross-device Realtime sync. |
-| Apple Developer + Google Play accounts | owner | Start enrollment before the native-apps delivery track; lead time is days. |
-| ~~Plaid account + Production application~~ | done | Milestone 10 happened — Plaid Production access obtained, `NEXT_PUBLIC_PLAID_ENABLED` on in Vercel prod, 3 real bank connections live (Capital One, SoFi, Advancial) since 2026-09-11. Not captured in a commit/doc at the time; retroactively documented 2026-09-14. |
-| ~~Owner's authenticated smoke-test pass on budgts.com~~ | done | **2026-09-15**, run by Claude against production with owner authorization (scripted Playwright, magic-link `token_hash` sign-in). **Throwaway user: 22/22** — callback → onboarding → Home, all 15 app routes load clean, add a transaction, Home reflects it, CSV export includes it, user deleted. **All 3 Plaid-connected accounts** (owner-confirmed as theirs: one with Capital One + SoFi + Advancial, one SoFi-only, one Advancial-only), **read-only** (navigation only; any non-GET / server-action request aborted — none attempted): Money Left + savings rate on Home, Activity lists transactions, Budgets category cards, Insights, every institution on Connected Banks, and the "Exclude from totals" control shown for the two flagged Advancial accounts. Result in the real browser zone (America/New_York): passed apart from **React #418 hydration errors** on `/connected-banks` and `/transactions` (see next row); the same pass with the browser forced to UTC: **74/74**. Categorization correctness was not separately checked (only that transactions render). Also fixed the stale `tests/e2e/smoke.spec.ts` manifest assertion (`Budgt` → `Budgts`; 5/5 against prod). |
-| ~~Hydration mismatch (React #418) for any non-UTC user~~ | done | **Fixed 2026-09-15 in `2b4f3c7`**, see the status-board row. Original report: client components render date text from the viewer's time zone / the current clock, which differs from the server's UTC render: `src/components/plaid/connected-banks.tsx` `whenLabel()` (`Date.now()`-relative "N min ago", then `toLocaleDateString` with no `timeZone`) and `src/components/plaid/needs-category.tsx:22` (`toLocaleDateString` with no `timeZone`, rendered on `/transactions`). Confirmed by probe: errors appear in America/New_York, disappear with the browser in UTC. Fix candidates: pin `timeZone: "UTC"` like `transaction-list.tsx` does, or render relative time client-only after mount. Needs a failing test first. |
-
----
-
-## 7. Change log
-
-- **2026-09-07** — Phases 0, 1a, 1b, 1c complete (`62e9389` to `88cbe5c`).
-  Data access switched to `supabase-js` everywhere. Categories reseeded from the
-  owner's spreadsheet. Native apps confirmed as Phase 6 (Expo), not a now-pivot.
-  Owner began the brand pass plus a hardening pass (dedupe-race recovery via
-  `UniqueViolationError`, `getSessionUser` request-cache, `normalizeManual` to
-  avoid double-parsing, JPY dropped with a 2-decimal currency guard test,
-  onboarding missing-profile handling, first component test). Workflow doc
-  created. **Plaid** named as the Phase 5 bank-connect provider with a concrete
-  design.
-- **2026-09-07 (later)** — Owner settled two product rules: **no budget
-  rollover** (leftover raises that month's Net savings instead of carrying
-  forward), and **both savings concepts** are wanted — derived monthly Net
-  savings on the dashboard (1d) plus named savings goals (Phase 2). Dashboard
-  tile spec added to section 2.
-- **2026-09-07 (later 2)** — Expected-income question resolved: it comes
-  **from the bank** (Plaid recurring-income detection, Phase 5), not a manual
-  field or a recurring rule. 1d ships five "so far this month" tiles; the true
-  *Projected savings* tile lands in Phase 5.
-- **2026-09-07 (later 3)** — Income question closed: it comes **from the bank**
-  (Plaid). Brand system landed and verified (5 gates green, 69 unit tests):
-  `Branding-guidelines.png` is the reference sheet, `globals.css` implements the
-  semantic roles, one Volt Lime action per screen, Poppins display / Inter body.
-- **2026-09-07 (later 4)** — 1d shipped: budgets screen + dashboard
-  (5 tiles, budget-vs-actual bars, realtime refresh). 85 unit tests, 5 e2e
-  (incl. a full set-budget -> overspend flow). Playwright now runs `workers: 1`
-  and `reuseExistingServer: false` — the suite shares one Supabase project, so
-  parallel workers tripped auth rate limits and a stale dev server served a
-  wrong build.
-- **2026-09-07 (later 5)** — 1c.2: `/settings` category + account management
-  (rename, recolour, add, archive). Default expense set changed to the six
-  Insurances / Personal Care / Housing / Entertainment / Transportation /
-  Food / Groceries (migration 0002). Category names link to their filtered
-  transactions; a filter banner clears it. 94 unit tests, 6 e2e. Playwright
-  `retries: 1` + patient onboarding waits for the shared-project rate-limit
-  flake.
-- **2026-09-07 (later 6)** — 1e code complete: PWA service worker +
-  `/offline`, `/api/export/transactions` CSV, CI workflow, `docs/deploy.md`,
-  `docs/security.md`. Security review fixed an open-redirect in `/auth/callback`
-  (`//host`), CSV formula injection, and a loose proxy prefix match. 99 unit
-  tests, 7 e2e. Remaining for a live Phase-1: owner pushes to GitHub + imports
-  to Vercel + sets the redirect URLs (docs/deploy.md).
-- **2026-09-08** — Repo already on GitHub (`ramYum/budgts`, `main` at `2468194`).
-  Owner completed deploy steps 1–2: Vercel project imported and the Supabase
-  Google provider enabled + localhost redirect confirmed. Deploy is now blocked
-  only on Claude pushing the in-progress brand pass to `main`; env vars +
-  Supabase URL config (deploy.md §3–6) follow once the `*.vercel.app` domain
-  exists. Owner is finishing the brand pass; then resumes at `deploy.md` step 3
-  (env vars) onward. Next build checkpoint after deploy is **Phase 2** (recurring
-  bills + savings goals); the Phase 3-vs-5 reorder call is still open.
-- **2026-09-08/09 — Brand: final look** (`f31cd1a`). Design iterated over a
-  session from "add dark green" through several full re-themes to a settled
-  system: **Avocado `#EEF4E2` page wash** with white cards, **Deep Pine** as the
-  primary-action colour (buttons, the one balance card, the active-tab pill,
-  headings — ~10% of a screen), **Volt Lime** pulled back to the logo mark
-  (always on a Deep Pine rounded-square badge, since bare lime vanishes on light)
-  + the progress-bar fills only. `bottom-nav.tsx` added; `dashboard-view` balance
-  card; new tokens (`--avocado`, `--primary`, `--tint`, …) in `globals.css` +
-  `brand/tokens.css`; `brand/Branding-guidelines.{html,png}` + `README` re-done
-  with a documented colour budget. One e2e locator pinned `{ exact: true }`
-  (`budgets.spec.ts` "$60.00 left").
-- **2026-09-09 — Shipped.** `main` pushed to `ramYum/budgts`; Vercel project
-  `budgts` (team `tocino`, Hobby) live at **https://budgts.com** — custom domain
-  bought + DNS-hosted at Cloudflare, DNS-only CNAMEs for apex + `www` → Vercel,
-  `www` 308-redirects to apex. `NEXT_PUBLIC_*` env vars set (SITE_URL =
-  `https://budgts.com`, Production only); Supabase auth URL config updated with
-  all four redirect origins. Deploy steps 1–2 turned out never to have run
-  despite a doc marking them done (obs 0017). Details in `docs/deploy.md`
-  "Current deployment" + memory `deployment.md`.
-- **2026-09-09 — Post-ship: service worker fix** (`c58b27f`, live). Live-site
-  check found `GET /sw.js` returning `307 → /sign-in`: the `proxy.ts` matcher
-  didn't exclude `sw.js`, so the auth gate caught it and the browser refused to
-  register a redirected SW script — the PWA was not installable and had no
-  offline fallback in production. Added `sw.js` to the matcher negative-lookahead
-  + a `smoke.spec.ts` guard asserting `/sw.js` is `200` `*/javascript`. lint /
-  typecheck / 99 unit / 8 e2e green. Pushed to `main`; Vercel auto-deployed
-  (CI + deploy webhook took ~8 min to start — slow, not broken); verified
-  `https://budgts.com/sw.js` → `200 application/javascript`, zero console
-  errors logged-out. Owner can now do the real-device PWA install check
-  (`deploy.md` step 5). — Owner confirmed device sync works, 2026-09-09.
-- **2026-09-09 — Phase 2a: savings goals** (branch `phase-2/savings-goals`).
-  Two RLS-scoped tables (`savings_goals`, `savings_contributions`) + realtime,
-  migration `0003_broad_lord_hawal.sql`. A *contribution* is a standalone signed
-  number — deliberately decoupled from `transactions`, account balances and the
-  "Net savings" tile. `goalProgress` / `goalsSummary` pure domain (tests first).
-  `src/server/savings.ts` actions; `addContribution` and `withdrawFromGoal`
-  share one insert path, the withdraw variant negating the amount so the user
-  never types a minus. New `/goals` route + `<GoalsView>` / `<GoalForm>` /
-  `<ContributionForm>`; a 5th bottom-nav tab ("Goals"). No local Docker → per
-  owner's call the migration was applied to prod, *then* verified: tables
-  queryable, `goals.spec.ts` + full suite green (9 e2e), 124 unit/component,
-  lint/typecheck/build green. 2b (recurring bills) and 2c (paired transfers)
-  follow. Phase-3-vs-5 order still open.
-- **2026-09-09 (later) — Roadmap restructured to V1 / V1.5 / V2 / V2+**
-  (docs only, no code / schema / behaviour change). Owner's call:
-  **Plaid becomes the primary transaction-ingestion path (V1)** — link account
-  → `/transactions/sync` → `PlaidAdapter` → `landTransaction()` →
-  auto-categorize → budget/dashboard, with manual entry kept only as a fallback
-  for cash and unsupported banks. **Recurring / subscription / bill
-  intelligence moves to V1.5** and operates on *synced* transaction data
-  (detect repeating merchant + amount + interval, then confirm / edit / mute) —
-  this **replaces the planned user-entered `recurring_rules` table**;
-  paired-transfer detection stays in V1.5, after Plaid ingestion, because it
-  needs both legs as real transactions. **Email / receipt ingestion moves to
-  V2**, behind Plaid and the intelligence built on it. AI financial assistant =
-  V2+. Native apps become a parallel delivery track, not a numbered phase.
-  `docs/roadmap.md` rewritten to the tier ladder; §4 here restructured;
-  §1 / §2 / §6 here, `CLAUDE.md`, `docs/conventions.md`, `docs/deploy.md` and
-  the two design specs had their forward roadmap references synced. Reason: if
-  Plaid covers 90 %+ of routine transactions with zero user input, that passive
-  experience is the product's real differentiator.
-- **2026-09-10 — V1 Plaid backend complete (M1–M8), Plaid UI built (workstream
-  A).** M1–M8: `src/lib/plaid/*` + `src/server/plaid/*` + 6 `/api/plaid/*`
-  routes + migration `0004` (staging only) — unit 238 / DB-integration 15 /
-  Plaid-Sandbox 5 green. **UI** (this pass, behind `NEXT_PUBLIC_PLAID_ENABLED`,
-  unset in prod): `react-plaid-link@5`; `<ConnectBank>` / `<LinkHandoff>` →
-  link-token + exchange; `<AccountMapping>` (new / existing / skip →
-  `mapAccounts` action → `accounts` rows + `plaid_accounts` link_state + first
-  sync); `<NeedsCategory>` inline categorize (`user_categorized = true` +
-  `plaid_merchant_rules` upsert); `<ConnectedBanks>` (status pill, "Sync now"
-  = `syncConnection`, `<ReconnectButton>` update-mode, disconnect); shared
-  `disconnectPlaidItem` behind both `DELETE /api/plaid/item` and the
-  `disconnectBank` action — deletes `plaid_items` only, `transactions`
-  untouched, history retained via the `plaid_account_id` SET-NULL FK (§24), with
-  a separate opt-in `purge`. `/settings` gains `BankConnections`; `/transactions`
-  gains the needs-category surface + a connect prompt + a flag-guarded
-  `removed_at IS NULL` filter (also on the dashboard + CSV reads). 11 new
-  component tests; typecheck · lint · test 249 · build green; DB-integration 15
-  + Plaid-Sandbox 5 re-run green. Milestone 9 (Deployed V1 Beta on staging
-  services) added to the tracker. Remaining V1: pg_cron/pg_net (B), E2E +
-  webhook round-trip (C), the deploy (M9).
-- **2026-09-10 (later) — Milestone 9: V1 Beta deployed + acceptance chain
-  walked.** Work committed to branch `v1-plaid-beta` (`ramYum/budgts`, `main`
-  untouched). New Vercel project **`budgts-staging`** (team tocino) imported from
-  the repo, Production branch pinned to `v1-plaid-beta`, 11 env vars wired
-  entirely to staging (staging Supabase `iwypmifvmtmkwtnxkfma` +
-  `NEXT_PUBLIC_SITE_URL=https://budgts-staging.vercel.app` + Plaid Sandbox +
-  `NEXT_PUBLIC_PLAID_ENABLED=1` + `PLAID_TEST_SEED_ENABLED=1`). Staging Supabase
-  Auth URL config set (Site URL + `/**` redirects; magic link). Deployment
-  promoted to Production → **live at `https://budgts-staging.vercel.app`**.
-  Prod (`budgts.com` / `main` / prod Supabase) never touched — the two
-  topologies are fully separate. **Full acceptance chain walked on the deploy:**
-  login (test user `beta@budgts.test` created in staging Supabase) → Connect a
-  bank → real Plaid Link (Sandbox, First Platypus `user_good`/`pass_good`,
-  demonstrated through credential entry + account list) → account mapping (Plaid
-  Checking → new Budgts account, 13 skipped) → **first sync landed 18 bank
-  transactions** into staging Postgres → `/transactions` shows them, 9 in "Needs
-  a category" + Starbucks/McDonald's/United auto-categorised by the PFC map →
-  categorised one Uber → Transportation (count 9→8) → **`plaid_merchant_rules`
-  row confirmed by SQL** (Uber merchant_entity_id → Transportation) → plain
-  Disconnect (purge unchecked) → **SQL confirms `plaid_items`=0,
-  `plaid_accounts`=0, `bank_txns`=18 all with `plaid_account_id` NULL,
-  `user_categorized` kept, `removed_at` NULL** — the §24 financial-integrity
-  rule verified end-to-end on a real deploy. Notes: the Plaid Link final
-  "Continue" isn't scriptable via synthetic clicks (design §26), so the connect
-  step used the purpose-built `/api/plaid/test/seed`; login used a
-  password-grant + hand-set `@supabase/ssr` cookie since magic link needs an
-  inbox. Left for V1: **B** (pg_cron/pg_net firing against the deploy), **C**
-  (commit the Playwright journey + webhook round-trip), owner's own hands-on
-  pass.
-- **2026-09-10 (later 2) — Categorization intelligence** (workstream E, design
-  §18, plan `.claude/plans/whimsical-tumbling-origami.md`). The deployed beta's
-  first import dumped ~50 rows into "Needs a category" — obvious merchants
-  (Uber, McDonald's) uncategorised because Plaid reports LOW confidence — and a
-  correction didn't backfill sibling rows. Fix (deterministic, no AI, **no
-  migration**): `buildResolveCategory` becomes an ordered evidence chain — R1
-  per-user `plaid_merchant_rules` (unchanged) → R2 **Budgts merchant knowledge**
-  (`src/lib/plaid/merchant-knowledge.ts`, ~115 hand-curated household-name
-  chains → seed category; keyed by the new pure `src/lib/plaid/merchant-name.ts`
-  normalizer, exact-equality only) → R3 **trusted PFC `detailed`** allowlist
-  (`TRUSTED_DETAILED` in `category-map.ts`, conservative core) → R4 the existing
-  gated `resolvePlaidCategory` primary path (untouched — `LOW`/`UNKNOWN` still
-  null, still throws on unknown primary). The LOW-confidence gate is bypassed
-  **only** for R2/R3, never globally. `categorizeBankTransaction` now also runs
-  a **blanks-only** backfill `UPDATE` (same `merchant_entity_id`,
-  `category_id IS NULL AND user_categorized=false AND removed_at IS NULL AND
-  is_transfer=false`; sets `category_id` only — auto stays `user_categorized
-  = false`) and can **add a standard category** the user no longer has
-  (`src/lib/categories/standard.ts`, no setup screen). New
-  `recategorizeUncategorizedBankTxns` + `rescanUncategorized` action + a
-  "Re-scan" button clear a pre-existing backlog idempotently. Adapter now passes
-  `merchant_name` + `name` into the resolver; `apply-sync` / `sync-store`
-  untouched; idempotency, transfer short-circuit, pending→posted, and
-  `user_categorized` semantics all preserved. **Gates:** typecheck · lint ·
-  unit **304** (+55) · build · DB-integration **18** (+3) · Plaid-Sandbox **6**
-  (+1) — all green. Deferred to V1.5: name-keyed rules (no-entity-id merchants),
-  a `category_source` audit column, history/account-type signals, cron re-scan.
-- **2026-09-10 (later 3) — Needs-category notification (header bell).** The
-  smallest surfacing layer on top of workstream E: `NeedsCategoryBell`
-  (`src/components/needs-category-bell.tsx`), rendered by the dashboard layout
-  behind `plaidUiEnabled()`, shows a count of the same needs-category predicate
-  and links to `/transactions#needs-category` (new `id="needs-category"` anchor
-  on `<NeedsCategory>`). `RealtimeRefresh(["transactions"])` moved into the
-  layout so the count updates after a sync lands on any dashboard route; the
-  dashboard page's `RealtimeRefresh` narrowed to `["budgets"]` (same net
-  effect, no double refresh). No notifications table, feed, Web Push, or OS
-  notifications — the bell is the whole surface. Resolver / knowledge / backfill
-  / standard-category behaviour untouched. **Gates:** typecheck · lint · unit
-  **309** (+5, bell zero/nonzero/plural/9+/link) · build — all green;
-  DB-integration + Plaid-Sandbox unaffected (no backend change).
-- **2026-09-11 — Fixed a broken deploy, then closed workstream E.** `4efd010`
-  failed on Vercel (`Module not found: '@/lib/budget/pacing'`). Root cause:
-  `git add` on `src/app/(app)/(dashboard)/page.tsx` staged that file's entire
-  working-tree diff, not just the intended `RealtimeRefresh` edit — sweeping in
-  an unrelated, uncommitted, unfinished "pacing" feature sitting in the same
-  file. `pacing.ts` itself was never staged, so the pushed commit referenced a
-  module that didn't exist; the local build had passed only because it read
-  `pacing.ts` straight off disk (untracked ≠ absent from the filesystem).
-  Fixed in `182dfce` — `page.tsx` restored to the last known-good content plus
-  only the intended change; the pacing feature stays out of this branch,
-  untouched. Verified with a true clean-clone simulation
-  (`git stash push -u --keep-index` to strip every untracked file before
-  running the gates) — typecheck · lint · unit **291** (37 files, the real
-  count without the stray pacing tests) · build, all green. Then **live
-  Playwright verification on `budgts-staging.vercel.app` @ `182dfce`**: header
-  bell showed the true count (3), tapping it landed on
-  `/transactions#needs-category`, resolving one row dropped the count to 2
-  live (no reload) via the layout's `RealtimeRefresh`, and the two remaining
-  ambiguous rows stayed untouched after a hard reload. No defects.
-  **Workstream E (categorization intelligence + notification) is approved and
-  closed.** Next: workstream B (pg_cron/pg_net automation, verify firing).
-- **2026-09-11 (later) — Workstream B: automation wired and proven firing.**
-  Enabled `pg_cron` 1.6.4 + `pg_net` 0.20.4 on budgts-staging and scheduled
-  `plaid-sync-due` (every 30s) via `supabase/staging-plaid-cron.sql` against
-  `https://budgts-staging.vercel.app/api/plaid/sync-due`. First firing attempt
-  surfaced a real bug: the root proxy (`src/proxy.ts`) redirects every
-  unauthenticated request to `/sign-in`, and neither Plaid's webhook nor this
-  cron poller carry a session cookie — so `pg_net` was logging a 200 of the
-  sign-in page's HTML instead of the poller's JSON, and `needs_sync` never
-  cleared. Both routes already do their own strict auth (JWT signature /
-  timing-safe bearer compare), so the session gate was only breaking them, not
-  protecting anything. Fix (`b6e3e88`): added `/api/plaid/webhook` and
-  `/api/plaid/sync-due` to `PUBLIC_PREFIXES`; user-facing Plaid routes
-  (`link-token`, `exchange`, `test/seed`) untouched — they still self-check
-  `getSessionUser()`. New `src/proxy.test.ts` (5 cases: both exempted paths,
-  user-facing routes and ordinary pages still gated, pre-existing public pages
-  stay public, a same-prefix decoy path isn't accidentally matched). Verified
-  against a clean-clone simulation (`git stash push -u --keep-index`):
-  typecheck · lint · unit **296** (38 files, +5) · build, all green. Post-deploy
-  proof: `net._http_response` shows `{"ran":1,"results":[{"ok":true,
-  "inserts":2,...}]}`; `cron.job_run_details` shows consecutive `succeeded`
-  runs ~30s apart; the flipped test item's `needs_sync` cleared and
-  `last_synced_at` advanced to match. **Workstream B is done.** Next:
-  workstream C (Playwright E2E journey + webhook round-trip — this fix also
-  unblocks the webhook half, which shared the same proxy bug).
-- **2026-09-11 (later 2) — Workstream C: webhook round-trip verified for real;
-  E2E journey walked by hand + spec committed.** **Webhook round-trip:**
-  decrypted a real staging item's Sandbox `access_token`
-  (`src/lib/plaid/crypto.ts`, staging `PLAID_TOKEN_ENC_KEY`), called
-  `sandboxItemFireWebhook`, and confirmed the full chain lands: Plaid `200
-  webhook_fired:true` → `plaid_webhook_events` gains a row within 5s
-  (`verified:true`, `TRANSACTIONS`/`SYNC_UPDATES_AVAILABLE`, `handled:true`) →
-  `plaid_items.needs_sync` set → the (B) poller clears it within 30s with
-  `last_synced_at` advanced. **E2E journey:** new `tests/e2e/plaid.spec.ts` —
-  connect (via `/api/plaid/test/seed` + `/api/plaid/exchange`, bypassing
-  Plaid Link's un-scriptable iframe per design §26) → map (real
-  `<AccountMapping>` UI) → import (retries `Sync now` for Sandbox lag,
-  mirroring `createSandboxItemWithTxns`'s existing readiness-poll pattern) →
-  categorize an ambiguous row → merchant-rule regression check (Re-scan
-  doesn't undo the correction) → disconnect → CSV row count unchanged.
-  Guarded to skip unless run against a staging deploy *with* staging Supabase
-  Admin credentials (`NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SECRET_KEY` for
-  `iwypmifvmtmkwtnxkfma`) — not available this session, so `npx playwright
-  test` has not actually been run against it; **owner action: supply those
-  two values (or run it themselves) to execute it.** In the meantime the same
-  journey was walked live, by hand, on `budgts-staging.vercel.app` using the
-  already-authenticated `beta@budgts.test` session: connect ✅ and map ✅
-  (14-account picker; "Plaid Checking" → the existing "Plaid Checking ••0000"
-  Budgts account, 13 others "Don't import this one") on two separate fresh
-  Sandbox items; disconnect ✅ with **history retained** (18 bank rows kept,
-  `plaid_account_id` nulled, `plaid_items` row gone) confirmed twice.
-  **Discovered and diagnosed a Plaid Sandbox limitation, not a Budgts defect:**
-  a brand-new item's very first `/transactions/sync` call can race Sandbox's
-  own asynchronous canned-data generation; if that first call returns empty,
-  Sandbox does not retroactively deliver the dataset through the *same* cursor
-  lineage — confirmed by calling `/api/plaid/sync-due?full=1` against the
-  affected item repeatedly (`inserts:0` every time) while a fresh, cursorless
-  `/transactions/sync` call against the same access token sees the full 19-row
-  checking history immediately. Production is immune — a real linked bank
-  already has transaction history the moment it's connected, so there is no
-  generation lag to race. No app code changed for this (Sandbox-only, already
-  mirrored by the test fixtures' own readiness-polling). Temporarily
-  unscheduled/restored `pg_cron`'s `plaid-sync-due` job while isolating the
-  race (verified re-armed and firing before moving on). **Gates:** typecheck ·
-  lint · build all green (new spec file only; no production code touched).
-  Remaining for V1: owner runs/enables the E2E spec, then the owner's own
-  hands-on acceptance pass.
-- **2026-09-11 (later 3) — Full staging acceptance pass, walked live twice.**
-  Owner authorized use of the staging Supabase Admin key for automated E2E;
-  searched exhaustively for it (every local `.env*`, Vercel CLI, Supabase CLI,
-  GitHub secrets, password-manager/credential-store tools, MCP servers) — not
-  retrievable anywhere accessible to this session. A Supabase-dashboard tab
-  was found already open and authenticated for the staging project, but
-  reading a value off it through any available tool would print that value
-  into this session's own tool-output stream, which the owner's security
-  requirements explicitly forbid — so `npx playwright test tests/e2e/
-  plaid.spec.ts` remains unexecuted; the owner needs to place the key in
-  `.env.staging` directly. In its place, walked every acceptance criterion
-  live against `budgts-staging.vercel.app` — twice, hours apart, both clean:
-  dashboard + transactions load; obvious merchants (McDonald's, Starbucks,
-  United Airlines) auto-categorized; genuinely ambiguous rows sit in "Needs a
-  category"; the header bell shows the exact DB-verified count, deep-links to
-  `/transactions#needs-category`, and its count drops live (no reload) when a
-  row is resolved; the category persists server-side; archiving "Insurances"
-  then picking it from "Add a category" un-archived the same row (no
-  duplicate) and applied it; a fresh synthetic merchant-pair proved the rule +
-  backfill path end-to-end — categorizing one row created a
-  `plaid_merchant_rules` row and filled its blank sibling with
-  `user_categorized=false` while the corrected row stayed `true`; disconnect
-  without purge removed the `plaid_items` row while all 20 bank transactions
-  remained (`plaid_account_id` nulled, none `removed_at`); `pg_cron`'s
-  `plaid-sync-due` reconfirmed active and succeeding every 30s on both passes.
-  No defects found; no code changed. **V1 is functionally accepted on
-  staging** — the one open item is procedural (running the committed spec),
-  not a product or infrastructure gap.
-- **2026-09-11 (later 4) — `tests/e2e/plaid.spec.ts` run for real; passing.**
-  Owner placed the staging project's Supabase Admin key in `.env.staging`
-  (untracked, `.gitignore`'d — confirmed before and after; never printed,
-  logged, or committed). `PLAYWRIGHT_BASE_URL=https://budgts-staging.vercel.app
-  npx playwright test tests/e2e/plaid.spec.ts` first failed on a test bug, not
-  a Budgts defect: the categorize assertion matched by merchant *text*, and
-  Plaid Sandbox's canned dataset legitimately contains several transactions
-  with the identical description (repeat "Uber 063015 SF**POOL**" rides)
-  sharing one `merchant_entity_id` — picking a category for one correctly
-  backfills all of them at once (design §18), so "no row with this text
-  remains" is the wrong assertion shape. Fixed to assert the row count
-  shrinks on categorize and never regrows after Re-scan. Also fixed
-  `playwright.config.ts`: it always ran a needless local `npm run build &&
-  npm run start` even when `PLAYWRIGHT_BASE_URL` already pointed at a live
-  deployment — `webServer` is now skipped whenever that variable is set. Both
-  fixes are test-infrastructure only; the spec's staging guard
-  (`hasAdminCredentials()` + `PLAYWRIGHT_BASE_URL` must name a staging
-  deploy) was never touched. Re-ran: **1 passed, 0 failed, 0 skipped.**
-  Verified against a clean-clone simulation: typecheck · lint · unit (296) ·
-  build all green; DB-integration (18) and Plaid-Sandbox (6) rerun clean.
-  **Workstream C is done. V1 is accepted on staging** — every automatable
-  gate is green; the only remaining item is the owner's own hands-on
-  acceptance pass (a subjective product judgment, by design not something
-  Claude completes on the owner's behalf).
-- **2026-09-12/13 — Budget-correctness chain: sign-convention → event-role →
-  budget-effect → qualify-integration → transfer-ownership** (`8b55453..
-  b0df2a6` and follow-on fix commits through `2a1828b`). Per-account sign
-  detection so a mis-signed Plaid feed doesn't silently flip debits/credits;
-  `event_role` classification (PURCHASE/REFUND/INCOME/TRANSFER/etc., CHECK-
-  constrained) replacing the old binary `is_transfer` flag as the primary
-  qualification signal; `budgetEffectOf` resolving a role to
-  EXPENSE/EXPENSE_REVERSAL/INCOME/NONE/UNKNOWN; `qualify.ts`'s `countsForMonth`
-  integrated against real `event_role` data with a legacy `!isTransfer`
-  fallback for `event_role = null` (manual/email/receipt rows); an explicit
-  user transfer decision (`transfer_user_set`) outranking the machine-resolved
-  role when they disagree. Design docs: `docs/specs/2026-09-12-*-design.md`
-  (sign-convention, event-role, budget-effect, transfer-ownership).
-- **2026-09-13 — Money Left + Savings Rate dashboard tiles** (`dfadebe..
-  2a1828b`). `rollup.ts` now classifies income/spend by `budgetEffectOf`
-  rather than raw `category.kind`; `savingsRate` = Money Left / Income, never
-  clamped; both proven end-to-end against real staging Postgres
-  (`8f6b821`), then wired into `DashboardTiles`. No new migration.
-- **2026-09-13 — Account calculation-exclusion** (`4590520`). Migration
-  `0012`: `plaid_accounts.excluded_from_calculations boolean NOT NULL DEFAULT
-  false`. An owner-only, explicit, per-account control — exclusion is only
-  ever offered while the account is already `needs_review = true` (the
-  existing anomaly-detection flag from the duplicate-feed investigation,
-  design `2026-09-12`), enforced server-side in `setAccountCalculationExclusion`
-  (never trusts client state), never triggered automatically by sync or the
-  anomaly detector. `countsForMonth` gates on it unconditionally, same tier as
-  `status`/`duplicateOfId`. Raw transactions are never touched or hidden —
-  only the calculation gate. Motivated by a real incident (Advancial Federal
-  Credit Union's feed replaying ~50 duplicate copies of some transactions,
-  `docs/specs/2026-09-12-advancial-remediation-and-future-ingestion-defense.md`)
-  but the mechanism itself is fully generic, not institution-specific,
-  and no automatic exclusion of any account was performed. Verified: 474 unit
-  + 51 DB-integration tests passing (one long-standing, unrelated async-timing
-  flake in `needs-category.test.tsx`, documented, not fixed — reproduces only
-  intermittently under full-suite load, confirmed identical on both sides of
-  this diff), typecheck/lint/build green. Committed `4590520`.
-- **2026-09-13 — V1 code + schema promoted to production.** `main` and
-  `v1-plaid-beta` fast-forwarded `5b668b2 → 4590520` (clean, no divergence)
-  and pushed. Production Supabase (`wsmhstqpvbbcqpqhiqyp`) migration
-  bookkeeping was found clean through `0011` (unlike staging, which had
-  drifted — see below); only migration `0012` was pending and was applied via
-  an explicit, self-verifying `DIRECT_URL` config (refuses to run against any
-  host but `wsmhstqpvbbcqpqhiqyp`) — never the generic `npm run db:migrate`,
-  since `drizzle.config.ts` hardcodes `.env.local` with no target check.
-  Verified before/after: `transactions` row count unchanged (13,388),
-  `plaid_accounts` row count unchanged (9), bookkeeping 12→13 rows (only the
-  new migration recorded), zero rows auto-excluded. Deployed through the
-  existing `budgts` Vercel project (no new project) — live at
-  `https://budgts.com`, confirmed via the GitHub deployments API
-  (`state: success`) and a direct fetch (loads, correct `/sign-in` redirect,
-  0 console errors). `NEXT_PUBLIC_PLAID_ENABLED` untouched (stays off).
-  GitHub Actions CI's `npm run build` step failed on this push with
-  `DATABASE_URL is not set` — confirmed pre-existing (the same 4 CI runs
-  before this push failed identically) and unrelated to the Vercel
-  production build, which has its own env vars and succeeded independently;
-  left alone per scope. Smoke-tested the unauthenticated path only (no
-  production session available); the authenticated workflow checklist
-  (dashboard, connected banks, transactions, categorization, Money Left,
-  Savings Rate, Connected Banks, exclusion UI) is an open owner item (§6).
-  **Separately, staging's own migration bookkeeping was found to have
-  silently drifted** (migrations `0009`–`0012`'s schema changes were already
-  live there from earlier ad hoc testing but never recorded in
-  `drizzle.__drizzle_migrations`) — left untouched per instruction not to
-  repair unrelated bookkeeping; noted here so a future session doesn't
-  mistake it for a fresh problem.
-- **2026-09-13 — UI redesign: Budgt brand + information architecture**
-  (`d469d4b`, `05d4a1d`). Implements
-  `docs/specs/2026-09-13-ui-redesign-brand-guidelines-spec.md` against the
-  supplied `New Assets.svg` / `New Branding guidelines.png` (the brand-token
-  work itself — palette, Nunito Sans, mascot extraction into
-  `public/brand/*.png` — predates this entry, done uncommitted in an earlier
-  session; this pass committed it for the first time alongside the
-  screen-level rebuild). Presentation-layer only, per the spec's own
-  constraint: no change to Plaid ingestion, categorization, event-role/
-  budget-effect classification, Money Left, Savings Rate, transfer ownership,
-  or account-exclusion — every new screen composes the existing pure
-  `buildDashboard`/`monthlyActuals`/`goalsSummary` functions and existing
-  server actions (`setBudget`, `updateTransaction`, etc.), never a
-  reimplementation of qualification logic. One real bug this caught: the
-  first draft of the new `/insights` page fetched transactions without
-  `event_role`/`transfer_user_set`/account-exclusion columns, which would
-  have let it disagree with Home for the same month — fixed to mirror the
-  dashboard page's exact query before it shipped.
-  - **Design system**: `src/components/ui.tsx` (buttons, `ProgressBar`,
-    `SegmentedControl`, `CategoryIcon`, `EmptyState`, `CatMessage`) and
-    `nav-icons.tsx` (one glyph set shared by bottom nav, sidebar, and Settings/
-    More rows).
-  - **App shell**: `BottomNav` reordered to Home/Budgets/Activity/More;
-    `DesktopSidebar` replaces it entirely at the `md` breakpoint (persistent
-    sidebar + a wider multi-column `main`, not a stretched mobile layout).
-    Settings and Goals moved out of primary nav into a new `/more` hub.
-  - **New routes**, each a thin wrapper around an existing component/query:
-    `/more`, `/insights`, `/accounts`, `/connected-banks`, `/help`, `/about`,
-    `/settings/{profile,categories,security,appearance}`. `Settings` itself
-    is now a menu, not a kitchen-sink page.
-  - **Home**: greeting header (mascot mood keyed off sign of `savingsRate`);
-    kept Money Left/Savings Rate as-is; Spending gained a month-over-month
-    delta; new "What can I change?" card (biggest month-over-month category
-    mover — two `buildDashboard` calls, current + previous month, no new
-    domain code); new Savings-progress card (`goalsSummary`, links to
-    Goals); new Recent Activity list.
-  - **Budgets**: replaced the inline blur-to-save editor with category cards
-    (icon + progress, click → Category Detail overlay: spend/budget/
-    remaining/trend, "Change budget" via the existing `setBudget`, "See
-    transactions"); a "+" Add Budget flow for un-budgeted categories; This
-    month/All time toggle (all-time sums `monthlyActuals` — unchanged —
-    across every month present, rather than a new aggregator). Deleted the
-    now-dead `BudgetEditor`.
-  - **Activity**: client-side search + Spending/Income/Transfers filter over
-    the already-loaded month (no new query). Transaction Detail gained a
-    one-tap "Mark as transfer"/"Remove transfer" action reusing
-    `updateTransaction` with the same fields the edit form submits, isTransfer
-    flipped — no new server code.
-  - **Overlay** (used by every detail/edit screen in the app, not just new
-    ones) gained a visible close button — it previously relied on
-    backdrop-click/Escape only, which didn't satisfy the spec's "clear back
-    affordance" rule.
-  - Updated `tests/e2e/{smoke,budgets,transactions,goals,settings}.spec.ts`
-    for the new nav paths/brand name/interaction flow; added component tests
-    for the new search filter and transfer toggle.
-  - Verified: typecheck, `eslint src/`, `npm run build`, Vitest (476 passing;
-    the pre-existing `needs-category.test.tsx` full-suite-load flake
-    reproduced once, confirmed unrelated by running it in isolation), and the
-    9 runnable Playwright e2e specs (twice — `goals.spec.ts` hit the
-    project's own documented shared-Supabase auth-rate-limit flake once,
-    reproduced clean in isolation). A manual pass through a throwaway
-    Supabase test user (created + deleted via the same admin API the e2e
-    helpers use) confirmed Home, Budgets → Category Detail → Change budget,
-    More, Settings, and Insights render and function correctly at both
-    mobile (390px) and desktop widths.
-  - **Deferred** (see the spec's own remaining-issues classification, not
-    silently dropped): the 3-screen onboarding wizard (Welcome → Connect
-    Bank → All Set) — Plaid UI is flag-gated off in every environment this
-    was built against, so there was nothing real for a "Connect Your Bank"
-    step to do; a Net Worth tab on Insights (spec explicitly forbids faking
-    it); per-category "top merchants" in Category Detail; a Notifications
-    settings screen (no backend exists for it — spec's own rule is not to
-    show a fake option). None of these touch financial correctness.
-  - Not committed to `main`; not pushed; not deployed. Still needs the
-    owner's own visual/product pass before merging.
-- **2026-09-13 — UI redesign v2: new brand source, real cropped assets**.
-  The owner rejected the v1 pass's visual result and supplied a new
-  reference set: `Budgts Reference V2.png` (four mockup screens — Get
-  Started, Home, Budgets, Insights) as the sole source for color/type/
-  component styling, and `Assets V2.svg` (an SVG wrapper around one
-  embedded raster sheet) for the actual logo/mascot/iconography artwork —
-  explicitly **not** to be hand-redrawn, and explicitly not to be used as a
-  branding-guidelines source itself. A third supplied file, `Branding
-  guidelines V2.png`, was deliberately **not** used (confirmed with the
-  owner) so the palette/type values trace to exactly one source.
-  - **New source of truth**: `docs/BRAND_GUIDELINES.md`, written from
-    colors sampled directly off the reference mockup's icons/progress
-    bars/donut legend (not guessed) plus the Poppins specimen in
-    `Assets V2.svg`. It explicitly supersedes the v1 entry's palette/
-    typography/asset sections; `docs/specs/2026-09-13-ui-redesign-brand-
-    guidelines-spec.md` keeps a header marking exactly which of its own
-    sections are void vs. still-current IA/behavior documentation.
-  - **Palette**: cream `#FFF8F0` bg / ink `#0F0F0F` text / coral `#FF7B61`
-    (accent + the app's own "+", active-nav, segmented-control-active
-    color) / sun, sage, sky, lavender, pink as the six category hues (pale
-    tint background + a sampled "strong" variant for glyphs/fills) —
-    replacing the v1 warm-white/yellow/orange/blue/navy set entirely.
-    **Primary CTA is now a solid ink-black pill** (literally what the
-    reference's own "Get started" button is), not the previous blue —
-    `PrimaryButton` needed no code change since it already reads the
-    `--primary` token. Font: Poppins replaces Nunito Sans.
-  - **Real assets, not redraws**: `Assets V2.svg`'s embedded PNG was
-    decoded and precisely cropped (gap-detection to avoid bleed between
-    adjacent artwork) into `public/brand/`: `logo-lockup.png` (wordmark +
-    tagline), `icon-badge.png` (full-color mark, used by the sign-in/
-    onboarding hero), `mark-default.png` + 3 solid-color alternates (source
-    for `LogoMark` and every generated app icon), and the four mascot
-    moods (`mood-normal/happy/curious/sleepy.png` — all four of the app's
-    existing moods matched the sheet exactly, no new mood art needed) plus
-    three decorative blob shapes and a sparkle mark. The superseded
-    `app-icon.png`, `mascot-hero.png`, and the already-unused
-    `decorative-blobs.png` were deleted; `public/icon-512.png`,
-    `icon-maskable.png`, `src/app/icon.png`, `src/app/apple-icon.png` were
-    regenerated from `mark-default.png` (composited onto cream at
-    increasing safe-zone margins for the maskable variant). The entire
-    legacy top-level `brand/` folder (an even older Volt-Lime/Deep-Pine
-    identity, already self-documented as superseded and unreferenced by
-    the app) was deleted too.
-  - **Fixed a mascot/background conflict this session's token change would
-    otherwise have introduced**: the black-cat mascot's silhouette
-    disappears against the new solid-ink `--primary` hero card, so the
-    Home "Money Left" card's mascot overlay was removed rather than
-    shipped invisible.
-  - **New migration** `0013_default_category_colors_v2_palette.sql` —
-    `handle_new_user()`'s seeded category colors updated to the new
-    palette's hues, so a brand-new signup's category dots/icons match out
-    of the box. Existing users' stored `color` values are untouched (it's
-    plain per-row data, not a data migration). Applied via `db:migrate`.
-  - Grepped `src/` for every remaining raw old-palette `var(--yellow` /
-    `var(--navy` / etc. reference (5 files: `income-tile.tsx`,
-    `overlay.tsx`, `ui.tsx`'s category map and `CatMessage`,
-    `transaction-form.tsx`'s checkbox accent) rather than assuming the
-    semantic-token layer alone would catch everything.
-  - **Verified visually** against a real authenticated session: created a
-    throwaway Supabase test user via the e2e admin helper pattern, seeded
-    budgets/transactions/categories with numbers mirroring the reference
-    mockup's own examples, signed in via a magic-link `token_hash` through
-    Playwright, and screenshotted Home, Budgets, Insights, Activity, Goals
-    (empty state), More, and the signed-out sign-in screen at 390px width
-    before deleting the test user. Confirmed Poppins loads, the new
-    palette/component styling render as designed, and the cropped mascot/
-    logo artwork displays correctly.
-  - `RecreateDesign.md` (repo root, untracked working notes) holds the
-    running instruction log and step-by-step checklist this pass was
-    executed against.
+* **Production statement timeouts (2026-09-16, not acted on).** A local e2e run against a production-backed build hit Postgres `canceling statement due to statement timeout` twice, and two specs (`budgets`, `goals`) went flaky waiting on a mutation to reflect. Suspected cause: Nano-tier shared-compute contention on the single production database, possibly amplified by `/budgets` re-running its full multi-query fetch after every mutation. The query itself is cheap (indexed, plain `auth.uid()` RLS), and manual SQL-editor queries were running on the same database at the time, so this is one data point, not a conclusion. Risk: latency or timeouts under load on the current tier. Response: measure first (Scale & Infrastructure in `docs/roadmap.md`), then upgrade the plan or fix the fetch if the data justifies it.

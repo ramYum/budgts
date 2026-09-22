@@ -5,7 +5,7 @@ import {
   hasAdminCredentials,
   magicTokenHash,
 } from "./helpers/test-user";
-import { onboardAndSkipTour } from "./helpers/onboard";
+import { completeOnboarding } from "./helpers/onboard";
 
 test.skip(!hasAdminCredentials(), "needs SUPABASE_SECRET_KEY (see .env.local)");
 
@@ -13,7 +13,7 @@ test("create a savings goal, add + withdraw contributions, edit, archive", async
   const user = await createTestUser();
   try {
     await page.goto(`/auth/callback?token_hash=${await magicTokenHash(user.email)}&type=magiclink&next=/`);
-    await onboardAndSkipTour(page);
+    await completeOnboarding(page);
 
     await page.getByRole("link", { name: "More" }).click();
     await page.getByRole("link", { name: "Savings Goals" }).click();

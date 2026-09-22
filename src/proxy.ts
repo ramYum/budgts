@@ -13,6 +13,43 @@ const PUBLIC_PREFIXES = [
   "/api/plaid/webhook",
   "/api/plaid/sync-due",
   "/api/plaid/recurring-scan",
+  // link-token, exchange and item now authenticate via getRequestContext (web cookie OR native Bearer token; see
+  // that module) so the native app can call them directly — same "has its own auth, the proxy can't see it"
+  // reasoning as the two entries above. Without this, a cookie-less native request 307s to the HTML /sign-in page
+  // before the route handler's own check ever runs (confirmed live: a Bearer-only POST came back 200 text/html —
+  // the rendered sign-in page — instead of JSON). test/seed is the same sandbox-only, doubly-gated shortcut used
+  // by the staging e2e suite, now also Bearer-callable for its native contract test.
+  "/api/plaid/link-token",
+  "/api/plaid/exchange",
+  "/api/plaid/item",
+  "/api/plaid/test/seed",
+  // Mobile-ready Route Handlers authenticate themselves via
+  // getRequestUser() (web cookie OR mobile Bearer token, verified
+  // server-side against Supabase Auth) — same "has its own auth, the proxy
+  // can't see it" reasoning as the Plaid endpoints above. Without this, a
+  // cookie-less mobile request gets 307-redirected to the HTML /sign-in
+  // page before the route handler (and its Bearer check) ever runs.
+  // Unauthenticated callers still get a real 401 from the handler itself,
+  // not a weaker check — this only changes *where* that check happens.
+  "/api/account/delete",
+  "/api/mobile/",
+  // Billing routes each authenticate themselves, none via the web cookie: the entitlement endpoints resolve a
+  // user through getRequestUser() (cookie OR Bearer), the RevenueCat webhook verifies the provider's
+  // signature, and the cron endpoints present the CRON_SECRET bearer. An unauthenticated caller still gets a real
+  // 401 from the handler — the proxy just must not 307 a cookie-less request to the HTML sign-in page first.
+  "/api/billing/",
+  // The public "Manage subscription" landing page (the reminder email links here; it must work signed out).
+  "/manage-subscription",
+  // Store-required pages the native app links to, reachable without an account or the app installed: privacy policy,
+  // terms, support, and the account-deletion request path (mobile-only transition spec §5).
+  "/privacy",
+  "/terms",
+  "/support",
+  "/account-deletion",
+  // Universal-link / app-link association files (fetched by Apple and Google, never signed in) and the native return path
+  // (`/app/*`, e.g. Plaid OAuth) whose web fallback page must load when the app is not installed.
+  "/.well-known/",
+  "/app/",
 ];
 
 export function isPublic(pathname: string) {

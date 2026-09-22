@@ -11,7 +11,9 @@ import postgres from "postgres";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import * as schema from "@/lib/db/schema";
 
-const STAGING_REF = "iwypmifvmtmkwtnxkfma";
+// Budgets-Staging-3, the sole staging project (earlier staging projects are retired or deleted; see
+// tools/db/target-safety.ts and docs/operations/staging-replacement.md).
+const STAGING_REF = "uvowywszaiojboaxdmoz";
 const url = process.env.DIRECT_URL;
 if (!url || !url.includes(STAGING_REF)) {
   throw new Error(
@@ -42,6 +44,18 @@ export function adminSupabase(): SupabaseClient {
   }
   supabaseAdmin = createClient(supabaseUrl, secret, { auth: { autoRefreshToken: false, persistSession: false } });
   return supabaseAdmin;
+}
+
+/**
+ * A clock anchored to the DATABASE's now(). `created_at` is stamped by Postgres, while a scan's closed upper bound
+ * (`created_at <= scanStart`) comes from the caller's clock. A test that scans immediately after inserting would
+ * otherwise depend on this machine's clock being at least as fast as the database's, which is not something a test
+ * may assume (a developer machine can lag a managed database by hundreds of milliseconds).
+ */
+export async function dbNow(): Promise<() => Date> {
+  const [row] = await client<{ n: string }[]>`select now() as n`;
+  const at = new Date(row.n);
+  return () => at;
 }
 
 /** Insert a bare `auth.users` row (the trigger does the rest); return its id. */

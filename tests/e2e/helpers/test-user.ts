@@ -46,3 +46,24 @@ export async function magicTokenHash(email: string): Promise<string> {
   }
   return data.properties.hashed_token;
 }
+
+/**
+ * A real access token for `email`, minted the same way the mobile app would
+ * obtain one — completing a magic-link verification through the anon-key
+ * client, not hand-constructed — for tests that authenticate an API request
+ * with `Authorization: Bearer <token>` instead of driving a browser page.
+ */
+export async function mintAccessToken(email: string): Promise<string> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !anonKey) {
+    throw new Error(
+      "e2e needs NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY (see .env.local)",
+    );
+  }
+  const anon = createClient(url, anonKey, { auth: { autoRefreshToken: false, persistSession: false } });
+  const tokenHash = await magicTokenHash(email);
+  const { data, error } = await anon.auth.verifyOtp({ type: "magiclink", token_hash: tokenHash });
+  if (error || !data.session) throw error ?? new Error("verifyOtp produced no session");
+  return data.session.access_token;
+}

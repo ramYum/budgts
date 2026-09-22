@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 
 export const metadata: Metadata = { title: "Help" };
@@ -32,21 +31,6 @@ export default function HelpPage() {
   return (
     <div className="space-y-6 pt-1">
       <PageHeader title="Help" back="/more" />
-      <Link
-        href="/help/how-it-works"
-        className="card block space-y-1 rounded-2xl border border-hairline p-4"
-      >
-        <p className="text-sm font-semibold text-accent">How Budgts Works →</p>
-        <p className="text-sm text-muted">
-          The short version: you spend, Budgts keeps track. See the whole workflow in one page.
-        </p>
-      </Link>
-      <Link
-        href="/tour"
-        className="card block rounded-2xl border border-hairline p-4 text-sm font-semibold text-accent"
-      >
-        Replay the tour →
-      </Link>
       <ul className="space-y-4">
         {FAQ.map((item) => (
           <li key={item.q} className="card space-y-1.5 rounded-2xl border border-hairline p-4">

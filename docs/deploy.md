@@ -30,6 +30,29 @@ Steps you (the owner) do — Claude can't create the accounts or push to a remot
   how it got turned on, not as prod's current state. See `docs/workflow.md`
   §1/§4 and memory `plaid-live-in-production.md`.
 
+## Current staging (2026-09-21) — read this instead of Milestone 9 below
+
+Everything under "Milestone 9" is the original staging build and is history. Today:
+
+- **One staging Supabase project:** `Budgets-Staging-3`, ref `uvowywszaiojboaxdmoz` (org *Budgts Validation*, ca-central-1).
+  The earlier staging projects are retired / deleted (`docs/operations/database-migrations.md`,
+  `docs/operations/staging-replacement.md`).
+- **Vercel project `budgts-staging`** (team `tocino`), served at `https://budgts-staging.vercel.app`. Its **Production** and
+  **Preview** targets both point at Budgets-Staging-3. `NEXT_PUBLIC_*` values are inlined at build time, so re-pointing needs a
+  redeploy. The repo-root `.vercel` link is PRODUCTION: deploy staging only from a snapshot of the code linked to `budgts-staging`
+  (`git archive HEAD` into a scratch directory + copy that project's `.vercel/project.json`, then `vercel deploy --prod` there) —
+  never `vercel deploy` from the repo root.
+- **Staging-only env** beyond the Milestone 9 list: `BILLING_ENVIRONMENT=sandbox`, `REVENUECAT_WEBHOOK_SIGNING_SECRET` (a
+  staging value). `DATABASE_URL` is the ca-central-1 pooler URL (Vercel is IPv4; the direct host is IPv6-only). Budgts sends
+  no trial-end reminder in V1 (owner decision 2026-09-22), so there is no Resend/email config to set.
+- **Supabase Auth on staging:** Site URL `https://budgts-staging.vercel.app`; redirect allow-list
+  `https://budgts-staging.vercel.app/**`, `http://localhost:3000/**`, `budgts://auth/callback`; Email (magic link) and Google
+  enabled. Google's OAuth client must list `https://uvowywszaiojboaxdmoz.supabase.co/auth/v1/callback` as an authorized redirect URI.
+- **Cron on staging** (pg_cron + pg_net, applied from the templates in `supabase/`): `plaid-sync-due` (every 30 s),
+  `billing-reconcile` (hourly at :07). `billing-reminders` was unscheduled 2026-09-22 (reminder feature removed from V1).
+- **Production is separate and untouched by staging work.** Applying migrations `0017`-`0022` to production and deploying the
+  `mobile/native-home` work are release-preparation steps that need explicit owner approval.
+
 ## 1. Push the repo to GitHub
 
 ```bash
@@ -135,6 +158,41 @@ sending an unregistered `redirect_uri` makes Plaid reject **every**
 `/link/token/create` call, not just OAuth ones, so this would break
 connecting or reconnecting any bank, not only the OAuth ones.
 
+### Native OAuth redirect (Plaid Link on iOS/Android) — owner action required
+
+**Finding, 2026-09-21:** this does **not** need a per-environment (staging
+vs. production) redirect — iOS Universal Links / Android App Links are
+matched by the OS against the app's bundle/package id (`com.budgts.app`,
+the same for every build) and the domain's `.well-known/*` association
+file, never against which backend a given build talks to
+(`EXPO_PUBLIC_API_BASE_URL`). `/app/plaid-oauth` is a static fallback page
+with no backend calls (`src/app/app/plaid-oauth/page.tsx`), so every build
+— staging-pointed or production-pointed — can safely use the **same, fixed**
+`https://budgts.com/app/plaid-oauth` redirect URI, served from production.
+There is no real staging/production conflict here; an earlier version of
+this doc's spec (§9) flagged one, in error.
+
+**To turn it on**, once Apple Developer enrolment and the Play package are
+set up (`APPLE_APP_ID`, `ANDROID_PACKAGE_NAME`, `ANDROID_CERT_SHA256` — see
+`src/lib/native-links.ts`, and §5/§9 of
+`docs/specs/2026-09-21-mobile-only-transition-design.md`):
+
+1. Plaid dashboard → Developers → API → **Allowed redirect URIs** — add
+   `https://budgts.com/app/plaid-oauth` (note the `/app/` prefix — distinct
+   from the web redirect above) under the environment(s) in use.
+2. On **both** the `budgts` (production) and `budgts-staging` Vercel
+   projects, set:
+   - `PLAID_NATIVE_OAUTH_REDIRECT_URI=https://budgts.com/app/plaid-oauth`
+     (yes, the production URL on both — see the finding above)
+   - `ANDROID_PACKAGE_NAME=com.budgts.app`
+3. Redeploy each.
+
+**Not yet done as of 2026-09-21:** attempted from this session on
+`budgts-staging` via `vercel env add`; the harness's own permission
+classifier denies Bash secret-store writes regardless of target (staging or
+production), so this needs to be run by hand or with that permission
+granted. Same "don't set before the dashboard step" rule as above applies.
+
 ## 4. Point Supabase at the deployed URL
 
 Supabase dashboard → Authentication → **URL Configuration**:
@@ -150,11 +208,13 @@ already `https://wsmhstqpvbbcqpqhiqyp.supabase.co/auth/v1/callback` — no chang
 ## 5. Deploy + verify
 
 - Trigger a deploy (push, or Vercel "Redeploy").
-- On your phone: open the URL, install to home screen ("Add to Home Screen").
-- Sign in (magic link or Google), pick a currency, add a transaction.
-- Open the app on a second device — the transaction appears within a second
-  (Supabase Realtime).
+- Open the URL, sign in (magic link or Google), pick a currency, add a transaction.
+  The web UI is being retired (`docs/specs/2026-09-21-mobile-only-transition-design.md`), but until the native app covers the same
+  flows this is still the quickest end-to-end check that a deployment works.
+- Open it on a second device — the transaction appears within a second (Supabase Realtime).
 - Settings → Export transactions (CSV) downloads a file.
+- Native: point a device build at the deployment with `EXPO_PUBLIC_API_BASE_URL` (see `mobile/README.md`). Installing the site to
+  a home screen is no longer part of verification.
 
 ## Milestone 9 — V1 Beta (staging deploy)
 
@@ -213,5 +273,4 @@ displayed → categorize → merchant rule remembered → disconnect → history
 - The free Supabase project **pauses after 7 idle days**; the dashboard has a
   one-click restore. Use the CSV export as a backup.
 - Vercel Hobby is personal / non-commercial only.
-- PNG icons: the manifest currently uses SVG icons, which modern Android/Chrome
-  accept. For best iOS home-screen results, generate 192/512 PNGs later.
+- The PWA manifest, service worker and icons retire with the web UI; no further PWA icon work is planned.

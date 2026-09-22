@@ -36,7 +36,8 @@ started. Reordering is how RLS gaps and float-money bugs get in.
      all reads and writes. RLS enforces per-user isolation at the database — it
      is the guard, not a backstop. Still set `user_id` explicitly on inserts
      (the RLS `WITH CHECK` requires it to match `auth.uid()`).
-   - Drizzle is **migrations only** — never used for request-time queries.
+   - Drizzle is for **migrations and schema**, and is never used for a *user request's* queries. Trusted server-only work (Plaid engines,
+     account deletion, billing webhook / cron / reconcile) uses a direct server connection instead — see "Data access" under Supabase specifics.
    - Call the domain function; return typed data. No raw 500 to the client.
 5. **UI** — `src/app/**`, `src/components/**`
    - Mobile-first. Show inline Zod errors. A failed write keeps the form open
@@ -102,8 +103,8 @@ updated if something surprised you.
 - Building the component before the domain function it calls exists and is
   tested. Build the domain layer first; the UI just renders it.
 - A new table without an RLS policy in the same migration.
-- Using Drizzle (admin role — bypasses RLS) for a request-time query. Drizzle
-  is migrations only; requests use the user's `supabase` client.
+- Using Drizzle or the direct server connection (admin role — bypasses RLS) for a *user request's* query. Requests use the user's
+  `supabase` client; only the trusted server-only paths named under "Data access" may bypass RLS.
 - An insert that omits `user_id` (or sets someone else's) — the RLS
   `WITH CHECK` rejects it, but set it right the first time.
 - Float money. Store and compute in minor units; format only at the display
@@ -183,9 +184,9 @@ interface IngestionAdapter {
 
 ### Adapter status by tier
 
-- Shipped: `ManualAdapter` only (now the fallback path).
-- **V1:** `PlaidAdapter` — Plaid Link + `/transactions/sync`; the primary
-  automatic path.
+- `ManualAdapter` — shipped; the always-available fallback path.
+- **V1:** Plaid — shipped and live in production: Link + `/transactions/sync` through the sync engine (`src/lib/plaid/`), landing
+  rows via the shared `landTransaction()`; the primary automatic path.
 - **V2:** `EmailAdapter` (inbound-email webhook) and `ReceiptAdapter` (camera
   upload + confirmation popup) for cash, split bills, and institutions Plaid
   can't reach.
@@ -194,11 +195,14 @@ interface IngestionAdapter {
 
 ## Supabase specifics
 
-- **Data access.** The app talks to Postgres only through `supabase-js` with
-  the user's session (PostgREST + RLS). Drizzle + the `DATABASE_URL` /
-  `DIRECT_URL` connection strings exist **only** for `db:generate` /
-  `db:migrate`. `DIRECT_URL` (port 5432) is what migrations use — the pooled
-  `DATABASE_URL` (6543) runs PgBouncer in transaction mode and breaks some DDL.
+- **Data access.** User requests talk to Postgres only through `supabase-js` with
+  the user's session (PostgREST + RLS). **Exception — trusted server-only work** that is not a user request (the Plaid sync and
+  detection engines, `deleteAccount`, and the billing webhook / cron / reconcile paths) uses a direct server connection
+  (`DATABASE_URL`, pooled, port 6543), which bypasses RLS. Such code must take the user id from a verified identity or a verified
+  provider payload, never from request input, and goes through a store module or the `Db` port so it is testable. `DIRECT_URL`
+  (port 5432) is what `db:migrate` uses — the pooled `DATABASE_URL` runs PgBouncer in transaction mode and breaks some DDL. Note the
+  server connection is drizzle's postgres-js client, whose date serializers are pass-throughs: the billing `Db` port converts Dates
+  at the boundary (`src/lib/billing/db.ts`).
 - **Signup seed is a trigger.** `handle_new_user()` on `auth.users`
   (`security definer`) creates the `profiles` row, default `categories`, and a
   starter `accounts` row in one shot. Never rely on client code to seed a new

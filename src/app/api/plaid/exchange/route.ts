@@ -10,7 +10,8 @@ import { z } from "zod";
 import { plaidClient } from "@/lib/plaid/client";
 import { loadPlaidConfig } from "@/lib/plaid/config";
 import { encryptToken } from "@/lib/plaid/crypto";
-import { createClient, getSessionUser } from "@/lib/supabase/server";
+import { getRequestContext } from "@/lib/auth/request-context";
+import { isAccountDeleting } from "@/lib/account/deletion-store";
 
 const Body = z.object({
   public_token: z.string().min(1),
@@ -20,8 +21,15 @@ const Body = z.object({
 });
 
 export async function POST(request: Request) {
-  const user = await getSessionUser();
-  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const ctx = await getRequestContext(request);
+  if (!ctx) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const { user } = ctx;
+
+  // Refuse BEFORE the token exchange: exchanging creates a live Item at Plaid, which a deleting account
+  // (whose Items were already removed) would then never disconnect.
+  if (await isAccountDeleting(user.id)) {
+    return NextResponse.json({ error: "account_deletion_in_progress" }, { status: 409 });
+  }
 
   const parsed = Body.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "invalid body" }, { status: 400 });
@@ -43,7 +51,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "could not connect the bank" }, { status: 502 });
   }
 
-  const supabase = await createClient();
+  const supabase = ctx.supabase;
 
   // Same-institution guard: steer to reconnect instead of a duplicate Item.
   if (institution?.institution_id) {
@@ -77,6 +85,16 @@ export async function POST(request: Request) {
     .single();
   if (itemErr || !item) {
     console.error("[plaid] exchange: item insert", itemErr);
+    // The account started deleting AFTER the check above (42501 = the deletion write guard refused the row).
+    // The token is already exchanged, so the Item is live at Plaid: remove it now or nothing ever will.
+    // Scoped to this one code on purpose — any other insert failure (a duplicate item_id, say) may belong to a
+    // valid existing connection, which removing the Item would break.
+    if (itemErr?.code === "42501") {
+      await client.itemRemove({ access_token: accessToken }).catch((e) => {
+        console.error("[plaid] exchange: could not remove the Item created during a deletion", e instanceof Error ? e.name : "error");
+      });
+      return NextResponse.json({ error: "account_deletion_in_progress" }, { status: 409 });
+    }
     return NextResponse.json({ error: "could not save the connection" }, { status: 500 });
   }
 

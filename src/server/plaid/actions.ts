@@ -13,8 +13,10 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { standardCategory } from "@/lib/categories/standard";
+import { mapPlaidAccounts } from "@/lib/plaid/account-mapping-commands";
 import { findItemByPlaidItemId } from "@/lib/plaid/item-store";
 import { recategorizeUncategorizedBankTxns } from "@/lib/plaid/recategorize";
+import { syncPlaidItemForUser } from "@/lib/plaid/sync-commands";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import {
   categorizeBankTxnSchema,
@@ -52,27 +54,10 @@ async function withUser() {
  */
 export async function syncConnection(itemId: string): Promise<PlaidActionState> {
   const { user, supabase } = await withUser();
-
-  // Ownership gate: RLS confirms this Item is the caller's before the
-  // service-role engine ever sees the id.
-  const { data: owned } = await supabase
-    .from("plaid_items")
-    .select("item_id")
-    .eq("item_id", itemId)
-    .maybeSingle();
-  if (!owned) return { error: "That bank connection no longer exists." };
-
-  const record = await findItemByPlaidItemId(plaidDb, itemId);
-  if (!record || record.userId !== user.id) {
-    return { error: "That bank connection no longer exists." };
-  }
-
-  const result = await syncItem(record);
+  const result = await syncPlaidItemForUser(supabase, user.id, itemId);
   revalidateSynced();
-  if (!result.ok) {
-    return { ok: true, warning: "Connected, but the first sync didn't finish. It'll retry shortly." };
-  }
-  return { ok: true };
+  if (result.outcome === "item_not_found") return { error: "That bank connection no longer exists." };
+  return { ok: true, warning: result.warning };
 }
 
 export async function mapAccounts(
@@ -90,54 +75,11 @@ export async function mapAccounts(
   const { plaidItemId, entries } = parsed.data;
 
   const { user, supabase } = await withUser();
-
-  // Confirm the Item is the caller's and grab its Plaid `item_id` for the sync.
-  const { data: item } = await supabase
-    .from("plaid_items")
-    .select("item_id")
-    .eq("id", plaidItemId)
-    .maybeSingle();
-  if (!item) return { error: "That bank connection no longer exists. Try connecting again." };
-
-  for (const entry of entries) {
-    let accountId: string | null = null;
-    let linkState: "mapped" | "ignored" = "ignored";
-
-    if (entry.mode === "new") {
-      const { data: created, error } = await supabase
-        .from("accounts")
-        .insert({ user_id: user.id, name: entry.name, type: entry.type ?? "checking", source: "plaid" })
-        .select("id")
-        .single();
-      if (error || !created) return { error: "Could not create the account. Try again." };
-      accountId = created.id;
-      linkState = "mapped";
-    } else if (entry.mode === "existing") {
-      accountId = entry.existingAccountId ?? null;
-      linkState = "mapped";
-    }
-
-    const { error: linkErr } = await supabase
-      .from("plaid_accounts")
-      .update({ account_id: accountId, link_state: linkState })
-      .eq("plaid_item_id", plaidItemId)
-      .eq("plaid_account_id", entry.plaidAccountId);
-    if (linkErr) return { error: "Could not save the account mapping. Try again." };
-  }
-
-  // First sync — so transactions are on screen when the user lands back.
-  const record = await findItemByPlaidItemId(plaidDb, item.item_id);
-  if (record && record.userId === user.id) {
-    const result = await syncItem(record);
-    revalidateSynced();
-    if (!result.ok) {
-      return { ok: true, warning: "Accounts saved. The first sync didn't finish — it'll retry shortly." };
-    }
-    return { ok: true };
-  }
-
+  const result = await mapPlaidAccounts(supabase, user.id, plaidItemId, entries);
   revalidateSynced();
-  return { ok: true };
+  if (result.outcome === "item_not_found") return { error: "That bank connection no longer exists. Try connecting again." };
+  if (result.outcome === "failed") return { error: result.message };
+  return { ok: true, warning: result.warning };
 }
 
 /**

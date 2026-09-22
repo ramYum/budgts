@@ -7,6 +7,13 @@
  * `import "server-only"` guarantees this never ends up in a client bundle (it
  * also means this file has no unit test — it is exercised by the Sandbox
  * integration tests). Design §6, §7.
+ *
+ * Vitest doesn't apply Next's `react-server` resolve condition, under which
+ * `server-only` no-ops — outside it the package throws unconditionally, which
+ * would break any Vitest suite that imports this module (directly or
+ * transitively). Rather than removing the guard, the integration config
+ * aliases `server-only` to its own `empty.js` — the exact no-op file Next's
+ * own bundler uses for the client graph (vitest.integration.config.mts).
  */
 import "server-only";
 import { Configuration, PlaidApi } from "plaid";

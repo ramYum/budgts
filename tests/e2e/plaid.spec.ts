@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { createTestUser, deleteTestUser, hasAdminCredentials, magicTokenHash } from "./helpers/test-user";
-import { onboardAndSkipTour } from "./helpers/onboard";
+import { completeOnboarding } from "./helpers/onboard";
 
 /**
  * Full Plaid journey against a deployed, Plaid-enabled environment (design §26,
@@ -46,10 +46,12 @@ async function skipAllButFirstAccount(page: Page) {
  * up, rather than assuming the first sync landed it. Sandbox-only; production
  * banks already have history at connect time, so this race cannot occur there.
  */
-async function syncUntilTransactionsAppear(page: Page, attempts = 8) {
+async function syncUntilTransactionsAppear(page: Page, attempts = 12) {
   for (let i = 0; i < attempts; i++) {
     if (i > 0) {
-      await page.getByRole("button", { name: "Sync now" }).click();
+      // "Sync now" is on the bank's card on /connected-banks, not on /transactions.
+      await page.goto("/connected-banks");
+      await page.getByRole("button", { name: "Sync now" }).click({ timeout: 15_000 });
       await page.waitForTimeout(3000);
     }
     await page.goto("/transactions");
@@ -63,12 +65,62 @@ async function syncUntilTransactionsAppear(page: Page, attempts = 8) {
   throw new Error("Sandbox never produced transactions to sync after repeated retries");
 }
 
+/** Minimal RFC 4180 parse of the export: cells containing commas, quotes or newlines are quoted. */
+function parseCsv(csv: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = "";
+  let quoted = false;
+  for (let i = 0; i < csv.length; i++) {
+    const c = csv[i];
+    if (quoted) {
+      if (c === '"' && csv[i + 1] === '"') {
+        cell += '"';
+        i++;
+      } else if (c === '"') {
+        quoted = false;
+      } else {
+        cell += c;
+      }
+    } else if (c === '"') {
+      quoted = true;
+    } else if (c === ",") {
+      row.push(cell);
+      cell = "";
+    } else if (c === "\n" || c === "\r") {
+      if (c === "\r" && csv[i + 1] === "\n") i++;
+      row.push(cell);
+      rows.push(row);
+      row = [];
+      cell = "";
+    } else {
+      cell += c;
+    }
+  }
+  if (cell !== "" || row.length) rows.push([...row, cell]);
+  return rows;
+}
+
+/**
+ * The exported transactions as a multiset of their identity: date, description, amount, direction.
+ * Category, status and account are left out on purpose: background categorisation may change them
+ * between two snapshots without any transaction being lost.
+ */
+function transactionIdentities(csv: string): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const [date, description, , amount, direction] of parseCsv(csv).slice(1)) {
+    const key = JSON.stringify([date, description, amount, direction]);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return counts;
+}
+
 test("connect a bank, map an account, import, categorize, disconnect, history remains", async ({ page }) => {
   const user = await createTestUser();
   try {
     const tokenHash = await magicTokenHash(user.email);
     await page.goto(`/auth/callback?token_hash=${tokenHash}&type=magiclink&next=/`);
-    await onboardAndSkipTour(page);
+    await completeOnboarding(page);
 
     // --- Connect (bypasses the un-scriptable Plaid Link iframe, design §26) ---
     const seed = await (
@@ -83,12 +135,19 @@ test("connect a bank, map an account, import, categorize, disconnect, history re
     expect(exchange.accounts.length).toBeGreaterThan(0);
 
     // --- Map: the real <AccountMapping> UI, server-rendered from the DB ---
-    await page.goto("/settings");
+    // Connected banks live on their own page (moved out of Settings by the UI redesign).
+    await page.goto("/connected-banks");
     await expect(page.getByText("First Platypus Bank (Sandbox)")).toBeVisible();
     await page.getByRole("button", { name: "Choose accounts to import" }).click();
     await skipAllButFirstAccount(page);
     await page.getByRole("button", { name: "Import transactions" }).click();
-    await expect(page.getByText("not set up")).toHaveCount(0); // mapping dialog closed, list refreshed
+    // Submitting runs the mapping AND the first real Plaid sandbox sync, which can take well over the
+    // 5s default; the overlay closing is the completion signal. Bounded, and only for this step.
+    await expect(page.getByRole("button", { name: "Import transactions" })).toBeHidden({ timeout: 45_000 });
+    // Afterwards every account is either mapped ("→ name") or declined ("not imported"): none untouched.
+    // The refreshed list lands a while after the overlay closes: measured 4.8s to 8.0s over five runs
+    // against a deployed staging site, i.e. routinely past the 5s default. Bounded to 30s.
+    await expect(page.getByText("not set up")).toHaveCount(0, { timeout: 30_000 });
 
     // --- Import: first sync runs as part of mapping; retry for Sandbox lag ---
     await syncUntilTransactionsAppear(page);
@@ -130,13 +189,21 @@ test("connect a bank, map an account, import, categorize, disconnect, history re
     const importedRows = csvBefore.split("\n").length;
     expect(importedRows).toBeGreaterThan(1); // header + at least one imported row
 
-    await page.goto("/settings");
+    await page.goto("/connected-banks");
     await page.getByRole("button", { name: "Disconnect" }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Disconnect" }).click();
-    await expect(page.getByText("First Platypus Bank (Sandbox)")).toHaveCount(0);
+    // Same refresh lag as after Import (measured 4.8-8.0s): the list drops the bank once the action's
+    // revalidation lands. Bounded to 30s; the assertion itself is unchanged.
+    await expect(page.getByText("First Platypus Bank (Sandbox)")).toHaveCount(0, { timeout: 30_000 });
 
     const csvAfter = await (await page.request.get("/api/export/transactions")).text();
-    expect(csvAfter.split("\n").length).toBe(importedRows); // nothing lost
+    // Nothing lost: every transaction exported before Disconnect is still exported after it. Asserted as
+    // containment, not equal counts, because Sandbox delivers its canned history in waves and a background
+    // sync can legitimately import MORE rows between the two snapshots (observed on staging: 7 -> 19).
+    // Disconnect can only remove rows, so any that vanished are reported by identity.
+    const after = transactionIdentities(csvAfter);
+    const lost = [...transactionIdentities(csvBefore)].filter(([key, n]) => (after.get(key) ?? 0) < n).map(([key]) => key);
+    expect(lost, "transactions that disappeared when the bank was disconnected").toEqual([]);
   } finally {
     await deleteTestUser(user.id);
   }

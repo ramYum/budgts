@@ -79,6 +79,12 @@ export default function SettingsScreen() {
           </View>
         </Card>
 
+        <Card label="Manage">
+          <TextLink testID="settings-accounts" onPress={() => router.push("/accounts")}>
+            Accounts
+          </TextLink>
+        </Card>
+
         {links.length > 0 ? (
           <Card label="About">
             <View style={styles.links}>

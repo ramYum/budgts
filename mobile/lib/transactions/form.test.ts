@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { MobileTransaction } from "./transactions-api";
-import { draftFromTransaction, draftToPayload, emptyDraft, minorToInput, newRequestId, normalizeAmountInput, validateDraft } from "./form";
+import { draftFromTransaction, draftToPayload, emptyDraft, minorToInput, newRequestId, normalizeAmountInput, parseDraft, validateDraft } from "./form";
 
 const ACCOUNT = "33333333-3333-4333-8333-333333333333";
 
@@ -94,6 +94,20 @@ describe("draftFromTransaction", () => {
       note: "",
       isTransfer: true,
     });
+  });
+});
+
+describe("parseDraft", () => {
+  it("round-trips a draft passed between screens as a route param", () => {
+    const d = { ...emptyDraft("2026-09-10", ACCOUNT), amount: "5.00", description: "Lunch" };
+    expect(parseDraft(JSON.stringify(d))).toEqual(d);
+  });
+
+  it("returns null for anything that is not a well-formed draft, so the screen falls back to a blank form", () => {
+    expect(parseDraft(undefined)).toBeNull();
+    expect(parseDraft("not json")).toBeNull();
+    expect(parseDraft(JSON.stringify({ amount: 5 }))).toBeNull();
+    expect(parseDraft(JSON.stringify({ ...emptyDraft("2026-09-10", ACCOUNT), direction: "sideways" }))).toBeNull();
   });
 });
 

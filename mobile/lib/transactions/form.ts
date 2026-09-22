@@ -67,6 +67,22 @@ export function draftFromTransaction(t: MobileTransaction): TransactionDraft {
   };
 }
 
+/** A draft handed between screens as a JSON route param. Anything malformed is `null` (the form then starts blank). */
+export function parseDraft(json: string | undefined): TransactionDraft | null {
+  if (!json) return null;
+  try {
+    const d = JSON.parse(json) as Partial<Record<keyof TransactionDraft, unknown>>;
+    const text = (v: unknown) => typeof v === "string";
+    const idOrNull = (v: unknown) => v === null || typeof v === "string";
+    if (!idOrNull(d.accountId) || !idOrNull(d.categoryId)) return null;
+    if (!text(d.amount) || !text(d.date) || !text(d.description) || !text(d.note) || typeof d.isTransfer !== "boolean") return null;
+    if (d.direction !== "debit" && d.direction !== "credit") return null;
+    return d as TransactionDraft;
+  } catch {
+    return null;
+  }
+}
+
 /** A fresh idempotency key for one create attempt (`[A-Za-z0-9-]{8,64}`, the server's format). `random` is injectable for tests. */
 export function newRequestId(random: () => number = Math.random): string {
   const tail = Array.from({ length: 10 }, () => Math.floor(random() * 36).toString(36)).join("");

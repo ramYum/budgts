@@ -2,8 +2,8 @@ import { Tabs } from "expo-router";
 import { colors, fonts } from "../../../lib/theme";
 
 /**
- * The signed-in shell. Home and Settings for now; Transactions, Budgets and Accounts join as they are built
- * (docs/specs/2026-09-21-mobile-only-transition-design.md §4). Labels only — no icon pack dependency.
+ * The signed-in shell. Home, Activity, Budgets and Settings; Accounts is reached from Activity / Settings rather than its own
+ * tab (docs/specs/2026-09-21-mobile-only-transition-design.md §4). Labels only — no icon pack dependency.
  */
 export default function TabsLayout() {
   return (
@@ -19,6 +19,8 @@ export default function TabsLayout() {
       }}
     >
       <Tabs.Screen name="index" options={{ title: "Home", tabBarButtonTestID: "tab-home" }} />
+      <Tabs.Screen name="activity" options={{ title: "Activity", tabBarButtonTestID: "tab-activity" }} />
+      <Tabs.Screen name="budgets" options={{ title: "Budgets", tabBarButtonTestID: "tab-budgets" }} />
       <Tabs.Screen name="settings" options={{ title: "Settings", tabBarButtonTestID: "tab-settings" }} />
     </Tabs>
   );

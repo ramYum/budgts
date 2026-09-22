@@ -52,6 +52,8 @@ function Gate() {
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="transaction" options={{ presentation: "modal" }} />
         <Stack.Screen name="accounts" />
+        <Stack.Screen name="connected-banks" />
+        <Stack.Screen name="map-accounts" options={{ presentation: "modal" }} />
         <Stack.Screen name="paywall" options={{ presentation: "modal" }} />
         <Stack.Screen name="delete-account" />
         <Stack.Screen name="diagnostics" />

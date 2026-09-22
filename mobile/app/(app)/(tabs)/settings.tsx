@@ -83,6 +83,9 @@ export default function SettingsScreen() {
           <TextLink testID="settings-accounts" onPress={() => router.push("/accounts")}>
             Accounts
           </TextLink>
+          <TextLink testID="settings-connected-banks" onPress={() => router.push("/connected-banks")}>
+            Connected Banks
+          </TextLink>
         </Card>
 
         {links.length > 0 ? (

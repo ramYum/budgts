@@ -1,6 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { isPublic } from "./proxy";
 
+describe("isPublic — Plaid routes made Bearer-callable for native (dual auth, mobile-only-transition spec §4A)", () => {
+  it("lets link-token, exchange, item and the sandbox seed route through for their own Bearer-or-cookie check", () => {
+    for (const p of ["/api/plaid/link-token", "/api/plaid/exchange", "/api/plaid/item", "/api/plaid/test/seed"]) {
+      expect(isPublic(p)).toBe(true);
+    }
+  });
+
+  it("does not loosen the webhook/cron paths' own prefix matching", () => {
+    expect(isPublic("/api/plaid/link-tokenx")).toBe(false);
+  });
+});
+
 describe("isPublic — native-app compliance and link pages", () => {
   it("serves the store-required legal, support and deletion-request pages without a session", () => {
     for (const p of ["/privacy", "/terms", "/support", "/account-deletion"]) expect(isPublic(p)).toBe(true);
@@ -32,11 +44,9 @@ describe("isPublic", () => {
     expect(isPublic("/api/plaid/recurring-scan")).toBe(true);
   });
 
-  it("still requires a session for the user-facing Plaid API routes", () => {
-    expect(isPublic("/api/plaid/link-token")).toBe(false);
-    expect(isPublic("/api/plaid/exchange")).toBe(false);
-    expect(isPublic("/api/plaid/test/seed")).toBe(false);
-  });
+  // link-token, exchange, item and test/seed are covered by the "Plaid routes made Bearer-callable for native"
+  // describe block below (2026-09-22): they now authenticate themselves via getRequestContext (web cookie OR
+  // native Bearer), the same reasoning as /api/account/delete and /api/mobile/*, so the proxy no longer gates them.
 
   it("lets the mobile-ready Route Handlers through for their own Bearer check", () => {
     // These authenticate via getRequestUser() (cookie OR Bearer token,

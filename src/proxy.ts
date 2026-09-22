@@ -13,6 +13,16 @@ const PUBLIC_PREFIXES = [
   "/api/plaid/webhook",
   "/api/plaid/sync-due",
   "/api/plaid/recurring-scan",
+  // link-token, exchange and item now authenticate via getRequestContext (web cookie OR native Bearer token; see
+  // that module) so the native app can call them directly — same "has its own auth, the proxy can't see it"
+  // reasoning as the two entries above. Without this, a cookie-less native request 307s to the HTML /sign-in page
+  // before the route handler's own check ever runs (confirmed live: a Bearer-only POST came back 200 text/html —
+  // the rendered sign-in page — instead of JSON). test/seed is the same sandbox-only, doubly-gated shortcut used
+  // by the staging e2e suite, now also Bearer-callable for its native contract test.
+  "/api/plaid/link-token",
+  "/api/plaid/exchange",
+  "/api/plaid/item",
+  "/api/plaid/test/seed",
   // Mobile-ready Route Handlers authenticate themselves via
   // getRequestUser() (web cookie OR mobile Bearer token, verified
   // server-side against Supabase Auth) — same "has its own auth, the proxy

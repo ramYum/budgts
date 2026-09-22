@@ -158,14 +158,19 @@ Do not turn routine implementation details into owner decisions.
 
 * **Active work:** Mobile Launch on `mobile/native-home` (PR #1, draft). Built this phase: the shared native transport (Bearer
   routes over shared domain commands), the native data API (profile / onboarding, transactions, accounts, categories, budgets —
-  verified live on staging), the native shell (Get Started, Settings, paywall, delete account), Sign in with Apple, and the draft
-  privacy / terms / support / deletion pages with the association files. Status and remaining work:
-  `docs/specs/2026-09-21-mobile-only-transition-design.md` §4B.
-* **Next:** native screens for transactions, accounts and budgets; the Bearer Plaid routes and native Plaid Link with the
-  connected-banks screen; the Get Started bank and trial steps; the Maestro suite.
-* **Blockers / open:** no device or emulator on the dev machine, so no native screen has been run; native Plaid and store billing
-  need an EAS dev build; iOS builds and Sign in with Apple need an Apple Developer enrolment that has not been done; RevenueCat,
-  store products and the association identifiers are not configured; the owner's final Privacy Policy and Terms wording.
+  verified live on staging), native Activity/Budgets/Accounts screens, native **Plaid Link, Connected Banks and account mapping**
+  (`/api/mobile/plaid/*` dual-authed and shared with the web Server Actions; `react-native-plaid-link-sdk` v13 adapter; verified
+  live on staging via `tests/e2e/mobile-plaid-api.spec.ts`), the native shell (Get Started — currency then an optional bank-connect
+  step — Settings, paywall, delete account), Sign in with Apple, and the draft privacy / terms / support / deletion pages with the
+  association files. A Maestro suite is scaffolded (`mobile/.maestro/`, 3 of the planned 5 flows) but not runnable on this machine.
+  Status and remaining work: `docs/specs/2026-09-21-mobile-only-transition-design.md` §4B.
+* **Next:** the Get Started trial step (blocked on RevenueCat/store products); the remaining Maestro flows (budget, delete-account,
+  connect-bank); real-device verification of everything built so far, starting with whatever an EAS dev build makes possible first.
+* **Blockers / open:** no device or emulator on the dev machine, so no native screen — including Plaid Link itself — has been run;
+  native Plaid and store billing need an EAS dev build; iOS builds and Sign in with Apple need an Apple Developer enrolment that has
+  not been done; RevenueCat, store products and the association identifiers are not configured; `mobile/app.json`'s Associated
+  Domains / App Links are hardcoded to `budgts.com`, so a staging-pointed build can't complete an OAuth-bank Plaid connection (open
+  design tension, not yet resolved — see the transition spec §9); the owner's final Privacy Policy and Terms wording.
 * **Owner decisions (2026-09-21):** the web/PWA is retired only after native covers all launch-required functionality and it is tested;
   launch scope approved with Goals, category management and in-app CSV export deferred; "web stays free" superseded; Sign in with
   Apple added to iOS scope; native testing model approved (no paid infrastructure); compliance / native-link infrastructure approved

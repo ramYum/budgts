@@ -50,8 +50,8 @@ obsolete, safe to retire (only after the §7 gate).
 | Sign-out | ✅ | ✅ | 1 | |
 | First-run currency choice / onboarding | ✅ enforced by layout redirect | ✅ code (Get Started); device test pending | 1 | A native-only new user has no way to set a currency |
 | Home (Money Left, Savings Rate, spending) | ✅ | ✅ read-only | 1 | Deeper drill-downs can follow |
-| Connect bank (Plaid Link, incl. OAuth banks) | ✅ `react-plaid-link` | ❌ | 1 | Needs `react-native-plaid-link-sdk` (dev / EAS build), Bearer link-token / exchange, HTTPS universal / app-link redirect |
-| Connected banks: status, reconnect, disconnect, "exclude from totals" | ✅ | ❌ | 1 | No silent failure states: held / stale / errored items must be visible and fixable |
+| Connect bank (Plaid Link, incl. OAuth banks) | ✅ `react-plaid-link` | ✅ code (`react-native-plaid-link-sdk` v13, native Link params) — needs a dev build to open Link on a device | 1 | OAuth-institution completion also needs the Apple/Google enrolment for Associated Domains / App Links |
+| Connected banks: status, reconnect, disconnect, "exclude from totals" | ✅ | ✅ Connected Banks screen | 1 | No silent failure states: held / stale / errored items must be visible and fixable |
 | Transactions: list, search, filter | ✅ | ✅ Activity tab (keyset paging) | 1 | |
 | Edit / categorize / transfer toggle; needs-category queue | ✅ | ✅ edit form; list flags `uncategorized` | 1 | No dedicated queue screen — a filter tap surfaces them |
 | Manual entry: add, edit, delete | ✅ | ✅ (idempotent create) | 1 | "Manual entry remains a permanent fallback" |
@@ -121,25 +121,31 @@ Foundations first, so later features are thin. Each step ships with tests and ke
 
 ## 4B. Implementation status (2026-09-21)
 
-**Built:** the shared Bearer route helper; profile + currency onboarding; a shared command layer for transactions, accounts and
-budgets (the web Server Actions are now thin adapters over it); the native data API v1 — `/api/mobile/{profile, onboarding,
-transactions, transactions/:id, accounts, accounts/:id, categories, budgets, budgets/copy}`; the privacy / terms / support /
-account-deletion pages (draft wording) and the association-file routes; Sign in with Apple; the native shell — profile gate, Get
-Started (currency), Settings (subscription, restore, manage, legal links, delete account, sign-out) and the paywall; and native
-**Activity** (list, search, category filter, keyset paging), **add/edit manual transaction** (idempotent create, server field
-errors, optimistic-conflict handling), **Budgets** (view vs actual, inline set, copy last month) and **Accounts** (list, add,
-rename/retype, archive) screens. A shared `invalidate()` signal keeps Activity, Budgets, Accounts and Home in sync after a save.
+**Built:** the shared Bearer route helper; profile + currency onboarding; a shared command layer for transactions, accounts,
+budgets and now Plaid (account mapping, sync, connected-banks read — the web Server Actions/RSC are thin callers over the same
+commands); the native data API v1 (transactions, accounts, categories, budgets) and native Plaid API v1 —
+`/api/mobile/plaid/{banks, accounts/map, sync, accounts/:rowId/exclude}`, plus `link-token`/`exchange`/`item` made dual-auth
+(cookie or Bearer) in place; the privacy / terms / support / account-deletion pages (draft wording) and the association-file
+routes; Sign in with Apple; the native shell — profile gate, Get Started (currency + optional bank-connect step), Settings,
+paywall; native **Activity, Budgets, Accounts** screens; and native **Plaid Link** — `plaid-link.ts` (port), `plaid-link-native.ts`
+(the `react-native-plaid-link-sdk` v13 adapter), `link-flow.ts` (connect/reconnect orchestration), the **Connected Banks** screen
+(status, reconnect, disconnect, exclusion toggle) and the **account-mapping** screen. `app.json` carries iOS Associated Domains
+and Android App Links for `budgts.com/app/*`. A shared `invalidate()` signal keeps every list in sync after a save.
 
-**Verified:** web unit suite (1210 tests), mobile suite (198), typecheck and the CI-equivalent build both green; and a **live
-contract test on the deployed staging server** (`tests/e2e/mobile-data-api.spec.ts`) covering the currency-set-once rule, idempotent
-creates, keyset paging, filters, budgets and — the important one — that one user cannot see or change another's data. **Not
-verified:** anything on a device or emulator; the native screens are typechecked and unit-tested (pure logic) but have not been run.
+**Verified:** web unit suite (1249 tests), mobile suite (220), typecheck, lint and the CI-equivalent build all green; and **live
+contract tests on the deployed staging server** covering the native data API (`tests/e2e/mobile-data-api.spec.ts`) and the full
+Plaid bank-connect chain (`tests/e2e/mobile-plaid-api.spec.ts`) — native-parameterized link-token creation, Sandbox exchange,
+account mapping, sync, the exclusion rule, disconnect, and that one user cannot see or act on another's connection. That second
+live run caught and fixed a real bug: the proxy's cookie-based gate was redirecting the newly Bearer-capable Plaid routes to
+`/sign-in` before their own check ran (§9). **Not verified:** anything on a device or emulator — opening Plaid Link, the native
+OAuth Universal Link handoff, and the Associated Domains config all need a real EAS dev build this environment cannot produce; a
+small Maestro suite (`mobile/.maestro/`) is prepared for that but has not been run for the same reason.
 
-**Still to build (group 1):** native Plaid Link and the connected-banks screen (needs Bearer link-token / exchange / item routes
-with the native parameters, `react-native-plaid-link-sdk` and a dev build); the Get Started bank and trial steps; the Maestro suite;
-and real-device verification. **External:** Apple Developer enrolment and the Supabase Apple provider; RevenueCat and the store
-products; the association identifiers (`APPLE_APP_ID`, `ANDROID_PACKAGE_NAME`, `ANDROID_CERT_SHA256`); `SUPPORT_EMAIL`; and the
-owner's final legal wording.
+**Still to build (group 1):** the Get Started trial step (blocked on RevenueCat/store products, external); real-device
+verification of everything above. **External:** Apple Developer enrolment and the Supabase Apple provider; RevenueCat and the
+store products; the association identifiers (`APPLE_APP_ID`, `ANDROID_PACKAGE_NAME`, `ANDROID_CERT_SHA256`,
+`PLAID_NATIVE_OAUTH_REDIRECT_URI`) and the matching Plaid-dashboard native redirect URI; `SUPPORT_EMAIL`; the owner's final legal
+wording; and the Maestro CLI / a device or CI runner to actually run the prepared suite.
 
 ## 5. Web/server surface that must remain, and compliance / link infrastructure
 
@@ -185,8 +191,10 @@ Playwright remains valid for the retained web / server surfaces. The native mode
    `mobile-bearer-auth.spec.ts`.
 3. **A small Maestro suite** of critical native flows (sign-in through a Supabase-generated `token_hash` deep link, currency onboarding,
    manual transaction, budget, delete account), Android emulator first, iOS via macOS CI / EAS later. Maestro's CLI is free and open
-   source; **Maestro Cloud and other paid runners are not purchased.** The repo is prepared for it (flows under `mobile/.maestro/`,
-   stable `testID`s on native controls).
+   source; **Maestro Cloud and other paid runners are not purchased.** Prepared, not yet run — `mobile/.maestro/` has `config.yaml` and
+   three flows (`sign-in.yaml`, `currency-onboarding.yaml`, `add-transaction.yaml`); budget and delete-account flows, and a connect-bank
+   flow, are not written yet. This machine has no emulator/device to run any of them against (see below); `mobile/.maestro/README.md`
+   has the prerequisites and current status.
 4. **Real-device / TestFlight / Play internal testing** for what needs real platform behavior: Plaid OAuth banks, Google and Apple
    sign-in, cold / warm deep links, sandbox purchase / restore / cancel, deletion with paid history.
 
@@ -198,12 +206,22 @@ CI runner or a physical device.
 
 ## 9. Risks and blockers
 
-- **Scope:** native covers 2 of the group-1 rows so far (sign-in, a read-only Home); §4 is the sequence.
+- **Scope:** native now covers most of group 1 (sign-in, Home, Activity, Budgets, Accounts, Plaid Link/Connected Banks, Get Started)
+  in code; §4B has the current built/verified split.
 - **Build tooling:** native Plaid and Sign in with Apple need a dev / EAS build (not Expo Go for the native modules); iOS builds need an
   Apple Developer enrolment that has not been done; `com.budgts.app` is still provisional.
-- **No device verification is possible on this machine**; none has been done for native auth yet.
+- **No device verification is possible on this machine**; none has been done for native auth, Plaid Link, or the OAuth-bank handoff.
 - **Plaid OAuth on native** needs the association files, redirect URIs in the Plaid dashboard, and probably a Plaid review — external lead
   time.
+- **Associated Domains / App Links are hardcoded to `budgts.com`** (`mobile/app.json`), needed for the native Plaid OAuth-bank
+  continuation and for Universal/App Links generally. A build pointed at `budgts-staging` cannot use them — the domain would still
+  resolve to production's association file. This is a real architectural tension (one native build config vs. one association domain
+  per environment) that hasn't been resolved; noted here rather than decided unilaterally. It only blocks OAuth-institution bank
+  connects from a staging/dev build, not production once it ships.
+- **Lesson from this round:** the proxy's cookie-based route gate (`src/proxy.ts`) doesn't know about routes that add Bearer auth in
+  place — it redirected authenticated-by-Bearer Plaid requests to `/sign-in` (200 HTML, not the JSON the client expected) until the
+  route was added to `PUBLIC_PREFIXES`. Only the live staging contract test caught it; unit tests mock the proxy away. Any future route
+  made Bearer-callable needs the same allow-list addition, and a live test to prove it.
 - **Legal content** (privacy, terms) is the owner's to approve; store submission is blocked until it is final.
 - **Apple guideline 4.8** is answered by adding Sign in with Apple.
 - **Existing web users:** the owner's own production accounts (three Plaid-connected) live on the web product today.

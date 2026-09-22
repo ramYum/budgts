@@ -1,0 +1,18 @@
+# Manual transaction: Activity -> Add -> fill -> Save -> appears in the list. Assumes a signed-in, onboarded session
+# with at least one account. Unexecuted — see .maestro/README.md.
+appId: com.budgts.app
+---
+- launchApp
+- tapOn:
+    id: "tab-activity"
+- tapOn:
+    id: "activity-add"
+- tapOn:
+    id: "txn-amount"
+- inputText: "12.34"
+- tapOn:
+    id: "txn-description"
+- inputText: "Maestro test transaction"
+- tapOn:
+    id: "txn-save"
+- assertVisible: "Maestro test transaction"

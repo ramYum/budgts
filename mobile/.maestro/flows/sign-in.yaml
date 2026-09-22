@@ -1,0 +1,13 @@
+# Cold-start sign-in via a magic-link deep link, mirroring the web e2e suite's token_hash trick (no real inbox
+# involved). Mint a token first: from the repo root,
+#   node -e "require('./tests/e2e/helpers/test-user.ts')" # (or run it via ts-node/tsx) — see magicTokenHash().
+# then replace TOKEN_HASH_PLACEHOLDER below before running. Unexecuted — see .maestro/README.md.
+appId: com.budgts.app
+---
+- launchApp
+- tapOn:
+    id: "sign-in-google"
+    optional: true # only present pre-sign-in; a no-op if a session already exists
+- openLink: "budgts://auth/callback?token_hash=TOKEN_HASH_PLACEHOLDER&type=magiclink"
+- assertVisible:
+    id: "tab-home"

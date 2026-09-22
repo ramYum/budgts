@@ -1,0 +1,17 @@
+# Get Started, currency step, for a freshly signed-in (not yet onboarded) account. Assumes sign-in already happened
+# (chain after sign-in.yaml, or run against a native-only test account created without a currency). Unexecuted — see
+# .maestro/README.md.
+appId: com.budgts.app
+---
+- assertVisible:
+    id: "currency-USD"
+- tapOn:
+    id: "currency-USD"
+- tapOn:
+    id: "get-started-continue"
+- assertVisible:
+    text: "Connect your bank"
+- tapOn:
+    id: "get-started-finish" # skip the bank step for this flow
+- assertVisible:
+    id: "tab-home"

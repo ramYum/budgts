@@ -8,19 +8,25 @@ real store.
 Budgts is mobile-only, so this app is the product; the web UI stays live until it covers the launch-required functionality and that is
 tested (`../docs/specs/2026-09-21-mobile-only-transition-design.md`, which has the full audit and status).
 
-**Built (typechecked and unit-tested; not yet run on a device):** the signed-in shell (profile gate, tabs), Get Started (currency),
-Settings (subscription status, restore, manage, legal links, delete account, sign-out), the paywall, Sign in with Apple, and
-**Activity, add/edit transaction, Budgets and Accounts** screens over the native data API (verified live on staging).
+**Built (typechecked and unit-tested; not yet run on a device):** the signed-in shell (profile gate, tabs), Get Started (currency,
+then an optional bank-connect step), Settings (subscription status, restore, manage, legal links, delete account, sign-out), the
+paywall, Sign in with Apple, **Activity, add/edit transaction, Budgets and Accounts** screens over the native data API, and
+**native Plaid Link, Connected Banks (reconnect / disconnect / exclude) and account mapping** — all verified live on staging over
+Bearer auth (`tests/e2e/mobile-data-api.spec.ts`, `tests/e2e/mobile-plaid-api.spec.ts`), but **not yet opened on a real device** —
+Plaid Link itself, the native OAuth-bank redirect, and the Associated Domains / App Links config all need an EAS dev build to
+verify, which this environment cannot produce.
 
-**Still required before launch, not built yet:** native Plaid Link and a connected-banks screen; the Get Started bank and trial
-steps; the Maestro suite; and device verification. (Goals, category management and in-app CSV export are post-launch.)
+**Still required before launch:** the Get Started trial step (blocked on RevenueCat/store products); running the prepared Maestro
+suite (needs a device/emulator or CI runner); real-device verification of everything above. (Goals, category management and
+in-app CSV export are post-launch.)
 
 ## Real-device testing (Expo Go)
 
 Sign-in (Magic Link, Google, Sign in with Apple), Home and the account screens run in **Expo Go** — no EAS dev-client build, Xcode or
-Android Studio needed to verify them on a physical device. Store billing (`react-native-purchases`) and, later, native Plaid are
-native modules outside the Expo SDK, so those need an **EAS development build**; until then the paywall reports that subscriptions
-are unavailable rather than faking anything.
+Android Studio needed to verify them on a physical device. Store billing (`react-native-purchases`) and native Plaid
+(`react-native-plaid-link-sdk`) are native modules outside the Expo SDK, so those need an **EAS development build**; until then the
+paywall reports that subscriptions are unavailable, and the Connected Banks "Connect a bank" action reports Plaid Link as
+unavailable, rather than faking anything.
 
 1. Copy `.env.example` to `.env.local` and fill in:
    - `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` —
@@ -76,7 +82,8 @@ Implemented in code (see "Sign in with Apple" at the end of this file). These st
 | Branded sign-in screen | Done — Poppins, cream/sun palette, real robin/sunburst art, "Use a different email" exit; tokens mirrored from web `globals.css` (`lib/theme.ts`, drift-tested) |
 | Sign in with Apple | Code-complete and unit-tested (`lib/auth/apple-sign-in.ts`), iOS only. **Not run on a device**; needs Apple Developer enrolment and the Supabase Apple provider — see "Sign in with Apple" below |
 | Signed-in shell, Get Started, Settings, paywall, delete account | Code-complete, typechecked, pure logic unit-tested (`lib/profile`, `lib/account`, `lib/billing/describe.ts`). **Not run on a device** |
-| Data API (transactions, accounts, categories, budgets) | Server side built and verified live on staging; **no native screens yet** |
+| Data API (transactions, accounts, categories, budgets) | Server side built and verified live on staging; native Activity, add/edit transaction, Budgets and Accounts screens built and typechecked. **Not run on a device** |
+| Native Plaid Link, Connected Banks, account mapping | Code-complete: `lib/plaid/*` (port + `react-native-plaid-link-sdk` v13 adapter + `link-flow.ts`), `connected-banks.tsx`, `map-accounts.tsx`; server side (`/api/mobile/plaid/*`) verified live on staging (`tests/e2e/mobile-plaid-api.spec.ts`). **Opening Plaid Link itself, and the native OAuth-bank redirect, need an EAS dev build — not run on a device** |
 | Secure session persistence | Done (`lib/supabase/large-secure-store.ts`) |
 | AppState-driven token refresh | Done (`lib/supabase/auto-refresh.ts`) |
 | Bearer-token API requests | Done and live-verified against real staging (`lib/auth/api.ts`, backend: `src/lib/auth/get-request-user.ts`) |

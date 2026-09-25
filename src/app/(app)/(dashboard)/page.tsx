@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { buildDashboard, type DashboardCategory } from "@/lib/budget/dashboard";
-import { monthKey } from "@/lib/budget/month";
+import { currentMonthKey, monthKey, todayDateKey } from "@/lib/budget/month";
 import { priorMonths, spendTrend } from "@/lib/budget/spend-trend";
 import { goalsSummary, type SavingsContribution, type SavingsGoal } from "@/lib/budget/savings";
 import type { BudgetTxn } from "@/lib/budget/types";
@@ -33,7 +33,7 @@ function prevMonthKey(m: string): string {
 
 export default async function DashboardPage({ searchParams }: PageProps<"/">) {
   const sp = await searchParams;
-  const month = typeof sp.m === "string" && MONTH_RE.test(sp.m) ? sp.m : monthKey(new Date());
+  const month = typeof sp.m === "string" && MONTH_RE.test(sp.m) ? sp.m : currentMonthKey();
   const { start, end } = monthRange(month);
 
   const user = await getSessionUser();
@@ -88,8 +88,9 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
   const trendMonths = priorMonths(month, 6);
   const { start: trendStart } = monthRange(trendMonths[0]!);
 
-  const txnRowsPromise = fetchAllRows(txnPage(start, end));
-  const prevTxnRowsPromise = fetchAllRows(txnPage(prevStart, prevEnd));
+  // One paginated fetch covers the trend window; this month and last month are
+  // slices of it (the window ends at this month's end and spans 6 months), so
+  // they are filtered in memory rather than re-fetched.
   const trendTxnRowsPromise = fetchAllRows(txnPage(trendStart, end));
 
   let recentQuery = supabase
@@ -103,8 +104,6 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
   if (plaidUiEnabled()) recentQuery = recentQuery.is("removed_at", null);
 
   const [
-    txnRows,
-    prevTxnRows,
     trendTxnRows,
     { data: categories },
     { data: budgetRows },
@@ -116,8 +115,6 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
     { data: goalRows },
     { data: contribRows },
   ] = await Promise.all([
-    txnRowsPromise,
-    prevTxnRowsPromise,
     trendTxnRowsPromise,
     supabase
       .from("categories")
@@ -170,9 +167,11 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
     accountExcluded: t.plaid_account_id != null && excludedPlaidAccountIds.has(t.plaid_account_id),
   });
 
-  const txns: BudgetTxn[] = (txnRows ?? []).map(toBudgetTxn);
-  const prevTxns: BudgetTxn[] = (prevTxnRows ?? []).map(toBudgetTxn);
   const trendTxns: BudgetTxn[] = (trendTxnRows ?? []).map(toBudgetTxn);
+  const inRange = (t: BudgetTxn, from: string, to: string) =>
+    t.occurredAt.getTime() >= Date.parse(from) && t.occurredAt.getTime() < Date.parse(to);
+  const txns = trendTxns.filter((t) => inRange(t, start, end));
+  const prevTxns = trendTxns.filter((t) => inRange(t, prevStart, prevEnd));
   const cats: DashboardCategory[] = (categories ?? []) as DashboardCategory[];
   const budgets = (budgetRows ?? []).map((b) => ({ categoryId: b.category_id, amount: b.amount }));
   const liveLinkedAccountIds = new Set(
@@ -182,10 +181,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
     (accountRows ?? []) as SelectableAccountRow[],
     liveLinkedAccountIds,
   );
-  const defaultDate = (monthKey(new Date()) === month ? new Date().toISOString() : `${month}-15T12:00:00Z`).slice(
-    0,
-    10,
-  );
+  const defaultDate = currentMonthKey() === month ? todayDateKey() : `${month}-15`;
 
   const view = buildDashboard(txns, cats, budgets, month);
   const prevView = buildDashboard(prevTxns, cats, [], prevMonth);

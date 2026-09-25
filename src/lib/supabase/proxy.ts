@@ -30,11 +30,15 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
-  // Do not run code between createServerClient and getUser() — it refreshes the
-  // token and a gap here can log users out at random.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Do not run code between createServerClient and getClaims() — it refreshes
+  // the token and a gap here can log users out at random.
+  //
+  // getClaims() verifies the JWT signature locally against the project's cached
+  // JWKS (ES256 signing keys), so a page load doesn't pay a network round-trip
+  // to the Supabase auth server the way getUser() does. It still refreshes an
+  // expired token. Writes stay strict: server actions use getUser().
+  const { data } = await supabase.auth.getClaims();
+  const user = data?.claims?.sub ? { id: data.claims.sub } : null;
 
   return { response, user };
 }

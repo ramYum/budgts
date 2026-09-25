@@ -29,17 +29,24 @@ export async function createClient() {
   );
 }
 
+export interface SessionUser {
+  id: string;
+  email: string | undefined;
+}
+
 /**
  * The authenticated user for this request, or null.
  *
- * `auth.getUser()` is a network round-trip to the Supabase auth server, not a
- * cookie read, and the layout stack + page each need the user. `cache()` scopes
- * one call per request instead of one per caller.
+ * Reads the verified JWT claims (signature checked locally against the cached
+ * JWKS) instead of `auth.getUser()`, which is a network round-trip to the
+ * Supabase auth server on every call. Row access is still enforced by RLS on
+ * the same token, and mutations (server actions) still use `getUser()`.
+ * `cache()` scopes one verification per request instead of one per caller.
  */
-export const getSessionUser = cache(async () => {
+export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return user;
+  const { data } = await supabase.auth.getClaims();
+  const claims = data?.claims;
+  if (!claims?.sub) return null;
+  return { id: claims.sub, email: typeof claims.email === "string" ? claims.email : undefined };
 });

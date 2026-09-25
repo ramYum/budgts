@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { sessionUserFromClaims } from "./claims";
 
 /**
  * Refreshes the Supabase auth cookie for an incoming request and returns the
@@ -36,9 +37,8 @@ export async function updateSession(request: NextRequest) {
   // getClaims() verifies the JWT signature locally against the project's cached
   // JWKS (ES256 signing keys), so a page load doesn't pay a network round-trip
   // to the Supabase auth server the way getUser() does. It still refreshes an
-  // expired token. Writes stay strict: server actions use getUser().
-  const { data } = await supabase.auth.getClaims();
-  const user = data?.claims?.sub ? { id: data.claims.sub } : null;
+  // expired token. A malformed cookie token reads as signed out (see claims.ts).
+  const user = await sessionUserFromClaims(supabase.auth);
 
   return { response, user };
 }

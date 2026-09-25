@@ -328,7 +328,7 @@ On hiatus as of 2026-09-25 (paused, not abandoned): Budgts is currently a person
 | ~~Rotate the DB password / Google client secret~~ | done | Intentionally skipped for this personal project (owner's call, 2026-09-09). Not a pending task. |
 | ~~Vercel project + deploy~~ | done | **2026-09-09** — `main` pushed, Vercel project live at `https://budgts.com` (custom domain via Cloudflare DNS), env vars + Supabase auth URLs set. See `docs/deploy.md` "Current deployment" + memory `deployment.md`. |
 | Verify on real devices | owner | `deploy.md` step 5 — install the PWA on a phone, sign in via magic link + Google, add a transaction, confirm it syncs to a second device. **2026-09-15: everything automatable is verified on `https://budgts.com`** (Chromium, Pixel 7 emulation): installable with zero installability errors (checked in a normal profile — Playwright's default incognito context always reports `in-incognito`), SW registers + controls the page, manifest "Budgts" / standalone / scope `/`, both 512×512 PNG icons (any + maskable), `apple-touch-icon` + iOS web-app meta + theme-color present, offline navigation falls back to `/offline`, no console errors. **Still owner-only:** the physical install on an Android phone (Chrome → Install app) and an iPhone (Safari → Add to Home Screen), sign-in inside the installed app, and cross-device Realtime sync. |
-| **Prod rollout: Plaid sync lease + 10-min sweep** | owner | Order: (1) apply migration `0017` to production (additive nullable columns; the running build ignores them); (2) deploy the build — webhooks start syncing immediately, the 30s job keeps running harmlessly (every run now takes the lease); (3) `cron.alter_job(... schedule := '*/10 * * * *')` per `supabase/staging-plaid-cron.sql`. Confirm the Vercel project uses Fluid compute (`maxDuration = 300`). Rollback: re-schedule `'30 seconds'`, redeploy the previous build, then drop the two columns. |
+| ~~Prod rollout: Plaid sync lease + 10-min sweep~~ | done | **Live 2026-09-25** (`533537e` on budgts.com, `0017` applied on production + staging, prod `plaid-sync-due` every 10 min). The follow-up claim-time `needs_sync` + 360s lease change needs no migration — it ships with a normal deploy. Original order: (1) apply migration `0017` to production (additive nullable columns; the running build ignores them); (2) deploy the build — webhooks start syncing immediately, the 30s job keeps running harmlessly (every run now takes the lease); (3) `cron.alter_job(... schedule := '*/10 * * * *')` per `supabase/staging-plaid-cron.sql`. Confirm the Vercel project uses Fluid compute (`maxDuration = 300`). Rollback: re-schedule `'30 seconds'`, redeploy the previous build, then drop the two columns. |
 | Apple Developer + Google Play accounts | on hold | Native-apps track on hiatus since 2026-09-25; enroll only when it resumes. |
 | ~~Plaid account + Production application~~ | done | Milestone 10 happened — Plaid Production access obtained, `NEXT_PUBLIC_PLAID_ENABLED` on in Vercel prod, 3 real bank connections live (Capital One, SoFi, Advancial) since 2026-09-11. Not captured in a commit/doc at the time; retroactively documented 2026-09-14. |
 | ~~Owner's authenticated smoke-test pass on budgts.com~~ | done | **2026-09-15**, run by Claude against production with owner authorization (scripted Playwright, magic-link `token_hash` sign-in). **Throwaway user: 22/22** — callback → onboarding → Home, all 15 app routes load clean, add a transaction, Home reflects it, CSV export includes it, user deleted. **All 3 Plaid-connected accounts** (owner-confirmed as theirs: one with Capital One + SoFi + Advancial, one SoFi-only, one Advancial-only), **read-only** (navigation only; any non-GET / server-action request aborted — none attempted): Money Left + savings rate on Home, Activity lists transactions, Budgets category cards, Insights, every institution on Connected Banks, and the "Exclude from totals" control shown for the two flagged Advancial accounts. Result in the real browser zone (America/New_York): passed apart from **React #418 hydration errors** on `/connected-banks` and `/transactions` (see next row); the same pass with the browser forced to UTC: **74/74**. Categorization correctness was not separately checked (only that transactions render). Also fixed the stale `tests/e2e/smoke.spec.ts` manifest assertion (`Budgt` → `Budgts`; 5/5 against prod). |
@@ -979,3 +979,25 @@ On hiatus as of 2026-09-25 (paused, not abandoned): Budgts is currently a person
   Verified on final HEAD (throwaway worktree, staging env only): typecheck, 819 unit
   tests, eslint (0 errors; 3 pre-existing warnings), build, 12/12 e2e (+ `plaid.spec`
   against a local staging-wired server), 109 DB-integration, 6 Plaid Sandbox.
+- **2026-09-25 — Plaid sync hardening: a claim flags `needs_sync`; lease = function
+  ceiling + 60s; deterministic Sandbox fixture.** Gap: a run killed between claim and
+  release (e.g. a Sync now server action hitting the platform timeout) left
+  `needs_sync = false` on an up-to-date Item, so the sweep (flagged or 6h-stale) never
+  retried it, and the user saw "already running" for the whole 10-min lease. Now
+  `claimItemForSync` sets `needs_sync = true` in the same conditional UPDATE that takes
+  the lease and `releaseSyncClaim` remains the only place it is settled, so any killed
+  run is picked up by the next sweep once its lease expires — no new mechanism, no
+  schema change. Vercel Fluid compute gives every function (route handlers and the page
+  functions that run server actions) a 300s default, which is also Hobby's maximum, so
+  `SYNC_LEASE_SECONDS` = `FUNCTION_MAX_DURATION_SECONDS` (300) + 60 = 360 (was 600); a
+  guardrail pins every `maxDuration` in `src/app` at or under the ceiling. A busy
+  Sync now says how many minutes until it can be retried (`claimMissMessage`). Staging
+  integration tests cover the claim-time flag and a killed run swept after, and not
+  before, lease expiry (both fail with the claim-time flag removed).
+  `npm run test:plaid` flaked (1/3 in review; 2/7 here on the first attempt) because
+  the fixture stopped polling at the first transaction, before Plaid's historical
+  pull. `transactions_update_status = HISTORICAL_UPDATE_COMPLETE` alone was not
+  enough: Sandbox reported it while `/transactions/sync` still returned 16 of 48 rows.
+  Ready now means the flag is complete AND a cursor-less sync returns exactly
+  `/transactions/get` `total_transactions`, polled against a 90s deadline that fails
+  with both counts. After that change: 10/10 consecutive passes on staging.

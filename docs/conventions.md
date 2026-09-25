@@ -257,7 +257,9 @@ failure there names the rule it protects.
    sit in `<Suspense fallback={null}>` so they never block the page.
 6. **Realtime is coalesced, and only for changes this tab didn't make**
    (background bank sync, another device). Only `<RealtimeRefresh>`
-   subscribes (server wrapper stamps `renderedAt`; the client listener
+   subscribes (server wrapper passes `renderedAt` = `renderStartedAt()`, the
+   time the render first opened a Supabase client — before any query, never
+   a later `Date.now()`, or a change committed mid-render is dropped; the client listener
    ignores events whose `commit_timestamp` the latest render already covers —
    the echo of the user's own edit); it debounces a burst into one trailing
    `router.refresh()` and defers while the tab is hidden. Don't add a second

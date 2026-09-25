@@ -3,8 +3,24 @@ import { cookies } from "next/headers";
 import { cache } from "react";
 import { sessionUserFromClaims, type SessionUser } from "./claims";
 
+/**
+ * Server wall-clock (ms) when this request's render first opened a Supabase
+ * client — i.e. before any of its queries ran. <RealtimeRefresh> hands it to
+ * the client listener, which skips realtime events that committed at or
+ * before it (the page already shows them). Stamping any later (e.g. when
+ * <RealtimeRefresh> itself renders, after layouts and pages have queried in
+ * parallel) would silently drop a change committed in between.
+ *
+ * `cache()` scopes it to one server render. Outside a render (a server
+ * action's own body) cache() does not memoize, so the page re-rendered in an
+ * action's response is stamped after the action's writes committed and the
+ * realtime echo of the user's own edit is skipped.
+ */
+export const renderStartedAt = cache((): number => Date.now());
+
 /** Supabase client for Server Components, Server Actions and Route Handlers. */
 export async function createClient() {
+  renderStartedAt();
   const cookieStore = await cookies();
 
   return createServerClient(

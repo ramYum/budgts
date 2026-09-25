@@ -6,17 +6,23 @@ WAT framework" below).
 
 ## What this project is
 
-A **commercial budget tracking app** ("Budgts"). Today it is an installable
-**PWA** (one codebase for phone + desktop) backed by the cloud, so data syncs
-across a user's devices. Per-user accounts; no household/shared budgets in v1.
+A **personal budget tracking app** ("Budgts"). It is an installable **PWA**
+(one codebase for phone + desktop) served at https://budgts.com and backed by
+the cloud, so data syncs across the owner's devices. Per-user accounts; no
+household/shared budgets in v1.
 
 ### The goal — read this before every decision
 
-Budgts will be **sold**: released on the **Google Play Store and Apple App
-Store** for **500+ paying users**. Every product and technical decision is
-judged against that, not against the owner's own accounts. 500 is the
-initial commercial target, not an architectural ceiling — decisions should
-leave headroom to exceed it without a rewrite.
+Budgts is for the owner's **personal use**, as a browser PWA (decided
+2026-09-24). The earlier plan to sell it on the **Google Play Store and Apple
+App Store** to 500+ paying users, and the native Expo app built for it, were
+dropped; that work is archived on the git branch
+`archive/mobile-and-deletion-2026-09-24`. It is still built to a
+production standard — correct money math, no silent failures — but nothing
+here targets app-store compliance or paying-user scale.
+
+The owner is in Pennsylvania: "this month" and "today" are decided in
+`America/New_York` (`src/lib/budget/month.ts`), never from the server's UTC clock.
 
 - **Every account matters.** A fix must work for every user, bank, account
   type, time zone and locale. The owner's data is only the first test set,

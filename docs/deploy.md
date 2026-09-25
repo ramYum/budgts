@@ -170,7 +170,7 @@ Next.js, defaults otherwise.
 
 | Var | Value |
 | --- | --- |
-| `NEXT_PUBLIC_SUPABASE_URL` | `https://iwypmifvmtmkwtnxkfma.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_URL` | `https://uvowywszaiojboaxdmoz.supabase.co` |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | staging project → Settings → API → publishable / anon key |
 | `NEXT_PUBLIC_SITE_URL` | the deploy origin, e.g. `https://budgts-staging.vercel.app` |
 | `NEXT_PUBLIC_PLAID_ENABLED` | `1` |

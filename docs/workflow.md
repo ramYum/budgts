@@ -57,7 +57,7 @@ assistant). Full ladder: `docs/roadmap.md`; working detail: §4 below.
 | Area | Decision |
 | --- | --- |
 | Shape now | Installable **PWA** (Next.js). One codebase, phone + desktop. |
-| Shape later | **Native-apps delivery track** (parallel, not a numbered tier — can start once V1 is stable): native iOS + Android via **Expo/React Native** for App Store + Play Store. Domain logic (`src/lib/budget/*`, `src/lib/validation/*`) and the Supabase backend carry over unchanged; the Next.js frontend is rebuilt. |
+| Shape later | None. Native iOS/Android and store distribution were dropped 2026-09-24 (personal use, PWA only). Archived on branch `archive/mobile-and-deletion-2026-09-24`. |
 | Users | Single user per account. "Add another income source" = another income transaction/category, not multi-user. Household sharing: deferred, not planned. |
 | Persistence | Supabase (Postgres + Auth + Realtime + Storage). Cloud, multi-device. |
 | Data access | `supabase-js` with the user's session for **all** reads/writes — RLS is the isolation guard. Drizzle = migrations only. |
@@ -175,7 +175,7 @@ handle them (mark or remove) or the numbers silently drift.
 
 Design + step sequence: `docs/specs/2026-09-09-v1-plaid-transaction-ingestion-design.md`
 (§31 steps, §32 resolved decisions). Everything is built against **budgts-staging**
-(Supabase project `iwypmifvmtmkwtnxkfma`) + Plaid **Sandbox** — the production
+(Supabase project `uvowywszaiojboaxdmoz`; the earlier staging project `iwypmifvmtmkwtnxkfma` was deleted) + Plaid **Sandbox** — the production
 database (`wsmhstqpvbbcqpqhiqyp`) and Plaid Production are untouched.
 
 | M | Scope | Status |
@@ -287,10 +287,7 @@ goal pace); advanced automation (proactive nudges, categorization learning).
 
 ### Delivery track (parallel) — Native apps (App Store + Play Store)
 
-Not a capability tier — can run alongside any tier once V1 is stable.
-Expo/React Native + Expo Router; reuse domain logic + Supabase; EAS Build
-(required — owner is on Windows, cannot build iOS locally). Prereqs: Apple
-Developer Program ($99/yr), Google Play Console ($25 once). Target: a few months.
+Retired 2026-09-24: Budgts is a personal-use PWA at budgts.com, so the native iOS/Android track and App Store / Play Store distribution are not planned. The Expo app and account-deletion work built for it are archived on branch `archive/mobile-and-deletion-2026-09-24`.
 
 ---
 
@@ -330,7 +327,7 @@ Developer Program ($99/yr), Google Play Console ($25 once). Target: a few months
 | ~~Rotate the DB password / Google client secret~~ | done | Intentionally skipped for this personal project (owner's call, 2026-09-09). Not a pending task. |
 | ~~Vercel project + deploy~~ | done | **2026-09-09** — `main` pushed, Vercel project live at `https://budgts.com` (custom domain via Cloudflare DNS), env vars + Supabase auth URLs set. See `docs/deploy.md` "Current deployment" + memory `deployment.md`. |
 | Verify on real devices | owner | `deploy.md` step 5 — install the PWA on a phone, sign in via magic link + Google, add a transaction, confirm it syncs to a second device. **2026-09-15: everything automatable is verified on `https://budgts.com`** (Chromium, Pixel 7 emulation): installable with zero installability errors (checked in a normal profile — Playwright's default incognito context always reports `in-incognito`), SW registers + controls the page, manifest "Budgts" / standalone / scope `/`, both 512×512 PNG icons (any + maskable), `apple-touch-icon` + iOS web-app meta + theme-color present, offline navigation falls back to `/offline`, no console errors. **Still owner-only:** the physical install on an Android phone (Chrome → Install app) and an iPhone (Safari → Add to Home Screen), sign-in inside the installed app, and cross-device Realtime sync. |
-| Apple Developer + Google Play accounts | owner | Start enrollment before the native-apps delivery track; lead time is days. |
+| ~~Apple Developer + Google Play accounts~~ | dropped | Native-apps track retired 2026-09-24 (personal-use PWA). |
 | ~~Plaid account + Production application~~ | done | Milestone 10 happened — Plaid Production access obtained, `NEXT_PUBLIC_PLAID_ENABLED` on in Vercel prod, 3 real bank connections live (Capital One, SoFi, Advancial) since 2026-09-11. Not captured in a commit/doc at the time; retroactively documented 2026-09-14. |
 | ~~Owner's authenticated smoke-test pass on budgts.com~~ | done | **2026-09-15**, run by Claude against production with owner authorization (scripted Playwright, magic-link `token_hash` sign-in). **Throwaway user: 22/22** — callback → onboarding → Home, all 15 app routes load clean, add a transaction, Home reflects it, CSV export includes it, user deleted. **All 3 Plaid-connected accounts** (owner-confirmed as theirs: one with Capital One + SoFi + Advancial, one SoFi-only, one Advancial-only), **read-only** (navigation only; any non-GET / server-action request aborted — none attempted): Money Left + savings rate on Home, Activity lists transactions, Budgets category cards, Insights, every institution on Connected Banks, and the "Exclude from totals" control shown for the two flagged Advancial accounts. Result in the real browser zone (America/New_York): passed apart from **React #418 hydration errors** on `/connected-banks` and `/transactions` (see next row); the same pass with the browser forced to UTC: **74/74**. Categorization correctness was not separately checked (only that transactions render). Also fixed the stale `tests/e2e/smoke.spec.ts` manifest assertion (`Budgt` → `Budgts`; 5/5 against prod). |
 | ~~Hydration mismatch (React #418) for any non-UTC user~~ | done | **Fixed 2026-09-15 in `2b4f3c7`**, see the status-board row. Original report: client components render date text from the viewer's time zone / the current clock, which differs from the server's UTC render: `src/components/plaid/connected-banks.tsx` `whenLabel()` (`Date.now()`-relative "N min ago", then `toLocaleDateString` with no `timeZone`) and `src/components/plaid/needs-category.tsx:22` (`toLocaleDateString` with no `timeZone`, rendered on `/transactions`). Confirmed by probe: errors appear in America/New_York, disappear with the browser in UTC. Fix candidates: pin `timeZone: "UTC"` like `transaction-list.tsx` does, or render relative time client-only after mount. Needs a failing test first. |
@@ -887,3 +884,30 @@ Developer Program ($99/yr), Google Play Console ($25 once). Target: a few months
   - `RecreateDesign.md` (repo root, untracked working notes) holds the
     running instruction log and step-by-step checklist this pass was
     executed against.
+
+- **2026-09-24 — Back to PWA-only; performance, timezone and install fixes.**
+  - **Revert.** Owner dropped the native app / store plan. Local `main` was reset to
+    `origin/main` (`4b20c81`, the pure-PWA build that production was still running).
+    The 16 mobile + account-deletion commits and the uncommitted WIP are kept on
+    branch `archive/mobile-and-deletion-2026-09-24`; the `mobile/` folder moved out of the
+    repo to `../Budgts-mobile-archive`. `CLAUDE.md`, this file and `roadmap.md` updated to
+    "personal-use PWA".
+  - **Bug sweep** (Opus subagent, staging only): local-day dates instead of UTC
+    (`src/lib/local-date.ts`), service worker no longer caches error responses, `/plaid-oauth`
+    hydration + stuck-state fixes, a route error boundary, and stale-test repairs.
+  - **Timezone.** Default month and "today" on the server now use `America/New_York`
+    (`APP_TIME_ZONE`, `currentMonthKey`, `todayDateKey` in `src/lib/budget/month.ts`).
+  - **Performance.** Causes found: two network `auth.getUser()` calls per page (proxy +
+    layout); the dashboard layout waiting on 3 sequential queries; Home fetching the same
+    transaction rows three times (this month, last month, 6-month trend); realtime
+    calling `router.refresh()` once per row event (a bank sync fires hundreds); no loading
+    state and a 0s client router cache, so every tab tap waited on the server. Fixes: `getClaims()`
+    (local JWT verification against the ES256 JWKS) in the proxy and `getSessionUser`
+    (server actions still use `getUser()`); one profile query and a streamed
+    (`<Suspense>`) needs-category bell; one Home transactions fetch sliced in memory;
+    a 1.5s debounced, visibility-aware realtime refresh; `loading.tsx` skeleton;
+    `experimental.staleTimes.dynamic = 30`. Production DB is us-east-2 and Vercel is iad1, and
+    RLS/indexes were already optimal, so region and DB were ruled out.
+  - **PWA install.** Manifest gained `id`, `orientation` and 192px icons (any + maskable);
+    the service worker no longer caches the manifest cache-first; More page has an
+    "Install Budgts" card (Chromium install button, iOS Add-to-Home-Screen hint).

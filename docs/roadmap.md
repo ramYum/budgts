@@ -1,9 +1,9 @@
 # Roadmap
 
-> **Goal:** Budgts is a commercial app for the **Google Play Store and Apple
-> App Store**, sold to **500+ paying users**. Each tier below is only done
-> when it works for every user and every connected account, with no silent
-> failure states. See `CLAUDE.md` → "The goal".
+> **Goal:** Budgts is a **personal-use** budgeting PWA at budgts.com (decided
+> 2026-09-24; the App Store / Play Store plan was dropped). Each tier below is
+> only done when it works for every connected account, with no silent failure
+> states. See `CLAUDE.md` → "The goal".
 
 Build order for Budgts. **Phase 1** (manual core) and **Phase 2a** (savings
 goals) are shipped. Everything after is organised as capability tiers —
@@ -63,7 +63,7 @@ BUDGTS
     └── Advanced automation
 ```
 
-Native mobile apps are a **separate delivery track**, not a tier — see the end
+Native mobile apps were dropped (2026-09-24) — see the retired track at the end
 of this file. **Scale & Infrastructure** is a second parallel track
 (capacity observability, no plan upgrades yet) — same section. Working
 detail for every tier: `docs/workflow.md §4`.
@@ -305,12 +305,9 @@ the data underneath (V1–V2) is trustworthy.
 - Household / shared budgets (needs a sharing + roles model).
 - Multi-currency transactions with conversion.
 
-## Delivery track (parallel) — Native apps
+## Delivery track — Native apps (retired)
 
-Not a capability tier. Expo / React Native + Expo Router; reuse domain logic +
-Supabase; EAS Build (required — owner is on Windows, cannot build iOS locally).
-Prereqs: Apple Developer Program ($99/yr), Google Play Console ($25 once). Can
-run alongside any tier above once V1 is stable. Target: a few months.
+Retired 2026-09-24: Budgts is a personal-use PWA at budgts.com, so the native iOS/Android track and App Store / Play Store distribution are not planned. The Expo app and account-deletion work built for it are archived on branch `archive/mobile-and-deletion-2026-09-24`.
 
 ## Delivery track (parallel) — Scale & Infrastructure
 

@@ -159,7 +159,7 @@ Four expressions, via the `<Mascot mood="…">` component
 | Mood | File | Use |
 | --- | --- | --- |
 | `normal` | `mood-normal.png` | Default state, header avatar |
-| `happy` | `mood-happy.png` | On-track, positive progress |
+| `happy` | `logo-mark.png` (the mark itself — no separate file) | On-track, positive progress |
 | `curious` | `mood-curious.png` | An insight/opportunity worth a look; empty states inviting an action |
 | `sleepy` | `mood-sleepy.png` | Nothing needs attention (e.g. empty transaction list) |
 
@@ -257,7 +257,11 @@ src/components/nav-icons.tsx, bottom-nav.tsx, desktop-sidebar.tsx
   brightness threshold, not a corner flood-fill, so enclosed white regions
   like letter counters in "B"/"d"/"g" go transparent too) before landing
   in `public/brand/`, and downsized from their multi-megapixel originals to
-  a size sane for a UI asset. Re-do both steps if re-exporting from source.
+  a size sane for a UI asset. Re-do both steps if re-exporting from source,
+  then run `node tools/optimize-brand-images.mjs` once: it palette-compresses
+  every brand PNG and app icon in place (PSNR 43–55 dB
+  vs the exports — visually lossless; ~70% smaller). Files stay PNG at the
+  same paths.
 - A third file, `Branding guidelines V2.png`, was supplied alongside
   `Assets V2.svg` but was **not** used as a source for this doc — palette
   and type values here come only from `Budgts Reference V2.png` and the

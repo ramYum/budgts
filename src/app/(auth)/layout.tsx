@@ -9,6 +9,7 @@ export default function AuthLayout({ children }: LayoutProps<"/">) {
             alt="Budgts — a brighter way to budget"
             width={700}
             height={700}
+            fetchPriority="high" // the sign-in LCP element
             style={{ width: 300, height: "auto" }}
           />
         </div>

@@ -8,7 +8,8 @@
 // square, which could otherwise show as the wrong edge getting clipped.
 const MOOD = {
   normal: { src: "/brand/mood-normal.png", w: 163, h: 244 },
-  happy: { src: "/brand/mood-happy.png", w: 306, h: 288 },
+  // "Happy" is the logo mark itself (docs/BRAND_GUIDELINES.md) — one file.
+  happy: { src: "/brand/logo-mark.png", w: 306, h: 288 },
   curious: { src: "/brand/mood-curious.png", w: 251, h: 315 },
   sleepy: { src: "/brand/mood-sleepy.png", w: 230, h: 242 },
 } as const;

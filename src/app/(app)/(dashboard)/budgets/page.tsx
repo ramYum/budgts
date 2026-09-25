@@ -53,9 +53,43 @@ export default async function BudgetsPage({ searchParams }: PageProps<"/budgets"
   const supabase = await createClient();
   const plaidOn = plaidUiEnabled();
 
-  const { data: excludedPlaidAccounts } = plaidOn
-    ? await supabase.from("plaid_accounts").select("id").eq("excluded_from_calculations", true)
-    : { data: [] as { id: string }[] };
+  const cols =
+    "category_id, amount, direction, occurred_at, status, is_transfer, duplicate_of_id, event_role, transfer_user_set, plaid_account_id";
+
+  // Every read below is independent, so they all start now and run together
+  // (the page used to await excluded accounts, then categories/profile, then
+  // transactions — three serial round trips).
+  const txnPage = (gte: string | null, lt: string | null) => (from: number, to: number) => {
+    let q = supabase.from("transactions").select(cols);
+    if (gte) q = q.gte("occurred_at", gte);
+    if (lt) q = q.lt("occurred_at", lt);
+    q = q.order("id", { ascending: true }).range(from, to);
+    if (plaidOn) q = q.is("removed_at", null);
+    return q.returns<TxnRow[]>();
+  };
+  const { start, end } = monthRangeOf(month);
+  const prevMonth = prevMonthKey(month);
+  const { start: prevStart, end: prevEnd } = monthRangeOf(prevMonth);
+  // fetchAllRows, not a bare await: "all" is unbounded (no date filter — the
+  // user's ENTIRE history), so it's the query most at risk of PostgREST's
+  // default 1000-row cap. See fetch-all-rows.ts.
+  const txnRowsPromise =
+    range === "all"
+      ? Promise.all([fetchAllRows(txnPage(null, null)), Promise.resolve([] as TxnRow[])])
+      : Promise.all([fetchAllRows(txnPage(start, end)), fetchAllRows(txnPage(prevStart, prevEnd))]);
+
+  const [{ data: excludedPlaidAccounts }, { data: categories }, { data: profile }, { data: budgetRows }, [curRows, prevRows]] =
+    await Promise.all([
+      plaidOn
+        ? supabase.from("plaid_accounts").select("id").eq("excluded_from_calculations", true)
+        : Promise.resolve({ data: [] as { id: string }[] }),
+      supabase.from("categories").select("id, kind, name, color").eq("is_archived", false).order("name"),
+      supabase.from("profiles").select("currency").eq("id", user.id).single(),
+      range === "all"
+        ? Promise.resolve({ data: [] as { category_id: string; amount: number }[] })
+        : supabase.from("budgets").select("category_id, amount").eq("month", `${month}-01`),
+      txnRowsPromise,
+    ]);
   const excludedPlaidAccountIds = new Set((excludedPlaidAccounts ?? []).map((a) => a.id));
 
   const toBudgetTxn = (t: TxnRow): BudgetTxn => ({
@@ -71,30 +105,11 @@ export default async function BudgetsPage({ searchParams }: PageProps<"/budgets"
     accountExcluded: t.plaid_account_id != null && excludedPlaidAccountIds.has(t.plaid_account_id),
   });
 
-  const cols =
-    "category_id, amount, direction, occurred_at, status, is_transfer, duplicate_of_id, event_role, transfer_user_set, plaid_account_id";
-
-  const [{ data: categories }, { data: profile }] = await Promise.all([
-    supabase.from("categories").select("id, kind, name, color").eq("is_archived", false).order("name"),
-    supabase.from("profiles").select("currency").eq("id", user.id).single(),
-  ]);
   const cats: DashboardCategory[] = (categories ?? []) as DashboardCategory[];
   const currency = profile?.currency ?? "USD";
 
   if (range === "all") {
-    // fetchAllRows, not a bare await: unbounded (no date filter — this is
-    // the user's ENTIRE history), so it's the query most at risk of
-    // PostgREST's default 1000-row cap. See fetch-all-rows.ts.
-    const allRows = await fetchAllRows((from, to) => {
-      let q = supabase
-        .from("transactions")
-        .select(cols)
-        .order("id", { ascending: true })
-        .range(from, to);
-      if (plaidOn) q = q.is("removed_at", null);
-      return q.returns<TxnRow[]>();
-    });
-    const allTxns = allRows.map(toBudgetTxn);
+    const allTxns = curRows.map(toBudgetTxn);
 
     const months = new Set(allTxns.map((t) => monthKey(t.occurredAt)));
     const totals = new Map<string, number>();
@@ -116,23 +131,6 @@ export default async function BudgetsPage({ searchParams }: PageProps<"/budgets"
       </div>
     );
   }
-
-  const { start, end } = monthRangeOf(month);
-  const prevMonth = prevMonthKey(month);
-  const { start: prevStart, end: prevEnd } = monthRangeOf(prevMonth);
-
-  const txnPage = (gte: string, lt: string) => (from: number, to: number) => {
-    let q = supabase.from("transactions").select(cols).gte("occurred_at", gte).lt("occurred_at", lt);
-    q = q.order("id", { ascending: true }).range(from, to);
-    if (plaidOn) q = q.is("removed_at", null);
-    return q.returns<TxnRow[]>();
-  };
-
-  const [curRows, prevRows, { data: budgetRows }] = await Promise.all([
-    fetchAllRows(txnPage(start, end)),
-    fetchAllRows(txnPage(prevStart, prevEnd)),
-    supabase.from("budgets").select("category_id, amount").eq("month", `${month}-01`),
-  ]);
 
   const budgets = (budgetRows ?? []).map((b) => ({ categoryId: b.category_id, amount: b.amount }));
   const view = buildDashboard(curRows.map(toBudgetTxn), cats, budgets, month);

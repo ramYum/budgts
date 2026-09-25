@@ -48,14 +48,14 @@ type TxnRow = Pick<
 async function loadMonth(
   supabase: Awaited<ReturnType<typeof createClient>>,
   month: string,
-  excludedPlaidAccountIds: Set<string>,
+  excludedPlaidAccountIdsPromise: Promise<Set<string>>,
 ): Promise<BudgetTxn[]> {
   const { start, end } = monthRange(month);
   const plaidOn = plaidUiEnabled();
   // fetchAllRows, not a bare await — see fetch-all-rows.ts: an unbounded
   // `.select()` silently caps at 1000 rows, which a heavy Plaid feed can
   // exceed within a single month.
-  const data = await fetchAllRows((from, to) => {
+  const dataPromise = fetchAllRows((from, to) => {
     let q = supabase
       .from("transactions")
       .select(
@@ -68,6 +68,8 @@ async function loadMonth(
     if (plaidOn) q = q.is("removed_at", null);
     return q.returns<TxnRow[]>();
   });
+  // The exclusion set only matters for mapping, so the row fetch doesn't wait on it.
+  const [data, excludedPlaidAccountIds] = await Promise.all([dataPromise, excludedPlaidAccountIdsPromise]);
   return data.map((t) => ({
     categoryId: t.category_id,
     amount: t.amount,
@@ -97,21 +99,21 @@ export default async function InsightsPage({ searchParams }: PageProps<"/insight
   if (!user) redirect("/sign-in");
   const supabase = await createClient();
 
-  const [{ data: categories }, { data: budgetRows }, { data: profile }, { data: excludedPlaidAccounts }] =
+  const excludedPlaidAccountIds = (async () => {
+    if (!plaidUiEnabled()) return new Set<string>();
+    const { data } = await supabase.from("plaid_accounts").select("id").eq("excluded_from_calculations", true);
+    return new Set((data ?? []).map((a) => a.id));
+  })();
+
+  // One parallel round: the month loads no longer wait for the lookups above.
+  const [{ data: categories }, { data: budgetRows }, { data: profile }, currentTxns, prevTxns] =
     await Promise.all([
       supabase.from("categories").select("id, kind, name, color").eq("is_archived", false),
       supabase.from("budgets").select("category_id, amount").eq("month", `${month}-01`),
       supabase.from("profiles").select("currency").eq("id", user.id).single(),
-      plaidUiEnabled()
-        ? supabase.from("plaid_accounts").select("id").eq("excluded_from_calculations", true)
-        : Promise.resolve({ data: [] as { id: string }[] }),
+      loadMonth(supabase, month, excludedPlaidAccountIds),
+      loadMonth(supabase, prev, excludedPlaidAccountIds),
     ]);
-
-  const excludedPlaidAccountIds = new Set((excludedPlaidAccounts ?? []).map((a) => a.id));
-  const [currentTxns, prevTxns] = await Promise.all([
-    loadMonth(supabase, month, excludedPlaidAccountIds),
-    loadMonth(supabase, prev, excludedPlaidAccountIds),
-  ]);
 
   const cats: DashboardCategory[] = (categories ?? []) as DashboardCategory[];
   const budgets = (budgetRows ?? []).map((b) => ({ categoryId: b.category_id, amount: b.amount }));

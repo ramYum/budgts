@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
@@ -102,7 +103,32 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
       .range(from, to);
   });
 
-  const [txns, { data: accounts }, { data: liveLinkedAccounts }, { data: categories }, { data: profile }] =
+  const profilePromise = supabase.from("profiles").select("currency, created_at").eq("id", user.id).single();
+
+  // Imported bank rows with no category, inside the user's categorization
+  // window — the one prompt V1 shows (design §3; window: 2026-09-16 Advancial
+  // follow-up). Newest first within that window: it's a to-do list scoped to
+  // signup-month-day-1 through signup date, not a month view and not the
+  // full recall history. Grouped by merchant in the component, so this cap is
+  // against raw rows, not the (much smaller) number of unique merchants a
+  // person actually has to act on. Same predicate as the header bell —
+  // applied by the same shared function so the two can't drift. Chained off
+  // the profile (it needs created_at) so it runs alongside the other reads
+  // instead of after them.
+  const needsCategoryPromise = profilePromise.then(async ({ data: p }) => {
+    if (!plaidOn || !p?.created_at) return null;
+    const { data } = await applyNeedsCategoryFilter(
+      supabase.from("transactions").select(
+        "id, description, merchant_name, merchant_entity_id, amount, direction, occurred_at, pending, plaid_category_primary, plaid_category_detailed, account:accounts(name)",
+      ),
+      p.created_at,
+    )
+      .order("occurred_at", { ascending: false })
+      .limit(500);
+    return data;
+  });
+
+  const [txns, { data: accounts }, { data: liveLinkedAccounts }, { data: categories }, { data: profile }, nc] =
     await Promise.all([
       txnsPromise,
       supabase.from("accounts").select("id, name, source").eq("is_archived", false).order("name"),
@@ -112,7 +138,8 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
         ? supabase.from("plaid_accounts").select("account_id").not("account_id", "is", null)
         : Promise.resolve({ data: [] as { account_id: string | null }[] }),
       supabase.from("categories").select("id, name, kind").eq("is_archived", false).order("kind").order("name"),
-      supabase.from("profiles").select("currency, created_at").eq("id", user.id).single(),
+      profilePromise,
+      needsCategoryPromise,
     ]);
 
   const currency = profile?.currency ?? "USD";
@@ -125,24 +152,8 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
   );
   const categoryOpts = (categories ?? []) as CategoryOption[];
 
-  // Imported bank rows with no category, inside the user's categorization
-  // window — the one prompt V1 shows (design §3; window: 2026-09-16 Advancial
-  // follow-up). Newest first within that window: it's a to-do list scoped to
-  // signup-month-day-1 through signup date, not a month view and not the
-  // full recall history. Grouped by merchant in the component, so this cap is
-  // against raw rows, not the (much smaller) number of unique merchants a
-  // person actually has to act on. Same predicate as the header bell —
-  // applied by the same shared function so the two can't drift.
   let needsCategory: NeedsCategoryItem[] = [];
-  if (plaidOn && profile?.created_at) {
-    const { data: nc } = await applyNeedsCategoryFilter(
-      supabase.from("transactions").select(
-        "id, description, merchant_name, merchant_entity_id, amount, direction, occurred_at, pending, plaid_category_primary, plaid_category_detailed, account:accounts(name)",
-      ),
-      profile.created_at,
-    )
-      .order("occurred_at", { ascending: false })
-      .limit(500);
+  if (nc) {
     const categoryLookup = buildCategoryLookup(categoryOpts.map((c) => [c.name, c.id] as const));
     needsCategory = (nc ?? []).map((r) => {
       const acc = r.account as { name: string | null } | { name: string | null }[] | null;
@@ -187,7 +198,10 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
         <AddTransaction accounts={accountOpts} categories={categoryOpts} defaultDate={defaultDate} />
       </div>
 
-      <LimitedHistoryBanner />
+      {/* Streams in: its per-account lookups never hold up the ledger. */}
+      <Suspense fallback={null}>
+        <LimitedHistoryBanner />
+      </Suspense>
 
       {categoryFilter ? (
         <div className="flex items-center justify-between rounded-lg border border-hairline bg-tint px-3 py-2 text-sm text-primary">

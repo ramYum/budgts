@@ -17,6 +17,37 @@ import { buildLimitedHistoryMessages } from "@/lib/plaid/history-coverage";
  * of that item's mapped accounts — every real-world case seen so far was
  * all-or-nothing per item.
  */
+type ServerSupabase = Awaited<ReturnType<typeof createClient>>;
+
+/**
+ * Each account's earliest live bank transaction date (accounts with none are
+ * absent). One ordered `LIMIT 1` per account, in parallel — never a fetch of
+ * the account's whole history: that used to run on every Activity view and,
+ * unordered past PostgREST's 1000-row cap, could return the wrong "earliest"
+ * for a heavy account (perf incident, 2026-09-25).
+ */
+export async function earliestTxnByAccount(
+  supabase: ServerSupabase,
+  accountIds: string[],
+): Promise<Map<string, string>> {
+  const rows = await Promise.all(
+    accountIds.map(async (id) => {
+      const { data } = await supabase
+        .from("transactions")
+        .select("occurred_at")
+        .eq("plaid_account_id", id)
+        .eq("source", "bank")
+        .is("removed_at", null)
+        .order("occurred_at", { ascending: true })
+        .limit(1);
+      return [id, data?.[0]?.occurred_at ?? null] as const;
+    }),
+  );
+  const out = new Map<string, string>();
+  for (const [id, earliest] of rows) if (earliest) out.set(id, earliest);
+  return out;
+}
+
 export async function LimitedHistoryBanner() {
   if (!plaidUiEnabled()) return null;
 
@@ -24,16 +55,12 @@ export async function LimitedHistoryBanner() {
   if (!user) return null;
   const supabase = await createClient();
 
-  const { data: items } = await supabase
-    .from("plaid_items")
-    .select("id, created_at, institution_name")
-    .eq("status", "active");
+  const [{ data: items }, { data: accounts }] = await Promise.all([
+    supabase.from("plaid_items").select("id, created_at, institution_name").eq("status", "active"),
+    supabase.from("plaid_accounts").select("id, plaid_item_id").not("account_id", "is", null),
+  ]);
   if (!items || items.length === 0) return null;
 
-  const { data: accounts } = await supabase
-    .from("plaid_accounts")
-    .select("id, plaid_item_id")
-    .not("account_id", "is", null);
   const accountsByItem = new Map<string, string[]>();
   for (const a of accounts ?? []) {
     const list = accountsByItem.get(a.plaid_item_id) ?? [];
@@ -44,19 +71,7 @@ export async function LimitedHistoryBanner() {
   const allMappedAccountIds = [...accountsByItem.values()].flat();
   if (allMappedAccountIds.length === 0) return null;
 
-  const { data: txns } = await supabase
-    .from("transactions")
-    .select("plaid_account_id, occurred_at")
-    .eq("source", "bank")
-    .is("removed_at", null)
-    .in("plaid_account_id", allMappedAccountIds);
-
-  const earliestByAccount = new Map<string, string>();
-  for (const t of txns ?? []) {
-    const id = t.plaid_account_id as string;
-    const cur = earliestByAccount.get(id);
-    if (!cur || t.occurred_at < cur) earliestByAccount.set(id, t.occurred_at);
-  }
+  const earliestByAccount = await earliestTxnByAccount(supabase, allMappedAccountIds);
 
   const messages = buildLimitedHistoryMessages(
     items.map((item) => {

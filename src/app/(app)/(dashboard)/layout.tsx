@@ -89,7 +89,11 @@ export default async function DashboardLayout({ children }: LayoutProps<"/">) {
         </div>
       </header>
 
-      {plaidOn ? <ReviewBanner /> : null}
+      {plaidOn ? (
+        <Suspense fallback={null}>
+          <ReviewBanner />
+        </Suspense>
+      ) : null}
 
       <main className="mx-auto w-full max-w-md flex-1 px-4 py-4 pb-24 md:max-w-4xl md:px-8 md:py-8 md:pb-8">
         {plaidOn ? (

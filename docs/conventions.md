@@ -282,11 +282,18 @@ failure there names the rule it protects.
     (right after its 200, via `after()`), Sync now / account mapping / resume
     import, and the `/api/plaid/sync-due` reconciliation sweep (pg_cron every
     10 min) — goes through `src/lib/plaid/sync-runner.ts`, which takes the
-    Item's lease (`claimItemForSync`: one conditional `UPDATE … RETURNING`,
-    10-min expiry) before syncing and releases it after. Never call
-    `syncItem()` directly, and don't add a faster poll: latency comes from the
-    webhook, the sweep is only for failed/killed runs and lost webhooks.
-    `needs_sync` is the durable queue flag; only `releaseSyncClaim` clears it.
+    Item's lease (`claimItemForSync`: one conditional `UPDATE … RETURNING`)
+    before syncing and releases it after. Never call `syncItem()` directly,
+    and don't add a faster poll: latency comes from the webhook, the sweep is
+    only for failed/killed runs and lost webhooks. `needs_sync` is the durable
+    queue flag: the claim sets it in the same UPDATE, and only
+    `releaseSyncClaim` settles it (false unless the run failed, left pages, or
+    a webhook landed after the claim) — so a run killed between the two, from
+    any trigger, is retried by the sweep once its lease expires. The lease is
+    `SYNC_LEASE_SECONDS` = `FUNCTION_MAX_DURATION_SECONDS` (300s, Vercel Fluid
+    default and Hobby maximum, which also bounds server actions) + 60s; no
+    `maxDuration` in `src/app` may exceed that ceiling (pinned by
+    `performance-guardrails.test.ts`), and raising it means raising the lease.
     An Item with an `unmapped` account is never claimable (a sync would skip
     those rows and advance the cursor past them for good).
 12. **One server render per edit.** A mutating server action ends with

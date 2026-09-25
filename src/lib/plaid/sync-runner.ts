@@ -4,10 +4,13 @@
  * user's actions (Sync now / account mapping / resume import) and the
  * reconciliation sweep (`/api/plaid/sync-due`) — so two runs can never process
  * the same Item at once. Orchestration only; the lease itself is the atomic
- * UPDATE in item-store.ts (`claimItemForSync` / `releaseSyncClaim`).
+ * UPDATE in item-store.ts (`claimItemForSync` / `releaseSyncClaim`). A claim
+ * flags the Item `needs_sync` and only the release settles it, so a run killed
+ * in between is retried by the sweep once its lease expires.
  */
 import type { PlaidApi } from "plaid";
 import {
+  type ClaimMiss,
   type ClaimMode,
   claimItemForSync,
   type PlaidItemRecord,
@@ -84,6 +87,25 @@ export async function sweepItems(
     results.push(...(await drainItem(deps, itemId, { kind: "due", staleBefore }, deadlineMs)));
   }
   return results;
+}
+
+/**
+ * What to tell a user whose requested sync couldn't claim the Item. A busy
+ * lease is either a live run (its rows are on their way) or a killed one
+ * (the claim left `needs_sync` set, so the sweep retries it once the lease
+ * expires) — either way the user may try again when the lease runs out.
+ */
+export function claimMissMessage(miss: ClaimMiss): string {
+  switch (miss.kind) {
+    case "unmapped":
+      return "Choose where this bank's new accounts go first — then it will sync.";
+    case "gone":
+      return "That bank connection no longer exists.";
+    case "busy":
+      return miss.retryAfterSeconds > 0
+        ? `A sync for this bank is already running — new transactions will appear when it finishes. If nothing changes, you can sync again in about ${Math.ceil(miss.retryAfterSeconds / 60)} min.`
+        : "A sync for this bank just finished — sync again if anything is missing.";
+  }
 }
 
 /** Real deps over a Drizzle db + Plaid client (wired by src/server/plaid/service.ts). */

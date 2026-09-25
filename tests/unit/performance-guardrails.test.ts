@@ -11,6 +11,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { describe, expect, it } from "vitest";
 import nextConfig from "../../next.config";
+import { FUNCTION_MAX_DURATION_SECONDS, SYNC_LEASE_SECONDS } from "@/lib/plaid/item-store";
 
 const ROOT = join(__dirname, "..", "..");
 const SRC = join(ROOT, "src");
@@ -183,5 +184,19 @@ describe("performance guardrails", () => {
     for (const route of ["sync-due", "webhook"]) {
       expect(code(join(SRC, "app", "api", "plaid", route, "route.ts"))).toMatch(/export const maxDuration = \d+/);
     }
+  });
+
+  // Rule 11: the sync lease is derived from the platform's duration ceiling.
+  // A holder can't outlive its function, so the lease only needs to cover the
+  // longest function plus margin — every `maxDuration` in the app (route
+  // handlers, and pages, whose value also bounds their server actions) must
+  // stay at or under the ceiling the lease was derived from.
+  it("no function may outlive the Plaid sync lease", () => {
+    const declared = walk(join(SRC, "app"))
+      .filter(isSource)
+      .flatMap((p) => [...code(p).matchAll(/export const maxDuration = (\d+)/g)].map((m) => [rel(p), Number(m[1])] as const));
+    expect(declared.length).toBeGreaterThan(0);
+    for (const [, seconds] of declared) expect(seconds).toBeLessThanOrEqual(FUNCTION_MAX_DURATION_SECONDS);
+    expect(SYNC_LEASE_SECONDS).toBeGreaterThan(FUNCTION_MAX_DURATION_SECONDS);
   });
 });

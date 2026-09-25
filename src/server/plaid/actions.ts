@@ -15,7 +15,7 @@ import { redirect } from "next/navigation";
 import { standardCategory } from "@/lib/categories/standard";
 import { after } from "next/server";
 import { claimMissReason, findItemByPlaidItemId } from "@/lib/plaid/item-store";
-import { runClaimedSync } from "@/lib/plaid/sync-runner";
+import { claimMissMessage, runClaimedSync } from "@/lib/plaid/sync-runner";
 import { recategorizeUncategorizedBankTxns } from "@/lib/plaid/recategorize";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import {
@@ -48,16 +48,7 @@ async function syncOwnedItem(
 ): Promise<{ kind: "synced" } | { kind: "failed" } | { kind: "not_started"; message: string }> {
   const out = await runClaimedSync(syncRunner(), itemId, { kind: "requested" });
   if (!out.claimed) {
-    const reason = await claimMissReason(plaidDb, itemId);
-    return {
-      kind: "not_started",
-      message:
-        reason === "unmapped"
-          ? "Choose where this bank's new accounts go first — then it will sync."
-          : reason === "gone"
-            ? "That bank connection no longer exists."
-            : "A sync for this bank is already running — new transactions will appear in a moment.",
-    };
+    return { kind: "not_started", message: claimMissMessage(await claimMissReason(plaidDb, itemId)) };
   }
   if (out.result.ok && out.morePending) after(() => drainItemInBackground(itemId));
   return out.result.ok ? { kind: "synced" } : { kind: "failed" };

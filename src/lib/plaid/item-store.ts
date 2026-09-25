@@ -58,12 +58,24 @@ export async function findUserItem(
 }
 
 /**
- * How long a sync claim is honoured. Must exceed the longest possible holder
- * (the Plaid route handlers' `maxDuration` = 300s, and server actions under
- * the platform default), so a live run is never treated as crashed; an
- * expired lease is what lets the next trigger recover a crashed run.
+ * The longest any function in this app can run. Vercel Fluid compute (on for
+ * this project) gives every function — route handlers, and the page functions
+ * that run server actions — a 300s default, which is also Hobby's maximum.
+ * A sync holder can't outlive its function, so this bounds every lease
+ * holder: the webhook/sweep routes (`maxDuration = 300`, `after()` included)
+ * and Sync now / mapping / resume import. performance-guardrails.test.ts pins
+ * every `maxDuration` in src/app at or under it.
  */
-export const SYNC_LEASE_SECONDS = 600;
+export const FUNCTION_MAX_DURATION_SECONDS = 300;
+
+/**
+ * How long a sync claim is honoured: the longest holder plus a minute for
+ * the platform's kill and an in-flight statement to land. Any shorter and a
+ * live run could be treated as crashed; any longer and a killed run (and the
+ * user's next Sync now) waits for nothing. An expired lease is what lets the
+ * sweep — or the user — recover a killed run.
+ */
+export const SYNC_LEASE_SECONDS = FUNCTION_MAX_DURATION_SECONDS + 60;
 
 /**
  * Which Items a claim may take:
@@ -104,13 +116,17 @@ function dueConds(staleBefore?: Date) {
  * Atomically take the per-Item sync lease. One conditional UPDATE ... RETURNING:
  * concurrent claimers of the same row serialize on its row lock and Postgres
  * re-checks the WHERE against the winner's committed version, so at most one
- * caller gets a row back while the lease is live. `needs_sync` is left as-is
- * (a crashed run must not lose the flag) — {@link releaseSyncClaim} settles it.
+ * caller gets a row back while the lease is live.
+ *
+ * The same UPDATE sets `needs_sync = true`: claimed work is unsettled until
+ * {@link releaseSyncClaim} settles it. So a run killed before its release —
+ * whatever started it — leaves a flagged Item behind that the sweep retries
+ * as soon as the lease expires.
  */
 export async function claimItemForSync(db: PlaidDb, itemId: string, mode: ClaimMode): Promise<SyncClaim | null> {
   const [row] = await db
     .update(plaidItems)
-    .set({ syncClaimToken: sql`gen_random_uuid()`, syncClaimedAt: sql`now()` })
+    .set({ needsSync: true, syncClaimToken: sql`gen_random_uuid()`, syncClaimedAt: sql`now()` })
     .where(
       and(
         eq(plaidItems.itemId, itemId),
@@ -126,8 +142,9 @@ export async function claimItemForSync(db: PlaidDb, itemId: string, mode: ClaimM
 }
 
 /**
- * Release a claim — fenced by its token, so a holder whose lease already
- * expired (and was re-claimed) can't clear someone else's. `needs_sync` ends
+ * Release a claim — the only place `needs_sync` is settled. Fenced by its
+ * token, so a holder whose lease already expired (and was re-claimed) can't
+ * clear someone else's. `needs_sync` ends
  * true when this run asks for more (`resync`: failed, or pages left) or a
  * webhook arrived after the claim; otherwise false. Returns the new flag, or
  * `null` when the token no longer held the claim.
@@ -150,15 +167,25 @@ export async function releaseSyncClaim(
   return row ? row.needsSync : null;
 }
 
+export type ClaimMiss =
+  | { kind: "unmapped" }
+  | { kind: "gone" }
+  /** Another run holds the lease; it expires in `retryAfterSeconds` (0 = already free). */
+  | { kind: "busy"; retryAfterSeconds: number };
+
 /** Why a claim came back empty — so a user-requested sync can say so. */
-export async function claimMissReason(db: PlaidDb, itemId: string): Promise<"unmapped" | "busy" | "gone"> {
+export async function claimMissReason(db: PlaidDb, itemId: string): Promise<ClaimMiss> {
   const [row] = await db
-    .select({ unmapped: sql<boolean>`${hasUnmappedAccount()}` })
+    .select({
+      unmapped: sql<boolean>`${hasUnmappedAccount()}`,
+      retryAfterSeconds: sql<number>`coalesce(greatest(0, ceil(extract(epoch from ${plaidItems.syncClaimedAt} + make_interval(secs => ${SYNC_LEASE_SECONDS}) - now())))::int, 0)`,
+    })
     .from(plaidItems)
     .where(eq(plaidItems.itemId, itemId))
     .limit(1);
-  if (!row) return "gone";
-  return row.unmapped ? "unmapped" : "busy";
+  if (!row) return { kind: "gone" };
+  if (row.unmapped) return { kind: "unmapped" };
+  return { kind: "busy", retryAfterSeconds: Number(row.retryAfterSeconds) };
 }
 
 /** Item ids the reconciliation sweep should try to claim: flagged or stale,

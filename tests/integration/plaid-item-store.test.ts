@@ -85,12 +85,47 @@ describe("plaid item-store (staging Postgres)", () => {
     await releaseSyncClaim(db, C, winners[0]!.token, false);
   });
 
+  it("a claim marks the work unsettled (needs_sync = true) in the same UPDATE that takes the lease", async () => {
+    await client`update public.plaid_items set needs_sync = false, last_synced_at = now() where item_id = ${C}`;
+    const claim = await claimItemForSync(db, C, { kind: "requested" });
+    expect(claim).not.toBeNull();
+    const [held] = await client`select needs_sync, sync_claim_token from public.plaid_items where item_id = ${C}`;
+    expect(held).toEqual({ needs_sync: true, sync_claim_token: claim!.token });
+    expect(await releaseSyncClaim(db, C, claim!.token, false)).toBe(false); // only release settles it
+  });
+
+  it("a run killed after its claim (never released) is swept once the lease expires, not before", async () => {
+    // A user's Sync now on an up-to-date, unflagged Item — the case the sweep
+    // used to miss: without the claim-time flag it was neither flagged nor stale.
+    await client`update public.plaid_items set needs_sync = false, last_synced_at = now() where item_id = ${C}`;
+    const killed = await claimItemForSync(db, C, { kind: "requested" });
+    expect(killed).not.toBeNull(); // ...and the function dies here: no release
+
+    const sixHoursAgo = new Date(Date.now() - 6 * 3_600_000);
+    expect(await findSyncCandidates(db, sixHoursAgo)).not.toContain(C); // lease still live
+    expect(await claimItemForSync(db, C, { kind: "due", staleBefore: sixHoursAgo })).toBeNull();
+    const miss = await claimMissReason(db, C);
+    expect(miss.kind).toBe("busy");
+    if (miss.kind === "busy") {
+      expect(miss.retryAfterSeconds).toBeGreaterThan(SYNC_LEASE_SECONDS - 30);
+      expect(miss.retryAfterSeconds).toBeLessThanOrEqual(SYNC_LEASE_SECONDS);
+    }
+
+    await client`update public.plaid_items
+      set sync_claimed_at = now() - make_interval(secs => ${SYNC_LEASE_SECONDS + 1}) where item_id = ${C}`;
+    expect(await findSyncCandidates(db, sixHoursAgo)).toContain(C);
+    const retried = await claimItemForSync(db, C, { kind: "due", staleBefore: sixHoursAgo });
+    expect(retried).not.toBeNull();
+    expect(await releaseSyncClaim(db, C, retried!.token, false)).toBe(false);
+    expect(await releaseSyncClaim(db, C, killed!.token, false)).toBeNull(); // the dead run can't settle it
+  });
+
   it("release is fenced by token, clears needs_sync, and keeps it when a webhook landed mid-run", async () => {
     await client`update public.plaid_items set needs_sync = true where item_id = ${C}`;
     const claim = await claimItemForSync(db, C, { kind: "due" });
     expect(claim).not.toBeNull();
     const [held] = await client`select needs_sync, sync_claim_token from public.plaid_items where item_id = ${C}`;
-    expect(held.needs_sync).toBe(true); // a crashed run must not lose the flag
+    expect(held.needs_sync).toBe(true);
     expect(held.sync_claim_token).toBe(claim!.token);
 
     expect(await releaseSyncClaim(db, C, "00000000-0000-0000-0000-000000000000", false)).toBeNull();
@@ -131,9 +166,9 @@ describe("plaid item-store (staging Postgres)", () => {
   it("an Item with an unmapped account is never claimable (its rows would be skipped past)", async () => {
     expect(await claimItemForSync(db, D, { kind: "due" })).toBeNull();
     expect(await claimItemForSync(db, D, { kind: "requested" })).toBeNull();
-    expect(await claimMissReason(db, D)).toBe("unmapped");
+    expect(await claimMissReason(db, D)).toEqual({ kind: "unmapped" });
     expect(await findSyncCandidates(db, new Date())).not.toContain(D);
-    expect(await claimMissReason(db, "does-not-exist")).toBe("gone");
+    expect(await claimMissReason(db, "does-not-exist")).toEqual({ kind: "gone" });
   });
 
   it("markItemNeedsSync sets the flag + last_webhook_at", async () => {

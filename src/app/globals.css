@@ -35,7 +35,6 @@
   --border: var(--gray);
   --hairline: var(--gray);
   --track: var(--gray);
-  --tick: var(--signal);
   --ink: var(--charcoal);
 
   --accent: var(--signal);
@@ -47,24 +46,15 @@
   --tint: #f2f2f2; /* quiet notice / message wash */
 
   --pos: var(--growth);
-  --pos-fill: var(--charcoal);
   --neg: var(--signal-ink);
   --warn: #8a5a00;
-  --info: var(--graphite);
   --ring: var(--charcoal);
 
   /* data marks */
   --fill-under: var(--charcoal);
-  --fill-near: var(--signal);
   --fill-over: var(--signal);
-  --cell-off: var(--gray);
   --cell-past: #c9c9c9;
 
-  --surface-dark: var(--charcoal);
-  --on-dark: #ffffff;
-  --on-dark-dim: #a8a8a8;
-  --hero-fill: var(--surface);
-  --on-hero: var(--text);
 
   --background: var(--bg);
   --foreground: var(--text);
@@ -84,10 +74,8 @@
   --color-accent: var(--accent);
   --color-accent-ink: var(--accent-ink);
   --color-pos: var(--pos);
-  --color-pos-fill: var(--pos-fill);
   --color-neg: var(--neg);
   --color-warn: var(--warn);
-  --color-info: var(--info);
   --color-ink: var(--ink);
   --color-signal: var(--signal);
   --color-signal-wash: var(--signal-wash);
@@ -95,19 +83,12 @@
   --color-heading: var(--heading);
   --color-hairline: var(--hairline);
   --color-track: var(--track);
-  --color-tick: var(--tick);
-  --color-surface-dark: var(--surface-dark);
-  --color-on-dark: var(--on-dark);
-  --color-on-dark-dim: var(--on-dark-dim);
-  --color-hero-fill: var(--hero-fill);
-  --color-on-hero: var(--on-hero);
   --color-primary: var(--primary);
   --color-on-primary: var(--on-primary);
   --color-primary-btn: var(--primary-btn);
   --color-on-primary-btn: var(--on-primary-btn);
   --color-tint: var(--tint);
   --color-fill-under: var(--fill-under);
-  --color-fill-near: var(--fill-near);
   --color-fill-over: var(--fill-over);
   --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
@@ -134,8 +115,7 @@ body {
 
 /* Surfaces: white sheets on the gray canvas, a single hairline, no drop shadow
  * doing the work spacing should do. */
-.card,
-.panel {
+.card {
   background: var(--surface);
   color: var(--text);
 }

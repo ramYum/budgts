@@ -5,7 +5,7 @@
  *   node tools/screenshot.mjs <url-or-path> [label] [width] [height] [scale]
  *
  * Examples:
- *   node tools/screenshot.mjs brand/Branding-guidelines.html brand-sheet 1600 900 2
+ *   node tools/screenshot.mjs http://localhost:3000 home-mobile 390 844 3
  *   node tools/screenshot.mjs http://localhost:3000/dashboard dashboard 1440
  *   node tools/screenshot.mjs http://localhost:3000 mobile-home 390 844 3
  *

@@ -10,7 +10,7 @@ export type RobinMood = "normal" | "happy" | "curious" | "sleepy";
 
 export type RobinRun = { x: number; y: number; w: number; fill: string };
 
-export type RobinArt = { body: RobinRun[]; eye: RobinRun[]; extra: RobinRun[] };
+type RobinArt = { body: RobinRun[]; eye: RobinRun[]; extra: RobinRun[] };
 
 const PALETTE: Record<string, string> = {
   B: "#7b4a2b", // head & back

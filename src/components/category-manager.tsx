@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { Overlay } from "./overlay";
 import { CategoryForm, type CategoryInitial } from "./category-form";
+import { CategoryIcon } from "./ui";
 import { createCategory, setCategoryArchived, updateCategory } from "@/server/categories";
 
 export type CategoryItem = {
@@ -36,7 +37,7 @@ function Row({
 
   return (
     <li className={`flex items-center gap-3 py-2 ${cat.is_archived ? "opacity-50" : ""}`}>
-      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: cat.color }} aria-hidden />
+      <CategoryIcon name={cat.name} size={32} />
       <Link
         href={`/transactions?m=${currentMonth}&category=${cat.id}`}
         className="min-w-0 flex-1 truncate text-sm hover:underline"

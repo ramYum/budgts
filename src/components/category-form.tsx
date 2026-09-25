@@ -51,26 +51,7 @@ export function CategoryForm({
         </select>
       </label>
 
-      <fieldset className="space-y-1">
-        <legend className="text-xs font-medium text-muted">Colour</legend>
-        <div className="flex flex-wrap gap-2">
-          {CATEGORY_COLORS.map((c, i) => (
-            <label key={c} className="cursor-pointer">
-              <input
-                type="radio"
-                name="color"
-                value={c}
-                defaultChecked={initial ? initial.color === c : i === 0}
-                className="peer sr-only"
-              />
-              <span
-                className="block h-7 w-7 rounded-full ring-offset-2 ring-offset-surface peer-checked:ring-2 peer-checked:ring-accent"
-                style={{ background: c }}
-              />
-            </label>
-          ))}
-        </div>
-      </fieldset>
+      <input type="hidden" name="color" value={initial?.color ?? CATEGORY_COLORS[0]} />
 
       {state.fieldError || state.error ? (
         <p className="text-sm text-neg">{state.fieldError ?? state.error}</p>

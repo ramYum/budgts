@@ -8,7 +8,7 @@ import { ROBIN_ART, ROBIN_H, ROBIN_W, type RobinMood, type RobinRun } from "@/li
  * hover. Moods swap a few cells: `sleepy` closes the eye and trades the chirp
  * for "z", `curious` trades it for a "?". */
 
-export const ROBIN_ASPECT = ROBIN_W / ROBIN_H;
+const ROBIN_ASPECT = ROBIN_W / ROBIN_H;
 
 function Rects({ list }: { list: RobinRun[] }) {
   return (

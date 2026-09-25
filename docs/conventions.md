@@ -52,7 +52,7 @@ started. Reordering is how RLS gaps and float-money bugs get in.
      `border`, `accent`/`accent-ink`, `pos`/`neg`/`warn`/`info`). Style with
      those utilities (`bg-surface`, `text-muted`, `border-border`,
      `bg-accent`…), never raw Tailwind colours or `dark:` variants — this
-     keeps a future dark palette a one-file change. One `bg-accent` (coral)
+     keeps a future dark palette a one-file change. One `bg-accent` (signal red)
      action per screen. Amounts get
      `tabular-nums`. Labelled inputs, keyboard-reachable, visible focus ring.
    - Logo: `<Logo>` / `<LogoMark>` from `src/components/logo.tsx`.

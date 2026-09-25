@@ -136,8 +136,13 @@ Assets V2` — resolving the old in-app-name vs `budgts.com` mismatch. Palette
 and typography unchanged.
 
 **Money Left hero card** (`d0e48f2`, `b08cfcf`): light-coral hero fill,
-redesigned fill + type hierarchy, mascot mirrored on the insight card —
-the final redesign pass.
+redesigned fill + type hierarchy, mascot mirrored on the insight card.
+
+**Design language v3** (2026-09-25, `011a85e`): editorial Swiss minimalism +
+premium fintech UI + restrained pixel branding, replacing every palette,
+typeface and logo described above (charcoal on light gray, one red accent,
+Geist + Dogica, Phosphor icons, a pixel-art robin, square-cell charts). Same
+screen hierarchy. `docs/BRAND_GUIDELINES.md` is the source of truth.
 
 **First-run tour** (branch `v1.5/first-run-tour`): the deferred 3-screen
 onboarding wizard, expanded into a convenience-first pitch and picked up on

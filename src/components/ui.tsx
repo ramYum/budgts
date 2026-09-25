@@ -23,8 +23,6 @@ type ButtonBaseProps = { arrow?: boolean; className?: string; children: ReactNod
 
 const primaryClass =
   "press inline-flex items-center justify-center gap-2 rounded-xl bg-primary-btn px-4 py-3 text-sm font-medium text-on-primary-btn hover:brightness-95 disabled:opacity-50";
-const secondaryClass =
-  "press inline-flex items-center justify-center gap-2 rounded-xl border border-ink bg-surface px-4 py-3 text-sm font-medium text-text hover:bg-surface-2 disabled:opacity-50";
 
 export function PrimaryButton({
   arrow,
@@ -51,31 +49,6 @@ export function PrimaryLinkButton({
     <Link href={href} className={`${primaryClass} ${className ?? ""}`} {...rest}>
       {children}
       {arrow ? <ArrowRight aria-hidden className="h-4 w-4" /> : null}
-    </Link>
-  );
-}
-
-export function SecondaryButton({
-  className,
-  children,
-  ...rest
-}: ButtonBaseProps & ButtonHTMLAttributes<HTMLButtonElement>) {
-  return (
-    <button type="button" className={`${secondaryClass} ${className ?? ""}`} {...rest}>
-      {children}
-    </button>
-  );
-}
-
-export function SecondaryLinkButton({
-  className,
-  children,
-  href,
-  ...rest
-}: ButtonBaseProps & AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) {
-  return (
-    <Link href={href} className={`${secondaryClass} ${className ?? ""}`} {...rest}>
-      {children}
     </Link>
   );
 }
@@ -206,17 +179,6 @@ export function EmptyState({
       <p className="text-sm font-medium text-text">{title}</p>
       {body ? <p className="max-w-xs text-sm text-muted">{body}</p> : null}
       {action ? <div className="pt-1">{action}</div> : null}
-    </div>
-  );
-}
-
-/** A small speech-bubble message paired with the mascot, used sparingly. */
-export function MascotMessage({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <div
-      className={`inline-flex max-w-xs items-center rounded-xl rounded-bl-sm bg-tint px-3 py-2 text-sm text-text ${className ?? ""}`}
-    >
-      {children}
     </div>
   );
 }

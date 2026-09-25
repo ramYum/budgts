@@ -1,5 +1,9 @@
 # Budgts UI Redesign Specification
 
+> **SUPERSEDED AGAIN (2026-09-25).** All visual direction below is replaced by
+> design language v3 in `docs/BRAND_GUIDELINES.md`. Kept for the history of
+> the screen/IA decisions only.
+
 > **SUPERSEDED — branding/visual sections void.** This spec's brand source
 > material (`New Branding guidelines.png` / `New Assets.svg`) and every
 > section derived from it are replaced by **`docs/BRAND_GUIDELINES.md`**,

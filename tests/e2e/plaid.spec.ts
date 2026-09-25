@@ -39,11 +39,12 @@ async function skipAllButFirstAccount(page: Page) {
 /**
  * Sandbox generates a new item's canned transaction set asynchronously — the
  * very first `/transactions/sync` call (fired by `mapAccounts` on submit) can
- * race that generation and come back empty. Plaid's Sandbox cursor semantics
- * do not replay that data through the same cursor lineage afterward, so the
- * fix is the same one `tests/plaid-integration/_plaid.ts`'s
- * `createSandboxItemWithTxns` already uses: retry "Sync now" until data shows
- * up, rather than assuming the first sync landed it. Sandbox-only; production
+ * race that generation and come back empty. The Plaid-integration fixture
+ * (`tests/plaid-integration/_plaid.ts`) waits on Plaid's own readiness signal
+ * (`transactions_update_status`) because it holds the access token; this
+ * browser journey doesn't — the token lives server-side after
+ * `/api/plaid/exchange` — so it retries "Sync now" until data shows up. It
+ * asserts on rows appearing, not on exact counts. Sandbox-only; production
  * banks already have history at connect time, so this race cannot occur there.
  */
 async function syncUntilTransactionsAppear(page: Page, attempts = 8) {

@@ -14,7 +14,7 @@ export default defineConfig({
     include: ["tests/plaid-integration/**/*.test.ts"],
     globals: true,
     testTimeout: 60_000,
-    hookTimeout: 60_000,
+    hookTimeout: 120_000, // > HISTORICAL_READY_DEADLINE_MS, so a not-ready Item fails with its status
     fileParallelism: false,
   },
 });

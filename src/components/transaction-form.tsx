@@ -3,6 +3,7 @@
 import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { TxnActionState } from "@/server/transactions";
+import { resolveDefaultDate } from "@/lib/local-date";
 
 export type AccountOption = { id: string; name: string };
 export type CategoryOption = { id: string; name: string; kind: "expense" | "income" };
@@ -137,7 +138,7 @@ export function TransactionForm({
           className={field}
           type="date"
           name="occurredAt"
-          defaultValue={initial ? toDateInput(initial.occurredAt) : defaultDate}
+          defaultValue={initial ? toDateInput(initial.occurredAt) : resolveDefaultDate(defaultDate)}
           required
         />
       </label>

@@ -3,6 +3,7 @@
 import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { SavingsActionState } from "@/server/savings";
+import { localDateKey } from "@/lib/local-date";
 
 const field =
   "w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-accent";
@@ -28,7 +29,8 @@ export function ContributionForm({
 }) {
   const [state, formAction, pending] = useActionState<SavingsActionState, FormData>(action, {});
   const router = useRouter();
-  const today = new Date().toISOString().slice(0, 10);
+  // The user's calendar day, not UTC's (only rendered client-side, in an overlay).
+  const today = localDateKey();
 
   useEffect(() => {
     if (state.ok) {

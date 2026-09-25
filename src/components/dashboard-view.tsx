@@ -7,6 +7,7 @@ import type { GoalsSummary } from "@/lib/budget/savings";
 import { MonthNav } from "./month-nav";
 import { IncomeTile } from "./income-tile";
 import { CountUp } from "./count-up";
+import { Greeting, RelativeDay } from "./local-time";
 import { Mascot } from "./mascot";
 import { SpendingBreakdownCard, SpendingTrendCard } from "./spending-overview";
 import type { AccountOption, CategoryOption } from "./transaction-form";
@@ -59,25 +60,9 @@ const FILL: Record<string, string> = {
   over: "bg-fill-over",
 };
 
-function greeting(): string {
-  const h = new Date().getHours();
-  if (h < 12) return "Good morning";
-  if (h < 18) return "Good afternoon";
-  return "Good evening";
-}
-
 function pctChange(current: number, previous: number): number | null {
   if (previous <= 0) return null;
   return ((current - previous) / previous) * 100;
-}
-
-function relativeDay(iso: string): string {
-  const d = new Date(iso).toISOString().slice(0, 10);
-  const today = new Date().toISOString().slice(0, 10);
-  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-  if (d === today) return "Today";
-  if (d === yesterday) return "Yesterday";
-  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
 }
 
 export function DashboardView({
@@ -123,7 +108,7 @@ export function DashboardView({
       <div className="flex items-center justify-between">
         <div>
           <p className="text-lg font-bold">
-            {greeting()}
+            <Greeting />
             {name ? `, ${name[0]!.toUpperCase()}${name.slice(1)}` : ""}.
           </p>
           <p className="text-sm text-muted">
@@ -317,7 +302,7 @@ export function DashboardView({
                 <div className="min-w-0 flex-1">
                   <p className="truncate">{r.description || r.category?.name || "Transaction"}</p>
                   <p className="truncate text-xs text-muted">
-                    {relativeDay(r.occurredAt)} · {r.isTransfer ? "Transfer" : (r.category?.name ?? "Uncategorized")}
+                    <RelativeDay iso={r.occurredAt} /> ·{r.isTransfer ? "Transfer" : (r.category?.name ?? "Uncategorized")}
                   </p>
                 </div>
                 <span className={`tnum shrink-0 text-sm ${r.direction === "credit" ? "font-medium text-pos" : ""}`}>

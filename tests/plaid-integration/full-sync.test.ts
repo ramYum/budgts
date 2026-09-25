@@ -85,7 +85,14 @@ describe("syncItem against real Sandbox data (staging Postgres)", () => {
       expect(r.plaid_account_id).not.toBeNull();
       expect(typeof r.source_ref).toBe("string");
       expect(r.raw).toBeTruthy(); // the raw Plaid payload was stored
-      expect(r.status).toBe("confirmed"); // Sandbox is USD == user currency
+      // Sandbox is USD == user currency, so never a currency_mismatch. A row
+      // may still land pending_review by design (North Star §2): accounts
+      // start with sign_convention = 'unknown' and only get confirmed once
+      // detectSignConvention has enough evidence — never guessed.
+      if (r.status !== "confirmed") {
+        expect(r.status).toBe("pending_review");
+        expect(r.pending_reason).toBe("sign_convention_unknown");
+      }
     }
     // at least one real merchant name came through
     expect(rows.some((r) => typeof r.merchant_name === "string" && r.merchant_name.length > 0)).toBe(true);

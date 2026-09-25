@@ -9,17 +9,33 @@
  * dashboard, and only ever reached mid-flow — never a link a user opens on
  * their own (design 2026-09-15, the reconnect-hangs-on-Plaid bug report).
  */
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { usePlaidLink, type PlaidLinkOnSuccessMetadata } from "react-plaid-link";
 import { syncConnection } from "@/server/plaid/actions";
 import { clearLinkContext, loadLinkContext } from "@/components/plaid/oauth-storage";
 
+const noSubscribe = () => () => {};
+
+// Module-level, so the snapshot is stable across renders. This page is only
+// ever reached by a full page load (the bank's redirect back), so one read
+// per page load is exactly one per resumed Link session.
+let savedCache: ReturnType<typeof loadLinkContext> | undefined;
+function readSavedOnce() {
+  if (savedCache === undefined) savedCache = loadLinkContext();
+  return savedCache;
+}
+
 export default function PlaidOAuthPage() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
-  // Read once: this page's whole lifetime is one resumed Link session.
-  const [saved] = useState(() => loadLinkContext());
+  // Read once: this page's whole lifetime is one resumed Link session. Read
+  // via useSyncExternalStore, not a useState initializer: sessionStorage
+  // doesn't exist on the server, so the SSR pass must render the neutral
+  // "Finishing…" state (server snapshot `undefined`) — reading it during the
+  // first client render made the server HTML say "link has expired" and
+  // the hydration pass disagree with it.
+  const saved = useSyncExternalStore(noSubscribe, readSavedOnce, () => undefined);
 
   const { open, ready } = usePlaidLink({
     token: saved?.linkToken ?? "",
@@ -36,8 +52,14 @@ export default function PlaidOAuthPage() {
 
   async function finish(publicToken: string, metadata: PlaidLinkOnSuccessMetadata) {
     if (saved?.context.kind === "reconnect") {
-      await syncConnection(saved.context.itemId);
-      router.replace("/connected-banks");
+      try {
+        await syncConnection(saved.context.itemId);
+        router.replace("/connected-banks");
+      } catch {
+        // A thrown action (network drop, server error) used to leave this
+        // page on "Finishing…" forever with no way out.
+        setError("Reconnected, but the sync didn't start. Use Sync now on Connected Banks.");
+      }
       return;
     }
     // Fresh connect: exchange, then land on Connected Banks — a newly
@@ -68,7 +90,7 @@ export default function PlaidOAuthPage() {
     if (ready) open();
   }, [ready, open]);
 
-  if (!saved) {
+  if (saved === null) {
     return (
       <main className="mx-auto flex min-h-dvh w-full max-w-sm flex-col items-center justify-center gap-3 p-6 text-center">
         <p className="text-sm text-muted">

@@ -87,13 +87,13 @@ export function CategoryManager({
     <section className="space-y-3">
       <div className="flex items-center justify-between">
         <h2 className="flex items-center gap-2 text-sm font-semibold">
-          <span className="h-4 w-1 shrink-0 rounded-full bg-tick" aria-hidden />
+          <span className="h-3.5 w-1 shrink-0 bg-accent" aria-hidden />
           Categories
         </h2>
         <button
           type="button"
           onClick={() => setAdding(true)}
-          className="rounded-full border border-border px-3 py-1.5 text-sm font-medium hover:bg-surface-2"
+          className="press rounded-xl border border-hairline bg-surface px-3 py-2 text-sm font-medium hover:bg-surface-2"
         >
           + Add
         </button>

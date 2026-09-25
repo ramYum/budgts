@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Plus } from "@phosphor-icons/react";
 import { createTransaction } from "@/server/transactions";
 import { Overlay } from "./overlay";
 import { CountUp } from "./count-up";
@@ -33,12 +34,16 @@ export function IncomeTile({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="brand-highlight-card w-full rounded-2xl border border-sun/50 p-3 text-left shadow-sm"
+        className="press lift card relative w-full rounded-2xl border border-hairline p-4 text-left"
       >
-        <p className="text-xs font-bold text-text">Income</p>
-        <p className="tnum font-display text-lg font-extrabold text-text">
+        <span className="absolute right-4 top-4 flex h-5 w-5 items-center justify-center rounded-md bg-ink text-on-primary">
+          <Plus aria-hidden weight="bold" className="h-3 w-3" />
+        </span>
+        <span className="block text-[13px] text-muted">Income</span>
+        <span className="tnum mt-2 block text-xl font-semibold tracking-tight">
           <CountUp value={value} currency={currency} />
-        </p>
+        </span>
+        <span className="mt-1 block text-xs text-muted">Tap to add income</span>
       </button>
       {open ? (
         <Overlay title="Add income" onClose={() => setOpen(false)}>

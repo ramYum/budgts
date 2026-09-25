@@ -267,9 +267,9 @@ failure there names the rule it protects.
 7. **Client router cache stays on** (`experimental.staleTimes.dynamic: 30` in
    `next.config.ts`). Every mutating server action's `revalidateUserData()`
    invalidates it, so a tab visited moments ago is fresh when tapped again.
-8. **Heavy client libraries load lazily** (`recharts` only via
-   `next/dynamic` in `spending-overview.tsx`; Plaid Link only mounts once a
-   link token exists).
+8. **No chart library; heavy client libraries load lazily.** Charts are
+   server-rendered square-cell markup (`spending-overview.tsx`, no client JS);
+   Plaid Link only mounts once a link token exists.
 9. **Page-view background work is throttled and non-blocking.** `after()` +
    `nudgeRefresh` costs one conditional `UPDATE … RETURNING` per Home /
    Transactions view and calls Plaid at most once per 25 min per Item.

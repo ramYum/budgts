@@ -62,12 +62,13 @@ export function BudgetOverAlert({
   }
 
   return (
-    <div className="relative rounded-lg border border-warn/40 bg-warn/10 px-3 py-2 pr-8 text-sm text-warn">
+    <div className="card relative flex gap-3 rounded-2xl border border-hairline p-4 pr-10 text-[13px] leading-relaxed text-text">
+      <span className="mt-1 h-3.5 w-1 shrink-0 bg-accent" aria-hidden />
       <button
         type="button"
         onClick={dismiss}
         aria-label="Dismiss"
-        className="absolute right-1.5 top-1.5 rounded-full p-1 text-warn/70 hover:bg-warn/15 hover:text-warn"
+        className="press absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-text"
       >
         <svg viewBox="0 0 20 20" width="14" height="14" fill="none" aria-hidden="true">
           <path

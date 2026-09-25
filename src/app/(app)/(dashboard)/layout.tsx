@@ -74,14 +74,14 @@ export default async function DashboardLayout({ children }: LayoutProps<"/">) {
 
       <DesktopSidebar />
 
-      <header className="sticky top-0 z-10 flex items-center justify-between border-b border-hairline bg-bg/90 px-4 py-3 backdrop-blur md:hidden">
-        <Logo size={30} />
-        <div className="flex items-center gap-4">
+      <header className="sticky top-0 z-10 flex items-center justify-between bg-bg/85 px-4 py-3 backdrop-blur-xl md:hidden">
+        <Logo size={26} />
+        <div className="flex items-center gap-3">
           {plaidOn ? bell : null}
           <form action={signOut}>
             <button
               type="submit"
-              className="text-xs text-muted transition-colors hover:text-text"
+              className="press rounded-lg px-2 py-1 text-xs text-muted hover:bg-surface-2 hover:text-text"
             >
               Sign out
             </button>

@@ -42,12 +42,12 @@ export default async function SettingsPage() {
       <h1 className="text-xl font-semibold">Settings</h1>
 
       <Section label="Your account">
-        <Row href="/settings/profile" label="Profile" glyph="settings" />
-        <Row href="/settings/security" label="Security" glyph="connected-banks" />
+        <Row href="/settings/profile" label="Profile" glyph="profile" />
+        <Row href="/settings/security" label="Security" glyph="security" />
       </Section>
 
       <Section label="Your money">
-        <Row href="/settings/categories" label="Categories" glyph="budgets" />
+        <Row href="/settings/categories" label="Categories" glyph="categorize" />
         <Row href="/budgets" label="Budgets" glyph="budgets" />
         <Row href="/goals" label="Savings goals" glyph="goals" />
       </Section>
@@ -58,7 +58,7 @@ export default async function SettingsPage() {
       </Section>
 
       <Section label="App">
-        <Row href="/settings/appearance" label="Appearance" glyph="settings" />
+        <Row href="/settings/appearance" label="Appearance" glyph="appearance" />
         <Row href="/help" label="Help" glyph="help" />
         <Row href="/about" label="About Budgts" glyph="about" />
       </Section>
@@ -70,7 +70,7 @@ export default async function SettingsPage() {
           <a
             href="/api/export/transactions"
             download
-            className="inline-block rounded-full border border-hairline px-3 py-2 text-sm font-medium hover:bg-surface-2"
+            className="press inline-block rounded-xl border border-hairline bg-surface px-3.5 py-2.5 text-sm font-medium hover:bg-surface-2"
           >
             Export transactions (CSV)
           </a>
@@ -80,7 +80,7 @@ export default async function SettingsPage() {
       <form action={signOut}>
         <button
           type="submit"
-          className="rounded-full border border-border px-3 py-2 text-sm font-medium hover:bg-surface-2"
+          className="press rounded-xl border border-hairline bg-surface px-3.5 py-3 text-sm font-medium hover:bg-surface-2"
         >
           Sign out
         </button>

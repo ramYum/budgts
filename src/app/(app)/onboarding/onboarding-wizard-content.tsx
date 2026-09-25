@@ -73,7 +73,7 @@ export function OnboardingWizardContent({
                     <select
                       name="currency"
                       defaultValue={defaultCurrency}
-                      className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-accent"
+                      className="w-full rounded-xl border border-hairline bg-surface px-3.5 py-3 text-sm outline-none transition-colors focus:border-ink"
                     >
                       {SUPPORTED_CURRENCIES.map((c) => (
                         <option key={c} value={c}>

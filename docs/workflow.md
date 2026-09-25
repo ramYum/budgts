@@ -97,7 +97,7 @@ Plaid's recurring-income detection, not a typed-in field.
 ## 3. Architecture
 
 **Stack:** Next.js 16 (App Router, `src/`) on Vercel · Supabase · `supabase-js` +
-`@supabase/ssr` · Zod · Recharts · Vitest + Testing Library · Playwright ·
+`@supabase/ssr` · Zod · Phosphor icons · Vitest + Testing Library · Playwright ·
 Drizzle (migrations + the server-only Plaid pipeline) · Plaid. Performance
 rules: `docs/conventions.md`.
 
@@ -1001,3 +1001,18 @@ On hiatus as of 2026-09-25 (paused, not abandoned): Budgts is currently a person
   Ready now means the flag is complete AND a cursor-less sync returns exactly
   `/transactions/get` `total_transactions`, polled against a 90s deadline that fails
   with both counts. After that change: 10/10 consecutive passes on staging.
+- **2026-09-25 — Design language v3: Swiss editorial + premium fintech + pixel brand.**
+  Owner-directed redesign of the whole PWA, presentation layer only (no calculation,
+  query or action logic changed). New system in `docs/BRAND_GUIDELINES.md`:
+  charcoal on light gray with one signal-red accent; Geist for UI, Dogica (SIL OFL,
+  bundled with its license) for the wordmark and brand tags only; Phosphor icons;
+  a pixel-art robin (`src/lib/brand/robin-art.ts`) as logo, mascot (moods: happy,
+  curious, sleepy) and app icons (`tools/generate-app-icons.mjs`, ~1.3 MB of raster
+  art replaced by ~3.5 KB of icons). Budgets progress and both charts are square-cell
+  markup rendered on the server; recharts removed from dependencies. Motion: page
+  enter, reveal cascade, stepped cell build-up, robin blink/chirp/hop, press/lift
+  feedback, skeleton sweep, all off under prefers-reduced-motion. Removed: the six
+  `public/brand/*.png` rasters, `tools/optimize-brand-images.mjs`,
+  `spending-charts.tsx`. Verified on a staging-only local build with a seeded
+  throwaway user (deleted afterwards): 12 screens at 390px, no console errors,
+  Playwright e2e 12/12 (plaid.spec skipped by design).

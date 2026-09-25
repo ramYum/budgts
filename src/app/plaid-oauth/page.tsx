@@ -99,7 +99,7 @@ export default function PlaidOAuthPage() {
         <button
           type="button"
           onClick={() => router.replace("/connected-banks")}
-          className="rounded-full bg-primary-btn px-3 py-2 text-sm font-semibold text-on-primary-btn"
+          className="press rounded-xl bg-primary-btn px-4 py-3 text-sm font-medium text-on-primary-btn"
         >
           Back to Connected Banks
         </button>
@@ -115,7 +115,7 @@ export default function PlaidOAuthPage() {
           <button
             type="button"
             onClick={() => router.replace("/connected-banks")}
-            className="rounded-full bg-primary-btn px-3 py-2 text-sm font-semibold text-on-primary-btn"
+            className="press rounded-xl bg-primary-btn px-4 py-3 text-sm font-medium text-on-primary-btn"
           >
             Back to Connected Banks
           </button>

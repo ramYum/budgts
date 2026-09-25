@@ -1,6 +1,6 @@
 // Budgts service worker — minimal: installable + a graceful offline page.
 // No offline data (all data is server-side, RLS-scoped).
-const CACHE = "budgts-shell-v5";
+const CACHE = "budgts-shell-v6";
 const OFFLINE_URL = "/offline";
 
 self.addEventListener("install", (event) => {

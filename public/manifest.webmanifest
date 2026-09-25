@@ -1,13 +1,13 @@
 {
   "name": "Budgts",
   "short_name": "Budgts",
-  "description": "Simple money tools, clear insights, and encouragement for a brighter tomorrow.",
+  "description": "Track, plan and grow. A calm, precise budget for a brighter tomorrow.",
   "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#FFF8F0",
-  "theme_color": "#FF7B61",
+  "background_color": "#F4F4F4",
+  "theme_color": "#F4F4F4",
   "orientation": "portrait",
   "icons": [
     { "src": "/icon-192.png", "type": "image/png", "sizes": "192x192", "purpose": "any" },

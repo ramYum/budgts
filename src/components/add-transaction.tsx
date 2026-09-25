@@ -21,7 +21,7 @@ export function AddTransaction({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="rounded-full bg-primary-btn px-3 py-1.5 text-sm font-medium text-on-primary-btn"
+        className="press rounded-xl bg-primary-btn px-3.5 py-2 text-sm font-medium text-on-primary-btn"
       >
         + Add
       </button>

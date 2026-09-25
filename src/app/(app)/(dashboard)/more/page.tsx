@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { NavIcon, type NavGlyph } from "@/components/nav-icons";
 import { InstallApp } from "@/components/install-app";
+import { Robin } from "@/components/mascot";
 
 export const metadata: Metadata = { title: "More" };
 
@@ -46,6 +47,13 @@ export default function MorePage() {
         <Row href="/help" label="Help" glyph="help" />
         <Row href="/about" label="About Budgts" glyph="about" />
       </ul>
+
+      <div className="flex flex-col items-center gap-3 pt-6 pb-2">
+        <Robin size={36} mood="normal" />
+        <p className="font-pixel text-[8px] uppercase text-muted">
+          Track <span className="text-accent">:</span> Plan <span className="text-accent">:</span> Grow
+        </p>
+      </div>
     </div>
   );
 }

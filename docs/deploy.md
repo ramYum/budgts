@@ -227,5 +227,5 @@ displayed → categorize → merchant rule remembered → disconnect → history
   one-click restore. Use the CSV export as a backup.
 - Vercel Hobby is personal / non-commercial only.
 - Icons: the manifest uses PNG icons (192/512, `any` + `maskable`) plus
-  `src/app/icon.png` / `apple-icon.png`, all palette-compressed by
-  `tools/optimize-brand-images.mjs` (see `docs/BRAND_GUIDELINES.md`).
+  `src/app/icon.png` / `apple-icon.png`, all generated from the pixel robin
+  by `node tools/generate-app-icons.mjs` (see `docs/BRAND_GUIDELINES.md`).

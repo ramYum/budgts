@@ -182,7 +182,7 @@ function BankCard({
         <button
           type="button"
           onClick={() => setChoosing(true)}
-          className="rounded-full border border-border px-3 py-1.5 text-sm font-medium hover:bg-surface-2"
+          className="press rounded-xl border border-hairline bg-surface px-3 py-2 text-sm font-medium hover:bg-surface-2"
         >
           Choose accounts to import
         </button>
@@ -193,7 +193,7 @@ function BankCard({
           type="button"
           onClick={runSync}
           disabled={syncing}
-          className="rounded-full border border-border px-3 py-1.5 text-sm font-medium hover:bg-surface-2 disabled:opacity-50"
+          className="press rounded-xl border border-hairline bg-surface px-3 py-2 text-sm font-medium hover:bg-surface-2 disabled:opacity-50"
         >
           {syncing ? "Syncing…" : "Sync now"}
         </button>
@@ -484,7 +484,7 @@ function DisconnectConfirm({
         >
           {pending ? "Disconnecting…" : purge ? "Disconnect and delete" : "Disconnect"}
         </button>
-        <button type="button" onClick={onClose} className="rounded-full border border-border px-3 py-2 text-sm">
+        <button type="button" onClick={onClose} className="press rounded-xl border border-hairline bg-surface px-3.5 py-3 text-sm">
           Cancel
         </button>
       </div>

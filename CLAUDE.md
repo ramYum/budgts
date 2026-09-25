@@ -93,7 +93,8 @@ What carries over is the **spirit**:
 | Security | Row-Level Security on **every** table, scoped to `auth.uid()` — the enforcement, not a backstop |
 | Validation | Zod schemas shared client + server |
 | Forms | Native `<form action>` + server actions (`useActionState`), Zod-validated on the server |
-| Charts | Recharts (consult the `dataviz` skill before building any chart) |
+| Charts | Server-rendered square-cell markup (`src/components/spending-overview.tsx`); no chart library |
+| Design system | `docs/BRAND_GUIDELINES.md`: Geist + Dogica (brand only), charcoal on light gray, one red accent, Phosphor icons, pixel robin |
 | AI extraction (V2) | Claude API — `claude-sonnet-5`, vision for receipts (consult the `claude-api` skill) |
 | Testing | Vitest + React Testing Library (unit/component), Playwright (e2e) |
 
@@ -232,12 +233,12 @@ See `docs/roadmap.md` (tier ladder) and `docs/workflow.md` (execution tracker).
 **Shipped:** Phase 1 (core budgeting slice — live at https://budgts.com) and
 Phase 2a (savings goals, `2d46178`).
 
-**Shipped:** **UI redesign v2 + robin/"Budgts" rebrand** — a Home-first,
-Money-Left-led information architecture across every screen, cream/coral/
-sage/sky/lavender/pink palette, Poppins, and the robin mascot + "Budgts"
-wordmark from `Logo Assets V2`. See `docs/BRAND_GUIDELINES.md` (the visual
-source of truth) and `docs/specs/2026-09-13-ui-redesign-brand-guidelines-spec.md`
-(screen/IA behavior, still current outside its superseded brand sections).
+**Shipped:** **Design language v3 (2026-09-25)** — editorial Swiss
+minimalism + premium fintech UI + restrained pixel branding: pixel robin +
+Dogica wordmark, Geist, charcoal on light gray with one red accent,
+square-cell progress and charts, purposeful motion. The Home-first,
+Money-Left-led information architecture is unchanged. See
+`docs/BRAND_GUIDELINES.md` (the visual source of truth).
 
 **Shipped:** **V1 — Plaid transaction ingestion** (live in production, flag
 on) with sign-convention, transfer-ownership, paired-transfer and

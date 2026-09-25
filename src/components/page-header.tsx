@@ -1,20 +1,19 @@
 import Link from "next/link";
 import { NavIcon } from "./nav-icons";
 
-/** Secondary/detail-screen header with a clear back affordance on mobile
- * (design spec §5 Back behavior). The desktop sidebar is always present, so
- * the back link is hidden at `md` — it would be redundant there. */
+/** Secondary/detail-screen header with a clear back affordance on mobile.
+ * The desktop sidebar is always present, so the back link hides at `md`. */
 export function PageHeader({ title, back }: { title: string; back: string }) {
   return (
-    <div className="mb-4 flex items-center gap-2">
+    <div className="mb-5 flex items-center gap-3">
       <Link
         href={back}
         aria-label="Back"
-        className="-ml-1.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted hover:bg-surface-2 hover:text-text md:hidden"
+        className="press flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-hairline bg-surface text-text hover:border-silver md:hidden"
       >
-        <NavIcon glyph="back" className="h-5 w-5" />
+        <NavIcon glyph="back" className="h-4 w-4" />
       </Link>
-      <h1 className="text-xl font-semibold">{title}</h1>
+      <h1 className="text-[22px] font-semibold tracking-tight">{title}</h1>
     </div>
   );
 }

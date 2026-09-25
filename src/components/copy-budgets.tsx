@@ -14,7 +14,7 @@ export function CopyBudgets({ month }: { month: string }) {
       <button
         type="submit"
         disabled={pending}
-        className="rounded-full border border-border px-3 py-1.5 text-sm font-medium hover:bg-surface-2 disabled:opacity-50"
+        className="press rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-muted hover:bg-surface-2 hover:text-text disabled:opacity-50"
       >
         {pending ? "Copying…" : "Copy last month"}
       </button>

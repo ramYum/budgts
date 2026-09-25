@@ -1,99 +1,75 @@
 @import "tailwindcss";
 
-/* Budgts — see docs/BRAND_GUIDELINES.md for the source of truth (palette,
- * type scale, component rules, voice). Calm cream canvas, one saturated hue
- * per meaning, a robin mascot for personality. Raw palette values never
- * change; components consume the semantic roles below, never raw hex. */
+/* Budgts design system: editorial Swiss minimalism, premium fintech clarity,
+ * restrained pixel branding (docs/BRAND_GUIDELINES.md).
+ *
+ * One neutral family (charcoal on light gray), ONE accent (signal red), used
+ * only where attention is earned: the active tab, the current month, an
+ * over-budget category, the primary action. Pixel texture lives in the brand
+ * (robin, wordmark) and in data marks (square-cell bars/rings), never in body
+ * copy. Components consume the semantic roles below, never raw hex. */
 :root {
   color-scheme: light;
 
-  /* raw palette (exact brand-guideline values) */
-  --cream: #fff8f0; /* Background */
-  --surface-raw: #fffdf9; /* Card surface, just off the page */
-  --ink: #0f0f0f; /* Text */
-  --coral: #ff7b61; /* Action / energy */
-  --coral-strong: #ff6347; /* Coral, pushed for fills that need more pop */
-  --coral-tint: #ffebe5; /* Pale coral, for icon/badge backgrounds */
-  --sun: #ffd166; /* Optimism */
-  --sun-strong: #f7b733; /* Sun, pushed for text/fills on light backgrounds */
-  --sun-tint: #fff3d6; /* Pale sun, for icon/badge backgrounds */
-  --sun-light: #ffe8b3; /* Sun, 50% lighter (mixed with white) — Money Left hero card fill */
-  --sage: #a7c7a1; /* Growth (pale) */
-  --sage-strong: #3fa772; /* Growth (glyphs, progress, positive states) */
-  --sky: #a7d8ff; /* Clarity (pale) */
-  --sky-strong: #4f8fe8; /* Clarity (glyphs, progress, informational) */
-  --lavender: #cdb8ff; /* Creativity (pale) */
-  --lavender-strong: #9b7fe0; /* Creativity (glyphs, progress) */
-  --pink: #fbd1e0; /* Emotion (pale) */
-  --pink-strong: #f0699b; /* Emotion (glyphs, progress) */
-  --gray: #ececec; /* Neutral (pale) */
-  --gray-strong: #9aa0ac; /* Neutral (glyphs, "other") */
+  /* raw palette */
+  --charcoal: #111111;
+  --graphite: #3d3d3d;
+  --ash: #6e6e6e; /* secondary text, 5.1:1 on white */
+  --silver: #b9b9b9; /* inactive marks */
+  --gray: #e6e6e6; /* hairlines, empty cells */
+  --paper: #f4f4f4; /* canvas */
+  --white: #ffffff;
+  --signal: #e54848; /* accent: graphics only (3.9:1 on white) */
+  --signal-strong: #d63c3c; /* accent as a fill behind white text (4.6:1) */
+  --signal-ink: #c93434; /* accent as text (5.2:1 on white) */
+  --signal-wash: #fdeeee;
+  --growth: #18794a; /* money in */
 
-  /* semantic roles — cream canvas, near-white cards on top */
-  --bg: var(--cream);
-  --surface: var(--surface-raw);
-  --surface-2: #fbeee0; /* sunken sections / row hover — soft warm wash */
-  --text: var(--ink);
-  --muted: #8b8f9c; /* secondary copy — dates, captions, "of $2,500" */
-  --border: #ece5da; /* hairlines, progress troughs, card outlines */
-  --accent: var(--coral); /* energetic highlight: active nav, "+" add, links */
+  /* semantic roles */
+  --bg: var(--paper);
+  --surface: var(--white);
+  --surface-2: #f0f0f0; /* sunken rows, hover, icon tiles */
+  --text: var(--charcoal);
+  --heading: var(--charcoal);
+  --muted: var(--ash);
+  --border: var(--gray);
+  --hairline: var(--gray);
+  --track: var(--gray);
+  --tick: var(--signal);
+  --ink: var(--charcoal);
+
+  --accent: var(--signal);
   --accent-ink: #ffffff;
-  --heading: var(--ink);
-  --hairline: var(--border);
-  --track: var(--border); /* progress trough */
-  --tick: var(--coral); /* small structural marks */
-
-  /* the solid-ink hero card (Insights' "Your money story") — high-contrast
-   * and calm, not a hue. Home's "Money Left" hero card diverges from this
-   * (solid sun-light fill, see --on-hero below). Distinct from
-   * `--primary-btn` below: this token is for that hero-card treatment and
-   * for link-style accents, never for a clickable button's fill. */
-  --primary: var(--ink);
+  --primary: var(--charcoal); /* text links, strong marks */
   --on-primary: #ffffff;
+  --primary-btn: var(--signal-strong);
+  --on-primary-btn: #ffffff;
+  --tint: #f2f2f2; /* quiet notice / message wash */
 
-  /* Primary button fill (docs/BRAND_GUIDELINES.md "Primary button") — a
-   * Sun-yellow pill with ink text, kept separate from `--primary` above so
-   * changing a button's color never repaints the hero cards or text links
-   * that happen to share the "primary" name. */
-  --primary-btn: var(--sun);
-  --on-primary-btn: var(--ink);
-  --tint: #f2eeff; /* pale lavender wash — insight banners, quote/message bubbles */
+  --pos: var(--growth);
+  --pos-fill: var(--charcoal);
+  --neg: var(--signal-ink);
+  --warn: #8a5a00;
+  --info: var(--graphite);
+  --ring: var(--charcoal);
 
-  --pos: var(--sage-strong);
-  --pos-fill: var(--sage-strong);
-  --neg: var(--coral-strong);
-  --warn: #a06a00; /* accessible text tone derived from sun */
-  --info: var(--sky-strong);
-  --ring: var(--coral-strong);
+  /* data marks */
+  --fill-under: var(--charcoal);
+  --fill-near: var(--signal);
+  --fill-over: var(--signal);
+  --cell-off: var(--gray);
+  --cell-past: #c9c9c9;
 
-  /* progress-bar fills — brand semantic colours, constant in every context */
-  --fill-under: var(--sage-strong);
-  --fill-near: var(--sun-strong);
-  --fill-over: var(--coral-strong);
-
-  /* legacy dark-chrome tokens — kept so any remaining dark-surface call site
-   * still resolves to something sane (no dark mode shipped yet). */
-  --surface-dark: var(--ink);
+  --surface-dark: var(--charcoal);
   --on-dark: #ffffff;
-  --on-dark-dim: #b8b8b8;
-
-  /* Home's "Money Left" hero card — light sun fill, ink text. Distinct
-   * from Insights' "Your money story" card, which keeps the solid-ink
-   * `--primary` treatment above. */
-  --hero-fill: var(--sun-light);
-  --on-hero: var(--ink);
+  --on-dark-dim: #a8a8a8;
+  --hero-fill: var(--surface);
+  --on-hero: var(--text);
 
   --background: var(--bg);
   --foreground: var(--text);
-}
 
-/* Content cards are plain, near-white surfaces on the cream canvas —
- * separated by a hairline border, not a hard fill. `.card` / `.panel` are
- * kept as no-op hooks so components that carry the class keep working. */
-.card,
-.panel {
-  background: var(--surface);
-  color: var(--text);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @theme inline {
@@ -113,24 +89,9 @@
   --color-warn: var(--warn);
   --color-info: var(--info);
   --color-ink: var(--ink);
-  --color-cream: var(--cream);
-  --color-coral: var(--coral);
-  --color-coral-strong: var(--coral-strong);
-  --color-coral-tint: var(--coral-tint);
-  --color-sun: var(--sun);
-  --color-sun-strong: var(--sun-strong);
-  --color-sun-tint: var(--sun-tint);
-  --color-sun-light: var(--sun-light);
-  --color-sage: var(--sage);
-  --color-sage-strong: var(--sage-strong);
-  --color-sky: var(--sky);
-  --color-sky-strong: var(--sky-strong);
-  --color-lavender: var(--lavender);
-  --color-lavender-strong: var(--lavender-strong);
-  --color-pink: var(--pink);
-  --color-pink-strong: var(--pink-strong);
-  --color-gray: var(--gray);
-  --color-gray-strong: var(--gray-strong);
+  --color-signal: var(--signal);
+  --color-signal-wash: var(--signal-wash);
+  --color-silver: var(--silver);
   --color-heading: var(--heading);
   --color-hairline: var(--hairline);
   --color-track: var(--track);
@@ -148,53 +109,151 @@
   --color-fill-under: var(--fill-under);
   --color-fill-near: var(--fill-near);
   --color-fill-over: var(--fill-over);
-  --font-sans: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+  --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", monospace;
 }
 
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
 }
 
-/* In @layer base so any Tailwind text-colour utility on a heading still wins
- * (e.g. `text-on-dark` in the primary hero, `text-muted` day labels). */
 @layer base {
   h1,
   h2,
   h3 {
-    font-family: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
-    font-weight: 700;
-    letter-spacing: -0.01em;
+    font-weight: 600;
+    letter-spacing: -0.02em;
     color: var(--heading);
   }
+}
+
+/* Surfaces: white sheets on the gray canvas, a single hairline, no drop shadow
+ * doing the work spacing should do. */
+.card,
+.panel {
+  background: var(--surface);
+  color: var(--text);
 }
 
 /* every currency amount lines up */
 .tnum {
   font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
 }
 
-/* The brand's one big-illustration moment — the robin + wordmark hero lockup
- * on sign-in/onboarding, on a quiet cream card. Sparing by design: everywhere
- * else the mascot appears small, unframed. The art itself carries the whole
- * lockup (mascot, wordmark, tagline), so the card stays plain. */
-.brand-mascot-stage {
-  border-radius: 2rem;
-  background: var(--surface);
+/* The one pixel shape in the component vocabulary: a 2px-stepped corner,
+ * used for selected chips and tags (never cards or buttons). */
+.pixel-corners {
+  clip-path: polygon(
+    0 4px, 2px 4px, 2px 2px, 4px 2px, 4px 0,
+    calc(100% - 4px) 0, calc(100% - 4px) 2px, calc(100% - 2px) 2px, calc(100% - 2px) 4px, 100% 4px,
+    100% calc(100% - 4px), calc(100% - 2px) calc(100% - 4px), calc(100% - 2px) calc(100% - 2px), calc(100% - 4px) calc(100% - 2px), calc(100% - 4px) 100%,
+    4px 100%, 4px calc(100% - 2px), 2px calc(100% - 2px), 2px calc(100% - 4px), 0 calc(100% - 4px)
+  );
 }
 
-.brand-highlight-card {
-  position: relative;
-  overflow: hidden;
-  background: var(--tint);
-  color: var(--text);
+/* Pixel type: brand moments only (the wordmark, lockups, the odd tag). Dogica
+ * is drawn on an 8px grid, so it is set at multiples of 8. */
+.font-pixel {
+  font-family: var(--font-dogica-pixel), var(--font-geist-mono), monospace;
+  letter-spacing: 0.06em;
+  -webkit-font-smoothing: none;
 }
 
-/* First-run tour (TourWizard) step transition. */
+.font-pixel-bold {
+  font-family: var(--font-dogica-bold), var(--font-geist-mono), monospace;
+  -webkit-font-smoothing: none;
+}
+
+/* ─── Motion ────────────────────────────────────────────────────────────────
+ * Every animation says something: a screen arriving (page-enter, reveal),
+ * magnitude being built (cells stepping in), the brand being alive (robin
+ * blink/chirp), or a tap being felt (press). Transform/opacity only, and all
+ * of it collapses under prefers-reduced-motion. */
+
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* stepped like a sprite frame: the retro note in the motion language */
+@keyframes cell-in {
+  from {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes robin-blink {
+  0%,
+  92%,
+  100% {
+    transform: scaleY(1);
+  }
+  95% {
+    transform: scaleY(0.15);
+  }
+}
+
+@keyframes robin-chirp {
+  0%,
+  55%,
+  100% {
+    opacity: 1;
+  }
+  62% {
+    opacity: 0;
+  }
+  70% {
+    opacity: 1;
+  }
+}
+
+@keyframes robin-hop {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes skeleton-sweep {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0 0;
+  }
+}
+
 @keyframes tour-in {
   from {
     opacity: 0;
@@ -206,12 +265,103 @@ body {
   }
 }
 
+@keyframes pip-in {
+  from {
+    transform: scale(0);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .page-enter {
+    animation: page-enter 420ms var(--ease-out) both;
+  }
+
+  /* cascade: children set --i (0, 1, 2, …) */
+  .reveal {
+    animation: rise-in 560ms var(--ease-out) both;
+    animation-delay: calc(var(--i, 0) * 70ms + 40ms);
+  }
+
+  .cell {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: cell-in 240ms steps(3, end) both;
+    animation-delay: calc(var(--d, 0) * 22ms + 220ms);
+  }
+
+  .robin-eye {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: robin-blink 5.5s linear infinite;
+  }
+
+  .robin-chirp {
+    animation: robin-chirp 3.2s steps(1, end) infinite;
+  }
+
+  .robin-hop:hover,
+  .robin-hop:focus-visible {
+    animation: robin-hop 360ms steps(4, end);
+  }
+
+  .pip {
+    animation: pip-in 220ms steps(3, end) both;
+  }
+
+  .press {
+    transition:
+      transform 160ms var(--ease-out),
+      background-color 160ms var(--ease-out),
+      color 160ms var(--ease-out),
+      border-color 160ms var(--ease-out),
+      opacity 160ms var(--ease-out);
+  }
+  .press:active {
+    transform: scale(0.98);
+  }
+
+  .lift {
+    transition:
+      transform 220ms var(--ease-out),
+      border-color 220ms var(--ease-out);
+  }
+  .lift:hover {
+    transform: translateY(-1px);
+    border-color: var(--silver);
+  }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--surface-2) 0%,
+    var(--surface-2) 40%,
+    #e8e8e8 50%,
+    var(--surface-2) 60%,
+    var(--surface-2) 100%
+  );
+  background-size: 300% 100%;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .skeleton {
+    animation: skeleton-sweep 1.4s linear infinite;
+  }
+}
+
 ::selection {
-  background: var(--sun);
-  color: var(--ink);
+  background: var(--charcoal);
+  color: #ffffff;
 }
 
 :where(a, button, input, select, textarea, [tabindex]):focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 2px;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #8c8c8c;
 }

@@ -150,17 +150,14 @@ describe("performance guardrails", () => {
     expect(revalidators).toEqual(["src/server/revalidate.ts"]);
   });
 
-  // Rule 7: the heavy chart library stays out of the first-load bundle.
-  it("recharts is only reached through a next/dynamic import", () => {
-    const importers = [join(SRC, "app"), join(SRC, "components")]
-      .flatMap(sourceFiles)
-      .filter((p) => /from\s+["']recharts["']/.test(read(p)))
-      .map(rel);
-    expect(importers).toEqual(["src/components/spending-charts.tsx"]);
-    const staticImporters = sourceFiles(SRC)
-      .filter((p) => /from\s+["'][^"']*spending-charts["']/.test(read(p)))
-      .map(rel);
-    expect(staticImporters).toEqual([]);
+  // Rule 7: charts are server-rendered cell markup; no chart library ships.
+  it("charts need no chart library in the client bundle", () => {
+    const pkg = JSON.parse(read(join(ROOT, "package.json"))) as { dependencies?: Record<string, string> };
+    for (const lib of ["recharts", "chart.js", "d3", "victory", "@nivo/core"]) {
+      expect(pkg.dependencies?.[lib], lib).toBeUndefined();
+    }
+    const overview = read(join(SRC, "components", "spending-overview.tsx"));
+    expect(overview).not.toMatch(/^"use client"/m);
   });
 
   // Rule 8: the service worker may only serve content-hashed build assets

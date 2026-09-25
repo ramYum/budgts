@@ -21,6 +21,7 @@
     "screenshot": "node tools/screenshot.mjs"
   },
   "dependencies": {
+    "@phosphor-icons/react": "^2.1.10",
     "@supabase/ssr": "^0.12.6",
     "@supabase/supabase-js": "^2.116.0",
     "drizzle-orm": "^0.45.2",
@@ -31,7 +32,6 @@
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-plaid-link": "^5.0.0",
-    "recharts": "^3.10.1",
     "server-only": "^0.0.1",
     "zod": "^4.5.4"
   },

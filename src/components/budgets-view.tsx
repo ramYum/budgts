@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { CaretRight, Plus } from "@phosphor-icons/react";
 import { formatMoney } from "@/lib/budget/money";
 import type { DashboardView as DV, DashboardCategory } from "@/lib/budget/dashboard";
 import { setBudget } from "@/server/budgets";
@@ -50,7 +51,7 @@ function AmountForm({
       <label className="block space-y-1 text-xs font-medium text-muted">
         Monthly budget
         <input
-          className="tnum w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-accent"
+          className="tnum w-full rounded-xl border border-hairline bg-surface px-3.5 py-3 text-sm outline-none transition-colors focus:border-ink"
           inputMode="decimal"
           placeholder="0.00"
           value={value}
@@ -64,7 +65,7 @@ function AmountForm({
         type="button"
         onClick={save}
         disabled={pending}
-        className="w-full rounded-full bg-primary-btn px-3 py-2 text-sm font-medium text-on-primary-btn disabled:opacity-50"
+        className="press w-full rounded-xl bg-primary-btn px-4 py-3 text-sm font-medium text-on-primary-btn hover:brightness-95 disabled:opacity-50"
       >
         {pending ? "Saving…" : "Save"}
       </button>
@@ -94,8 +95,8 @@ function CategoryDetail({
         <div className="flex items-center gap-3">
           <CategoryIcon name={bar.name} color={bar.color} size={44} />
           <div>
-            <p className="tnum text-2xl font-bold">{formatMoney(bar.actual, currency)}</p>
-            <p className="text-xs text-muted">
+            <p className="tnum text-[28px] font-semibold leading-none tracking-tight">{formatMoney(bar.actual, currency)}</p>
+            <p className="mt-1 text-xs text-muted">
               {bar.budget > 0 ? `of ${formatMoney(bar.budget, currency)} budget` : "no budget set"}
             </p>
           </div>
@@ -103,15 +104,15 @@ function CategoryDetail({
 
         <ProgressBar pct={bar.pctUsed} tone={bar.state} />
 
-        <dl className="space-y-1.5 text-sm">
-          <div className="flex justify-between">
+        <dl className="divide-y divide-hairline rounded-xl border border-hairline text-sm">
+          <div className="flex justify-between px-3.5 py-2.5">
             <dt className="text-muted">{bar.state === "over" ? "Over by" : "Remaining"}</dt>
             <dd className="tnum">
               {bar.budget > 0 ? formatMoney(Math.abs(bar.remaining), currency) : "—"}
             </dd>
           </div>
           {trend !== null ? (
-            <div className="flex justify-between">
+            <div className="flex justify-between px-3.5 py-2.5">
               <dt className="text-muted">vs. last month</dt>
               <dd className={`tnum ${trend > 0 ? "text-neg" : "text-pos"}`}>
                 {trend > 0 ? "↑" : "↓"} {Math.abs(trend)}%
@@ -134,13 +135,13 @@ function CategoryDetail({
             <button
               type="button"
               onClick={() => setEditing(true)}
-              className="flex-1 rounded-full border border-border px-3 py-2 text-sm font-medium hover:bg-surface-2"
+              className="press flex-1 rounded-xl border border-ink bg-surface px-3 py-3 text-sm font-medium hover:bg-surface-2"
             >
               Change budget
             </button>
             <Link
               href={`/transactions?m=${month}&category=${bar.categoryId}`}
-              className="flex-1 rounded-full bg-primary-btn px-3 py-2 text-center text-sm font-medium text-on-primary-btn"
+              className="press flex-1 rounded-xl bg-primary-btn px-3 py-3 text-center text-sm font-medium text-on-primary-btn hover:brightness-95"
             >
               See transactions
             </Link>
@@ -176,7 +177,7 @@ function AddBudget({
         <label className="block space-y-1 text-xs font-medium text-muted">
           Category
           <select
-            className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-accent"
+            className="w-full rounded-xl border border-hairline bg-surface px-3.5 py-3 text-sm outline-none transition-colors focus:border-ink"
             value={categoryId}
             onChange={(e) => setCategoryId(e.target.value)}
           >
@@ -227,16 +228,23 @@ export function BudgetsView(
   const totalRemaining = props.range === "month" ? props.view.tiles.leftToSpend : 0;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div className="flex items-center justify-between">
         <MonthNav base="/budgets" month={props.month} />
         {props.range === "month" ? <CopyBudgets month={props.month} /> : null}
       </div>
 
       {props.range === "month" ? (
-        <p className="tnum text-sm text-muted">
-          {formatMoney(totalSpent, props.currency)} spent · {formatMoney(totalRemaining, props.currency)} remaining
-        </p>
+        <div className="reveal card grid grid-cols-2 divide-x divide-hairline rounded-2xl border border-hairline">
+          <div className="p-4">
+            <p className="text-[13px] text-muted">Spent</p>
+            <p className="tnum mt-1 text-xl font-semibold tracking-tight">{formatMoney(totalSpent, props.currency)}</p>
+          </div>
+          <div className="p-4">
+            <p className="text-[13px] text-muted">Remaining</p>
+            <p className="tnum mt-1 text-xl font-semibold tracking-tight">{formatMoney(totalRemaining, props.currency)}</p>
+          </div>
+        </div>
       ) : null}
 
       <div className="flex items-center justify-between">
@@ -253,9 +261,9 @@ export function BudgetsView(
             type="button"
             onClick={() => setAdding(true)}
             aria-label="Add budget"
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-lg font-semibold text-accent-ink"
+            className="press flex h-9 w-9 items-center justify-center rounded-xl bg-ink text-on-primary hover:brightness-125"
           >
-            +
+            <Plus aria-hidden weight="bold" className="h-4 w-4" />
           </button>
         ) : null}
       </div>
@@ -269,32 +277,32 @@ export function BudgetsView(
               <button
                 type="button"
                 onClick={() => setAdding(true)}
-                className="rounded-full bg-primary-btn px-4 py-2 text-sm font-medium text-on-primary-btn"
+                className="press rounded-xl bg-primary-btn px-4 py-3 text-sm font-medium text-on-primary-btn hover:brightness-95"
               >
                 Build my budget
               </button>
             }
           />
         ) : (
-          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {props.view.bars.map((b) => (
-              <li key={b.categoryId}>
+          <ul className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+            {props.view.bars.map((b, i) => (
+              <li key={b.categoryId} className="reveal" style={{ ["--i" as string]: i + 1 }}>
                 <button
                   type="button"
                   onClick={() => setDetail(b.categoryId)}
-                  className="card flex w-full items-center gap-3 rounded-2xl border border-hairline p-4 text-left"
+                  className="press lift card flex w-full items-center gap-3.5 rounded-2xl border border-hairline p-4 text-left"
                 >
                   <CategoryIcon name={b.name} color={b.color} size={40} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-baseline justify-between gap-2">
-                      <span className="truncate text-sm font-semibold">{b.name}</span>
+                      <span className="truncate text-sm font-medium">{b.name}</span>
                       <span className="tnum shrink-0 text-xs text-muted">
                         {formatMoney(b.actual, props.currency)}
                         {b.budget > 0 ? ` / ${formatMoney(b.budget, props.currency)}` : ""}
                       </span>
                     </div>
-                    <ProgressBar pct={b.pctUsed} tone={b.state} className="mt-2" />
-                    <p className="tnum mt-1 text-xs text-muted">
+                    <ProgressBar pct={b.pctUsed} tone={b.state} className="mt-2.5" />
+                    <p className={`tnum mt-1.5 text-xs ${b.state === "over" ? "text-neg" : "text-muted"}`}>
                       {b.budget === 0
                         ? "No budget set"
                         : b.state === "over"
@@ -302,6 +310,7 @@ export function BudgetsView(
                           : `${formatMoney(b.remaining, props.currency)} left`}
                     </p>
                   </div>
+                  <CaretRight aria-hidden className="h-4 w-4 shrink-0 text-silver" />
                 </button>
               </li>
             ))}
@@ -314,7 +323,7 @@ export function BudgetsView(
           {props.allTimeRows.map((r) => (
             <li key={r.categoryId} className="flex items-center gap-3 px-4 py-3">
               <CategoryIcon name={r.name} color={r.color} size={36} />
-              <span className="flex-1 truncate text-sm">{r.name}</span>
+              <span className="flex-1 truncate text-sm font-medium">{r.name}</span>
               <span className="tnum text-sm text-muted">{formatMoney(r.total, props.currency)}</span>
             </li>
           ))}

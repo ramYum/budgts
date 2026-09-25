@@ -15,7 +15,7 @@ export default function AppearancePage() {
           <p className="text-sm font-medium">Light</p>
           <p className="text-xs text-muted">Dark mode isn&apos;t available yet.</p>
         </div>
-        <span className="rounded-full bg-tint px-2.5 py-1 text-xs font-medium text-primary">Active</span>
+        <span className="pixel-corners bg-ink px-2.5 py-1 text-xs font-medium text-on-primary">Active</span>
       </div>
     </div>
   );

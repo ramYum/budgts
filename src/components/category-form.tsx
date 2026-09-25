@@ -5,7 +5,7 @@ import { CATEGORY_COLORS } from "@/lib/validation/category";
 import type { CategoryActionState } from "@/server/categories";
 
 const field =
-  "w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-accent";
+  "w-full rounded-xl border border-hairline bg-surface px-3.5 py-3 text-sm outline-none transition-colors focus:border-ink";
 
 export type CategoryInitial = {
   id: string;
@@ -80,14 +80,14 @@ export function CategoryForm({
         <button
           type="submit"
           disabled={pending}
-          className="flex-1 rounded-full bg-primary-btn px-3 py-2 text-sm font-medium text-on-primary-btn disabled:opacity-50"
+          className="flex-1 press rounded-xl bg-primary-btn px-4 py-3 text-sm font-medium text-on-primary-btn disabled:opacity-50"
         >
           {pending ? "Saving…" : submitLabel}
         </button>
         <button
           type="button"
           onClick={() => onDone()}
-          className="rounded-full border border-border px-3 py-2 text-sm"
+          className="press rounded-xl border border-hairline bg-surface px-3.5 py-3 text-sm"
         >
           Cancel
         </button>

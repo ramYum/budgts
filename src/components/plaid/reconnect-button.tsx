@@ -56,7 +56,7 @@ export function ReconnectButton({ itemId }: { itemId: string }) {
         type="button"
         onClick={start}
         disabled={busy}
-        className="rounded-full bg-primary-btn px-3 py-1.5 text-sm font-medium text-on-primary-btn disabled:opacity-50"
+        className="press rounded-xl bg-primary-btn px-3.5 py-2 text-sm font-medium text-on-primary-btn disabled:opacity-50"
       >
         {phase === "starting" ? "Opening…" : phase === "finishing" ? "Finishing…" : "Reconnect"}
       </button>

@@ -52,7 +52,7 @@ export function TourCard({
         </div>
       ) : null}
 
-      <div className="brand-mascot-stage flex flex-col items-center gap-3 px-8 py-6">
+      <div className="flex w-full flex-col items-center gap-3 rounded-3xl border border-hairline bg-surface px-8 py-8">
         <Mascot mood={mood} size={120} />
       </div>
 
@@ -76,7 +76,7 @@ export function TourCard({
             <span
               key={i}
               className={`h-1.5 rounded-full transition-all ${
-                i === dotIndex ? "w-4 bg-accent" : "w-1.5 bg-border"
+                i === dotIndex ? "w-4 bg-accent" : "w-1.5 bg-silver"
               }`}
             />
           ))}

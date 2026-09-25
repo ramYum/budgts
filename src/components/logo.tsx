@@ -1,30 +1,10 @@
-/** Budgts logo. The mark is the robin mascot — the real artwork from the
- * brand's own Logo Assets V2, not a crop (see docs/BRAND_GUIDELINES.md). */
+import { Robin } from "./mascot";
 
-const MARK_SRC = "/brand/logo-mark.png";
-const MARK_ASPECT = 306 / 288; // logo-mark.png's native w/h
+/** Budgts lockup: the pixel robin + the wordmark set in Dogica Bold (a live
+ * text wordmark, so it stays crisp, selectable and accessible). */
 
-const WORDMARK_SRC = "/brand/wordmark.png";
-const WORDMARK_ASPECT = 700 / 350; // wordmark.png's native w/h
-
-export function LogoMark({
-  size = 24,
-  className,
-}: {
-  size?: number;
-  className?: string;
-}) {
-  return (
-    // eslint-disable-next-line @next/next/no-img-element -- fixed brand raster, sized well below its native resolution
-    <img
-      src={MARK_SRC}
-      alt=""
-      width={size}
-      height={size}
-      className={`inline-block shrink-0 ${className ?? ""}`}
-      style={{ width: size * MARK_ASPECT, height: size }}
-    />
-  );
+export function LogoMark({ size = 24, className }: { size?: number; className?: string }) {
+  return <Robin size={size} className={className} animated={false} />;
 }
 
 export function Logo({
@@ -39,20 +19,18 @@ export function Logo({
   wordmark?: boolean;
   className?: string;
 }) {
-  const wordmarkHeight = size * 0.9;
+  // Dogica is drawn on an 8px grid: snap the wordmark to the nearest multiple.
+  const type = Math.max(8, Math.round((size * 0.62) / 8) * 8);
   return (
     <span className={`inline-flex items-center gap-2 ${className ?? ""}`}>
-      {mark ? <LogoMark size={size} /> : null}
+      {mark ? <Robin size={size} animated={false} /> : null}
       {wordmark ? (
-        // eslint-disable-next-line @next/next/no-img-element -- fixed brand raster wordmark
-        <img
-          src={WORDMARK_SRC}
-          alt="Budgts"
-          width={wordmarkHeight * WORDMARK_ASPECT}
-          height={wordmarkHeight}
-          style={{ width: wordmarkHeight * WORDMARK_ASPECT, height: wordmarkHeight }}
-        />
-      ) : null}
+        <span className="font-pixel-bold leading-none text-ink" style={{ fontSize: type }}>
+          Budgts
+        </span>
+      ) : (
+        <span className="sr-only">Budgts</span>
+      )}
     </span>
   );
 }

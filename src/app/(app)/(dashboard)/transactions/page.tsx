@@ -4,8 +4,9 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
-import { currentMonthKey, monthKey, todayDateKey } from "@/lib/budget/month";
+import { currentMonthKey, todayDateKey } from "@/lib/budget/month";
 import { AddTransaction } from "@/components/add-transaction";
+import { MonthNav } from "@/components/month-nav";
 import { TransactionList, type TxnListItem } from "@/components/transaction-list";
 import type { AccountOption, CategoryOption } from "@/components/transaction-form";
 import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
@@ -30,20 +31,13 @@ function monthBounds(m: string) {
   return {
     start: first.toISOString(),
     end: nextFirst.toISOString(),
-    prev: monthKey(new Date(Date.UTC(y, mm - 2, 1))),
-    next: monthKey(nextFirst),
-    label: first.toLocaleDateString(undefined, {
-      month: "long",
-      year: "numeric",
-      timeZone: "UTC",
-    }),
   };
 }
 
 export default async function TransactionsPage({ searchParams }: PageProps<"/transactions">) {
   const sp = await searchParams;
   const m = typeof sp.m === "string" && MONTH_RE.test(sp.m) ? sp.m : currentMonthKey();
-  const { start, end, prev, next, label } = monthBounds(m);
+  const { start, end } = monthBounds(m);
   const defaultDate = currentMonthKey() === m ? todayDateKey() : `${m}-15`;
   const categoryFilter =
     typeof sp.category === "string" && /^[0-9a-f-]{36}$/i.test(sp.category) ? sp.category : null;
@@ -184,17 +178,9 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
   const showConnectPrompt = plaidOn && (txns ?? []).length === 0 && !categoryFilter;
 
   return (
-    <div className="space-y-4 pt-1">
+    <div className="space-y-5 pt-1">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1">
-          <Link href={`/transactions?m=${prev}`} className="px-2 py-1 text-sm text-muted hover:text-text" aria-label="Previous month">
-            ‹
-          </Link>
-          <h1 className="min-w-[9ch] text-center text-base font-semibold">{label}</h1>
-          <Link href={`/transactions?m=${next}`} className="px-2 py-1 text-sm text-muted hover:text-text" aria-label="Next month">
-            ›
-          </Link>
-        </div>
+        <MonthNav base="/transactions" month={m} />
         <AddTransaction accounts={accountOpts} categories={categoryOpts} defaultDate={defaultDate} />
       </div>
 

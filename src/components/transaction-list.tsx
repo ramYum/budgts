@@ -5,7 +5,8 @@ import { formatMoney } from "@/lib/budget/money";
 import { deleteTransaction, updateTransaction } from "@/server/transactions";
 import { Overlay } from "./overlay";
 import { Mascot } from "./mascot";
-import { SegmentedControl } from "./ui";
+import { CategoryIcon, SegmentedControl } from "./ui";
+import { MagnifyingGlass } from "@phosphor-icons/react";
 import {
   TransactionForm,
   type AccountOption,
@@ -107,9 +108,9 @@ export function TransactionList({
 
   if (items.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-3 py-10 text-center">
-        <Mascot mood="sleepy" size={64} />
-        <p className="text-sm text-muted">
+      <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-hairline px-6 py-12 text-center">
+        <Mascot mood="sleepy" size={72} />
+        <p className="max-w-xs text-sm text-muted">
           No transactions this month yet. Add your first with{" "}
           <span className="font-medium text-text">+ Add</span>.
         </p>
@@ -118,23 +119,19 @@ export function TransactionList({
   }
 
   const searchBar = (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <div className="relative">
-        <svg
-          viewBox="0 0 24 24"
+        <MagnifyingGlass
           aria-hidden
-          className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted"
-        >
-          <circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" strokeWidth={2} />
-          <path d="m20 20-4.3-4.3" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
-        </svg>
+          className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted"
+        />
         <input
           type="search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search transactions..."
           aria-label="Search transactions"
-          className="w-full rounded-full border border-border bg-surface py-2 pr-3 pl-9 text-sm outline-none focus:border-accent"
+          className="w-full rounded-xl border border-hairline bg-surface py-3 pr-3 pl-10 text-sm outline-none transition-colors focus:border-ink"
         />
       </div>
       <SegmentedControl
@@ -154,7 +151,9 @@ export function TransactionList({
     return (
       <div className="space-y-4">
         {searchBar}
-        <p className="py-6 text-center text-sm text-muted">No matching transactions.</p>
+        <p className="rounded-2xl border border-dashed border-hairline py-10 text-center text-sm text-muted">
+          No matching transactions.
+        </p>
       </div>
     );
   }
@@ -183,53 +182,58 @@ export function TransactionList({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {searchBar}
-      <div className="card divide-y divide-hairline overflow-hidden rounded-2xl border border-hairline">
-        {[...groups.entries()].map(([day, rows]) => (
-          <section key={day} className="space-y-1 px-4 py-3">
-            <h3 className="text-xs font-medium text-muted">{dayLabel(day)}</h3>
-            <ul className="divide-y divide-hairline">
-              {rows.map((it) => {
-                const pillColor = it.is_transfer ? "var(--muted)" : (it.category?.color ?? "var(--border)");
-                return (
-                <li key={it.id} className="py-2">
-                  <button
-                    type="button"
-                    onClick={() => setViewing(it)}
-                    className="block w-full truncate text-left text-sm hover:text-primary"
+      <div className="reveal card divide-y divide-hairline overflow-hidden rounded-2xl border border-hairline" style={{ ["--i" as string]: 1 }}>
+      {[...groups.entries()].map(([day, rows]) => (
+        <section key={day}>
+          <h3 className="bg-surface-2/60 px-4 py-2 text-xs font-semibold text-muted">{dayLabel(day)}</h3>
+          <ul className="divide-y divide-hairline">
+            {rows.map((it) => (
+              <li key={it.id}>
+                <button
+                  type="button"
+                  onClick={() => setViewing(it)}
+                  aria-labelledby={`txn-${it.id}-title`}
+                  aria-describedby={`txn-${it.id}-meta txn-${it.id}-amount`}
+                  className="press flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-surface-2"
+                >
+                  <CategoryIcon name={it.is_transfer ? "Transfer" : (it.category?.name ?? "")} size={36} />
+                  <span className="min-w-0 flex-1">
+                    <span id={`txn-${it.id}-title`} className="block truncate text-sm font-medium">
+                      {it.description || it.category?.name || "Transaction"}
+                    </span>
+                    <span id={`txn-${it.id}-meta`} className="block truncate text-xs text-muted">
+                      {it.is_transfer ? "Transfer" : (it.category?.name ?? "Uncategorized")}
+                    </span>
+                  </span>
+                  <span
+                    id={`txn-${it.id}-amount`}
+                    className={`shrink-0 text-sm font-medium tabular-nums ${it.direction === "credit" ? "text-pos" : ""}`}
                   >
-                    {it.description || it.category?.name || "Transaction"}
-                  </button>
-                  <div className="mt-1 flex items-center justify-between gap-2">
-                    <span className="inline-flex min-w-0 max-w-[65%] items-center gap-1.5 truncate rounded-full bg-surface-2 px-2 py-0.5 text-xs text-muted">
-                      <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: pillColor }} aria-hidden />
-                      <span className="truncate">
-                        {it.is_transfer ? "Transfer" : (it.category?.name ?? "Uncategorized")}
-                      </span>
-                    </span>
-                    <span
-                      className={`shrink-0 text-sm tabular-nums ${
-                        it.direction === "credit" ? "font-medium text-pos" : ""
-                      }`}
-                    >
-                      {it.direction === "debit" ? "−" : "+"}
-                      {formatMoney(it.amount, currency)}
-                    </span>
-                  </div>
-                </li>
-                );
-              })}
-            </ul>
-          </section>
-        ))}
+                    {it.direction === "debit" ? "−" : "+"}
+                    {formatMoney(it.amount, currency)}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
       </div>
 
       {viewing ? (
         <Overlay title="Transaction" onClose={() => setViewing(null)}>
-          <p className="text-sm">{viewing.description || viewing.category?.name || "Transaction"}</p>
-          {viewing.note ? <p className="mt-1 text-sm text-muted">{viewing.note}</p> : null}
-          <dl className="mt-3 space-y-1.5 text-sm">
+          <div className="flex items-center gap-3">
+            <CategoryIcon name={viewing.is_transfer ? "Transfer" : (viewing.category?.name ?? "")} size={44} />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium">
+                {viewing.description || viewing.category?.name || "Transaction"}
+              </p>
+              {viewing.note ? <p className="text-xs text-muted">{viewing.note}</p> : null}
+            </div>
+          </div>
+          <dl className="mt-4 divide-y divide-hairline rounded-xl border border-hairline text-sm [&>div]:px-3.5 [&>div]:py-2.5">
             <div className="flex justify-between gap-3">
               <dt className="text-muted">Date</dt>
               <dd className="text-right">{fullDateLabel(viewing.occurred_at)}</dd>
@@ -258,7 +262,7 @@ export function TransactionList({
                 setEditing(viewing);
                 setViewing(null);
               }}
-              className="flex-1 rounded-full border border-border px-3 py-2 text-sm font-medium hover:bg-surface-2"
+              className="press flex-1 rounded-xl border border-ink bg-surface px-3 py-3 text-sm font-medium hover:bg-surface-2"
             >
               Edit
             </button>
@@ -266,7 +270,7 @@ export function TransactionList({
               type="button"
               disabled={transferPending}
               onClick={() => toggleTransfer(viewing)}
-              className="flex-1 rounded-full border border-border px-3 py-2 text-sm font-medium hover:bg-surface-2 disabled:opacity-50"
+              className="press flex-1 rounded-xl border border-hairline bg-surface px-3 py-3 text-sm font-medium hover:bg-surface-2 disabled:opacity-50"
             >
               {viewing.is_transfer ? "Remove transfer" : "Mark as transfer"}
             </button>
@@ -295,7 +299,7 @@ export function TransactionList({
             type="button"
             disabled={pending}
             onClick={() => remove(editing.id, () => setEditing(null))}
-            className="mt-2 w-full rounded-lg border border-neg/40 px-3 py-2 text-sm text-neg disabled:opacity-50"
+            className="press mt-2 w-full rounded-xl border border-neg/30 px-3 py-3 text-sm font-medium text-neg hover:bg-signal-wash disabled:opacity-50"
           >
             Delete transaction
           </button>

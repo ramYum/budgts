@@ -38,6 +38,17 @@ npm run screenshot -- http://localhost:3000/budgets budgets-desktop
 npx puppeteer browsers install chrome
 ```
 
+## generate-app-icons.mjs
+
+Regenerates every app icon (manifest icons, maskable icons, the iOS
+apple-icon and the browser-tab icon) from the one pixel-robin source,
+`src/lib/brand/robin-art.ts`. Integer px-per-cell scales keep the pixel art
+crisp; maskable variants keep the bird inside the 80% safe zone.
+
+```
+node tools/generate-app-icons.mjs
+```
+
 ## sign-convention-remediation-dryrun.ts
 
 Read-only report for the one-time historical sign-convention migration
@@ -58,12 +69,3 @@ run against anything but the production Supabase project.
 npx tsx tools/sign-convention-remediation-dryrun.ts
 ```
 
-## optimize-brand-images.mjs
-
-Palette-compresses the brand PNGs (`public/brand/*`) and the app icons in
-place (sharp, visually lossless, ~70% smaller). Run once on freshly exported
-art only — see `docs/BRAND_GUIDELINES.md` and the header of the script.
-
-```
-node tools/optimize-brand-images.mjs
-```

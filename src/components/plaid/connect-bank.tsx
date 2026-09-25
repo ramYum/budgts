@@ -114,8 +114,8 @@ export function ConnectBank({
   const busy = phase === "starting" || phase === "exchanging";
   const btn =
     tone === "primary"
-      ? "rounded-full bg-primary-btn px-3 py-2 text-sm font-semibold text-on-primary-btn disabled:opacity-50"
-      : "rounded-full bg-primary-btn px-3 py-1.5 text-sm font-semibold text-on-primary-btn disabled:opacity-50";
+      ? "press rounded-xl bg-primary-btn px-4 py-3 text-sm font-medium text-on-primary-btn disabled:opacity-50"
+      : "press rounded-xl bg-primary-btn px-3.5 py-2 text-sm font-medium text-on-primary-btn disabled:opacity-50";
 
   return (
     <div className="space-y-2">

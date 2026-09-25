@@ -1,12 +1,25 @@
 import type { Metadata, Viewport } from "next";
-import { Poppins } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { SwRegister } from "@/components/sw-register";
 
-const poppins = Poppins({
-  variable: "--font-poppins",
-  weight: ["400", "500", "600", "700", "800"],
-  subsets: ["latin"],
+const geist = Geist({ variable: "--font-geist", subsets: ["latin"] });
+const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+
+// Dogica by Roberto Mocci, SIL Open Font License 1.1 (./fonts/dogica/OFL-*.txt).
+// Brand moments only: the wordmark and a few pixel tags.
+const dogicaBold = localFont({
+  src: "./fonts/dogica/dogicabold.ttf",
+  variable: "--font-dogica-bold",
+  display: "swap",
+  preload: true,
+});
+const dogicaPixel = localFont({
+  src: "./fonts/dogica/dogicapixel.ttf",
+  variable: "--font-dogica-pixel",
+  display: "swap",
+  preload: false,
 });
 
 export const metadata: Metadata = {
@@ -14,8 +27,7 @@ export const metadata: Metadata = {
     default: "Budgts",
     template: "%s · Budgts",
   },
-  description:
-    "Simple money tools, clear insights, and encouragement for a brighter tomorrow.",
+  description: "Track, plan and grow. A calm, precise budget for a brighter tomorrow.",
   applicationName: "Budgts",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
@@ -26,12 +38,15 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#fff8f0",
+  themeColor: "#f4f4f4",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${poppins.variable} h-full antialiased`}>
+    <html
+      lang="en"
+      className={`${geist.variable} ${geistMono.variable} ${dogicaBold.variable} ${dogicaPixel.variable} h-full antialiased`}
+    >
       <body className="flex min-h-full flex-col">
         {children}
         <SwRegister />

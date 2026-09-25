@@ -5,7 +5,7 @@ import type { SavingsActionState } from "@/server/savings";
 import { localDateKey } from "@/lib/local-date";
 
 const field =
-  "w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-accent";
+  "w-full rounded-xl border border-hairline bg-surface px-3.5 py-3 text-sm outline-none transition-colors focus:border-ink";
 const label = "block space-y-1 text-xs font-medium text-muted";
 
 /**
@@ -71,14 +71,14 @@ export function ContributionForm({
         <button
           type="submit"
           disabled={pending}
-          className="flex-1 rounded-full bg-primary-btn px-3 py-2 text-sm font-medium text-on-primary-btn disabled:opacity-50"
+          className="flex-1 press rounded-xl bg-primary-btn px-4 py-3 text-sm font-medium text-on-primary-btn disabled:opacity-50"
         >
           {pending ? "Saving…" : submitLabel}
         </button>
         <button
           type="button"
           onClick={onDone}
-          className="rounded-full border border-border px-3 py-2 text-sm"
+          className="press rounded-xl border border-hairline bg-surface px-3.5 py-3 text-sm"
         >
           Cancel
         </button>

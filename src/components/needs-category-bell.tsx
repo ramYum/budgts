@@ -43,7 +43,7 @@ export function NeedsCategoryBell({ count }: { count: number }) {
         <span
           data-testid="needs-category-count"
           aria-hidden
-          className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-[0.625rem] font-semibold leading-none text-on-primary"
+          className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center pip rounded-full bg-accent px-1 text-[0.625rem] font-semibold leading-none text-accent-ink"
         >
           {n > 9 ? "9+" : n}
         </span>

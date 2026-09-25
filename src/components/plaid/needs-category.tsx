@@ -12,7 +12,7 @@ import { groupUncategorized, type MerchantGroup, type UncategorizedTxn } from "@
 export type NeedsCategoryItem = UncategorizedTxn;
 
 const field =
-  "rounded-lg border border-border bg-surface px-2 py-1.5 text-sm outline-none focus:border-accent";
+  "rounded-lg border border-hairline bg-surface px-2.5 py-2 text-sm outline-none transition-colors focus:border-ink";
 
 const STD_PREFIX = "std:";
 const NEW_CATEGORY_VALUE = "__new__";
@@ -112,7 +112,7 @@ export function NeedsCategory({
     <section id="needs-category" className="scroll-mt-20 space-y-3">
       <div className="flex items-center justify-between gap-2">
         <h2 className="flex items-center gap-2 text-sm font-semibold">
-          <span className="h-4 w-1 shrink-0 rounded-full bg-tick" aria-hidden />
+          <span className="h-3.5 w-1 shrink-0 bg-accent" aria-hidden />
           Needs a category
           <span className="text-xs font-normal text-muted">
             ({visible.length} {visible.length === 1 ? "merchant" : "merchants"}
@@ -123,7 +123,7 @@ export function NeedsCategory({
           type="button"
           onClick={rescan}
           disabled={rescanning}
-          className="shrink-0 whitespace-nowrap rounded-lg border border-border px-2.5 py-1 text-xs font-medium hover:bg-surface-2 disabled:opacity-50"
+          className="shrink-0 whitespace-nowrap press rounded-lg border border-hairline bg-surface px-2.5 py-1.5 text-xs font-medium hover:bg-surface-2 disabled:opacity-50"
         >
           {rescanning ? "Re-scanning…" : "Re-scan"}
         </button>
@@ -152,7 +152,7 @@ export function NeedsCategory({
                   <button
                     type="button"
                     onClick={() => pick(group.key, group.anchorId, group.suggestedCategoryId!)}
-                    className="rounded-full border border-primary/30 bg-tint px-3 py-1 text-xs font-medium text-primary hover:border-primary/60"
+                    className="press rounded-lg border border-hairline bg-surface px-3 py-1.5 text-xs font-medium text-text hover:border-silver"
                   >
                     {suggestedName}
                   </button>

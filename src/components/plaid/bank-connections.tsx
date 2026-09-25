@@ -134,7 +134,7 @@ export async function BankConnections() {
   return (
     <section className="space-y-3">
       <h2 className="flex items-center gap-2 text-sm font-semibold">
-        <span className="h-4 w-1 shrink-0 rounded-full bg-tick" aria-hidden />
+        <span className="h-3.5 w-1 shrink-0 bg-accent" aria-hidden />
         Connected banks
       </h2>
 

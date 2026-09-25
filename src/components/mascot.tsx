@@ -1,38 +1,72 @@
-/** The brand's robin mascot — the real Logo Assets V2 artwork (see
- * docs/BRAND_GUIDELINES.md). Used to add a little encouragement to empty
- * states — per the brand voice: kind, encouraging, human. */
+import { ROBIN_ART, ROBIN_H, ROBIN_W, type RobinMood, type RobinRun } from "@/lib/brand/robin-art";
 
-// Each mood's actual pixel size (public/brand/mood-*.png) — passed as the
-// width/height attributes so the browser's placeholder aspect-ratio (used
-// before the image loads) matches the real art instead of a mismatched
-// square, which could otherwise show as the wrong edge getting clipped.
-const MOOD = {
-  normal: { src: "/brand/mood-normal.png", w: 163, h: 244 },
-  // "Happy" is the logo mark itself (docs/BRAND_GUIDELINES.md) — one file.
-  happy: { src: "/brand/logo-mark.png", w: 306, h: 288 },
-  curious: { src: "/brand/mood-curious.png", w: 251, h: 315 },
-  sleepy: { src: "/brand/mood-sleepy.png", w: 230, h: 242 },
-} as const;
+/** The Budgts robin, drawn as pixel art (src/lib/brand/robin-art.ts).
+ *
+ * Pure SVG, so it renders on the server and scales crisply at any size
+ * (shape-rendering: crispEdges). CSS brings it to life: the eye blinks and
+ * the chirp marks flicker (globals.css `robin-*`), and the mascot hops on
+ * hover. Moods swap a few cells: `sleepy` closes the eye and trades the chirp
+ * for "z", `curious` trades it for a "?". */
 
+export const ROBIN_ASPECT = ROBIN_W / ROBIN_H;
+
+function Rects({ list }: { list: RobinRun[] }) {
+  return (
+    <>
+      {list.map((r) => (
+        <rect key={`${r.x},${r.y}`} x={r.x} y={r.y} width={r.w} height={1} fill={r.fill} />
+      ))}
+    </>
+  );
+}
+
+/** Bare robin art. `size` is the rendered height in px. */
+export function Robin({
+  mood = "normal",
+  size = 56,
+  animated = true,
+  className,
+  title,
+}: {
+  mood?: RobinMood;
+  size?: number;
+  animated?: boolean;
+  className?: string;
+  title?: string;
+}) {
+  const art = ROBIN_ART[mood];
+  return (
+    <svg
+      viewBox={`-1 -1 ${ROBIN_W} ${ROBIN_H}`}
+      width={Math.round(size * ROBIN_ASPECT)}
+      height={size}
+      shapeRendering="crispEdges"
+      className={`inline-block shrink-0 ${className ?? ""}`}
+      role={title ? "img" : undefined}
+      aria-hidden={title ? undefined : true}
+      aria-label={title}
+    >
+      <Rects list={art.body} />
+      <g className={animated && mood !== "sleepy" ? "robin-eye" : undefined}>
+        <Rects list={art.eye} />
+      </g>
+      <g className={animated ? "robin-chirp" : undefined}>
+        <Rects list={art.extra} />
+      </g>
+    </svg>
+  );
+}
+
+/** The robin as a mascot beside copy: empty states, greetings, nudges.
+ * `size` is the rendered width in px. */
 export function Mascot({
   mood = "normal",
   size = 56,
   className,
 }: {
-  mood?: keyof typeof MOOD;
+  mood?: RobinMood;
   size?: number;
   className?: string;
 }) {
-  const { src, w, h } = MOOD[mood];
-  return (
-    // eslint-disable-next-line @next/next/no-img-element -- fixed brand raster, decorative
-    <img
-      src={src}
-      alt=""
-      width={w}
-      height={h}
-      className={className}
-      style={{ width: size, height: "auto" }}
-    />
-  );
+  return <Robin mood={mood} size={Math.round(size / ROBIN_ASPECT)} className={`robin-hop ${className ?? ""}`} />;
 }

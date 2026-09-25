@@ -20,7 +20,7 @@ type Mode = "new" | "existing" | "ignore";
 type Row = { mode: Mode; name: string; type: AccountType; existingAccountId: string };
 
 const field =
-  "w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm outline-none focus:border-accent";
+  "w-full rounded-xl border border-hairline bg-surface px-3.5 py-3 text-sm outline-none transition-colors focus:border-ink";
 
 /** Shared with ConnectToggle (connected-banks.tsx) — the minimal shape both
  * the bulk mapping form and the per-account quick-connect switch need to
@@ -92,7 +92,7 @@ export function AccountMapping({
         <button
           type="button"
           onClick={onDone}
-          className="w-full rounded-full bg-primary-btn px-3 py-2 text-sm font-medium text-on-primary-btn"
+          className="w-full press rounded-xl bg-primary-btn px-4 py-3 text-sm font-medium text-on-primary-btn"
         >
           Done
         </button>
@@ -184,7 +184,7 @@ export function AccountMapping({
       <button
         type="submit"
         disabled={pending}
-        className="w-full rounded-full bg-primary-btn px-3 py-2 text-sm font-medium text-on-primary-btn disabled:opacity-50"
+        className="w-full press rounded-xl bg-primary-btn px-4 py-3 text-sm font-medium text-on-primary-btn disabled:opacity-50"
       >
         {pending ? "Saving…" : "Import transactions"}
       </button>

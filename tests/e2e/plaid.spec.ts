@@ -51,14 +51,14 @@ async function waitForSyncedTransactions(page: Page) {
   await expect(async () => {
     await page.goto("/transactions");
     const empty = page.getByText("No transactions this month yet.");
-    if (!(await empty.isVisible())) return;
+    const list = page.getByRole("searchbox", { name: "Search transactions" }); // rendered only when there are rows
+    await expect(empty.or(list)).toBeVisible(); // wait for the page to settle; isVisible() alone is instantaneous
+    if (await list.isVisible()) return;
 
     await page.goto("/connected-banks");
     await page.getByRole("button", { name: "Sync now" }).click();
     await expect(page.getByRole("button", { name: "Sync now" })).toBeVisible(); // not "Syncing…"
     await expect(page.getByText(/^Synced.$|already running|just finished/)).toBeVisible();
-    await page.goto("/transactions");
-    await expect(empty).toHaveCount(0, { timeout: 1000 });
   }).toPass({ timeout: 150_000, intervals: [0, 2_000, 5_000] });
 }
 
@@ -96,6 +96,7 @@ test("connect a bank, map an account, import, categorize, disconnect, history re
     // --- Import: first sync runs as part of mapping; retry for Sandbox lag ---
     await waitForSyncedTransactions(page);
     await expect(page.getByText("No transactions this month yet.")).toHaveCount(0);
+    await expect(page.getByRole("searchbox", { name: "Search transactions" })).toBeVisible();
 
     // --- Categorize an ambiguous ("Needs a category") transaction ---
     // Assert by row *count*, not merchant text: Plaid Sandbox's canned

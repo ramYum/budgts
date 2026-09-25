@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Play } from "@phosphor-icons/react/dist/ssr";
 import { NavIcon, type NavGlyph } from "@/components/nav-icons";
 import { InstallApp } from "@/components/install-app";
 import { Robin } from "@/components/mascot";
@@ -29,6 +30,27 @@ export default function MorePage() {
   return (
     <div className="space-y-6 pt-1">
       <h1 className="text-xl font-semibold">More</h1>
+
+      {/* Replays the welcome guide (/tour without ?new=1 opens with Crystal's
+       * introduction; finishing or skipping it lands back on Home). */}
+      <Link
+        href="/tour"
+        className="press lift card flex items-center gap-3.5 rounded-2xl border border-hairline p-4"
+      >
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-signal-wash">
+          <Robin size={30} />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-semibold text-text">Play welcome guide</span>
+          <span className="mt-0.5 block text-xs text-muted">A one-minute tour with Crystal.</span>
+        </span>
+        <span
+          aria-hidden
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-btn text-on-primary-btn"
+        >
+          <Play weight="fill" className="h-4 w-4" />
+        </span>
+      </Link>
 
       <InstallApp />
 

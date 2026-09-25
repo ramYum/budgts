@@ -60,6 +60,12 @@ test("welcome guide: a new user meets Crystal, walks every card, lands on Home, 
     await page.getByRole("link", { name: "Replay the welcome guide" }).click();
     await expect(page).toHaveURL(/\/tour$/);
     await expect(page.getByRole("heading", { name: "Hi, I'm Crystal." })).toBeVisible();
+
+    // …and from the Play welcome guide button on More.
+    await page.goto("/more");
+    await page.getByRole("link", { name: /^Play welcome guide/ }).click();
+    await expect(page).toHaveURL(/\/tour$/);
+    await expect(page.getByRole("heading", { name: "Hi, I'm Crystal." })).toBeVisible();
   } finally {
     await deleteTestUser(user.id);
   }

@@ -39,9 +39,12 @@ test("set a budget, then the dashboard shows budget-vs-actual and savings", asyn
     await addTransaction(page, "340.00", "Food / Groceries");
 
     // Dashboard: spent tile + a near-budget bar with $60 left, negative net savings.
+    // Wait for Home itself: without the URL check these assertions could pass
+    // against the still-visible Activity page mid-navigation.
     await page.getByRole("link", { name: "Home" }).click();
+    await page.waitForURL((u) => u.pathname === "/");
     await expect(page.getByText("$340.00").first()).toBeVisible();
-    await expect(page.getByText("Food / Groceries")).toBeVisible();
+    await expect(page.getByRole("link", { name: /Food \/ Groceries/ })).toBeVisible();
     // "$60.00 left" now also appears as a substring of the hero card's
     // "$60.00 left of $400.00 budgeted · …" line; this asserts the budget-vs-actual bar row.
     await expect(page.getByText("$60.00 left", { exact: true })).toBeVisible();
@@ -50,6 +53,7 @@ test("set a budget, then the dashboard shows budget-vs-actual and savings", asyn
     // Push it over budget.
     await addTransaction(page, "100.00", "Food / Groceries");
     await page.getByRole("link", { name: "Home" }).click();
+    await page.waitForURL((u) => u.pathname === "/");
     await expect(page.getByText(/Over by \$40\.00/)).toBeVisible();
   } finally {
     await deleteTestUser(user.id);

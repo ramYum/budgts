@@ -59,6 +59,7 @@ async function waitForSyncedTransactions(page: Page) {
     await page.getByRole("button", { name: "Sync now" }).click();
     await expect(page.getByRole("button", { name: "Sync now" })).toBeVisible(); // not "Syncing…"
     await expect(page.getByText(/^Synced.$|already running|just finished/)).toBeVisible();
+    throw new Error("still no transactions after that sync; checking again"); // toPass re-checks the list
   }).toPass({ timeout: 150_000, intervals: [0, 2_000, 5_000] });
 }
 

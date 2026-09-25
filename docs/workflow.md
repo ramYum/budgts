@@ -968,3 +968,14 @@ On hiatus as of 2026-09-25 (paused, not abandoned): Budgts is currently a person
   unmount a "first sync didn't finish" warning. New e2e "an edit costs exactly one
   server render" (1 action POST, 0 RSC refetches) — it fails on the old code (one extra
   `?_rsc=` refetch) and passes on the new.
+- **2026-09-25 — Brand images and icons ~71% smaller.** Every brand PNG and app icon
+  is now a 256-colour palette PNG at the same path and native size
+  (`tools/optimize-brand-images.mjs`): 1,295,376 B → 371,350 B; the sign-in hero (LCP)
+  278.6 KB → 82.3 KB with `fetchPriority="high"`. `mood-happy.png` was byte-identical to
+  `logo-mark.png` and is deleted (Happy uses the mark). Checked on a staging build with
+  element screenshots at 3x DPR: 44–59 dB PSNR vs before, visually identical.
+  Right-sizing the wordmark (180w/360w) was tried and rejected — visibly softer in
+  Chrome than the browser shrinking the full export — so sizes stay native.
+  Verified on final HEAD (throwaway worktree, staging env only): typecheck, 819 unit
+  tests, eslint (0 errors; 3 pre-existing warnings), build, 12/12 e2e (+ `plaid.spec`
+  against a local staging-wired server), 109 DB-integration, 6 Plaid Sandbox.

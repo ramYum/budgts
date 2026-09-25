@@ -226,5 +226,6 @@ displayed → categorize → merchant rule remembered → disconnect → history
 - The free Supabase project **pauses after 7 idle days**; the dashboard has a
   one-click restore. Use the CSV export as a backup.
 - Vercel Hobby is personal / non-commercial only.
-- PNG icons: the manifest currently uses SVG icons, which modern Android/Chrome
-  accept. For best iOS home-screen results, generate 192/512 PNGs later.
+- Icons: the manifest uses PNG icons (192/512, `any` + `maskable`) plus
+  `src/app/icon.png` / `apple-icon.png`, all palette-compressed by
+  `tools/optimize-brand-images.mjs` (see `docs/BRAND_GUIDELINES.md`).

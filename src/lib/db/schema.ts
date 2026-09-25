@@ -327,8 +327,15 @@ export const plaidItems = pgTable(
     transactionsCursor: text("transactions_cursor"),
     status: plaidItemStatus("status").notNull().default("active"),
     errorCode: text("error_code"),
-    // set by the webhook, cleared by the poller
+    // durable "work pending" flag: set by the webhook (and exchange), cleared
+    // only when a claimed sync is released with no newer webhook since the
+    // claim (src/lib/plaid/sync-runner.ts). Survives a crashed run.
     needsSync: boolean("needs_sync").notNull().default(false),
+    // per-item sync lease (src/lib/plaid/item-store.ts claimItemForSync): at
+    // most one sync runs per Item; an expired lease (crashed holder) is
+    // reclaimable. Both null = not claimed.
+    syncClaimToken: uuid("sync_claim_token"),
+    syncClaimedAt: timestamp("sync_claimed_at", { withTimezone: true }),
     lastWebhookAt: timestamp("last_webhook_at", { withTimezone: true }),
     lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
     // last time Budgts asked Plaid to check the institution now (design: page-open
@@ -341,7 +348,7 @@ export const plaidItems = pgTable(
   },
   (t) => [
     index("plaid_items_user_idx").on(t.userId),
-    // the poller scans for items that need a sync
+    // the reconciliation sweep scans for items that need a sync
     index("plaid_items_needs_sync_idx").on(t.needsSync).where(sql`${t.needsSync}`),
   ],
 );

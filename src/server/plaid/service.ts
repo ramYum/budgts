@@ -13,11 +13,10 @@ import { plaidItems } from "@/lib/db/schema";
 import { plaidClient } from "@/lib/plaid/client";
 import { loadPlaidConfig } from "@/lib/plaid/config";
 import { decryptToken } from "@/lib/plaid/crypto";
-import { findUserItem, type PlaidItemRecord } from "@/lib/plaid/item-store";
-import { syncItem as runItemSync, type SyncItemResult } from "@/lib/plaid/sync-item";
+import { findUserItem } from "@/lib/plaid/item-store";
+import { drainItem, plaidSyncRunnerDeps, type SyncRunnerDeps } from "@/lib/plaid/sync-runner";
 
 export const plaidDb = db;
-export type { SyncItemResult };
 
 /** Throttle for {@link nudgeRefresh} — see its docstring. */
 export const REFRESH_THROTTLE_MS = 25 * 60 * 1000;
@@ -27,7 +26,7 @@ export const REFRESH_THROTTLE_MS = 25 * 60 * 1000;
  * (`/transactions/refresh`), throttled to once per `REFRESH_THROTTLE_MS` per
  * Item. Called from page loads via `after()` so it never blocks rendering —
  * it's a nudge, not a wait: if Plaid finds anything new it arrives via the
- * existing webhook -> needs_sync -> poller path, same as any other update.
+ * existing webhook -> claimed sync path (sync-runner.ts), same as any other update.
  *
  * The throttle matters for two reasons, not just Plaid's own rate limits: some
  * institutions (Item Debugger calls this "Classic" integration) refresh via a
@@ -84,6 +83,24 @@ export async function accessTokenForUserItem(userId: string, itemId: string): Pr
   return decryptToken(item.accessTokenEnc, loadPlaidConfig().tokenEncKey);
 }
 
-export function syncItem(item: PlaidItemRecord): Promise<SyncItemResult> {
-  return runItemSync({ db, client: plaidClient(), item, tokenEncKey: loadPlaidConfig().tokenEncKey });
+/** The sync runner's deps over the real singletons. */
+export function syncRunner(): SyncRunnerDeps {
+  return plaidSyncRunnerDeps({ db, client: plaidClient(), tokenEncKey: loadPlaidConfig().tokenEncKey });
+}
+
+/**
+ * Time budget for background sync work inside one invocation. Kept well under
+ * the Plaid routes' `maxDuration` (300s) so an in-flight Item finishes before
+ * the platform kills the function; whatever is left stays `needs_sync` for the
+ * next trigger or the sweep.
+ */
+export const SYNC_BUDGET_MS = 200_000;
+
+/** Background drain of one Item's pending work (webhook, and follow-up pages
+ * after a user-requested sync). Never throws — it runs inside `after()`. */
+export async function drainItemInBackground(itemId: string): Promise<void> {
+  const deps = syncRunner();
+  await drainItem(deps, itemId, { kind: "due" }, deps.now() + SYNC_BUDGET_MS).catch((e) =>
+    console.error("[plaid] background drain failed", { itemId, message: e instanceof Error ? e.message : "non-Error" }),
+  );
 }

@@ -201,7 +201,18 @@ institutions are used — Sandbox `ins_109508` is not.)
 Supabase SQL editor run `supabase/staging-plaid-cron.sql` with `{{DEPLOY_URL}}`
 and `{{CRON_SECRET}}` filled in. Verify with the queries at the bottom of that
 file — a `net._http_response` row with `status_code = 200` and an item's
-`needs_sync` flipping back to `false` on its own.
+`needs_sync` flipping back to `false` on its own (within 10 minutes).
+
+Since 2026-09-25 that job is a **10-minute reconciliation sweep**, not the sync
+driver: a Plaid webhook syncs its Item straight away (`after()` in
+`/api/plaid/webhook`, through the per-Item lease in
+`src/lib/plaid/sync-runner.ts`); the sweep retries failed syncs, recovers runs
+killed mid-way (expired lease) and backstops Items silent for 6h. Both routes
+declare `maxDuration = 300`, which needs Vercel **Fluid compute** (the default
+for current projects; Hobby's non-fluid ceiling is 60s). An environment still
+on the old 30s schedule is moved with the `cron.alter_job` snippet at the
+bottom of `supabase/staging-plaid-cron.sql` — only after the sweep build and
+migration `0017` are live there.
 
 **6. Acceptance chain** (owner, by hand, on the deploy origin):
 login → Connect a bank → Plaid Sandbox → map account → transactions imported →

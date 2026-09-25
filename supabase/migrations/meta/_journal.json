@@ -120,6 +120,13 @@
       "when": 1789586889475,
       "tag": "0016_classy_maginty",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1790340176686,
+      "tag": "0017_thin_goblin_queen",
+      "breakpoints": true
     }
   ]
 }

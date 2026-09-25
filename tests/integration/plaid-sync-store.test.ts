@@ -83,7 +83,7 @@ afterAll(async () => {
 });
 
 describe("PlaidSyncStore.applyPlan (staging Postgres)", () => {
-  it("inserts a normalized bank txn with every Plaid column, and advances the cursor + clears needs_sync", async () => {
+  it("inserts a normalized bank txn with every Plaid column, and advances the cursor (needs_sync is left to the claim release)", async () => {
     const res = await store.applyPlan(userId, plan({ inserts: [txn()] }), meta("cursor-1"));
     expect(res).toEqual({ inserts: 1, updates: 0, softDeletes: 0 });
 
@@ -112,7 +112,9 @@ describe("PlaidSyncStore.applyPlan (staging Postgres)", () => {
 
     const [item] = await client`select transactions_cursor, needs_sync, last_synced_at, sync_failures from public.plaid_items where item_id = ${ITEM_ID}`;
     expect(item.transactions_cursor).toBe("cursor-1");
-    expect(item.needs_sync).toBe(false);
+    // Seeded true; applyPlan no longer settles it — releaseSyncClaim does,
+    // since only it can see a webhook that arrived mid-sync.
+    expect(item.needs_sync).toBe(true);
     expect(item.last_synced_at).not.toBeNull();
     expect(item.sync_failures).toBe(0);
   });

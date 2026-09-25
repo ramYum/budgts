@@ -328,6 +328,7 @@ On hiatus as of 2026-09-25 (paused, not abandoned): Budgts is currently a person
 | ~~Rotate the DB password / Google client secret~~ | done | Intentionally skipped for this personal project (owner's call, 2026-09-09). Not a pending task. |
 | ~~Vercel project + deploy~~ | done | **2026-09-09** — `main` pushed, Vercel project live at `https://budgts.com` (custom domain via Cloudflare DNS), env vars + Supabase auth URLs set. See `docs/deploy.md` "Current deployment" + memory `deployment.md`. |
 | Verify on real devices | owner | `deploy.md` step 5 — install the PWA on a phone, sign in via magic link + Google, add a transaction, confirm it syncs to a second device. **2026-09-15: everything automatable is verified on `https://budgts.com`** (Chromium, Pixel 7 emulation): installable with zero installability errors (checked in a normal profile — Playwright's default incognito context always reports `in-incognito`), SW registers + controls the page, manifest "Budgts" / standalone / scope `/`, both 512×512 PNG icons (any + maskable), `apple-touch-icon` + iOS web-app meta + theme-color present, offline navigation falls back to `/offline`, no console errors. **Still owner-only:** the physical install on an Android phone (Chrome → Install app) and an iPhone (Safari → Add to Home Screen), sign-in inside the installed app, and cross-device Realtime sync. |
+| **Prod rollout: Plaid sync lease + 10-min sweep** | owner | Order: (1) apply migration `0017` to production (additive nullable columns; the running build ignores them); (2) deploy the build — webhooks start syncing immediately, the 30s job keeps running harmlessly (every run now takes the lease); (3) `cron.alter_job(... schedule := '*/10 * * * *')` per `supabase/staging-plaid-cron.sql`. Confirm the Vercel project uses Fluid compute (`maxDuration = 300`). Rollback: re-schedule `'30 seconds'`, redeploy the previous build, then drop the two columns. |
 | Apple Developer + Google Play accounts | on hold | Native-apps track on hiatus since 2026-09-25; enroll only when it resumes. |
 | ~~Plaid account + Production application~~ | done | Milestone 10 happened — Plaid Production access obtained, `NEXT_PUBLIC_PLAID_ENABLED` on in Vercel prod, 3 real bank connections live (Capital One, SoFi, Advancial) since 2026-09-11. Not captured in a commit/doc at the time; retroactively documented 2026-09-14. |
 | ~~Owner's authenticated smoke-test pass on budgts.com~~ | done | **2026-09-15**, run by Claude against production with owner authorization (scripted Playwright, magic-link `token_hash` sign-in). **Throwaway user: 22/22** — callback → onboarding → Home, all 15 app routes load clean, add a transaction, Home reflects it, CSV export includes it, user deleted. **All 3 Plaid-connected accounts** (owner-confirmed as theirs: one with Capital One + SoFi + Advancial, one SoFi-only, one Advancial-only), **read-only** (navigation only; any non-GET / server-action request aborted — none attempted): Money Left + savings rate on Home, Activity lists transactions, Budgets category cards, Insights, every institution on Connected Banks, and the "Exclude from totals" control shown for the two flagged Advancial accounts. Result in the real browser zone (America/New_York): passed apart from **React #418 hydration errors** on `/connected-banks` and `/transactions` (see next row); the same pass with the browser forced to UTC: **74/74**. Categorization correctness was not separately checked (only that transactions render). Also fixed the stale `tests/e2e/smoke.spec.ts` manifest assertion (`Budgt` → `Budgts`; 5/5 against prod). |
@@ -932,3 +933,22 @@ On hiatus as of 2026-09-25 (paused, not abandoned): Budgts is currently a person
   rules" in `docs/conventions.md`; CLAUDE.md tour/V1/V1.5 status, env vars, commands,
   layout and the Drizzle-at-runtime reality corrected. Verified with read-only schema
   probes that migrations `0014`–`0016` are applied on production and staging.
+- **2026-09-25 — Plaid sync: event-driven with a per-Item lease; the 30s poll becomes a
+  10-min sweep.** Trace: webhook → `needs_sync` → (up to 30s later) `sync-due` →
+  `syncItem`, with user actions calling `syncItem` directly — no lock, so a webhook-era
+  poll, an overlapping poll and "Sync now" could sync one Item concurrently, and
+  `applyPlan` cleared `needs_sync` unconditionally (a webhook landing mid-sync was lost;
+  a page-capped sync also cleared it, stranding the remaining pages until the 6h
+  backstop). Now: migration `0017` adds `plaid_items.sync_claim_token/sync_claimed_at`;
+  `claimItemForSync` is one conditional `UPDATE … RETURNING` (10-min lease),
+  `releaseSyncClaim` is token-fenced and settles `needs_sync` (kept on failure, pages
+  left, or a webhook after the claim). `src/lib/plaid/sync-runner.ts` is the single
+  sync path: the webhook drains its Item in `after()`, user actions take a `requested`
+  claim, `sync-due` is a time-bounded sweep (`maxDuration = 300`). Items with an
+  `unmapped` account are never claimable — previously the poller could sync a freshly
+  exchanged Item before the user mapped it, skipping those rows past the cursor.
+  Proven on staging: `tests/integration/plaid-item-store.test.ts` (held-lock and 8-way
+  concurrent claims → exactly one winner, lease expiry, token fencing, webhook-mid-run,
+  unmapped guard) + `npm run test:plaid`. Applied `0017` to **staging only**. Production
+  rollout (migration, deploy, `cron.alter_job` to `*/10 * * * *`) is an owner step —
+  see §6.

@@ -1,6 +1,6 @@
 /**
  * Plaid-integration + DB: the whole ingestion path with real Sandbox data.
- *   Sandbox Item  ->  encrypted plaid_items row  ->  syncItem()
+ *   Sandbox Item  ->  encrypted plaid_items row  ->  runClaimedSync() (lease -> syncItem -> release)
  *   ->  runSync -> adapter -> apply-sync -> PlaidSyncStore  ->  staging Postgres
  *
  * This is the "E2E transaction flow" minus the browser UI.
@@ -8,7 +8,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { encryptToken } from "@/lib/plaid/crypto";
 import { findItemByPlaidItemId } from "@/lib/plaid/item-store";
-import { syncItem } from "@/lib/plaid/sync-item";
+import { plaidSyncRunnerDeps, runClaimedSync } from "@/lib/plaid/sync-runner";
 import { loadPlaidConfig } from "@/lib/plaid/config";
 import { MERCHANT_KNOWLEDGE } from "@/lib/plaid/merchant-knowledge";
 import { normalizeMerchantName } from "@/lib/plaid/merchant-name";
@@ -64,12 +64,21 @@ async function bankRows() {
   return pg`select * from public.transactions where user_id = ${userId} and source = 'bank' order by occurred_at`;
 }
 
+/** The production path: the same per-Item lease every trigger uses. */
+async function claimedSync() {
+  const out = await runClaimedSync(plaidSyncRunnerDeps({ db, client, tokenEncKey }), sandbox.itemId, { kind: "requested" });
+  if (!out.claimed) throw new Error("claim not granted");
+  const [lease] = await pg`select sync_claim_token from public.plaid_items where item_id = ${sandbox.itemId}`;
+  expect(lease.sync_claim_token).toBeNull(); // released
+  return out.result;
+}
+
 describe("syncItem against real Sandbox data (staging Postgres)", () => {
   it("lands real bank transactions on the first sync and advances the cursor", async () => {
     const item = await findItemByPlaidItemId(db, sandbox.itemId);
     expect(item).not.toBeNull();
 
-    const res = await syncItem({ db, client, item: item!, tokenEncKey });
+    const res = await claimedSync();
     expect(res.ok).toBe(true);
     if (!res.ok) return;
     expect(res.inserts).toBeGreaterThan(0);
@@ -99,7 +108,7 @@ describe("syncItem against real Sandbox data (staging Postgres)", () => {
 
     const [pItem] = await pg`select transactions_cursor, needs_sync, last_synced_at from public.plaid_items where item_id = ${sandbox.itemId}`;
     expect(pItem.transactions_cursor).toBe(res.cursor);
-    expect(pItem.needs_sync).toBe(false);
+    expect(pItem.needs_sync).toBe(false); // released with no webhook since the claim
     expect(pItem.last_synced_at).not.toBeNull();
   });
 
@@ -132,9 +141,8 @@ describe("syncItem against real Sandbox data (staging Postgres)", () => {
   });
 
   it("a second sync from the stored cursor is a no-op (idempotent)", async () => {
-    const item = await findItemByPlaidItemId(db, sandbox.itemId);
     const before = (await bankRows()).length;
-    const res = await syncItem({ db, client, item: item!, tokenEncKey });
+    const res = await claimedSync();
     expect(res.ok).toBe(true);
     if (!res.ok) return;
     expect(res.inserts).toBe(0);

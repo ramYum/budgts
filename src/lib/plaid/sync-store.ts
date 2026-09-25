@@ -197,7 +197,8 @@ export function createPlaidSyncStore(db: PlaidDb): PlaidSyncStore {
             transactionsCursor: meta.cursor,
             lastSyncedAt: sql`now()`,
             updatedAt: sql`now()`,
-            needsSync: false,
+            // needs_sync is settled by releaseSyncClaim (item-store.ts), which
+            // can see whether a webhook arrived while this sync ran.
             syncFailures: 0,
             status: "active",
             errorCode: null,

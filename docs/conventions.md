@@ -270,6 +270,17 @@ failure there names the rule it protects.
     (`/_next/static/`); un-hashed files (`/brand/*`, icons) are
     stale-while-revalidate. Bump `CACHE` in `public/sw.js` when its strategy
     changes.
+11. **Plaid sync is event-driven, one run per Item.** Every sync — the webhook
+    (right after its 200, via `after()`), Sync now / account mapping / resume
+    import, and the `/api/plaid/sync-due` reconciliation sweep (pg_cron every
+    10 min) — goes through `src/lib/plaid/sync-runner.ts`, which takes the
+    Item's lease (`claimItemForSync`: one conditional `UPDATE … RETURNING`,
+    10-min expiry) before syncing and releases it after. Never call
+    `syncItem()` directly, and don't add a faster poll: latency comes from the
+    webhook, the sweep is only for failed/killed runs and lost webhooks.
+    `needs_sync` is the durable queue flag; only `releaseSyncClaim` clears it.
+    An Item with an `unmapped` account is never claimable (a sync would skip
+    those rows and advance the cursor past them for good).
 
 **If it gets slow again, look at:** Vercel → Observability / Logs for the
 slow route's function duration; Supabase → Query Performance (slowest and

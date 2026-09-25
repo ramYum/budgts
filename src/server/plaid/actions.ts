@@ -13,7 +13,9 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { standardCategory } from "@/lib/categories/standard";
-import { findItemByPlaidItemId } from "@/lib/plaid/item-store";
+import { after } from "next/server";
+import { claimMissReason, findItemByPlaidItemId } from "@/lib/plaid/item-store";
+import { runClaimedSync } from "@/lib/plaid/sync-runner";
 import { recategorizeUncategorizedBankTxns } from "@/lib/plaid/recategorize";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import {
@@ -26,7 +28,7 @@ import {
 } from "@/lib/validation/plaid";
 import { setAccountCalculationExclusion } from "./account-exclusion";
 import { disconnectPlaidItem } from "./disconnect";
-import { plaidDb, syncItem } from "./service";
+import { drainItemInBackground, plaidDb, syncRunner } from "./service";
 
 export type PlaidActionState = {
   error?: string;
@@ -37,6 +39,31 @@ export type PlaidActionState = {
 
 function revalidateSynced() {
   for (const p of ["/", "/transactions", "/settings", "/budgets"]) revalidatePath(p);
+}
+
+/**
+ * A user-requested sync of an Item the caller was already confirmed to own,
+ * through the same per-Item lease as the webhook and the sweep. Any pages
+ * left over (page cap) keep draining after the response.
+ */
+async function syncOwnedItem(
+  itemId: string,
+): Promise<{ kind: "synced" } | { kind: "failed" } | { kind: "not_started"; message: string }> {
+  const out = await runClaimedSync(syncRunner(), itemId, { kind: "requested" });
+  if (!out.claimed) {
+    const reason = await claimMissReason(plaidDb, itemId);
+    return {
+      kind: "not_started",
+      message:
+        reason === "unmapped"
+          ? "Choose where this bank's new accounts go first — then it will sync."
+          : reason === "gone"
+            ? "That bank connection no longer exists."
+            : "A sync for this bank is already running — new transactions will appear in a moment.",
+    };
+  }
+  if (out.result.ok && out.morePending) after(() => drainItemInBackground(itemId));
+  return out.result.ok ? { kind: "synced" } : { kind: "failed" };
 }
 
 async function withUser() {
@@ -67,9 +94,10 @@ export async function syncConnection(itemId: string): Promise<PlaidActionState> 
     return { error: "That bank connection no longer exists." };
   }
 
-  const result = await syncItem(record);
+  const sync = await syncOwnedItem(record.itemId);
   revalidateSynced();
-  if (!result.ok) {
+  if (sync.kind === "not_started") return { ok: true, warning: sync.message };
+  if (sync.kind === "failed") {
     return { ok: true, warning: "Connected, but the first sync didn't finish. It'll retry shortly." };
   }
   return { ok: true };
@@ -128,9 +156,10 @@ export async function mapAccounts(
   // First sync — so transactions are on screen when the user lands back.
   const record = await findItemByPlaidItemId(plaidDb, item.item_id);
   if (record && record.userId === user.id) {
-    const result = await syncItem(record);
+    const sync = await syncOwnedItem(record.itemId);
     revalidateSynced();
-    if (!result.ok) {
+    if (sync.kind === "not_started") return { ok: true, warning: `Accounts saved. ${sync.message}` };
+    if (sync.kind === "failed") {
       return { ok: true, warning: "Accounts saved. The first sync didn't finish — it'll retry shortly." };
     }
     return { ok: true };
@@ -264,9 +293,10 @@ export async function setAccountImportingAction(
       .maybeSingle();
     const record = item ? await findItemByPlaidItemId(plaidDb, item.item_id) : null;
     if (record && record.userId === user.id) {
-      const result = await syncItem(record);
+      const sync = await syncOwnedItem(record.itemId);
       revalidateSynced();
-      if (!result.ok) {
+      if (sync.kind === "not_started") return { ok: true, warning: `Importing resumed. ${sync.message}` };
+      if (sync.kind === "failed") {
         return { ok: true, warning: "Importing resumed. The first sync didn't finish — it'll retry shortly." };
       }
     }

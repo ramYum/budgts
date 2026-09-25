@@ -149,4 +149,17 @@ describe("performance guardrails", () => {
     expect(sw).toMatch(/startsWith\("\/_next\/static\/"\)\)\s*\{/);
     expect(imageBranch.slice(0, imageBranch.indexOf("return;"))).toMatch(/waitUntil\(/);
   });
+
+  // Rule 11: every Plaid sync goes through the per-Item lease (sync-runner.ts),
+  // so the webhook, the user's actions and the sweep can never sync one Item
+  // twice at once. A direct syncItem() call would bypass the claim.
+  it("only the sync runner calls syncItem, and the Plaid sync routes bound their duration", () => {
+    const callers = sourceFiles(SRC)
+      .filter((p) => /from\s+["'][^"']*sync-item["']/.test(code(p)) && /\bsyncItem\b/.test(code(p)))
+      .map(rel);
+    expect(callers).toEqual(["src/lib/plaid/sync-runner.ts"]);
+    for (const route of ["sync-due", "webhook"]) {
+      expect(code(join(SRC, "app", "api", "plaid", route, "route.ts"))).toMatch(/export const maxDuration = \d+/);
+    }
+  });
 });

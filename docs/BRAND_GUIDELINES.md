@@ -92,6 +92,12 @@ off under `prefers-reduced-motion`. The one exception is the sign-in ticker's
 typing, which steps the width and caret color of an absolutely positioned
 line, so nothing around it reflows.
 
+Entrance animations fill `backwards`, never `both`/`forwards`. A held end
+keyframe leaves an identity transform on the element, which traps every
+`position: fixed` descendant: the bottom sheets then open inside the page,
+off-screen, instead of on the screen. `tests/unit/motion-guardrails.test.ts`
+enforces this.
+
 | Motion | Meaning |
 | --- | --- |
 | `page-enter` (screen rises in) | A new screen arrived |

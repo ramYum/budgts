@@ -39,7 +39,18 @@ test("sign in, onboard, add a transaction, edit it, delete it", async ({ page })
 
     // Open the detail popup, then edit from there.
     await page.getByRole("button", { name: "Groceries test" }).click();
-    await expect(page.getByRole("dialog", { name: "Transaction" })).toBeVisible();
+    const detail = page.getByRole("dialog", { name: "Transaction" });
+    await expect(detail).toBeVisible();
+    // The sheet sits on the screen, not inside the page: its backdrop covers
+    // the whole viewport. (A leftover entrance-animation transform once
+    // trapped it in the page; see tests/unit/motion-guardrails.test.ts.)
+    await expect(detail).toBeInViewport();
+    const backdrop = await detail.evaluate((d) => {
+      const r = d.parentElement!.getBoundingClientRect();
+      return { x: r.x, y: r.y, w: r.width, h: r.height };
+    });
+    const viewport = page.viewportSize()!;
+    expect(backdrop).toEqual({ x: 0, y: 0, w: viewport.width, h: viewport.height });
     await page.getByRole("button", { name: "Edit", exact: true }).click();
     await page.getByLabel("Description").fill("Groceries edited");
     await page.getByRole("button", { name: "Save changes" }).click();

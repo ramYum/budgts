@@ -519,21 +519,28 @@ body {
   display: block;
 }
 
+/* Entrance animations fill `backwards`, never `both`: they hold their start
+ * state through the delay, then let go. `both` would pin the end keyframe
+ * forever, and an ended transform animation leaves an identity matrix, not
+ * `none`. That silently makes the element the containing block for every
+ * position:fixed descendant, so the bottom sheets (overlay.tsx) laid out
+ * inside the page instead of the screen. The end keyframes equal each
+ * element's own style, so letting go is invisible. */
 @media (prefers-reduced-motion: no-preference) {
   .page-enter {
-    animation: page-enter 420ms var(--ease-out) both;
+    animation: page-enter 420ms var(--ease-out) backwards;
   }
 
   /* cascade: children set --i (0, 1, 2, …) */
   .reveal {
-    animation: rise-in 560ms var(--ease-out) both;
+    animation: rise-in 560ms var(--ease-out) backwards;
     animation-delay: calc(var(--i, 0) * 70ms + 40ms);
   }
 
   .cell {
     transform-box: fill-box;
     transform-origin: center;
-    animation: cell-in 240ms steps(3, end) both;
+    animation: cell-in 240ms steps(3, end) backwards;
     animation-delay: calc(var(--d, 0) * 22ms + 220ms);
   }
 
@@ -575,12 +582,12 @@ body {
   }
   .wm-letter {
     animation:
-      wm-in 360ms steps(3, end) both,
+      wm-in 360ms steps(3, end) backwards,
       wm-wave 8s steps(1, end) infinite;
     animation-delay: calc(var(--i) * 70ms + 200ms), calc(var(--i) * 60ms);
   }
   .stage-rule {
-    animation: rule-grow 480ms steps(5, end) 700ms both;
+    animation: rule-grow 480ms steps(5, end) 700ms backwards;
   }
   .ticker-line {
     display: block;
@@ -601,7 +608,7 @@ body {
   }
 
   .pip {
-    animation: pip-in 220ms steps(3, end) both;
+    animation: pip-in 220ms steps(3, end) backwards;
   }
 
   .press {

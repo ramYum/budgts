@@ -17,7 +17,8 @@ test("manage categories: default set, rename, add, archive, and drill-in", async
 
     await page.getByRole("link", { name: "More" }).click();
     await page.getByRole("link", { name: "Settings" }).click();
-    await page.getByRole("link", { name: "Categories" }).click();
+    // exact: with Plaid on, the header bell ("Categories up to date") is also a link.
+    await page.getByRole("link", { name: "Categories", exact: true }).click();
 
     // The six seeded expense categories.
     for (const name of [

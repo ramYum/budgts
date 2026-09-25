@@ -49,6 +49,16 @@ describe("resolveDefaultDate", () => {
     expect(resolveDefaultDate("2026-08-15", EVENING_PDT, 420)).toBe("2026-08-15");
   });
 
+  // Server pages now decide "today" in America/New_York (budget/month.ts), not
+  // UTC. Late evening Eastern that is a day behind UTC; a user east of New
+  // York must still get their own local today, not New York's.
+  it("replaces a server 'today' decided in New York with the user's local today", () => {
+    const lateEveningNY = new Date("2026-09-25T01:30:00.000Z"); // NY Sep 24 21:30, London Sep 25 02:30
+    expect(resolveDefaultDate("2026-09-24", lateEveningNY, -60)).toBe("2026-09-25");
+    expect(resolveDefaultDate("2026-09-24", lateEveningNY, 240)).toBe("2026-09-24"); // NY user itself
+    expect(resolveDefaultDate("2026-09-24", EVENING_PDT, 420)).toBe("2026-09-24");
+  });
+
   it("is a no-op when UTC and local agree", () => {
     expect(resolveDefaultDate("2026-09-25", EVENING_PDT, 0)).toBe("2026-09-25");
   });

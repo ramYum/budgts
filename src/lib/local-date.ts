@@ -9,6 +9,8 @@
  * timezone offset is an argument (defaults to the runtime's), so tests pin it.
  */
 
+import { todayDateKey } from "@/lib/budget/month";
+
 /** YYYY-MM-DD of `d` for a timezone with `offsetMinutes` = Date#getTimezoneOffset(). */
 export function dateKeyAt(d: Date, offsetMinutes: number): string {
   return new Date(d.getTime() - offsetMinutes * 60_000).toISOString().slice(0, 10);
@@ -26,16 +28,19 @@ export function shiftDateKey(key: string, days: number): string {
 }
 
 /**
- * Server pages pass the UTC "today" as the form's default date when the
- * current month is shown. In the browser, swap that for the user's local
- * today; any other default (a past/future month's mid-point) is kept.
+ * Server pages pass "today" as the form's default date when the current month
+ * is shown — decided in the app time zone (America/New_York, see
+ * budget/month.ts; older builds used UTC). In the browser, swap that for the
+ * user's local today; any other default (a past/future month's mid-point) is
+ * kept.
  */
 export function resolveDefaultDate(
   serverDefault: string,
   now: Date = new Date(),
   offsetMinutes: number = now.getTimezoneOffset(),
 ): string {
-  return serverDefault === dateKeyAt(now, 0) ? dateKeyAt(now, offsetMinutes) : serverDefault;
+  const isServerToday = serverDefault === todayDateKey(now) || serverDefault === dateKeyAt(now, 0);
+  return isServerToday ? dateKeyAt(now, offsetMinutes) : serverDefault;
 }
 
 /** "Today" / "Yesterday" relative to `todayKey`, else the formatted date. */

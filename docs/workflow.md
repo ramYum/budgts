@@ -57,7 +57,7 @@ assistant). Full ladder: `docs/roadmap.md`; working detail: §4 below.
 | Area | Decision |
 | --- | --- |
 | Shape now | Installable **PWA** (Next.js). One codebase, phone + desktop. |
-| Shape later | None. Native iOS/Android and store distribution were dropped 2026-09-24 (personal use, PWA only). Archived on branch `archive/mobile-and-deletion-2026-09-24`. |
+| Shape later | Native iOS/Android (Expo) + store monetization: **on hiatus** since 2026-09-25 (personal-use PWA for now). Archived on branch `archive/mobile-and-deletion-2026-09-24`. |
 | Users | Single user per account. "Add another income source" = another income transaction/category, not multi-user. Household sharing: deferred, not planned. |
 | Persistence | Supabase (Postgres + Auth + Realtime + Storage). Cloud, multi-device. |
 | Data access | `supabase-js` with the user's session for **all** reads/writes — RLS is the isolation guard. Drizzle = migrations only. |
@@ -287,7 +287,7 @@ goal pace); advanced automation (proactive nudges, categorization learning).
 
 ### Delivery track (parallel) — Native apps (App Store + Play Store)
 
-Retired 2026-09-24: Budgts is a personal-use PWA at budgts.com, so the native iOS/Android track and App Store / Play Store distribution are not planned. The Expo app and account-deletion work built for it are archived on branch `archive/mobile-and-deletion-2026-09-24`.
+On hiatus as of 2026-09-25 (paused, not abandoned): Budgts is currently a personal-use PWA at budgts.com, so the native iOS/Android track, RevenueCat monetization and App Store / Play Store distribution are not being worked. The Expo app and account-deletion work are archived on branch `archive/mobile-and-deletion-2026-09-24`; when it resumes, the mobile rules in `AGENTS.md` apply.
 
 ---
 
@@ -327,7 +327,7 @@ Retired 2026-09-24: Budgts is a personal-use PWA at budgts.com, so the native iO
 | ~~Rotate the DB password / Google client secret~~ | done | Intentionally skipped for this personal project (owner's call, 2026-09-09). Not a pending task. |
 | ~~Vercel project + deploy~~ | done | **2026-09-09** — `main` pushed, Vercel project live at `https://budgts.com` (custom domain via Cloudflare DNS), env vars + Supabase auth URLs set. See `docs/deploy.md` "Current deployment" + memory `deployment.md`. |
 | Verify on real devices | owner | `deploy.md` step 5 — install the PWA on a phone, sign in via magic link + Google, add a transaction, confirm it syncs to a second device. **2026-09-15: everything automatable is verified on `https://budgts.com`** (Chromium, Pixel 7 emulation): installable with zero installability errors (checked in a normal profile — Playwright's default incognito context always reports `in-incognito`), SW registers + controls the page, manifest "Budgts" / standalone / scope `/`, both 512×512 PNG icons (any + maskable), `apple-touch-icon` + iOS web-app meta + theme-color present, offline navigation falls back to `/offline`, no console errors. **Still owner-only:** the physical install on an Android phone (Chrome → Install app) and an iPhone (Safari → Add to Home Screen), sign-in inside the installed app, and cross-device Realtime sync. |
-| ~~Apple Developer + Google Play accounts~~ | dropped | Native-apps track retired 2026-09-24 (personal-use PWA). |
+| Apple Developer + Google Play accounts | on hold | Native-apps track on hiatus since 2026-09-25; enroll only when it resumes. |
 | ~~Plaid account + Production application~~ | done | Milestone 10 happened — Plaid Production access obtained, `NEXT_PUBLIC_PLAID_ENABLED` on in Vercel prod, 3 real bank connections live (Capital One, SoFi, Advancial) since 2026-09-11. Not captured in a commit/doc at the time; retroactively documented 2026-09-14. |
 | ~~Owner's authenticated smoke-test pass on budgts.com~~ | done | **2026-09-15**, run by Claude against production with owner authorization (scripted Playwright, magic-link `token_hash` sign-in). **Throwaway user: 22/22** — callback → onboarding → Home, all 15 app routes load clean, add a transaction, Home reflects it, CSV export includes it, user deleted. **All 3 Plaid-connected accounts** (owner-confirmed as theirs: one with Capital One + SoFi + Advancial, one SoFi-only, one Advancial-only), **read-only** (navigation only; any non-GET / server-action request aborted — none attempted): Money Left + savings rate on Home, Activity lists transactions, Budgets category cards, Insights, every institution on Connected Banks, and the "Exclude from totals" control shown for the two flagged Advancial accounts. Result in the real browser zone (America/New_York): passed apart from **React #418 hydration errors** on `/connected-banks` and `/transactions` (see next row); the same pass with the browser forced to UTC: **74/74**. Categorization correctness was not separately checked (only that transactions render). Also fixed the stale `tests/e2e/smoke.spec.ts` manifest assertion (`Budgt` → `Budgts`; 5/5 against prod). |
 | ~~Hydration mismatch (React #418) for any non-UTC user~~ | done | **Fixed 2026-09-15 in `2b4f3c7`**, see the status-board row. Original report: client components render date text from the viewer's time zone / the current clock, which differs from the server's UTC render: `src/components/plaid/connected-banks.tsx` `whenLabel()` (`Date.now()`-relative "N min ago", then `toLocaleDateString` with no `timeZone`) and `src/components/plaid/needs-category.tsx:22` (`toLocaleDateString` with no `timeZone`, rendered on `/transactions`). Confirmed by probe: errors appear in America/New_York, disappear with the browser in UTC. Fix candidates: pin `timeZone: "UTC"` like `transaction-list.tsx` does, or render relative time client-only after mount. Needs a failing test first. |
@@ -911,3 +911,10 @@ Retired 2026-09-24: Budgts is a personal-use PWA at budgts.com, so the native iO
   - **PWA install.** Manifest gained `id`, `orientation` and 192px icons (any + maskable);
     the service worker no longer caches the manifest cache-first; More page has an
     "Install Budgts" card (Chromium install button, iOS Add-to-Home-Screen hint).
+- **2026-09-25 — Agent routing installed; mobile is a hiatus, not a drop.** Owner clarified
+  that native mobile and mobile monetization are paused, not abandoned (the 09-24 entry's
+  "dropped" wording is superseded). New `AGENTS.md` (model routing: Sonnet 5 default,
+  `budgts-architect` Opus 5.5 for all mobile + high-risk work, `budgts-utility` Haiku 4.5 for
+  bulk mechanical work) replaced the auto-generated Next.js block; subagents live in
+  `.claude/agents/`. `CLAUDE.md` updated to match (hiatus wording, agent routing section,
+  local commits allowed after validated work, never push without asking).

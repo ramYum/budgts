@@ -1,7 +1,7 @@
 # Roadmap
 
 > **Goal:** Budgts is a **personal-use** budgeting PWA at budgts.com (decided
-> 2026-09-24; the App Store / Play Store plan was dropped). Each tier below is
+> 2026-09-24; the App Store / Play Store plan is on hiatus as of 2026-09-25). Each tier below is
 > only done when it works for every connected account, with no silent failure
 > states. See `CLAUDE.md` → "The goal".
 
@@ -63,7 +63,7 @@ BUDGTS
     └── Advanced automation
 ```
 
-Native mobile apps were dropped (2026-09-24) — see the retired track at the end
+Native mobile apps are on hiatus (2026-09-25) — see the paused track at the end
 of this file. **Scale & Infrastructure** is a second parallel track
 (capacity observability, no plan upgrades yet) — same section. Working
 detail for every tier: `docs/workflow.md §4`.
@@ -305,9 +305,9 @@ the data underneath (V1–V2) is trustworthy.
 - Household / shared budgets (needs a sharing + roles model).
 - Multi-currency transactions with conversion.
 
-## Delivery track — Native apps (retired)
+## Delivery track — Native apps (on hiatus)
 
-Retired 2026-09-24: Budgts is a personal-use PWA at budgts.com, so the native iOS/Android track and App Store / Play Store distribution are not planned. The Expo app and account-deletion work built for it are archived on branch `archive/mobile-and-deletion-2026-09-24`.
+On hiatus as of 2026-09-25 (paused, not abandoned): Budgts is currently a personal-use PWA at budgts.com, so the native iOS/Android track, RevenueCat monetization and App Store / Play Store distribution are not being worked. The Expo app and account-deletion work are archived on branch `archive/mobile-and-deletion-2026-09-24`; when it resumes, the mobile rules in `AGENTS.md` apply.
 
 ## Delivery track (parallel) — Scale & Infrastructure
 

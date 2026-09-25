@@ -14,12 +14,14 @@ household/shared budgets in v1.
 ### The goal — read this before every decision
 
 Budgts is for the owner's **personal use**, as a browser PWA (decided
-2026-09-24). The earlier plan to sell it on the **Google Play Store and Apple
-App Store** to 500+ paying users, and the native Expo app built for it, were
-dropped; that work is archived on the git branch
+2026-09-24). **Native mobile (Expo / React Native) and mobile monetization
+(App Store / Play Store, RevenueCat, 500+ paying users) are on hiatus** as of
+2026-09-25 — paused, not abandoned. That work is archived on the git branch
 `archive/mobile-and-deletion-2026-09-24`. It is still built to a
 production standard — correct money math, no silent failures — but nothing
-here targets app-store compliance or paying-user scale.
+currently targets app-store compliance or paying-user scale. When mobile
+resumes, the mobile rules in `AGENTS.md` apply (all Expo / React Native
+implementation goes to `budgts-architect`).
 
 The owner is in Pennsylvania: "this month" and "today" are decided in
 `America/New_York` (`src/lib/budget/month.ts`), never from the server's UTC clock.
@@ -45,6 +47,17 @@ The owner is in Pennsylvania: "this month" and "today" are decided in
 
 **v1 feature set:** categories + spend tracking · budgets vs actual · recurring
 / bills tracking · savings goals. Single currency per user, chosen at signup.
+
+## Agent routing
+
+`AGENTS.md` defines how work is divided between models; the two subagents are in
+`.claude/agents/`. Authority order: `CLAUDE.md` first, then `AGENTS.md`, then specs
+under `docs/specs/`. In short: **Sonnet 5** (main session) does normal non-mobile
+engineering and coordination; **`budgts-architect`** (Opus 5.5) takes all Expo /
+React Native work and high-risk or architectural work (financial semantics, Plaid,
+schema/migrations, RLS/auth, monetization, account deletion); **`budgts-utility`**
+(Haiku 4.5) takes bulk mechanical work only. Follow the least-expensive-capable-agent
+principle, but never trade away correctness to save tokens.
 
 ## Relationship to the WAT framework
 
@@ -114,7 +127,7 @@ tests/
 ## Next.js 16 — read the bundled docs before writing app code
 
 This project runs **Next.js 16**, which has breaking changes vs. older training
-data (see `AGENTS.md`, which `next dev` regenerates). Before implementing any
+data. Before implementing any
 route, server action, `cookies()` / `headers()` call, `metadata`/`viewport`
 export, middleware, or `next.config` change, read the relevant guide under
 `node_modules/next/dist/docs/`. Do not assume the Next 13–15 API.
@@ -166,7 +179,9 @@ project settings. Never commit secrets. Keep `.env.local.example` in sync.
 - **Dates:** store timestamps in UTC; `budgets.month` is the first day of the
   month as a `date`.
 - **Branches:** `phase-N/<short-topic>`. Conventional-ish commit subjects.
-  Commit or push only when the user asks.
+  Commit locally after a completed, validated task (never with unrelated
+  changes, secrets, `.env` files or build artifacts); never push, merge, tag,
+  publish or rewrite shared history without the user asking.
 
 ## Definition of done (a slice/feature)
 
@@ -225,4 +240,4 @@ Spec: `docs/specs/2026-09-15-how-budgts-works-guide-design.md`.
 manual entry stays as a fallback) → **V1.5** (recurring / subscription / bill
 detection over synced data + paired-transfer detection) → **V2** (email /
 receipt ingestion + spending intelligence) → **V2+** (AI financial assistant).
-Native apps are a parallel delivery track, not a numbered phase.
+Native apps and mobile monetization are on hiatus (2026-09-25), not a numbered phase.

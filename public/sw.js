@@ -1,6 +1,6 @@
 // Budgts service worker — minimal: installable + a graceful offline page.
 // No offline data (all data is server-side, RLS-scoped).
-const CACHE = "budgts-shell-v2";
+const CACHE = "budgts-shell-v3";
 const OFFLINE_URL = "/offline";
 
 self.addEventListener("install", (event) => {
@@ -34,8 +34,12 @@ self.addEventListener("fetch", (event) => {
         (hit) =>
           hit ||
           fetch(request).then((res) => {
-            const copy = res.clone();
-            caches.open(CACHE).then((c) => c.put(request, copy));
+            // Only cache real hits: a 404/5xx (e.g. a chunk requested mid-deploy)
+            // cached here would be served forever by this cache-first branch.
+            if (res.ok) {
+              const copy = res.clone();
+              caches.open(CACHE).then((c) => c.put(request, copy));
+            }
             return res;
           }),
       ),

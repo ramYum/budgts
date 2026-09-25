@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { monthKey } from "@/lib/budget/month";
+import { currentMonthKey } from "@/lib/budget/month";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/page-header";
 import { CategoryManager, type CategoryItem } from "@/components/category-manager";
@@ -22,7 +22,7 @@ export default async function SettingsCategoriesPage() {
       <PageHeader title="Categories" back="/settings" />
       <CategoryManager
         categories={(categories ?? []) as CategoryItem[]}
-        currentMonth={monthKey(new Date())}
+        currentMonth={currentMonthKey()}
       />
     </div>
   );

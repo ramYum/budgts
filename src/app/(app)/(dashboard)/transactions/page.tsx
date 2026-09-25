@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
-import { monthKey } from "@/lib/budget/month";
+import { currentMonthKey, monthKey, todayDateKey } from "@/lib/budget/month";
 import { AddTransaction } from "@/components/add-transaction";
 import { TransactionList, type TxnListItem } from "@/components/transaction-list";
 import type { AccountOption, CategoryOption } from "@/components/transaction-form";
@@ -41,9 +41,9 @@ function monthBounds(m: string) {
 
 export default async function TransactionsPage({ searchParams }: PageProps<"/transactions">) {
   const sp = await searchParams;
-  const m = typeof sp.m === "string" && MONTH_RE.test(sp.m) ? sp.m : monthKey(new Date());
+  const m = typeof sp.m === "string" && MONTH_RE.test(sp.m) ? sp.m : currentMonthKey();
   const { start, end, prev, next, label } = monthBounds(m);
-  const defaultDate = (monthKey(new Date()) === m ? new Date().toISOString() : `${m}-15T12:00:00Z`).slice(0, 10);
+  const defaultDate = currentMonthKey() === m ? todayDateKey() : `${m}-15`;
   const categoryFilter =
     typeof sp.category === "string" && /^[0-9a-f-]{36}$/i.test(sp.category) ? sp.category : null;
 

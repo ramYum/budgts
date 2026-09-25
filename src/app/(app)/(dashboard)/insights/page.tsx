@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { buildDashboard, type DashboardCategory } from "@/lib/budget/dashboard";
 import { monthlyActuals } from "@/lib/budget/actuals";
-import { monthKey } from "@/lib/budget/month";
+import { currentMonthKey, monthKey } from "@/lib/budget/month";
 import type { BudgetTxn } from "@/lib/budget/types";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
@@ -90,7 +90,7 @@ async function loadMonth(
  * that Money Left must never stand in for it. */
 export default async function InsightsPage({ searchParams }: PageProps<"/insights">) {
   const sp = await searchParams;
-  const month = typeof sp.m === "string" && /^\d{4}-\d{2}$/.test(sp.m) ? sp.m : monthKey(new Date());
+  const month = typeof sp.m === "string" && /^\d{4}-\d{2}$/.test(sp.m) ? sp.m : currentMonthKey();
   const prev = prevMonthKey(month);
 
   const user = await getSessionUser();

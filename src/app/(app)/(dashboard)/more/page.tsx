@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { NavIcon, type NavGlyph } from "@/components/nav-icons";
+import { InstallApp } from "@/components/install-app";
 
 export const metadata: Metadata = { title: "More" };
 
@@ -27,6 +28,8 @@ export default function MorePage() {
   return (
     <div className="space-y-6 pt-1">
       <h1 className="text-xl font-semibold">More</h1>
+
+      <InstallApp />
 
       <ul className="card divide-y divide-hairline overflow-hidden rounded-2xl border border-hairline">
         <Row href="/goals" label="Savings Goals" glyph="goals" />

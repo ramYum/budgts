@@ -1,6 +1,6 @@
 // Budgts service worker — minimal: installable + a graceful offline page.
 // No offline data (all data is server-side, RLS-scoped).
-const CACHE = "budgts-shell-v3";
+const CACHE = "budgts-shell-v4";
 const OFFLINE_URL = "/offline";
 
 self.addEventListener("install", (event) => {
@@ -27,7 +27,7 @@ self.addEventListener("fetch", (event) => {
   // Static build assets, icons, fonts: cache-first.
   if (
     url.pathname.startsWith("/_next/static/") ||
-    /\.(?:svg|png|ico|webmanifest|woff2?)$/.test(url.pathname)
+    /\.(?:svg|png|ico|woff2?)$/.test(url.pathname)
   ) {
     event.respondWith(
       caches.match(request).then(

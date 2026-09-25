@@ -2,12 +2,16 @@
   "name": "Budgts",
   "short_name": "Budgts",
   "description": "Simple money tools, clear insights, and encouragement for a brighter tomorrow.",
+  "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#FFF8F0",
   "theme_color": "#FF7B61",
+  "orientation": "portrait",
   "icons": [
+    { "src": "/icon-192.png", "type": "image/png", "sizes": "192x192", "purpose": "any" },
+    { "src": "/icon-maskable-192.png", "type": "image/png", "sizes": "192x192", "purpose": "maskable" },
     { "src": "/icon-512.png", "type": "image/png", "sizes": "512x512", "purpose": "any" },
     { "src": "/icon-maskable.png", "type": "image/png", "sizes": "512x512", "purpose": "maskable" }
   ]

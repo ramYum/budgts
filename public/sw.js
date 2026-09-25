@@ -1,6 +1,6 @@
 // Budgts service worker — minimal: installable + a graceful offline page.
 // No offline data (all data is server-side, RLS-scoped).
-const CACHE = "budgts-shell-v4";
+const CACHE = "budgts-shell-v5";
 const OFFLINE_URL = "/offline";
 
 self.addEventListener("install", (event) => {
@@ -24,25 +24,36 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  // Static build assets, icons, fonts: cache-first.
-  if (
-    url.pathname.startsWith("/_next/static/") ||
-    /\.(?:svg|png|ico|woff2?)$/.test(url.pathname)
-  ) {
+  // Only cache real hits: a 404/5xx (e.g. a chunk requested mid-deploy)
+  // cached here would be served until the next CACHE bump.
+  const fetchAndCache = () =>
+    fetch(request).then((res) => {
+      if (res.ok) {
+        const copy = res.clone();
+        caches.open(CACHE).then((c) => c.put(request, copy));
+      }
+      return res;
+    });
+
+  // Content-hashed build assets: cache-first. Their URL changes whenever
+  // their bytes do, so a cached copy can never be stale.
+  if (url.pathname.startsWith("/_next/static/")) {
+    event.respondWith(caches.match(request).then((hit) => hit || fetchAndCache()));
+    return;
+  }
+
+  // Un-hashed icons/brand art (/brand/*.png, /icon-*.png): stale-while-
+  // revalidate. Served instantly from cache, refreshed in the background, so
+  // replacing a file at the same path (a rebrand) shows up on the next visit
+  // instead of never.
+  if (/\.(?:svg|png|ico|woff2?)$/.test(url.pathname)) {
     event.respondWith(
-      caches.match(request).then(
-        (hit) =>
-          hit ||
-          fetch(request).then((res) => {
-            // Only cache real hits: a 404/5xx (e.g. a chunk requested mid-deploy)
-            // cached here would be served forever by this cache-first branch.
-            if (res.ok) {
-              const copy = res.clone();
-              caches.open(CACHE).then((c) => c.put(request, copy));
-            }
-            return res;
-          }),
-      ),
+      caches.match(request).then((hit) => {
+        const refresh = fetchAndCache();
+        if (!hit) return refresh;
+        event.waitUntil(refresh.catch(() => undefined));
+        return hit;
+      }),
     );
     return;
   }

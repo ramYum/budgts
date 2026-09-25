@@ -11,7 +11,9 @@ import postgres from "postgres";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import * as schema from "@/lib/db/schema";
 
-const STAGING_REF = "iwypmifvmtmkwtnxkfma";
+// Budgets-Staging-3 — the only staging project since 2026-09-21 (the old
+// iwypmifvmtmkwtnxkfma staging no longer exists).
+const STAGING_REF = "uvowywszaiojboaxdmoz";
 const url = process.env.DIRECT_URL;
 if (!url || !url.includes(STAGING_REF)) {
   throw new Error(

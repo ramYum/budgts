@@ -88,7 +88,10 @@ test("connect a bank, map an account, import, categorize, disconnect, history re
     await page.getByRole("button", { name: "Choose accounts to import" }).click();
     await skipAllButFirstAccount(page);
     await page.getByRole("button", { name: "Import transactions" }).click();
-    await expect(page.getByText("not set up")).toHaveCount(0); // mapping dialog closed, list refreshed
+    // mapAccounts links the accounts AND runs the first Plaid sync inline before the
+    // dialog closes, so wait for that (bounded) rather than the 5s default.
+    await expect(page.getByRole("dialog", { name: "Choose which accounts to import" })).toBeHidden({ timeout: 90_000 });
+    await expect(page.getByText("not set up")).toHaveCount(0); // list refreshed
 
     // --- Import: first sync runs as part of mapping; retry for Sandbox lag ---
     await waitForSyncedTransactions(page);

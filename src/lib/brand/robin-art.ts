@@ -10,7 +10,9 @@ export type RobinMood = "normal" | "happy" | "curious" | "sleepy";
 
 export type RobinRun = { x: number; y: number; w: number; fill: string };
 
-type RobinArt = { body: RobinRun[]; eye: RobinRun[]; extra: RobinRun[] };
+/** `beak` is the shut lower beak and `beakOpen` what replaces it mid-chirp;
+ * static renders (icons, reduced motion) draw `beak` and never `beakOpen`. */
+type RobinArt = { body: RobinRun[]; beak: RobinRun[]; beakOpen: RobinRun[]; eye: RobinRun[]; extra: RobinRun[] };
 
 const PALETTE: Record<string, string> = {
   B: "#7b4a2b", // head & back
@@ -68,6 +70,10 @@ const QUESTION: Cell[] = [
   [22, 3, "q"], [21, 4, "q"],
   [21, 6, "q"],
 ];
+// The lower beak (row 6 of BASE). Mid-chirp it swaps for BEAK_OPEN: the
+// mouth shows at x19 and the lower beak drops a row, under the fixed upper beak.
+const BEAK_SHUT = new Set(["19,6", "20,6"]);
+const BEAK_OPEN: Cell[] = [[19, 6, "r"], [20, 7, "K"]];
 const SLEEP: Cell[] = [
   [20, 1, "z"], [21, 1, "z"], [22, 1, "z"],
   [21, 2, "z"],
@@ -100,11 +106,13 @@ function build(mood: RobinMood): RobinArt {
   const at = (x: number, y: number) => (y >= 0 && y < H && x >= 0 && x < W ? grid[y]![x]! : ".");
 
   const body: Cell[] = [];
+  const beak: Cell[] = [];
   const eye: Cell[] = [];
   for (let y = -1; y <= H; y++) {
     for (let x = -1; x <= W; x++) {
       const k = at(x, y);
       if (k === "E" || k === "h") eye.push([x, y, k]);
+      else if (BEAK_SHUT.has(`${x},${y}`)) beak.push([x, y, k]);
       else if (k !== ".") body.push([x, y, k]);
       else {
         const n = [at(x + 1, y), at(x - 1, y), at(x, y + 1), at(x, y - 1)];
@@ -113,7 +121,7 @@ function build(mood: RobinMood): RobinArt {
     }
   }
   const extra = mood === "sleepy" ? SLEEP : mood === "curious" ? QUESTION : CHIRP;
-  return { body: runs(body), eye: runs(eye), extra: runs(extra) };
+  return { body: runs(body), beak: runs(beak), beakOpen: runs(BEAK_OPEN), eye: runs(eye), extra: runs(extra) };
 }
 
 export const ROBIN_ART: Record<RobinMood, RobinArt> = {
@@ -143,7 +151,7 @@ export function robinSvg({
   const art = ROBIN_ART[mood];
   const ox = Math.round((size - ROBIN_W * scale) / 2) + scale; // +1 cell: origin at (-1,-1)
   const oy = Math.round((size - ROBIN_H * scale) / 2) + scale;
-  const rects = [...art.body, ...art.eye, ...art.extra]
+  const rects = [...art.body, ...art.beak, ...art.eye, ...art.extra]
     .map(
       (r) =>
         `<rect x="${ox + r.x * scale}" y="${oy + r.y * scale}" width="${r.w * scale}" height="${scale}" fill="${r.fill}"/>`,

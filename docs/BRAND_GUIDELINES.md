@@ -55,10 +55,14 @@ Light theme only. Category identity is carried by icon + name, never by hue.
   three red chirp marks. Rendered as SVG with `crispEdges`; always an integer
   scale in raster exports.
 - **Wordmark:** "Budgts" in Dogica Bold, live text.
-- **Lockup:** mark left, wordmark right (`<Logo />`). Sign-in stacks them with
-  the `TRACK : PLAN : GROW` tag and a short red rule.
-- **Moods:** `normal`/`happy` (chirping), `curious` ("?", used for errors and a
-  negative month), `sleepy` (eyes shut, "z", used for empty lists and offline).
+- **Lockup:** mark left, wordmark right (`<Logo />`). The robin in the logo is
+  alive: it blinks and chirps on a loop. Sign-in centers the brand stage
+  (`src/app/(auth)/brand-stage.tsx`): the robin, the wordmark, the
+  `TRACK : PLAN : GROW` tag, a short red rule and a typed savings line.
+- **Moods:** `normal`/`happy` (chirping: the beak opens twice while the marks
+  sound; the marks rest hidden while animated), `curious` ("?", used for
+  errors and a negative month), `sleepy` (eyes shut, "z", used for empty lists
+  and offline).
 - **App icons:** generated from the same art by `node tools/generate-app-icons.mjs`.
 
 ## Components
@@ -84,14 +88,17 @@ Light theme only. Category identity is carried by icon + name, never by hue.
 ## Motion
 
 Every animation communicates something, uses transform/opacity only, and is
-off under `prefers-reduced-motion`.
+off under `prefers-reduced-motion`. The one exception is the sign-in ticker's
+typing, which steps the width and caret color of an absolutely positioned
+line, so nothing around it reflows.
 
 | Motion | Meaning |
 | --- | --- |
 | `page-enter` (screen rises in) | A new screen arrived |
 | `reveal` cascade (`--i`) | Reading order of the sections |
 | `cell` (stepped, sprite-like) | Magnitude being built, cell by cell |
-| Robin blink / chirp / hop | The brand is alive (the one ambient loop) |
+| Robin blink / chirp / hop | The brand is alive: a single then a double blink every 4.8s, a two-note chirp every 4s (`--robin-chirp`), a hop on hover. Runs wherever the robin shows, the header logo included |
+| Sign-in stage (`stage-*`, `saving`, `wm-*`, `ticker-*`) | The brand's one big moment, on an 8s beat: the robin hops within ±8px of center (4px sprite steps), turns and chirps; a "+$" saving rises from each chirp; the wordmark steps in, then ripples when the robin lands; five savings lines type and erase in turn |
 | `press` (scale 0.98) / `lift` | A tap was felt / a card is interactive |
 | `pip` | The active-tab marker snaps in |
 | `.skeleton` sweep | Content is loading, shaped like what's coming |

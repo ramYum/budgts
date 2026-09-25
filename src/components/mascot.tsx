@@ -3,10 +3,11 @@ import { ROBIN_ART, ROBIN_H, ROBIN_W, type RobinMood, type RobinRun } from "@/li
 /** The Budgts robin, drawn as pixel art (src/lib/brand/robin-art.ts).
  *
  * Pure SVG, so it renders on the server and scales crisply at any size
- * (shape-rendering: crispEdges). CSS brings it to life: the eye blinks and
- * the chirp marks flicker (globals.css `robin-*`), and the mascot hops on
+ * (shape-rendering: crispEdges). CSS brings it to life (globals.css
+ * `robin-*`): the eye blinks, and a normal/happy robin chirps (the beak opens
+ * twice while the chirp marks sound) every `--robin-chirp`. The mascot hops on
  * hover. Moods swap a few cells: `sleepy` closes the eye and trades the chirp
- * for "z", `curious` trades it for a "?". */
+ * for a flickering "z", `curious` trades it for a "?". */
 
 const ROBIN_ASPECT = ROBIN_W / ROBIN_H;
 
@@ -35,6 +36,7 @@ export function Robin({
   title?: string;
 }) {
   const art = ROBIN_ART[mood];
+  const chirps = animated && (mood === "normal" || mood === "happy");
   return (
     <svg
       viewBox={`-1 -1 ${ROBIN_W} ${ROBIN_H}`}
@@ -47,10 +49,18 @@ export function Robin({
       aria-label={title}
     >
       <Rects list={art.body} />
+      <g className={chirps ? "robin-beak" : undefined}>
+        <Rects list={art.beak} />
+      </g>
+      {chirps ? (
+        <g className="robin-beak-open">
+          <Rects list={art.beakOpen} />
+        </g>
+      ) : null}
       <g className={animated && mood !== "sleepy" ? "robin-eye" : undefined}>
         <Rects list={art.eye} />
       </g>
-      <g className={animated ? "robin-chirp" : undefined}>
+      <g className={chirps ? "robin-chirp" : animated ? "robin-flicker" : undefined}>
         <Rects list={art.extra} />
       </g>
     </svg>

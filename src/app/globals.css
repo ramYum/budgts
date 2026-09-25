@@ -153,8 +153,9 @@ body {
 /* ─── Motion ────────────────────────────────────────────────────────────────
  * Every animation says something: a screen arriving (page-enter, reveal),
  * magnitude being built (cells stepping in), the brand being alive (robin
- * blink/chirp), or a tap being felt (press). Transform/opacity only, and all
- * of it collapses under prefers-reduced-motion. */
+ * blink/chirp), or a tap being felt (press). Transform/opacity only (bar the
+ * sign-in ticker's typed width, on an absolutely positioned line), and all of
+ * it collapses under prefers-reduced-motion. */
 
 @keyframes page-enter {
   from {
@@ -190,18 +191,87 @@ body {
   }
 }
 
+/* a single blink, then a double blink, every cycle */
 @keyframes robin-blink {
   0%,
-  92%,
+  30%,
+  34%,
+  84%,
+  87%,
+  90%,
+  93%,
   100% {
     transform: scaleY(1);
   }
-  95% {
-    transform: scaleY(0.15);
+  32%,
+  85.5%,
+  91.5% {
+    transform: scaleY(0.1);
+  }
+}
+
+/* A chirp is two quick beak-opens with the marks sounding, 40–60% into the
+ * cycle (the sign-in stage relies on that window). Run with steps(1, end):
+ * each value holds until the next keyframe. */
+@keyframes robin-beak-open {
+  0% {
+    opacity: 0;
+  }
+  40% {
+    opacity: 1;
+  }
+  44% {
+    opacity: 0;
+  }
+  49% {
+    opacity: 1;
+  }
+  53%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes robin-beak {
+  0% {
+    opacity: 1;
+  }
+  40% {
+    opacity: 0;
+  }
+  44% {
+    opacity: 1;
+  }
+  49% {
+    opacity: 0;
+  }
+  53%,
+  100% {
+    opacity: 1;
   }
 }
 
 @keyframes robin-chirp {
+  0% {
+    opacity: 0;
+  }
+  40% {
+    opacity: 1;
+  }
+  46% {
+    opacity: 0;
+  }
+  49% {
+    opacity: 1;
+  }
+  60%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* the "?" and "z" of the curious and sleepy moods */
+@keyframes robin-flicker {
   0%,
   55%,
   100% {
@@ -222,6 +292,181 @@ body {
   }
   40% {
     transform: translateY(-4px);
+  }
+}
+
+/* The sign-in stage (src/app/(auth)/brand-stage.tsx) runs on one 8s beat,
+ * moving on the robin's own 4px cell grid:
+ *   1.0s hop two cells right             1.6s chirp (a "+$" rises)
+ *   3.3s turn left, 3.5s two hops left   5.2s turn back, 5.6s chirp
+ *   6.6s hop home                        7.1s the wordmark ripples
+ * Run with steps(2, end), so every move is a 4px sprite step. */
+@keyframes stage-wander {
+  0%,
+  12.5% {
+    transform: translateX(0);
+  }
+  16.25%,
+  43.75% {
+    transform: translateX(8px);
+  }
+  47.5% {
+    transform: translateX(0);
+  }
+  51.25%,
+  82.5% {
+    transform: translateX(-8px);
+  }
+  86.25%,
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes stage-hop {
+  0%,
+  12.5%,
+  16.25%,
+  43.75%,
+  47.5%,
+  51.25%,
+  82.5%,
+  86.25%,
+  100% {
+    transform: translateY(0);
+  }
+  14.375%,
+  45.625%,
+  49.375%,
+  84.375% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes stage-shadow {
+  0%,
+  12.5%,
+  16.25%,
+  43.75%,
+  47.5%,
+  51.25%,
+  82.5%,
+  86.25%,
+  100% {
+    transform: scaleX(1);
+  }
+  14.375%,
+  45.625%,
+  49.375%,
+  84.375% {
+    transform: scaleX(0.6);
+  }
+}
+
+/* steps(1, end): faces left from 3.3s to 5.2s */
+@keyframes stage-turn {
+  0% {
+    transform: scaleX(1);
+  }
+  41.25% {
+    transform: scaleX(-1);
+  }
+  65%,
+  100% {
+    transform: scaleX(1);
+  }
+}
+
+/* a saving rises from the beak and fades (16s: two beats, two savings each) */
+@keyframes saving-rise {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 6px);
+    animation-timing-function: steps(3, end);
+  }
+  3% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+    animation-timing-function: steps(12, end);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(-50%, -24px);
+    animation-timing-function: steps(4, end);
+  }
+  19%,
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -30px);
+  }
+}
+
+/* wordmark: letters step in, then ripple a font-pixel up after the robin lands */
+@keyframes wm-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes wm-wave {
+  0%,
+  86% {
+    translate: 0 0;
+  }
+  89% {
+    translate: 0 -4px;
+  }
+  92%,
+  100% {
+    translate: 0 0;
+  }
+}
+
+/* Savings ticker: each line types, holds, erases in its 4s slot of a 20s
+ * cycle (so five lines; brand-stage.tsx LINES). Run with steps(var(--n)):
+ * one step per character, as Geist Mono is exactly 1ch per glyph. */
+@keyframes ticker-type {
+  0% {
+    width: 0;
+    opacity: 1;
+  }
+  6%,
+  16% {
+    width: calc(var(--n) * 1ch);
+    opacity: 1;
+  }
+  18.5% {
+    width: 0;
+    opacity: 1;
+  }
+  19%,
+  100% {
+    width: 0;
+    opacity: 0;
+  }
+}
+
+@keyframes ticker-caret {
+  0% {
+    border-right-color: var(--accent);
+  }
+  50%,
+  100% {
+    border-right-color: transparent;
+  }
+}
+
+@keyframes rule-grow {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
   }
 }
 
@@ -254,6 +499,26 @@ body {
   }
 }
 
+/* Resting states of the animated brand pieces, i.e. what shows with motion
+ * off. Declared before the motion block so it can override them. */
+.robin-beak-open,
+.saving {
+  opacity: 0;
+}
+.ticker-line {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  margin-left: calc(var(--n) * -0.5ch); /* centered as a whole line, so it types from a fixed start */
+  display: none;
+  box-sizing: content-box;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.ticker-line:first-child {
+  display: block;
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .page-enter {
     animation: page-enter 420ms var(--ease-out) both;
@@ -275,11 +540,59 @@ body {
   .robin-eye {
     transform-box: fill-box;
     transform-origin: center;
-    animation: robin-blink 5.5s linear infinite;
+    animation: robin-blink 4.8s linear infinite;
   }
 
+  .robin-beak {
+    animation: robin-beak var(--robin-chirp, 4s) steps(1, end) infinite;
+  }
+  .robin-beak-open {
+    animation: robin-beak-open var(--robin-chirp, 4s) steps(1, end) infinite;
+  }
   .robin-chirp {
-    animation: robin-chirp 3.2s steps(1, end) infinite;
+    animation: robin-chirp var(--robin-chirp, 4s) steps(1, end) infinite;
+  }
+  .robin-flicker {
+    animation: robin-flicker 3.2s steps(1, end) infinite;
+  }
+
+  .stage-wander {
+    animation: stage-wander 8s steps(2, end) infinite;
+  }
+  .stage-hop {
+    animation: stage-hop 8s steps(2, end) infinite;
+  }
+  .stage-shadow {
+    animation: stage-shadow 8s steps(2, end) infinite;
+  }
+  .stage-turn {
+    transform-origin: 42% 50%; /* the bird's body, not its chirp marks */
+    animation: stage-turn 8s steps(1, end) infinite;
+  }
+  .saving {
+    animation: saving-rise 16s infinite;
+    animation-delay: var(--at); /* hidden (opacity 0) until its first chirp */
+  }
+  .wm-letter {
+    animation:
+      wm-in 360ms steps(3, end) both,
+      wm-wave 8s steps(1, end) infinite;
+    animation-delay: calc(var(--i) * 70ms + 200ms), calc(var(--i) * 60ms);
+  }
+  .stage-rule {
+    animation: rule-grow 480ms steps(5, end) 700ms both;
+  }
+  .ticker-line {
+    display: block;
+    width: 0;
+    opacity: 0; /* until its slot comes round */
+    border-right: 0.5em solid var(--accent);
+    animation:
+      ticker-type 20s infinite,
+      ticker-caret 0.9s infinite;
+    animation-timing-function: steps(var(--n), end), steps(1, end);
+    /* line k starts k·4s in, after a 0.8s beat for the page to settle */
+    animation-delay: calc(var(--k) * 4s + 0.8s), 0s;
   }
 
   .robin-hop:hover,

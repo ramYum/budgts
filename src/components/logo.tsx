@@ -1,10 +1,11 @@
 import { Robin } from "./mascot";
 
 /** Budgts lockup: the pixel robin + the wordmark set in Dogica Bold (a live
- * text wordmark, so it stays crisp, selectable and accessible). */
+ * text wordmark, so it stays crisp, selectable and accessible). The robin is
+ * alive wherever the logo shows: it blinks and chirps on a loop. */
 
 export function LogoMark({ size = 24, className }: { size?: number; className?: string }) {
-  return <Robin size={size} className={className} animated={false} />;
+  return <Robin size={size} className={className} />;
 }
 
 export function Logo({
@@ -23,7 +24,7 @@ export function Logo({
   const type = Math.max(8, Math.round((size * 0.62) / 8) * 8);
   return (
     <span className={`inline-flex items-center gap-2 ${className ?? ""}`}>
-      {mark ? <Robin size={size} animated={false} /> : null}
+      {mark ? <Robin size={size} /> : null}
       {wordmark ? (
         <span className="font-pixel-bold leading-none text-ink" style={{ fontSize: type }}>
           Budgts

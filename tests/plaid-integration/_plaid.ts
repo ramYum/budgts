@@ -33,15 +33,55 @@ export interface SandboxItem {
 /** How long a fresh Sandbox Item gets to finish its historical pull. */
 export const HISTORICAL_READY_DEADLINE_MS = 90_000;
 
+interface Readiness {
+  /** `/transactions/sync` `transactions_update_status`. */
+  status: TransactionsUpdateStatus;
+  /** Transactions a sync from no cursor returns, all pages. */
+  syncView: number;
+  /** `/transactions/get` `total_transactions` over the whole history window. */
+  total: number | string;
+}
+
+async function readReadiness(client: PlaidApi, accessToken: string): Promise<Readiness> {
+  let cursor: string | undefined;
+  let syncView = 0;
+  let status: TransactionsUpdateStatus;
+  for (;;) {
+    const s = (await client.transactionsSync({ access_token: accessToken, cursor, count: 500 })).data;
+    syncView += s.added.length;
+    status = s.transactions_update_status;
+    cursor = s.next_cursor;
+    if (!s.has_more) break;
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  const twoYearsAgo = new Date(Date.now() - 730 * 86_400_000).toISOString().slice(0, 10);
+  let total: number | string;
+  try {
+    total = (
+      await client.transactionsGet({
+        access_token: accessToken,
+        start_date: twoYearsAgo,
+        end_date: today,
+        options: { count: 1 },
+      })
+    ).data.total_transactions;
+  } catch (e) {
+    total = (e as { response?: { data?: { error_code?: string } } }).response?.data?.error_code ?? "error";
+  }
+  return { status, syncView, total };
+}
+
 /**
- * Wait until Plaid reports the Item's historical transaction pull complete.
- * Plaid fills a new Item in two steps (recent days first, then the rest of
- * `days_requested`), and `/transactions/sync` reports which one it has
- * reached in `transactions_update_status`. Until it reads
- * `HISTORICAL_UPDATE_COMPLETE`, a sync can come back empty or partial and a
- * later sync from that cursor picks up the rest — which is exactly what the
- * tests' exact insert counts must not see. A cursor-less `count: 1` call only
- * reads the status; it moves no cursor the test later uses.
+ * Wait until the Item's transaction history is complete AND visible to
+ * `/transactions/sync`. Plaid fills a new Item in two steps (recent days,
+ * then the rest of `days_requested`) and reports progress in
+ * `transactions_update_status`. On its own that flag isn't enough in Sandbox:
+ * observed, it read `HISTORICAL_UPDATE_COMPLETE` while a sync still returned
+ * 16 of 48 rows, and the next sync from that cursor added the other 32 — the
+ * exact-count failures this fixture exists to prevent. So ready means both:
+ * the flag is complete, and a sync from no cursor returns every transaction
+ * `/transactions/get` counts for the Item. Cursor-less reads move no cursor
+ * the tests later use.
  */
 export async function waitForHistoricalUpdate(
   client: PlaidApi,
@@ -49,16 +89,19 @@ export async function waitForHistoricalUpdate(
   deadlineMs = HISTORICAL_READY_DEADLINE_MS,
 ): Promise<void> {
   const deadline = Date.now() + deadlineMs;
-  let last: TransactionsUpdateStatus | undefined;
   for (;;) {
-    last = (await client.transactionsSync({ access_token: accessToken, count: 1 })).data.transactions_update_status;
-    if (last === TransactionsUpdateStatus.HistoricalUpdateComplete) return;
+    const r = await readReadiness(client, accessToken);
+    if (r.status === TransactionsUpdateStatus.HistoricalUpdateComplete && r.syncView > 0 && r.syncView === r.total) {
+      return;
+    }
     if (Date.now() >= deadline) {
       throw new Error(
-        `Plaid Sandbox Item not ready after ${deadlineMs}ms: transactions_update_status = ${last}, expected ${TransactionsUpdateStatus.HistoricalUpdateComplete}`,
+        `Plaid Sandbox Item not ready after ${deadlineMs}ms: transactions_update_status = ${r.status} ` +
+          `(want ${TransactionsUpdateStatus.HistoricalUpdateComplete}), /transactions/sync returns ${r.syncView}, ` +
+          `/transactions/get total_transactions = ${r.total}`,
       );
     }
-    await new Promise((r) => setTimeout(r, 1000)); // pacing between status reads, not a wait for data
+    await new Promise((res) => setTimeout(res, 1000)); // pacing between readiness reads, not a wait for data
   }
 }
 

@@ -96,11 +96,20 @@ export function ConnectBank({
     setPhase((p) => (p === "mapping" ? p : "idle"));
   }, []);
 
+  // Mapping saved: the mapAccounts action's revalidation already re-rendered
+  // the page, so just close.
   const closeMapping = useCallback(() => {
     setMapping(null);
     setPhase("idle");
+  }, []);
+
+  // Dismissed without mapping: the bank was still created (by the exchange
+  // route handler, which can't update the page), so refresh once to show it
+  // with its "choose accounts" prompt.
+  const cancelMapping = useCallback(() => {
+    closeMapping();
     router.refresh();
-  }, [router]);
+  }, [closeMapping, router]);
 
   const busy = phase === "starting" || phase === "exchanging";
   const btn =
@@ -126,7 +135,7 @@ export function ConnectBank({
       {notice ? <p className="text-sm text-muted">{notice}</p> : null}
 
       {mapping ? (
-        <Overlay title="Choose which accounts to import" onClose={closeMapping}>
+        <Overlay title="Choose which accounts to import" onClose={cancelMapping}>
           <AccountMapping
             plaidItemId={mapping.plaidItemId}
             plaidAccounts={mapping.accounts}

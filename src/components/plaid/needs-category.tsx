@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { formatMoney } from "@/lib/budget/money";
 import { categorizeBankTransaction, rescanUncategorized } from "@/server/plaid/actions";
 import { createCategory } from "@/server/categories";
@@ -56,7 +55,6 @@ export function NeedsCategory({
   missingStandard: string[];
   currency: string;
 }) {
-  const router = useRouter();
   const [done, setDone] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [rescanning, startRescan] = useTransition();
@@ -99,7 +97,6 @@ export function NeedsCategory({
         setError(res.error);
         return;
       }
-      router.refresh();
     });
   };
 
@@ -107,7 +104,6 @@ export function NeedsCategory({
     startRescan(async () => {
       setError(null);
       await rescanUncategorized();
-      router.refresh();
     });
 
   const totalTxns = visible.reduce((n, g) => n + g.count, 0);

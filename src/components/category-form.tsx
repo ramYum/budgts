@@ -1,7 +1,6 @@
 "use client";
 
 import { useActionState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { CATEGORY_COLORS } from "@/lib/validation/category";
 import type { CategoryActionState } from "@/server/categories";
 
@@ -28,14 +27,12 @@ export function CategoryForm({
   submitLabel: string;
 }) {
   const [state, formAction, pending] = useActionState<CategoryActionState, FormData>(action, {});
-  const router = useRouter();
 
   useEffect(() => {
     if (state.ok) {
       onDone(state.id ? { id: state.id, name: state.name ?? "" } : undefined);
-      router.refresh();
     }
-  }, [state, onDone, router]);
+  }, [state, onDone]);
 
   return (
     <form action={formAction} className="space-y-3">

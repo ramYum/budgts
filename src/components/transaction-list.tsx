@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { formatMoney } from "@/lib/budget/money";
 import { deleteTransaction, updateTransaction } from "@/server/transactions";
 import { Overlay } from "./overlay";
@@ -58,7 +57,6 @@ export function TransactionList({
   accounts: AccountOption[];
   categories: CategoryOption[];
 }) {
-  const router = useRouter();
   const [viewing, setViewing] = useState<TxnListItem | null>(null);
   const [editing, setEditing] = useState<TxnListItem | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -104,7 +102,6 @@ export function TransactionList({
         return;
       }
       setViewing({ ...item, is_transfer: !item.is_transfer });
-      router.refresh();
     });
   };
 
@@ -182,7 +179,6 @@ export function TransactionList({
       }
       setDeleteError(null);
       onDeleted();
-      router.refresh();
     });
   };
 

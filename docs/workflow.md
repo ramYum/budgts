@@ -952,3 +952,19 @@ On hiatus as of 2026-09-25 (paused, not abandoned): Budgts is currently a person
   unmapped guard) + `npm run test:plaid`. Applied `0017` to **staging only**. Production
   rollout (migration, deploy, `cron.alter_job` to `*/10 * * * *`) is an owner step —
   see §6.
+- **2026-09-25 — One server render per edit (was up to three).** Before: an action's
+  `revalidatePath` re-rendered the page, the component then called `router.refresh()`
+  (a second full render — 23 call sites across 14 components), and the realtime echo of
+  the user's own row triggered a third via `<RealtimeRefresh>`. The per-action path
+  lists were also incomplete (e.g. `/accounts`, `/connected-banks`, the layout's bell),
+  which is why the client refreshes existed. Now every mutating action ends with
+  `revalidateUserData()` (`revalidatePath("/", "layout")`, `src/server/revalidate.ts`,
+  the only `revalidatePath` call), 22 of those `router.refresh()` calls are gone,
+  and `<RealtimeRefresh>` is a server wrapper stamping `renderedAt` so its client
+  listener skips events the latest render already includes (kept for bank sync and
+  other-device edits). ConnectBank refreshes only when the mapping dialog is dismissed
+  unsaved (the exchange route handler can't update the page); `bank-connections.tsx`
+  keeps ConnectBank at a fixed tree position so the now-immediate re-render can't
+  unmount a "first sync didn't finish" warning. New e2e "an edit costs exactly one
+  server render" (1 action POST, 0 RSC refetches) — it fails on the old code (one extra
+  `?_rsc=` refetch) and passes on the new.

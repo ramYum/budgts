@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidateUserData } from "@/server/revalidate";
 import { redirect } from "next/navigation";
 import { landTransaction, normalizeManual, supabaseTransactionStore } from "@/lib/ingestion";
 import { createClient } from "@/lib/supabase/server";
@@ -34,10 +34,6 @@ async function requireUser() {
   return { supabase, user };
 }
 
-function revalidate() {
-  revalidatePath("/transactions");
-  revalidatePath("/");
-}
 
 export async function createTransaction(
   _prev: TxnActionState,
@@ -57,7 +53,7 @@ export async function createTransaction(
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Could not save the transaction" };
   }
-  revalidate();
+  revalidateUserData();
   return { ok: true };
 }
 
@@ -90,7 +86,7 @@ export async function updateTransaction(
   if (result.outcome === "missing") return { error: MISSING_ROW };
   if (result.outcome === "conflict") return { error: CONFLICT_ROW };
 
-  revalidate();
+  revalidateUserData();
   return { ok: true };
 }
 
@@ -104,6 +100,6 @@ export async function deleteTransaction(id: string): Promise<TxnActionState> {
     .select("id");
   if (error) return { error: error.message };
   if (!data?.length) return { error: MISSING_ROW };
-  revalidate();
+  revalidateUserData();
   return { ok: true };
 }

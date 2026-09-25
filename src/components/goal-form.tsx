@@ -1,7 +1,6 @@
 "use client";
 
 import { useActionState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import type { SavingsActionState } from "@/server/savings";
 
 const field =
@@ -27,14 +26,12 @@ export function GoalForm({
   submitLabel: string;
 }) {
   const [state, formAction, pending] = useActionState<SavingsActionState, FormData>(action, {});
-  const router = useRouter();
 
   useEffect(() => {
     if (state.ok) {
       onDone();
-      router.refresh();
     }
-  }, [state.ok, onDone, router]);
+  }, [state.ok, onDone]);
 
   return (
     <form action={formAction} className="space-y-3">

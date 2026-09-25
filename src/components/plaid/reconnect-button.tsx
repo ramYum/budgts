@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { useRouter } from "next/navigation";
 import { syncConnection } from "@/server/plaid/actions";
 import { LinkHandoff } from "./link-handoff";
 import { clearLinkContext, saveLinkContext } from "./oauth-storage";
@@ -14,7 +13,6 @@ type Phase = "idle" | "starting" | "linking" | "finishing";
  * which also flips the Item back to `active`.
  */
 export function ReconnectButton({ itemId }: { itemId: string }) {
-  const router = useRouter();
   const [phase, setPhase] = useState<Phase>("idle");
   const [linkToken, setLinkToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -47,9 +45,8 @@ export function ReconnectButton({ itemId }: { itemId: string }) {
     setLinkToken(null);
     setPhase("finishing");
     await syncConnection(itemId);
-    setPhase("idle");
-    router.refresh();
-  }, [itemId, router]);
+    setPhase("idle"); // syncConnection's revalidation already re-rendered the page
+  }, [itemId]);
 
   const busy = phase === "starting" || phase === "finishing";
 

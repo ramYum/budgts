@@ -1,15 +1,12 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidateUserData } from "@/server/revalidate";
 import { redirect } from "next/navigation";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { accountFormSchema } from "@/lib/validation/account";
 
 export type AccountActionState = { error?: string; fieldError?: string; ok?: boolean };
 
-function revalidate() {
-  for (const p of ["/transactions", "/settings"]) revalidatePath(p);
-}
 
 async function withUser() {
   const user = await getSessionUser();
@@ -27,7 +24,7 @@ export async function createAccount(
   const { user, supabase } = await withUser();
   const { error } = await supabase.from("accounts").insert({ user_id: user.id, ...parsed.data });
   if (error) return { error: error.message };
-  revalidate();
+  revalidateUserData();
   return { ok: true };
 }
 
@@ -43,7 +40,7 @@ export async function updateAccount(
   const { supabase } = await withUser();
   const { error } = await supabase.from("accounts").update(parsed.data).eq("id", id);
   if (error) return { error: error.message };
-  revalidate();
+  revalidateUserData();
   return { ok: true };
 }
 
@@ -58,6 +55,6 @@ export async function setAccountArchived(
   const { supabase } = await withUser();
   const { error } = await supabase.from("accounts").update({ is_archived: archived }).eq("id", id);
   if (error) return { error: error.message };
-  revalidate();
+  revalidateUserData();
   return { ok: true };
 }

@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidateUserData } from "@/server/revalidate";
 import { redirect } from "next/navigation";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { categoryFormSchema } from "@/lib/validation/category";
@@ -14,9 +14,6 @@ export type CategoryActionState = {
   name?: string;
 };
 
-function revalidate() {
-  for (const p of ["/", "/budgets", "/transactions", "/settings"]) revalidatePath(p);
-}
 
 async function withUser() {
   const user = await getSessionUser();
@@ -38,7 +35,7 @@ export async function createCategory(
     .select("id, name")
     .single();
   if (error || !created) return { error: error?.message ?? "Could not create the category." };
-  revalidate();
+  revalidateUserData();
   return { ok: true, id: created.id, name: created.name };
 }
 
@@ -54,7 +51,7 @@ export async function updateCategory(
   const { supabase } = await withUser();
   const { error } = await supabase.from("categories").update(parsed.data).eq("id", id);
   if (error) return { error: error.message };
-  revalidate();
+  revalidateUserData();
   return { ok: true };
 }
 
@@ -72,6 +69,6 @@ export async function setCategoryArchived(
     .update({ is_archived: archived })
     .eq("id", id);
   if (error) return { error: error.message };
-  revalidate();
+  revalidateUserData();
   return { ok: true };
 }

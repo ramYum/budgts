@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidateUserData } from "@/server/revalidate";
 import { redirect } from "next/navigation";
 import { monthKey } from "@/lib/budget/month";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
@@ -17,10 +17,6 @@ function prevMonth(month: string): string {
   return monthKey(new Date(Date.UTC(y, m - 2, 1)));
 }
 
-function revalidate() {
-  revalidatePath("/");
-  revalidatePath("/budgets");
-}
 
 /** Upsert (or clear, when amount is 0) one category's budget for a month. */
 export async function setBudget(
@@ -53,7 +49,7 @@ export async function setBudget(
     if (error) return { error: error.message };
   }
 
-  revalidate();
+  revalidateUserData();
   return { ok: true };
 }
 
@@ -88,6 +84,6 @@ export async function copyBudgetsFromPreviousMonth(
     .upsert(rows, { onConflict: "user_id,category_id,month" });
   if (error) return { error: error.message };
 
-  revalidate();
+  revalidateUserData();
   return { ok: true };
 }

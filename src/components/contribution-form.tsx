@@ -1,7 +1,6 @@
 "use client";
 
 import { useActionState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import type { SavingsActionState } from "@/server/savings";
 import { localDateKey } from "@/lib/local-date";
 
@@ -28,16 +27,14 @@ export function ContributionForm({
   onDone: () => void;
 }) {
   const [state, formAction, pending] = useActionState<SavingsActionState, FormData>(action, {});
-  const router = useRouter();
   // The user's calendar day, not UTC's (only rendered client-side, in an overlay).
   const today = localDateKey();
 
   useEffect(() => {
     if (state.ok) {
       onDone();
-      router.refresh();
     }
-  }, [state.ok, onDone, router]);
+  }, [state.ok, onDone]);
 
   return (
     <form action={formAction} className="space-y-3">

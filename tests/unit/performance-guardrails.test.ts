@@ -113,18 +113,40 @@ describe("performance guardrails", () => {
     expect(offenders).toEqual([]);
   });
 
-  // Rule 6: realtime refreshes are coalesced. The behavior is covered by
-  // realtime-refresh.test.tsx; this pins that the layout keeps using the
-  // debounced component rather than an ad-hoc per-event router.refresh().
-  it("only RealtimeRefresh subscribes to realtime channels, and it is debounced", () => {
+  // Rule 6: realtime refreshes are coalesced, and only for changes the page
+  // doesn't already show. The behavior is covered by
+  // realtime-refresh-listener.test.tsx; this pins that nothing else opens a
+  // channel and that the listener keeps its debounce + render-time gate.
+  it("only RealtimeRefresh subscribes to realtime channels, and it is debounced and render-gated", () => {
     const subscribers = [join(SRC, "app"), join(SRC, "components"), join(SRC, "lib")]
       .flatMap(sourceFiles)
       .filter((p) => /\.channel\(/.test(code(p)))
       .map(rel);
-    expect(subscribers).toEqual(["src/components/realtime-refresh.tsx"]);
-    const rt = read(join(SRC, "components", "realtime-refresh.tsx"));
+    expect(subscribers).toEqual(["src/components/realtime-refresh-listener.tsx"]);
+    const rt = read(join(SRC, "components", "realtime-refresh-listener.tsx"));
     expect(rt).toMatch(/DEBOUNCE_MS\s*=\s*\d{3,}/);
     expect(rt).toMatch(/removeChannel\(/);
+    expect(rt).toMatch(/commit_timestamp/);
+    expect(read(join(SRC, "components", "realtime-refresh.tsx"))).toMatch(/renderedAt=/);
+  });
+
+  // Rule 12: one refresh per edit. A server action's revalidateUserData()
+  // re-renders the current page in its own response; a client
+  // router.refresh() after it is a second full server render. The only
+  // client refreshes left: the realtime listener (changes this tab didn't
+  // make) and ConnectBank's cancel path (the exchange route handler created
+  // the bank but can't update the page).
+  it("client code never follows a server action with router.refresh(); actions revalidate through one helper", () => {
+    const refreshers = [join(SRC, "app"), join(SRC, "components")]
+      .flatMap(sourceFiles)
+      .filter((p) => /router\.refresh\(\)/.test(code(p)))
+      .map(rel)
+      .sort();
+    expect(refreshers).toEqual(["src/components/plaid/connect-bank.tsx", "src/components/realtime-refresh-listener.tsx"]);
+    const revalidators = sourceFiles(SRC)
+      .filter((p) => /revalidatePath\(/.test(code(p)))
+      .map(rel);
+    expect(revalidators).toEqual(["src/server/revalidate.ts"]);
   });
 
   // Rule 7: the heavy chart library stays out of the first-load bundle.

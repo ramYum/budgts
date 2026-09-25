@@ -1,7 +1,6 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useActionState } from "react";
 import { copyBudgetsFromPreviousMonth, type BudgetActionState } from "@/server/budgets";
 
 export function CopyBudgets({ month }: { month: string }) {
@@ -9,12 +8,6 @@ export function CopyBudgets({ month }: { month: string }) {
     copyBudgetsFromPreviousMonth,
     {},
   );
-  const router = useRouter();
-
-  useEffect(() => {
-    if (state.ok) router.refresh();
-  }, [state.ok, router]);
-
   return (
     <form action={action} className="flex items-center gap-3">
       <input type="hidden" name="month" value={month} />

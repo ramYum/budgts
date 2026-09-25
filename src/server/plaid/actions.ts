@@ -10,7 +10,7 @@
  * The service-role sync engine is reached only after an ownership check, and
  * only with an `item_id` that RLS confirmed belongs to the caller.
  */
-import { revalidatePath } from "next/cache";
+import { revalidateUserData } from "@/server/revalidate";
 import { redirect } from "next/navigation";
 import { standardCategory } from "@/lib/categories/standard";
 import { after } from "next/server";
@@ -37,9 +37,6 @@ export type PlaidActionState = {
   ok?: boolean;
 };
 
-function revalidateSynced() {
-  for (const p of ["/", "/transactions", "/settings", "/budgets"]) revalidatePath(p);
-}
 
 /**
  * A user-requested sync of an Item the caller was already confirmed to own,
@@ -95,7 +92,7 @@ export async function syncConnection(itemId: string): Promise<PlaidActionState> 
   }
 
   const sync = await syncOwnedItem(record.itemId);
-  revalidateSynced();
+  revalidateUserData();
   if (sync.kind === "not_started") return { ok: true, warning: sync.message };
   if (sync.kind === "failed") {
     return { ok: true, warning: "Connected, but the first sync didn't finish. It'll retry shortly." };
@@ -157,7 +154,7 @@ export async function mapAccounts(
   const record = await findItemByPlaidItemId(plaidDb, item.item_id);
   if (record && record.userId === user.id) {
     const sync = await syncOwnedItem(record.itemId);
-    revalidateSynced();
+    revalidateUserData();
     if (sync.kind === "not_started") return { ok: true, warning: `Accounts saved. ${sync.message}` };
     if (sync.kind === "failed") {
       return { ok: true, warning: "Accounts saved. The first sync didn't finish — it'll retry shortly." };
@@ -165,7 +162,7 @@ export async function mapAccounts(
     return { ok: true };
   }
 
-  revalidateSynced();
+  revalidateUserData();
   return { ok: true };
 }
 
@@ -191,7 +188,7 @@ export async function clearAccountReview(
     .eq("id", parsed.data.plaidAccountRowId);
   if (error) return { error: "Could not update the review status. Try again." };
 
-  revalidateSynced();
+  revalidateUserData();
   return { ok: true };
 }
 
@@ -226,7 +223,7 @@ export async function setAccountCalculationExclusionAction(
     return { error: "Only an account currently flagged for review can be excluded from totals." };
   }
 
-  revalidateSynced();
+  revalidateUserData();
   return { ok: true };
 }
 
@@ -294,7 +291,7 @@ export async function setAccountImportingAction(
     const record = item ? await findItemByPlaidItemId(plaidDb, item.item_id) : null;
     if (record && record.userId === user.id) {
       const sync = await syncOwnedItem(record.itemId);
-      revalidateSynced();
+      revalidateUserData();
       if (sync.kind === "not_started") return { ok: true, warning: `Importing resumed. ${sync.message}` };
       if (sync.kind === "failed") {
         return { ok: true, warning: "Importing resumed. The first sync didn't finish — it'll retry shortly." };
@@ -302,7 +299,7 @@ export async function setAccountImportingAction(
     }
   }
 
-  revalidateSynced();
+  revalidateUserData();
   return { ok: true };
 }
 
@@ -381,9 +378,7 @@ export async function categorizeBankTransaction(
       .eq("is_transfer", false);
   }
 
-  revalidatePath("/transactions");
-  revalidatePath("/");
-  revalidatePath("/settings");
+  revalidateUserData();
   return { ok: true };
 }
 
@@ -396,8 +391,7 @@ export async function categorizeBankTransaction(
 export async function rescanUncategorized(): Promise<PlaidActionState> {
   const { user } = await withUser();
   const { updated } = await recategorizeUncategorizedBankTxns(plaidDb, user.id);
-  revalidatePath("/transactions");
-  revalidatePath("/");
+  revalidateUserData();
   return { ok: true, warning: updated === 0 ? "Nothing new to categorise." : undefined };
 }
 
@@ -421,7 +415,7 @@ export async function disconnectBank(
     return { error: result.status === 404 ? "That bank is already disconnected." : result.error };
   }
 
-  revalidateSynced();
+  revalidateUserData();
   return { ok: true };
 }
 

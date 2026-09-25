@@ -1,7 +1,6 @@
 "use client";
 
 import { useActionState, useEffect, useState, useSyncExternalStore, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { Overlay } from "@/components/overlay";
 import {
   clearAccountReview,
@@ -107,7 +106,6 @@ function BankCard({
   bank: ConnectedBank;
   budgtsAccounts: { id: string; name: string }[];
 }) {
-  const router = useRouter();
   const hydrated = useHydrated();
   const [syncing, startSync] = useTransition();
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
@@ -124,7 +122,6 @@ function BankCard({
       if (res.error) setSyncMsg(res.error);
       else if (res.warning) setSyncMsg(res.warning);
       else setSyncMsg("Synced.");
-      router.refresh();
     });
 
   return (
@@ -228,7 +225,6 @@ function BankCard({
             budgtsAccounts={budgtsAccounts}
             onDone={() => {
               setChoosing(false);
-              router.refresh();
             }}
           />
         </Overlay>
@@ -246,16 +242,11 @@ function BankCard({
  * importing" action.
  */
 function ImportToggle({ account }: { account: ConnectedBankAccount }) {
-  const router = useRouter();
   const [state, formAction, pending] = useActionState<PlaidActionState, FormData>(
     setAccountImportingAction,
     {},
   );
   const importing = account.linkState === "mapped";
-
-  useEffect(() => {
-    if (state.ok) router.refresh();
-  }, [state.ok, router]);
 
   return (
     <form action={formAction} className="inline-flex items-center gap-1.5">
@@ -300,18 +291,13 @@ function ImportToggle({ account }: { account: ConnectedBankAccount }) {
  * this is a shortcut through that flow, not a second code path.
  *
  * Once connected, `linkState` becomes "mapped" and — after the
- * `router.refresh()` below re-fetches the row — this same switch position
+ * `mapAccounts` action's revalidation re-renders the row — this same switch position
  * renders as the ordinary ImportToggle instead, which is what actually
  * offers the reversible on/off from then on (pause/resume, never a second
  * "ignore" mapping call from here).
  */
 function ConnectToggle({ account, plaidItemId }: { account: ConnectedBankAccount; plaidItemId: string }) {
-  const router = useRouter();
   const [state, formAction, pending] = useActionState<PlaidActionState, FormData>(mapAccounts, {});
-
-  useEffect(() => {
-    if (state.ok) router.refresh();
-  }, [state.ok, router]);
 
   const entries = [
     {
@@ -377,7 +363,6 @@ function SignCheckNotice({ count }: { count: number }) {
  * defense against excluding one by mistake.
  */
 function AccountReviewNotice({ account }: { account: ConnectedBankAccount }) {
-  const router = useRouter();
   const [reviewState, reviewAction, reviewPending] = useActionState<PlaidActionState, FormData>(
     clearAccountReview,
     {},
@@ -386,10 +371,6 @@ function AccountReviewNotice({ account }: { account: ConnectedBankAccount }) {
     setAccountCalculationExclusionAction,
     {},
   );
-
-  useEffect(() => {
-    if (reviewState.ok || exclusionState.ok) router.refresh();
-  }, [reviewState.ok, exclusionState.ok, router]);
 
   if (account.excludedFromCalculations) {
     return (
@@ -462,16 +443,14 @@ function DisconnectConfirm({
   bankName: string;
   onClose: () => void;
 }) {
-  const router = useRouter();
   const [state, formAction, pending] = useActionState<PlaidActionState, FormData>(disconnectBank, {});
   const [purge, setPurge] = useState(false);
 
   useEffect(() => {
     if (state.ok) {
       onClose();
-      router.refresh();
     }
-  }, [state.ok, onClose, router]);
+  }, [state.ok, onClose]);
 
   return (
     <form action={formAction} className="space-y-3">

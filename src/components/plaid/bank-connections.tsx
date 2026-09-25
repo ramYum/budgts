@@ -138,24 +138,31 @@ export async function BankConnections() {
         Connected banks
       </h2>
 
-      {banks.length === 0 ? (
-        <div className="card space-y-3 rounded-2xl border border-hairline p-4">
-          <p className="text-sm text-muted">
-            Connect a bank and Budgts imports its transactions for you — categories filled in, ready to
-            check. Manual entry still works for cash and anything your bank can&apos;t reach.
-          </p>
-          <p className="text-xs text-muted">
-            Your data is secure. Budgts can only read your account and transaction data to help you budget —
-            it cannot send money, make payments, make purchases, or transfer funds.
-          </p>
-          <ConnectBank accounts={budgtsAccounts} />
-        </div>
-      ) : (
-        <>
+      {/* One ConnectBank at a fixed position in both states: saving the first
+          bank's mapping re-renders this page (server-action revalidation), and
+          a remount here would drop the mapping overlay before it can show a
+          "first sync didn't finish" warning. */}
+      <div className={banks.length === 0 ? "card space-y-3 rounded-2xl border border-hairline p-4" : "space-y-3"}>
+        {banks.length === 0 ? (
+          <>
+            <p className="text-sm text-muted">
+              Connect a bank and Budgts imports its transactions for you — categories filled in, ready to
+              check. Manual entry still works for cash and anything your bank can&apos;t reach.
+            </p>
+            <p className="text-xs text-muted">
+              Your data is secure. Budgts can only read your account and transaction data to help you budget —
+              it cannot send money, make payments, make purchases, or transfer funds.
+            </p>
+          </>
+        ) : (
           <ConnectedBanks banks={banks} budgtsAccounts={budgtsAccounts} />
+        )}
+        {banks.length === 0 ? (
+          <ConnectBank accounts={budgtsAccounts} />
+        ) : (
           <ConnectBank accounts={budgtsAccounts} tone="outline" label="Connect another bank" />
-        </>
-      )}
+        )}
+      </div>
     </section>
   );
 }

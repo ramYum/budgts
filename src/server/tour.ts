@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidateUserData } from "@/server/revalidate";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
@@ -26,6 +26,6 @@ export async function completeTour(_prev: TourState, _formData: FormData): Promi
   // The dashboard layout gate (onboarded/tour redirects) was rendered into the
   // client router cache before this flag flipped; with staleTimes.dynamic that
   // stale gate would bounce the user back. Purge it before navigating on.
-  revalidatePath("/", "layout");
+  revalidateUserData();
   redirect("/");
 }

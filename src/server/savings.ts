@@ -1,16 +1,12 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidateUserData } from "@/server/revalidate";
 import { redirect } from "next/navigation";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { contributionFormSchema, savingsGoalFormSchema } from "@/lib/validation/savings";
 
 export type SavingsActionState = { error?: string; fieldError?: string; ok?: boolean };
 
-function revalidate() {
-  revalidatePath("/");
-  revalidatePath("/goals");
-}
 
 async function withUser() {
   const user = await getSessionUser();
@@ -36,7 +32,7 @@ export async function createGoal(
     target_date: targetDate,
   });
   if (error) return { error: error.message };
-  revalidate();
+  revalidateUserData();
   return { ok: true };
 }
 
@@ -56,7 +52,7 @@ export async function updateGoal(
     .update({ name, target_amount: targetAmount, target_date: targetDate })
     .eq("id", id);
   if (error) return { error: error.message };
-  revalidate();
+  revalidateUserData();
   return { ok: true };
 }
 
@@ -74,7 +70,7 @@ export async function setGoalArchived(
     .update({ is_archived: archived })
     .eq("id", id);
   if (error) return { error: error.message };
-  revalidate();
+  revalidateUserData();
   return { ok: true };
 }
 
@@ -100,7 +96,7 @@ async function insertContribution(
     note,
   });
   if (error) return { error: error.message };
-  revalidate();
+  revalidateUserData();
   return { ok: true };
 }
 
@@ -123,6 +119,6 @@ export async function deleteContribution(id: string): Promise<{ error?: string }
   const { supabase } = await withUser();
   const { error } = await supabase.from("savings_contributions").delete().eq("id", id);
   if (error) return { error: error.message };
-  revalidate();
+  revalidateUserData();
   return {};
 }

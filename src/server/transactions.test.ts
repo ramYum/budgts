@@ -11,7 +11,7 @@ const updateTransactionRow = vi.fn();
 
 vi.mock("@/lib/supabase/server", () => ({ createClient: () => createClient() }));
 vi.mock("next/navigation", () => ({ redirect: (url: string) => redirect(url) }));
-vi.mock("next/cache", () => ({ revalidatePath: (p: string) => revalidatePath(p) }));
+vi.mock("next/cache", () => ({ revalidatePath: (p: string, type?: string) => revalidatePath(p, type) }));
 vi.mock("@/server/transaction-update", () => ({ updateTransactionRow: (...a: unknown[]) => updateTransactionRow(...a) }));
 
 const { updateTransaction } = await import("./transactions");
@@ -76,8 +76,8 @@ describe("updateTransaction", () => {
         isTransfer: true,
       }),
     );
-    expect(revalidatePath).toHaveBeenCalledWith("/transactions");
-    expect(revalidatePath).toHaveBeenCalledWith("/");
+    expect(revalidatePath).toHaveBeenCalledTimes(1);
+    expect(revalidatePath).toHaveBeenCalledWith("/", "layout");
   });
 
   it("surfaces the existing missing-row error when updateTransactionRow reports 'missing'", async () => {

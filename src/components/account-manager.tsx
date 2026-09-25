@@ -1,7 +1,6 @@
 "use client";
 
 import { useActionState, useEffect, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { Overlay } from "./overlay";
 import { ACCOUNT_TYPES } from "@/lib/validation/account";
 import {
@@ -33,13 +32,11 @@ function AccountForm({
   submitLabel: string;
 }) {
   const [state, formAction, pending] = useActionState<AccountActionState, FormData>(action, {});
-  const router = useRouter();
   useEffect(() => {
     if (state.ok) {
       onDone();
-      router.refresh();
     }
-  }, [state.ok, onDone, router]);
+  }, [state.ok, onDone]);
 
   return (
     <form action={formAction} className="space-y-3">
@@ -78,7 +75,6 @@ function AccountForm({
 }
 
 export function AccountManager({ accounts }: { accounts: AccountItem[] }) {
-  const router = useRouter();
   const [editing, setEditing] = useState<AccountItem | null>(null);
   const [adding, setAdding] = useState(false);
   const [pending, start] = useTransition();
@@ -89,7 +85,6 @@ export function AccountManager({ accounts }: { accounts: AccountItem[] }) {
       fd.set("id", a.id);
       fd.set("archived", a.is_archived ? "0" : "1");
       await setAccountArchived({}, fd);
-      router.refresh();
     });
   };
 

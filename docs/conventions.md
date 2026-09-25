@@ -58,7 +58,9 @@ started. Reordering is how RLS gaps and float-money bugs get in.
    - Logo: `<Logo>` / `<LogoMark>` from `src/components/logo.tsx`.
    - For live data, render `<RealtimeRefresh tables={[...]}>` (debounced,
      one trailing refresh) — never a hand-rolled channel that calls
-     `router.refresh()` per event. See "Performance rules" below.
+     `router.refresh()` per event. After a mutation, don't refresh on the
+     client at all — the server action's `revalidateUserData()` already
+     re-rendered the page. See "Performance rules" below.
    - Reference: **`docs/BRAND_GUIDELINES.md`** — the source of truth for
      color, type, logo, mascot, iconography, and component styling.
      `docs/specs/2026-09-13-ui-redesign-brand-guidelines-spec.md` still
@@ -253,12 +255,16 @@ failure there names the rule it protects.
 5. **Slow or optional UI streams.** Every dashboard route is covered by
    `(dashboard)/loading.tsx`; banners and badges that need their own queries
    sit in `<Suspense fallback={null}>` so they never block the page.
-6. **Realtime is coalesced.** Only `<RealtimeRefresh>` subscribes; it
-   debounces a burst into one trailing `router.refresh()` and defers while the
-   tab is hidden. Don't add a second refresh path for the same table.
+6. **Realtime is coalesced, and only for changes this tab didn't make**
+   (background bank sync, another device). Only `<RealtimeRefresh>`
+   subscribes (server wrapper stamps `renderedAt`; the client listener
+   ignores events whose `commit_timestamp` the latest render already covers —
+   the echo of the user's own edit); it debounces a burst into one trailing
+   `router.refresh()` and defers while the tab is hidden. Don't add a second
+   refresh path for the same table.
 7. **Client router cache stays on** (`experimental.staleTimes.dynamic: 30` in
-   `next.config.ts`). Server actions + `revalidatePath` + `router.refresh()`
-   still invalidate it, so data stays correct.
+   `next.config.ts`). Every mutating server action's `revalidateUserData()`
+   invalidates it, so a tab visited moments ago is fresh when tapped again.
 8. **Heavy client libraries load lazily** (`recharts` only via
    `next/dynamic` in `spending-overview.tsx`; Plaid Link only mounts once a
    link token exists).
@@ -281,6 +287,15 @@ failure there names the rule it protects.
     `needs_sync` is the durable queue flag; only `releaseSyncClaim` clears it.
     An Item with an `unmapped` account is never claimable (a sync would skip
     those rows and advance the cursor past them for good).
+12. **One server render per edit.** A mutating server action ends with
+    `revalidateUserData()` (`src/server/revalidate.ts`, the only
+    `revalidatePath` call): it re-renders the page the user is on inside the
+    action's own response. Client code never follows an action with
+    `router.refresh()` (that was a second full render, and realtime's echo a
+    third). The only client refreshes: the realtime listener, and ConnectBank
+    closing the mapping dialog unsaved (the exchange route handler can't
+    update the page). Pinned by `performance-guardrails.test.ts` and the
+    "exactly one server render" test in `tests/e2e/router-cache.spec.ts`.
 
 **If it gets slow again, look at:** Vercel → Observability / Logs for the
 slow route's function duration; Supabase → Query Performance (slowest and

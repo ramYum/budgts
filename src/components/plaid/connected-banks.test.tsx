@@ -198,7 +198,7 @@ describe("ConnectedBanks", () => {
     const fd = setAccountCalculationExclusionAction.mock.calls[0][1] as FormData;
     expect(fd.get("plaidAccountRowId")).toBe("row-checking");
     expect(fd.get("excluded")).toBe("1");
-    expect(refresh).toHaveBeenCalled();
+    expect(refresh).not.toHaveBeenCalled(); // the action's revalidation is the one refresh
   });
 
   it("shows the excluded state clearly, without implying deletion, and offers Include again", async () => {
@@ -234,7 +234,7 @@ describe("ConnectedBanks", () => {
     const fd = setAccountCalculationExclusionAction.mock.calls[0][1] as FormData;
     expect(fd.get("plaidAccountRowId")).toBe("row-checking");
     expect(fd.get("excluded")).toBe("0");
-    expect(refresh).toHaveBeenCalled();
+    expect(refresh).not.toHaveBeenCalled(); // the action's revalidation is the one refresh
   });
 
   it("clears a review flag only through the explicit Mark reviewed action", async () => {
@@ -265,7 +265,7 @@ describe("ConnectedBanks", () => {
     expect(clearAccountReview).toHaveBeenCalledTimes(1);
     const fd = clearAccountReview.mock.calls[0][1] as FormData;
     expect(fd.get("plaidAccountRowId")).toBe("row-checking");
-    expect(refresh).toHaveBeenCalled();
+    expect(refresh).not.toHaveBeenCalled(); // the action's revalidation is the one refresh
   });
 });
 
@@ -357,7 +357,7 @@ describe("ConnectedBanks — import on/off switch (already-mapped accounts)", ()
     const fd = setAccountImportingAction.mock.calls[0][1] as FormData;
     expect(fd.get("plaidAccountRowId")).toBe("row-checking");
     expect(fd.get("importing")).toBe("0");
-    expect(refresh).toHaveBeenCalled();
+    expect(refresh).not.toHaveBeenCalled(); // the action's revalidation is the one refresh
   });
 
   it("renders an OFF switch for a paused-but-still-mapped account and turns it back on", async () => {
@@ -454,7 +454,7 @@ describe("ConnectedBanks — connect switch (never-mapped accounts)", () => {
     expect(entries).toEqual([
       { plaidAccountId: "plaid-acc-saving", mode: "new", name: "Plaid Saving ••1111", type: "savings" },
     ]);
-    expect(refresh).toHaveBeenCalled();
+    expect(refresh).not.toHaveBeenCalled(); // the action's revalidation is the one refresh
   });
 
   it("the switch is always OFF for a not-yet-connected account — there is no on/off toggle here, only connect", () => {

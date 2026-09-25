@@ -85,7 +85,6 @@ function CategoryDetail({
   currency: string;
   onClose: () => void;
 }) {
-  const router = useRouter();
   const [editing, setEditing] = useState(false);
   const trend = prevActual > 0 ? Math.round(((bar.actual - prevActual) / prevActual) * 100) : null;
 
@@ -128,7 +127,6 @@ function CategoryDetail({
             initial={bar.budget}
             onSaved={() => {
               setEditing(false);
-              router.refresh();
             }}
           />
         ) : (
@@ -347,7 +345,6 @@ export function BudgetsView(
           onClose={() => setAdding(false)}
           onSaved={() => {
             setAdding(false);
-            router.refresh();
           }}
         />
       ) : null}

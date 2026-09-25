@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { formatMoney } from "@/lib/budget/money";
 import type { GoalProgress, GoalsSummary } from "@/lib/budget/savings";
 import {
@@ -31,7 +30,6 @@ function toInitial(g: GoalProgress): GoalInitial {
 }
 
 function ArchiveButton({ id }: { id: string }) {
-  const router = useRouter();
   const [pending, start] = useTransition();
   return (
     <button
@@ -43,7 +41,6 @@ function ArchiveButton({ id }: { id: string }) {
           fd.set("id", id);
           fd.set("archived", "1");
           await setGoalArchived({}, fd);
-          router.refresh();
         })
       }
       className="text-xs text-muted hover:text-text disabled:opacity-50"

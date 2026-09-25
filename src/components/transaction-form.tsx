@@ -1,7 +1,6 @@
 "use client";
 
 import { useActionState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import type { TxnActionState } from "@/server/transactions";
 import { resolveDefaultDate } from "@/lib/local-date";
 
@@ -52,7 +51,6 @@ export function TransactionForm({
   lockDirection?: boolean;
 }) {
   const [state, formAction, pending] = useActionState<TxnActionState, FormData>(action, {});
-  const router = useRouter();
   const fe = state.fieldErrors ?? {};
   const directionLocked = lockDirection && !initial;
   const visibleCategories =
@@ -61,9 +59,8 @@ export function TransactionForm({
   useEffect(() => {
     if (state.ok) {
       onDone();
-      router.refresh();
     }
-  }, [state.ok, onDone, router]);
+  }, [state.ok, onDone]);
 
   return (
     <form action={formAction} className="space-y-3">

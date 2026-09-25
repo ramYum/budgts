@@ -2,7 +2,6 @@
 
 import { useState, useTransition } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Overlay } from "./overlay";
 import { CategoryForm, type CategoryInitial } from "./category-form";
 import { createCategory, setCategoryArchived, updateCategory } from "@/server/categories";
@@ -24,7 +23,6 @@ function Row({
   onEdit: (c: CategoryItem) => void;
   currentMonth: string;
 }) {
-  const router = useRouter();
   const [pending, start] = useTransition();
 
   const toggleArchive = () => {
@@ -33,7 +31,6 @@ function Row({
       fd.set("id", cat.id);
       fd.set("archived", cat.is_archived ? "0" : "1");
       await setCategoryArchived({}, fd);
-      router.refresh();
     });
   };
 

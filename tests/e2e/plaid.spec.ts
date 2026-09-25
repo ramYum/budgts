@@ -25,15 +25,24 @@ test.skip(
     "never run this against a production-wired server.",
 );
 
-/** Every unmapped-account row defaults to "A new Budgts account"; set every
- * row except the first to "Don't import this one" so only the primary
- * checking account (with real Sandbox activity) gets imported. */
-async function skipAllButFirstAccount(page: Page) {
-  const selects = page.getByRole("combobox", { name: "Import as" });
-  const count = await selects.count();
-  for (let i = 1; i < count; i++) {
-    await selects.nth(i).selectOption("Don't import this one");
+/** Every unmapped-account row defaults to "A new Budgts account"; set every row
+ * except "Plaid Checking" to "Don't import this one". Sandbox lists a new item's
+ * accounts in a varying order and only Checking carries the canned transaction
+ * history (Cash Management, Saving, etc. have none) — importing "the first row"
+ * imports an account with no transactions on some runs. */
+async function importOnlyPlaidChecking(page: Page) {
+  const rows = page.getByRole("dialog", { name: "Choose which accounts to import" }).getByRole("listitem");
+  const count = await rows.count();
+  let checking = 0;
+  for (let i = 0; i < count; i++) {
+    const row = rows.nth(i);
+    if ((await row.getByText("Plaid Checking").count()) > 0) {
+      checking++;
+      continue;
+    }
+    await row.getByRole("combobox", { name: "Import as" }).selectOption("Don't import this one");
   }
+  expect(checking).toBe(1);
 }
 
 /**
@@ -87,7 +96,7 @@ test("connect a bank, map an account, import, categorize, disconnect, history re
     await page.goto("/connected-banks");
     await expect(page.getByText("First Platypus Bank (Sandbox)")).toBeVisible();
     await page.getByRole("button", { name: "Choose accounts to import" }).click();
-    await skipAllButFirstAccount(page);
+    await importOnlyPlaidChecking(page);
     await page.getByRole("button", { name: "Import transactions" }).click();
     // mapAccounts links the accounts AND runs the first Plaid sync inline before the
     // dialog closes, so wait for that (bounded) rather than the 5s default.

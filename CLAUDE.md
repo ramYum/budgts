@@ -92,7 +92,7 @@ What carries over is the **spirit**:
 | DB access | `supabase-js` with the user's session for all reads/writes; Drizzle for **migrations only** |
 | Security | Row-Level Security on **every** table, scoped to `auth.uid()` — the enforcement, not a backstop |
 | Validation | Zod schemas shared client + server |
-| Forms | React Hook Form |
+| Forms | Native `<form action>` + server actions (`useActionState`), Zod-validated on the server |
 | Charts | Recharts (consult the `dataviz` skill before building any chart) |
 | AI extraction (V2) | Claude API — `claude-sonnet-5`, vision for receipts (consult the `claude-api` skill) |
 | Testing | Vitest + React Testing Library (unit/component), Playwright (e2e) |

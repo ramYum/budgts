@@ -83,7 +83,7 @@ test("connect a bank, map an account, import, categorize, disconnect, history re
     expect(exchange.accounts.length).toBeGreaterThan(0);
 
     // --- Map: the real <AccountMapping> UI, server-rendered from the DB ---
-    await page.goto("/settings");
+    await page.goto("/connected-banks");
     await expect(page.getByText("First Platypus Bank (Sandbox)")).toBeVisible();
     await page.getByRole("button", { name: "Choose accounts to import" }).click();
     await skipAllButFirstAccount(page);
@@ -130,7 +130,7 @@ test("connect a bank, map an account, import, categorize, disconnect, history re
     const importedRows = csvBefore.split("\n").length;
     expect(importedRows).toBeGreaterThan(1); // header + at least one imported row
 
-    await page.goto("/settings");
+    await page.goto("/connected-banks");
     await page.getByRole("button", { name: "Disconnect" }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Disconnect" }).click();
     await expect(page.getByText("First Platypus Bank (Sandbox)")).toHaveCount(0);

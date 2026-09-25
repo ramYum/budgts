@@ -42,12 +42,13 @@ BUDGTS
 │   ├── Money Left + Savings Rate dashboard tiles ................ ✅
 │   └── Account calculation-exclusion (bad bank-feed safety valve) ✅
 │
-├── V1.5      Recurring & transfer intelligence
-│   ├── Recurring transaction detection
-│   ├── Subscription detection
-│   ├── Bill detection (upcoming / missed)
+├── V1.5      Recurring & transfer intelligence ................. 🔄  (status verified 2026-09-25)
+│   ├── Recurring transaction detection .......................... 🔄  engine + `recurring_series` (0016) +
+│   │                                                                   /api/plaid/recurring-scan merged; no UI yet
+│   ├── Subscription detection ................................... 🔄  classification layer only, no UI
+│   ├── Bill detection (upcoming / missed) ....................... 🔄  classification layer only, no UI
 │   ├── User confirmation / muting
-│   └── Paired transfer detection
+│   └── Paired transfer detection ................................ ✅  (in the sync engine)
 │
 ├── V2        Ingestion breadth + spending intelligence
 │   ├── Email / receipt ingestion

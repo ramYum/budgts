@@ -189,7 +189,9 @@ E2E-only, set **only** for a Playwright run then unset: `PLAID_TEST_SEED_ENABLED
 Configuration: Site URL = the deploy origin; Redirect URLs =
 `<origin>/**` + `http://localhost:3000/**`. Email/magic-link is on by default.
 The `handle_new_user` trigger already seeds accounts + categories on first sign-in
-(migrations 0000–0004 are applied on staging).
+(migrations 0000–0016 are applied on both staging and production — the
+0014–0016 columns/tables were confirmed present with a read-only schema probe
+on 2026-09-25).
 
 **4. Plaid dashboard.** Team → Developers → API → allowed redirect / webhook:
 add `<origin>/api/plaid/webhook`. (OAuth `redirect_uri` only if OAuth

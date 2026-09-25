@@ -36,7 +36,11 @@ started. Reordering is how RLS gaps and float-money bugs get in.
      all reads and writes. RLS enforces per-user isolation at the database — it
      is the guard, not a backstop. Still set `user_id` explicitly on inserts
      (the RLS `WITH CHECK` requires it to match `auth.uid()`).
-   - Drizzle is **migrations only** — never used for request-time queries.
+   - Drizzle is for migrations and the **server-only Plaid pipeline**
+     (`src/server/plaid/*`, webhook/cron routes, the page-view refresh
+     nudge). It connects as the DB owner and bypasses RLS, so every Drizzle
+     query scopes by `user_id`/`item_id` explicitly. Never use it for
+     ordinary user-facing reads/writes.
    - Call the domain function; return typed data. No raw 500 to the client.
 5. **UI** — `src/app/**`, `src/components/**`
    - Mobile-first. Show inline Zod errors. A failed write keeps the form open
@@ -52,7 +56,9 @@ started. Reordering is how RLS gaps and float-money bugs get in.
      action per screen. Amounts get
      `tabular-nums`. Labelled inputs, keyboard-reachable, visible focus ring.
    - Logo: `<Logo>` / `<LogoMark>` from `src/components/logo.tsx`.
-   - Subscribe to Supabase Realtime where the screen shows live shared data.
+   - For live data, render `<RealtimeRefresh tables={[...]}>` (debounced,
+     one trailing refresh) — never a hand-rolled channel that calls
+     `router.refresh()` per event. See "Performance rules" below.
    - Reference: **`docs/BRAND_GUIDELINES.md`** — the source of truth for
      color, type, logo, mascot, iconography, and component styling.
      `docs/specs/2026-09-13-ui-redesign-brand-guidelines-spec.md` still
@@ -208,6 +214,68 @@ interface IngestionAdapter {
   migration; subscriptions still filter by `user_id`.
 - **Storage** (V2 receipts) uses a private bucket with per-user path
   prefixes and a policy scoped to `auth.uid()`.
+
+---
+
+## Performance rules
+
+**Why:** on 2026-09-24 the live app became extremely slow. Root causes
+(fixed in `885f20c`, `9f9c915`, `e1bf32c`, `d86f6e6` and follow-ups): two
+network `auth.getUser()` round trips to Supabase Auth on every page; Home
+fetching the same transactions three times; `RealtimeRefresh` calling
+`router.refresh()` once per row event during a Plaid sync (hundreds of full
+server renders); no `loading.tsx` and a 0s client router cache, so every tab
+tap waited on the server with no feedback; recharts in Home's first-load
+bundle. A 2026-09-25 audit also found the Activity page pulling a user's
+entire bank history (capped at 1000 rows) to find one date per account, and
+serial awaits on Budgets/Insights/Transactions.
+
+`tests/unit/performance-guardrails.test.ts` enforces the checkable rules; a
+failure there names the rule it protects.
+
+1. **Identity on read paths comes from `getSessionUser()`** — a local JWT
+   check (`getClaims()` against the cached JWKS, one per request via
+   `cache()`). Never `auth.getUser()`/`getSession()` in pages, layouts,
+   components or `src/lib`; only allow-listed write actions may re-check
+   against Auth. This relies on the project's **asymmetric (ES256) JWT
+   signing keys** — with a legacy HS256 secret `getClaims()` silently falls
+   back to a network call, so never switch back.
+2. **Independent reads go in one `Promise.all`.** If a read needs another's
+   result, chain it off that promise (`profilePromise.then(...)`) so it still
+   runs alongside everything else — never `await` A, then start B.
+3. **Every query is bounded.** Month/window reads use `fetchAllRows` with a
+   unique `order("id")`; lists use `.limit()`; "the earliest/latest X" is
+   `order(...).limit(1)`, never "fetch everything and scan"; counts use
+   `{ count: "exact", head: true }`. No `select("*")` — name the columns.
+4. **Fetch a row set once per request.** Derive per-month slices in memory
+   from one window fetch (Home) instead of re-querying; share per-request
+   lookups with React `cache()` (the header bell count).
+5. **Slow or optional UI streams.** Every dashboard route is covered by
+   `(dashboard)/loading.tsx`; banners and badges that need their own queries
+   sit in `<Suspense fallback={null}>` so they never block the page.
+6. **Realtime is coalesced.** Only `<RealtimeRefresh>` subscribes; it
+   debounces a burst into one trailing `router.refresh()` and defers while the
+   tab is hidden. Don't add a second refresh path for the same table.
+7. **Client router cache stays on** (`experimental.staleTimes.dynamic: 30` in
+   `next.config.ts`). Server actions + `revalidatePath` + `router.refresh()`
+   still invalidate it, so data stays correct.
+8. **Heavy client libraries load lazily** (`recharts` only via
+   `next/dynamic` in `spending-overview.tsx`; Plaid Link only mounts once a
+   link token exists).
+9. **Page-view background work is throttled and non-blocking.** `after()` +
+   `nudgeRefresh` costs one conditional `UPDATE … RETURNING` per Home /
+   Transactions view and calls Plaid at most once per 25 min per Item.
+   Anything new in `after()` must be equally cheap or throttled.
+10. **Service worker caches only content-hashed assets cache-first**
+    (`/_next/static/`); un-hashed files (`/brand/*`, icons) are
+    stale-while-revalidate. Bump `CACHE` in `public/sw.js` when its strategy
+    changes.
+
+**If it gets slow again, look at:** Vercel → Observability / Logs for the
+slow route's function duration; Supabase → Query Performance (slowest and
+most-called statements) and the API request count per minute; whether a Plaid
+sync was running at the time (realtime bursts, `/api/plaid/sync-due` runs);
+and the browser Network tab for how many RSC requests a single tap triggers.
 
 ---
 

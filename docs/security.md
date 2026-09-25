@@ -1,5 +1,16 @@
 # Security review — Phase 1 (2026-09-07)
 
+> **Updates since this review (2026-09-25):** `getSessionUser` and the proxy
+> now use `auth.getClaims()` — the JWT signature is verified locally against
+> the project's ES256 JWKS instead of a network `getUser()` call (trade-off:
+> a session revoked elsewhere stays valid until its access token expires;
+> a few write actions still call `getUser()`). The Plaid pipeline
+> (`src/server/plaid/*`, webhook/cron routes) uses Drizzle over
+> `DATABASE_URL` as the DB owner, so it **bypasses RLS** and scopes every
+> query by `user_id`/`item_id` explicitly; Plaid access tokens are AES-256
+> encrypted at rest (`PLAID_TOKEN_ENC_KEY`). PNG icons now ship. The
+> sections below are the original Phase 1 review, kept as a record.
+
 Manual review (the `security-review` skill needs a git remote, which this repo
 does not have yet). Scope: auth, RLS, the service key, the CSV export route,
 the service worker, CI.

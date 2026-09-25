@@ -1,6 +1,6 @@
 # First-run tour — design
 
-**Status:** approved, in progress. **Branch:** `v1.5/first-run-tour`.
+**Status:** implemented and shipped (`e96a428`; migration `0014` confirmed applied on production 2026-09-25) — this card wizard is what runs today. **Branch:** `v1.5/first-run-tour` (merged).
 
 ## Problem
 

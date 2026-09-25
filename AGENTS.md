@@ -10,7 +10,7 @@ The routing principle is:
 
 Do not sacrifice correctness, test coverage, architecture, financial integrity, security, or maintainability to save tokens.
 
-**Mobile exception (owner decision):** all Expo / React Native mobile implementation belongs to `budgts-architect` (Opus 5.5 Medium), even when the task is straightforward. This covers anything that creates, modifies, debugs, reviews, or materially affects the native mobile app, Expo Router, React Native UI, native authentication/deep links, native Plaid Link, RevenueCat/mobile billing integration, native configuration, EAS configuration that changes app behavior, device-specific behavior, mobile API integration, secure storage, Android/iOS native wiring, and mobile tests that exercise runtime behavior. The least-expensive-agent principle still applies to non-mobile work.
+**Mobile exception (owner decision):** all Expo / React Native mobile implementation belongs to `budgts-architect` (Opus 5.5 Medium), even when the task is straightforward. This covers anything that creates, modifies, debugs, reviews, or materially affects the native mobile app, Expo Router, React Native UI, native authentication/deep links, native Plaid Link, RevenueCat/mobile billing integration, native configuration, EAS configuration that changes app behavior, device-specific behavior, mobile API integration, secure storage, Android/iOS native wiring, and mobile tests that exercise runtime behavior. The least-expensive-agent principle still applies to non-mobile work. Native mobile is currently **on hiatus** (paused, not abandoned — see `CLAUDE.md`); its code is archived on branches, not on `main`, so the mobile rules here apply when that work resumes.
 
 ---
 

@@ -89,7 +89,7 @@ What carries over is the **spirit**:
 | Hosting | Vercel. Supabase is currently on the Free/Nano tier (500MB DB, pauses after 7 idle days) and Vercel is on Hobby — both deliberately deferred to a launch-readiness milestone, not an oversight. Upgrade trigger: Supabase DB size approaching its 500MB cap, or a concrete dev/prod limitation, whichever comes first. |
 | PWA | web app manifest + service worker (app-shell caching) |
 | Data / auth / storage / realtime | Supabase (Postgres, Auth, Storage, Realtime) |
-| DB access | `supabase-js` with the user's session for all reads/writes; Drizzle for **migrations only** |
+| DB access | `supabase-js` with the user's session for all user-facing reads/writes; Drizzle for migrations **and** the server-only Plaid pipeline (`src/server/plaid/*`, webhook / cron routes, the page-view refresh nudge), which connects as the DB owner — bypassing RLS — so every such query must scope by `user_id`/`item_id` explicitly |
 | Security | Row-Level Security on **every** table, scoped to `auth.uid()` — the enforcement, not a backstop |
 | Validation | Zod schemas shared client + server |
 | Forms | Native `<form action>` + server actions (`useActionState`), Zod-validated on the server |
@@ -102,26 +102,37 @@ What carries over is the **spirit**:
 ```
 CLAUDE.md  AGENTS.md  README.md
 next.config.ts  tsconfig.json  eslint.config.mjs  postcss.config.mjs
-vitest.config.ts  vitest.setup.ts  playwright.config.ts  drizzle.config.ts
+vitest.config.mts  vitest.integration.config.mts  vitest.plaid.config.mts
+vitest.setup.ts  playwright.config.ts  drizzle.config.ts
 .env.local.example  .nvmrc
+.claude/agents/           # budgts-architect, budgts-utility (see AGENTS.md)
 docs/
-  conventions.md          # layer order for a feature + ingestion-adapter contract
+  conventions.md          # layer order, ingestion-adapter contract, performance rules
   specs/                  # YYYY-MM-DD-<topic>-design.md
-  roadmap.md
+  superpowers/plans/      # implementation plans
+  roadmap.md  workflow.md  deploy.md  security.md  BRAND_GUIDELINES.md
+public/                   # sw.js, manifest, icons, brand/ art
 src/
-  app/                    # Next.js routes (App Router)
+  app/                    # Next.js routes (App Router); api/ = Plaid + CSV export routes
   components/
   lib/
-    db/                   # Drizzle schema + client
+    db/                   # Drizzle schema + client (migrations + server-only Plaid pipeline)
     ingestion/            # IngestionAdapter interface + adapters + landTransaction()
-    budget/               # budget-vs-actual, recurring, goals domain logic (pure, tested)
+    budget/               # budget-vs-actual, money, month, goals domain logic (pure, tested)
+    plaid/                # Plaid sync, sign convention, transfers, recurring/subscription/bill detection
+    supabase/             # server/client/proxy clients, getSessionUser, fetchAllRows
     validation/           # Zod schemas
-  server/                 # server actions / route handlers
+  server/                 # server actions + server-only Plaid service
+  proxy.ts                # session refresh + auth gate (Next 16's middleware)
 supabase/
-  migrations/             # SQL migrations: tables, RLS policies, handle_new_user() seed trigger
+  migrations/             # 0000–0016 SQL migrations: tables, RLS policies, handle_new_user() seed trigger
+  staging-plaid-cron.sql  # pg_cron → /api/plaid/sync-due wiring (not a migration)
 tests/
-  unit/                   # Vitest specs that don't sit next to source
+  unit/                   # Vitest specs that don't sit next to source (incl. performance guardrails)
+  integration/            # real-Postgres tests (staging only)
+  plaid-integration/      # real Plaid Sandbox tests
   e2e/                    # Playwright
+tools/                    # dev-only scripts (screenshot, one-off dry runs)
 ```
 
 ## Next.js 16 — read the bundled docs before writing app code
@@ -139,9 +150,12 @@ export, middleware, or `next.config` change, read the relevant guide under
 | `npm run dev` | Local dev server |
 | `npm run build` | Production build (must pass in CI) |
 | `npm run lint` | ESLint |
-| `npm run typecheck` | `tsc --noEmit` |
-| `npm run test` | Vitest — unit + component |
-| `npm run test:e2e` | Playwright e2e |
+| `npm run typecheck` | `next typegen && tsc --noEmit` |
+| `npm run test` | Vitest — unit + component (+ `tests/unit/performance-guardrails.test.ts`) |
+| `npm run test:integration` | Vitest against a real Postgres — **staging only** (`.env.staging`), never `.env.local` (prod) |
+| `npm run test:plaid` | Vitest against the real Plaid Sandbox |
+| `npm run test:e2e` | Playwright e2e — run against staging, never production |
+| `npm run screenshot` | `tools/screenshot.mjs` — render a page to PNG |
 | `npm run db:generate` | Drizzle: emit a SQL migration from `schema.ts` changes |
 | `npm run db:migrate` | Apply migrations (uses `DIRECT_URL`, non-pooled) |
 
@@ -154,17 +168,32 @@ project settings. Never commit secrets. Keep `.env.local.example` in sync.
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (`sb_publishable_…` — client-safe)
 - `NEXT_PUBLIC_SITE_URL` (base URL for magic-link + OAuth redirect callbacks)
 - `SUPABASE_SECRET_KEY` (`sb_secret_…` — server only, never exposed to the client)
-- `DATABASE_URL` (Drizzle `db:generate` — transaction pooler, port 6543)
+- `DATABASE_URL` (transaction pooler, port 6543 — Drizzle `db:generate` **and** the runtime Plaid pipeline; `prepare: false`)
 - `DIRECT_URL` (Drizzle `db:migrate` — session pooler / direct, port 5432)
+- `NEXT_PUBLIC_PLAID_ENABLED` (Plaid UI flag — **on in production**)
+- `PLAID_CLIENT_ID`, `PLAID_SECRET`, `PLAID_ENV`, `PLAID_TOKEN_ENC_KEY`, `PLAID_OAUTH_REDIRECT_URI` (server only)
+- `CRON_SECRET` (bearer secret for `/api/plaid/sync-due`, called by `pg_cron`, and `/api/plaid/recurring-scan`)
+- `PLAID_TEST_SEED_ENABLED` (sandbox-only e2e seed route; never set in production)
 - `ANTHROPIC_API_KEY` (V2 — email / receipt ingestion only)
+
+`.env.local` points at the **production** Supabase project; `.env.staging` is
+staging (`uvowywszaiojboaxdmoz`). Tests that write data use staging only.
 
 ## Conventions
 
 - **Money is integer minor units** (e.g. cents) end to end. Convert to a
   display string only at the UI edge. Never store or compute with floats.
-- **Every table has RLS** scoped to the owner. All request-time DB access goes
-  through the user's `supabase` client, so RLS *is* the isolation guard. Set
-  `user_id` explicitly on inserts (RLS `WITH CHECK`). Drizzle = migrations only.
+- **Every table has RLS** scoped to the owner. All user-facing request-time DB
+  access goes through the user's `supabase` client, so RLS *is* the isolation
+  guard. Set `user_id` explicitly on inserts (RLS `WITH CHECK`). Drizzle is for
+  migrations and the server-only Plaid pipeline only (it bypasses RLS — scope
+  every query by `user_id`/`item_id`).
+- **Performance rules** (after the 2026-09-24 slowness incident) live in
+  `docs/conventions.md` and are enforced by
+  `tests/unit/performance-guardrails.test.ts`: `getSessionUser()` (local JWT
+  check) never `auth.getUser()` on read paths, independent reads in one
+  `Promise.all`, bounded/paginated queries, `loading.tsx` + `<Suspense>` for
+  slow parts, debounced realtime refresh, heavy client libs via `next/dynamic`.
 - **TDD.** Domain logic in `src/lib/budget/` and adapters get failing unit
   tests first (`superpowers:test-driven-development`).
 - **Feature work follows the layer order in `docs/conventions.md`** — schema +
@@ -203,32 +232,22 @@ See `docs/roadmap.md` (tier ladder) and `docs/workflow.md` (execution tracker).
 **Shipped:** Phase 1 (core budgeting slice — live at https://budgts.com) and
 Phase 2a (savings goals, `2d46178`).
 
-**Shipped:** **UI redesign v2** — the "Budgt" brand (black-cat mascot,
-cream/coral/sage/sky/lavender/pink palette, Poppins) and a Home-first,
-Money-Left-led information architecture across every screen. Presentation-
-layer only; see `docs/BRAND_GUIDELINES.md` (the visual source of truth) and
-`docs/specs/2026-09-13-ui-redesign-brand-guidelines-spec.md` (screen/IA
-behavior, still current outside its superseded brand sections — see its
-header) plus `docs/roadmap.md`'s "UI Redesign" section for what's deferred.
+**Shipped:** **UI redesign v2 + robin/"Budgts" rebrand** — a Home-first,
+Money-Left-led information architecture across every screen, cream/coral/
+sage/sky/lavender/pink palette, Poppins, and the robin mascot + "Budgts"
+wordmark from `Logo Assets V2`. See `docs/BRAND_GUIDELINES.md` (the visual
+source of truth) and `docs/specs/2026-09-13-ui-redesign-brand-guidelines-spec.md`
+(screen/IA behavior, still current outside its superseded brand sections).
 
-**Shipped:** **Mascot/logo rebrand** — the black-cat mascot and "Budgt" name
-were replaced with a robin mascot and the "Budgts" name/wordmark (matching
-the live domain), sourced from `Logo Assets V2`. Palette and typography
-(cream/coral/sage/sky/lavender/pink, Poppins) are unchanged — this was a
-mascot/logo/name swap, not a full visual rebrand. `docs/BRAND_GUIDELINES.md`
-is up to date; the UI redesign v2 note above is historical only for its
-brand details.
+**Shipped:** **V1 — Plaid transaction ingestion** (live in production, flag
+on) with sign-convention, transfer-ownership, paired-transfer and
+account-exclusion handling; Money Left + Savings Rate.
 
-**In progress:** **First-run tour** — a convenience-first onboarding wizard
-(auto-capture + auto-categorization pitch, then Connect your bank → Sorted
-for you → Know what's left) replacing the old single-screen onboarding.
-Code, tests, `lint`/`typecheck`/`test`/`build` all green on branch
-`v1.5/first-run-tour`; migration `0014` (`profiles.tour_seen_at`) and an e2e
-run against a real Supabase project are still pending — see
-`docs/workflow.md`. Spec: `docs/specs/2026-09-15-first-run-tour-design.md`.
-This card-wizard version is what's **currently live**; a live-coachmark
-redesign (v2) has been specced and planned but not implemented — see
-`docs/workflow.md` for the exact status.
+**Shipped:** **First-run tour (v1)** — `/onboarding` → `/tour` card wizard
+(Connect your bank → Sorted for you → Know what's left), gated on
+`profiles.tour_seen_at` (migration `0014`, verified applied on production and
+staging 2026-09-25). Spec: `docs/specs/2026-09-15-first-run-tour-design.md`.
+A live-coachmark redesign (v2) is specced and planned but **not implemented**.
 
 **Shipped:** **"How Budgts Works" guide** — a permanent static Help page
 (`/help/how-it-works`) teaching the end-to-end workflow (connect →
@@ -236,8 +255,10 @@ transactions arrive → auto-categorize → review exceptions → budget → Mon
 Left → track progress); linked from `/help` and the tour's final card.
 Spec: `docs/specs/2026-09-15-how-budgts-works-guide-design.md`.
 
-**Next:** **V1 — Plaid transaction ingestion** (the primary automatic path;
-manual entry stays as a fallback) → **V1.5** (recurring / subscription / bill
-detection over synced data + paired-transfer detection) → **V2** (email /
-receipt ingestion + spending intelligence) → **V2+** (AI financial assistant).
+**In progress:** **V1.5** — recurring-series detection (migration `0016`,
+`/api/plaid/recurring-scan`) and subscription / bill classification layers
+are merged but not yet surfaced in the UI.
+
+**Next:** finish **V1.5** → **V2** (email / receipt ingestion + spending
+intelligence) → **V2+** (AI financial assistant).
 Native apps and mobile monetization are on hiatus (2026-09-25), not a numbered phase.

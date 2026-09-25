@@ -1,6 +1,8 @@
 # First-run tour v2 — live coachmarks
 
-**Status:** approved, supersedes the tour half of
+**Status:** approved but **not implemented** (as of 2026-09-25 the v1 card
+wizard is live; the plan in `docs/superpowers/plans/2026-09-15-first-run-tour-coachmarks.md`
+has not been executed). When built, it supersedes the tour half of
 `docs/specs/2026-09-15-first-run-tour-design.md`. **Branch:**
 `v1.5/first-run-tour`.
 

@@ -1,5 +1,10 @@
 # First-run tour — design
 
+> **Visuals and copy superseded (2026-09-25)** by the welcome guide,
+> `docs/specs/2026-09-25-welcome-guide-design.md` (Crystal's narration, animated
+> scenes, the `crystal` and `plan` steps). The flow, gating, Skip and
+> completion rules below still hold.
+
 **Status:** implemented and shipped (`e96a428`; migration `0014` confirmed applied on production 2026-09-25) — this card wizard is what runs today. **Branch:** `v1.5/first-run-tour` (merged).
 
 ## Problem

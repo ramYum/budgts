@@ -5,7 +5,8 @@ import Link from "next/link";
 import type { TourState } from "@/server/tour";
 import { TourWizard, type WizardStep } from "@/components/tour/tour-wizard";
 import { TourCard } from "@/components/tour/tour-card";
-import { PurchaseIconRow } from "@/components/tour/purchase-icons";
+import { GuideScene } from "@/components/tour/scenes";
+import { GUIDE_COPY } from "@/components/tour/guide-copy";
 import { ConnectBank } from "@/components/plaid/connect-bank";
 import { PrimaryButton } from "@/components/ui";
 import type { TourStepId } from "@/lib/tour/steps";
@@ -13,21 +14,26 @@ import type { TourStepId } from "@/lib/tour/steps";
 const COMPLETE_FORM_ID = "tour-complete-form";
 
 /**
- * Builds the visible wizard steps from the server-resolved id list. `stepIds`
+ * The welcome guide's second half (and the whole guide on a replay from
+ * Help). Builds the visible cards from the server-resolved id list. `stepIds`
  * is captured once via useState's initializer — a later `router.refresh()`
  * (e.g. ConnectBank closing its account-mapping overlay) must not reshuffle
- * which cards are showing mid-tour (design: docs/specs/2026-09-15-first-run-tour-design.md).
+ * which cards are showing mid-guide (design:
+ * docs/specs/2026-09-25-welcome-guide-design.md).
  */
 export function TourWizardContent({
   stepIds,
   offset,
   totalVisible,
+  currency,
   accounts,
   action,
 }: {
   stepIds: TourStepId[];
   offset: number;
   totalVisible: number;
+  /** The user's currency, for the scenes' sample amounts. */
+  currency: string;
   accounts: { id: string; name: string }[];
   action: (prev: TourState, formData: FormData) => Promise<TourState>;
 }) {
@@ -36,9 +42,13 @@ export function TourWizardContent({
 
   const steps: WizardStep[] = fixedStepIds.map((id, i) => ({
     id,
-    label: STEP_LABEL[id],
+    label: GUIDE_COPY[id].label,
     render: (nav) => {
+      const copy = GUIDE_COPY[id];
       const shared = {
+        heading: copy.heading,
+        body: copy.body,
+        scene: <GuideScene id={id} currency={currency} />,
         dotCount: totalVisible,
         dotIndex: offset + i,
         onBack: nav.isFirst ? undefined : nav.back,
@@ -47,84 +57,53 @@ export function TourWizardContent({
           : () =>
               (document.getElementById(COMPLETE_FORM_ID) as HTMLFormElement | null)?.requestSubmit(),
       };
+      const next = (
+        <PrimaryButton arrow onClick={nav.next} className="w-full">
+          {copy.cta}
+        </PrimaryButton>
+      );
 
       switch (id) {
+        case "crystal":
         case "welcome":
-          return (
-            <TourCard
-              {...shared}
-              mood="happy"
-              heading="Budgeting that does itself."
-              body="Budgts keeps track of your money for you — so you don't have to."
-              primary={<PrimaryButton onClick={nav.next}>Get started</PrimaryButton>}
-            />
-          );
         case "auto-capture":
-          return (
-            <TourCard
-              {...shared}
-              mood="curious"
-              heading="Every purchase, tracked"
-              body="Tap, swipe or shop online — Budgts picks up your purchases automatically. No typing. No receipts."
-              media={<PurchaseIconRow />}
-              primary={<PrimaryButton onClick={nav.next}>Next</PrimaryButton>}
-            />
-          );
+        case "auto-sort":
+        case "money-left":
+        case "plan":
+          return <TourCard {...shared} primary={next} />;
         case "bank":
           return (
             <TourCard
               {...shared}
-              mood="curious"
-              heading="Connect your bank to turn it on"
-              body="This is what makes tracking automatic. Your bank login never reaches Budgts."
-              media={<ConnectBank accounts={accounts} />}
+              media={<ConnectBank accounts={accounts} label={copy.cta} fullWidth />}
               secondary={
-                <button type="button" onClick={nav.next} className="text-sm font-medium text-muted hover:text-text">
+                <button
+                  type="button"
+                  onClick={nav.next}
+                  className="press rounded-lg px-2 py-1 text-sm font-medium text-muted hover:text-text"
+                >
                   I&apos;ll add things by hand →
                 </button>
               }
-            />
-          );
-        case "auto-sort":
-          return (
-            <TourCard
-              {...shared}
-              mood="happy"
-              heading="Sorted for you"
-              body="Budgts puts each purchase in the right category. Not sure? It asks once — then remembers. The more you use it, the less it asks."
-              primary={<PrimaryButton onClick={nav.next}>Next</PrimaryButton>}
-            />
-          );
-        case "money-left":
-          return (
-            <TourCard
-              {...shared}
-              mood="normal"
-              heading="Know what's left"
-              body="Home shows your Money Left this month. Set budgets to see what you can still spend."
-              primary={<PrimaryButton onClick={nav.next}>Next</PrimaryButton>}
             />
           );
         case "done":
           return (
             <TourCard
               {...shared}
-              mood="happy"
-              heading="You're all set"
-              body="Spend like normal — Budgts handles the rest."
+              primary={
+                <PrimaryButton type="submit" form={COMPLETE_FORM_ID} arrow className="w-full">
+                  {copy.cta}
+                </PrimaryButton>
+              }
               footnote={
                 <>
-                  Replay this tour, or see the whole workflow in{" "}
-                  <Link href="/help/how-it-works" className="font-medium text-accent">
+                  Replay this guide, or read{" "}
+                  <Link href="/help/how-it-works" className="font-medium text-neg">
                     How Budgts Works
                   </Link>
                   , anytime from Help.
                 </>
-              }
-              primary={
-                <PrimaryButton type="submit" form={COMPLETE_FORM_ID}>
-                  See my finances
-                </PrimaryButton>
               }
             />
           );
@@ -145,17 +124,7 @@ export function TourWizardContent({
           {state.error}
         </p>
       ) : null}
-      <TourWizard steps={steps} />
+      <TourWizard steps={steps} offset={offset} total={totalVisible} />
     </>
   );
 }
-
-const STEP_LABEL: Record<TourStepId, string> = {
-  welcome: "Welcome",
-  "auto-capture": "Every purchase, tracked",
-  currency: "Your currency",
-  bank: "Connect your bank",
-  "auto-sort": "Sorted for you",
-  "money-left": "Know what's left",
-  done: "You're all set",
-};

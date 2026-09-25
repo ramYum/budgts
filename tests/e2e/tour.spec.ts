@@ -8,7 +8,7 @@ import {
 
 test.skip(!hasAdminCredentials(), "needs SUPABASE_SECRET_KEY (see .env.local)");
 
-test("first-run tour: new user walks every card, lands on Home, and can replay from Help", async ({
+test("welcome guide: a new user meets Crystal, walks every card, lands on Home, and can replay from Help", async ({
   page,
 }) => {
   const user = await createTestUser();
@@ -16,10 +16,13 @@ test("first-run tour: new user walks every card, lands on Home, and can replay f
     const tokenHash = await magicTokenHash(user.email);
     await page.goto(`/auth/callback?token_hash=${tokenHash}&type=magiclink&next=/`);
 
-    // Onboarding: Welcome -> (maybe Every purchase, tracked) -> Currency.
+    // Onboarding: Crystal -> What Budgts does -> (maybe Every purchase,
+    // tracked) -> Currency.
     await expect(page).toHaveURL(/\/onboarding$/);
+    await expect(page.getByRole("heading", { name: "Hi, I'm Crystal." })).toBeVisible();
+    await page.getByRole("button", { name: "Nice to meet you" }).click();
     await expect(page.getByRole("heading", { name: "Budgeting that does itself." })).toBeVisible();
-    await page.getByRole("button", { name: "Get started" }).click();
+    await page.getByRole("button", { name: "Show me how" }).click();
 
     // Walk forward with Next until the currency select shows up, whatever
     // pitch cards this deployment includes (Plaid on/off).
@@ -27,7 +30,7 @@ test("first-run tour: new user walks every card, lands on Home, and can replay f
       if (await page.getByRole("combobox").isVisible().catch(() => false)) break;
       await page.getByRole("button", { name: "Next" }).click();
     }
-    await expect(page.getByRole("heading", { name: "Pick your currency" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Pick your currency." })).toBeVisible();
     await page.getByRole("combobox").selectOption("USD");
     await page.getByRole("button", { name: /start budgeting/i }).click();
 
@@ -54,9 +57,9 @@ test("first-run tour: new user walks every card, lands on Home, and can replay f
     // Replay from Help.
     await page.getByRole("link", { name: "More" }).click();
     await page.getByRole("link", { name: "Help" }).click();
-    await page.getByRole("link", { name: "Replay the tour" }).click();
+    await page.getByRole("link", { name: "Replay the welcome guide" }).click();
     await expect(page).toHaveURL(/\/tour$/);
-    await expect(page.getByRole("heading", { name: "Budgeting that does itself." })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Hi, I'm Crystal." })).toBeVisible();
   } finally {
     await deleteTestUser(user.id);
   }

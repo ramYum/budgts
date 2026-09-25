@@ -1,0 +1,714 @@
+/* Welcome guide motion (docs/specs/2026-09-25-welcome-guide-design.md).
+ *
+ * Every base style below is a scene's FINISHED state, so with motion off each
+ * scene reads complete and still. The media block animates toward those
+ * states. Transform/opacity only; entrance animations fill `backwards`, never
+ * `both`/`forwards` (a held transform traps position:fixed descendants, see
+ * tests/unit/motion-guardrails.test.ts). Stepped timing is the pixel-native
+ * beat; eased timing is for physical things (a fall, a bounce). */
+
+/* ─── Shell ─────────────────────────────────────────────────────────────── */
+
+.sceneCard {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--surface);
+  background-image: radial-gradient(var(--gray) 1px, transparent 1.3px);
+  background-size: 12px 12px;
+  background-position: 6px 6px;
+}
+
+.word {
+  display: inline-block;
+}
+
+/* The heading takes focus on every step so screen readers start there; it
+ * isn't a control, so it shows no focus ring (beats the global rule). */
+.heading:focus-visible {
+  outline: none;
+}
+
+.pcell {
+  width: 8px;
+  height: 8px;
+  background: var(--track);
+}
+.pcell[data-state="done"] {
+  background: var(--ink);
+}
+.pcell[data-state="now"] {
+  background: var(--signal);
+}
+
+/* ─── Crystal introduces herself ────────────────────────────────────────── */
+
+.squash {
+  transform-origin: 50% 100%;
+}
+
+.dust {
+  position: absolute;
+  bottom: 0;
+  width: 4px;
+  height: 4px;
+  background: var(--silver);
+  opacity: 0; /* a landing puff only exists mid-motion */
+}
+
+.bubble {
+  transform-origin: 0% 100%;
+}
+/* the speech tail: a stepped pixel wedge under the bubble's left edge (its
+ * own element, since the bubble's pixel-corners clip-path would cut it off) */
+.tail {
+  position: absolute;
+  left: 5px;
+  bottom: -3px;
+  width: 4px;
+  height: 4px;
+  background: var(--ink);
+  box-shadow: -2px 2px 0 0 var(--ink);
+}
+/* the same tail under a right-anchored bubble, pointing the other way */
+.tailRight {
+  left: auto;
+  right: 5px;
+  box-shadow: 2px 2px 0 0 var(--ink);
+}
+
+/* a four-point pixel star: one 3px cell plus its four neighbours */
+.sparkle {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  color: var(--signal);
+  background: currentColor;
+  box-shadow:
+    3px 0 0 currentColor,
+    -3px 0 0 currentColor,
+    0 3px 0 currentColor,
+    0 -3px 0 currentColor;
+}
+
+/* ─── Welcome: Track · Plan · Grow ──────────────────────────────────────── */
+
+.dot {
+  position: relative;
+  width: 4px;
+  height: 4px;
+  background: var(--gray);
+}
+.dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--signal);
+  opacity: 0;
+}
+
+/* ─── Bank: the secure link ─────────────────────────────────────────────── */
+
+.linkPath {
+  position: relative;
+  display: flex;
+  width: 88px;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.lock {
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  margin-top: -10px;
+  transform: translateX(36px); /* rests on a dot mid-link */
+}
+
+/* ─── Auto-sort ─────────────────────────────────────────────────────────── */
+
+.stack {
+  display: grid;
+}
+.stack > * {
+  grid-area: 1 / 1;
+}
+.unknownMeta {
+  opacity: 0; /* at rest the purchase is already sorted */
+}
+
+/* ─── Done: the four tabs ───────────────────────────────────────────────── */
+
+.navPip {
+  width: 25%;
+}
+.tabLit {
+  opacity: 0;
+}
+.tab:first-child .tabLit {
+  opacity: 1;
+}
+.caption {
+  opacity: 0;
+}
+.caption:first-child {
+  opacity: 1;
+}
+
+.confetti {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  width: 5px;
+  height: 5px;
+  background: var(--c);
+  opacity: 0; /* a burst only exists mid-motion */
+}
+
+/* ─── Motion ────────────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: no-preference) {
+  /* A step arrives from the way you travelled (right on Next, left on Back),
+   * its parts cascading in by --i; the heading follows word by word. */
+  .stage[data-dir="next"] .enter {
+    animation: enter-next 560ms var(--ease-out) backwards;
+    animation-delay: calc(var(--i, 0) * 70ms);
+  }
+  .stage[data-dir="back"] .enter {
+    animation: enter-back 560ms var(--ease-out) backwards;
+    animation-delay: calc(var(--i, 0) * 70ms);
+  }
+  .stage[data-dir="none"] .enter {
+    animation: rise 640ms var(--ease-out) backwards;
+    animation-delay: calc(var(--i, 0) * 80ms + 60ms);
+  }
+  .word {
+    animation: word-in 560ms var(--ease-out) backwards;
+    animation-delay: calc(var(--w) * 45ms + 180ms);
+  }
+
+  .pcell[data-state="now"] {
+    animation: pop 300ms steps(3, end) backwards 120ms;
+  }
+
+  /* Crystal: a gravity drop, a squash on landing, one bounce, a dust puff */
+  .drop {
+    animation: drop 1150ms backwards 150ms;
+  }
+  .squash {
+    animation: squash 1150ms ease-out backwards 150ms;
+  }
+  .dust {
+    animation: dust 620ms ease-out backwards;
+    animation-delay: 560ms;
+  }
+  .bubble {
+    animation: pop 330ms steps(3, end) backwards 1000ms;
+  }
+  .sparkle {
+    animation: twinkle 2.6s steps(4, end) infinite backwards;
+    animation-delay: calc(var(--s) * 420ms + 1150ms);
+  }
+  .plate {
+    animation: rise 520ms var(--ease-out) backwards 1150ms;
+  }
+
+  /* Welcome: the three ideas pop in turn, then value flows along the path */
+  .pillar {
+    animation: pop 360ms steps(3, end) backwards;
+    animation-delay: calc(var(--p) * 520ms + 250ms);
+  }
+  .dot::after {
+    animation: flow 2.4s steps(1, end) infinite backwards;
+    animation-delay: calc(var(--d) * 120ms + 1900ms);
+  }
+
+  /* Auto-capture: purchases land one after another, then the list clears */
+  .feed0 {
+    animation: feed-0 6.4s var(--ease-out) infinite backwards;
+  }
+  .feed1 {
+    animation: feed-1 6.4s var(--ease-out) infinite backwards;
+  }
+  .feed2 {
+    animation: feed-2 6.4s var(--ease-out) infinite backwards;
+  }
+  .syncing {
+    animation: blink 1.2s steps(1, end) infinite;
+  }
+
+  /* Currency: the amount re-sets itself when the currency changes */
+  .amount {
+    animation: amount-in 460ms var(--ease-out) backwards;
+  }
+
+  /* Bank: a lock carries the connection across, lighting the path */
+  .lock {
+    animation: carry 2.8s steps(7, end) infinite backwards 600ms;
+  }
+  .linkPath .dot::after {
+    animation: trail 2.8s steps(1, end) infinite backwards;
+    animation-delay: calc(var(--d) * 320ms + 600ms);
+  }
+
+  /* Auto-sort: "?" flips to the right category, Crystal confirms, it's remembered */
+  .known {
+    transform-origin: 50% 50%;
+    animation: flip-in 5.2s infinite backwards 400ms;
+  }
+  .knownMeta {
+    animation: show-sorted 5.2s steps(1, end) infinite backwards 400ms;
+  }
+  .unknownMeta {
+    animation: show-unsorted 5.2s steps(1, end) infinite backwards 400ms;
+  }
+  .check {
+    animation: sorted-pop 5.2s steps(3, end) infinite backwards 400ms;
+  }
+  .gotIt {
+    transform-origin: 100% 100%;
+    animation: got-it 5.2s steps(3, end) infinite backwards 400ms;
+  }
+  .remember {
+    animation: remember 5.2s var(--ease-out) infinite backwards 400ms;
+  }
+
+  /* Plan: a saving lands on the goal, again and again */
+  .coin {
+    animation: coin 3.2s var(--ease-out) infinite backwards 1400ms;
+  }
+
+  /* Done: confetti, a hop, and a pip touring the four tabs */
+  .confetti {
+    animation: burst 1700ms backwards;
+    animation-delay: var(--t);
+  }
+  .hop {
+    animation: hop 900ms backwards 200ms;
+  }
+  .navPip {
+    animation: tabs 6s steps(1, end) infinite;
+  }
+  .tabLit,
+  .caption {
+    animation: slot 6s steps(1, end) infinite;
+    animation-delay: calc(var(--k) * 1.5s - 6s);
+  }
+}
+
+@keyframes enter-next {
+  from {
+    opacity: 0;
+    transform: translateX(32px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes enter-back {
+  from {
+    opacity: 0;
+    transform: translateX(-32px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes word-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.5em);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes drop {
+  0% {
+    opacity: 0;
+    transform: translateY(-190px);
+    animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45);
+  }
+  6% {
+    opacity: 1;
+  }
+  36% {
+    transform: translateY(0);
+    animation-timing-function: cubic-bezier(0, 0.55, 0.45, 1);
+  }
+  50% {
+    transform: translateY(-18px);
+    animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45);
+  }
+  62%,
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes squash {
+  0%,
+  35% {
+    transform: none;
+  }
+  39% {
+    transform: scale(1.14, 0.82);
+  }
+  47% {
+    transform: scale(0.95, 1.07);
+  }
+  55% {
+    transform: none;
+  }
+  63% {
+    transform: scale(1.06, 0.92);
+  }
+  70%,
+  100% {
+    transform: none;
+  }
+}
+@keyframes dust {
+  0% {
+    opacity: 0;
+  }
+  1% {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx), -8px);
+  }
+}
+@keyframes twinkle {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  25%,
+  50% {
+    opacity: 1;
+    transform: none;
+  }
+  75% {
+    opacity: 0.4;
+    transform: scale(0.75);
+  }
+}
+
+/* starts dark, so the backwards fill keeps each dot unlit until its turn */
+@keyframes flow {
+  0% {
+    opacity: 0;
+  }
+  0.1% {
+    opacity: 1;
+  }
+  10%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* three rows land at 4%, 18% and 32% of the loop, all clear at 92% */
+@keyframes feed-0 {
+  0%,
+  4% {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.98);
+  }
+  10%,
+  90% {
+    opacity: 1;
+    transform: none;
+  }
+  97%,
+  100% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@keyframes feed-1 {
+  0%,
+  18% {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.98);
+  }
+  24%,
+  90% {
+    opacity: 1;
+    transform: none;
+  }
+  97%,
+  100% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@keyframes feed-2 {
+  0%,
+  32% {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.98);
+  }
+  38%,
+  90% {
+    opacity: 1;
+    transform: none;
+  }
+  97%,
+  100% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@keyframes blink {
+  0% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0.25;
+  }
+}
+
+@keyframes amount-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* 7 steps of 12px, dot to dot across the 88px link (steps(7) over 0–80%),
+ * then a beat of rest at the far end; dot d lights as the lock reaches it */
+@keyframes carry {
+  0% {
+    transform: translateX(0);
+  }
+  80%,
+  100% {
+    transform: translateX(84px);
+  }
+}
+@keyframes trail {
+  0% {
+    opacity: 0;
+  }
+  0.1% {
+    opacity: 1;
+  }
+  30%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* sorted at 30% of the loop, reset over the last 8% */
+@keyframes flip-in {
+  0%,
+  26% {
+    opacity: 0;
+    transform: scaleX(0);
+  }
+  27% {
+    opacity: 1;
+    transform: scaleX(0);
+    animation-timing-function: steps(3, end);
+  }
+  32%,
+  92% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: none;
+  }
+}
+@keyframes show-sorted {
+  0% {
+    opacity: 0;
+  }
+  32% {
+    opacity: 1;
+  }
+  96%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes show-unsorted {
+  0% {
+    opacity: 1;
+  }
+  32% {
+    opacity: 0;
+  }
+  96%,
+  100% {
+    opacity: 1;
+  }
+}
+@keyframes sorted-pop {
+  0%,
+  33% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  38%,
+  92% {
+    opacity: 1;
+    transform: none;
+  }
+  96%,
+  100% {
+    opacity: 0;
+    transform: none;
+  }
+}
+@keyframes got-it {
+  0%,
+  40% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  45%,
+  90% {
+    opacity: 1;
+    transform: none;
+  }
+  94%,
+  100% {
+    opacity: 0;
+    transform: none;
+  }
+}
+@keyframes remember {
+  0%,
+  50% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  58%,
+  90% {
+    opacity: 1;
+    transform: none;
+  }
+  96%,
+  100% {
+    opacity: 0;
+    transform: none;
+  }
+}
+
+@keyframes coin {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  12% {
+    opacity: 1;
+    transform: none;
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-9px);
+  }
+  78%,
+  100% {
+    opacity: 0;
+    transform: translateY(-13px);
+  }
+}
+
+@keyframes burst {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%);
+  }
+  1% {
+    opacity: 1;
+    transform: translate(-50%, -50%) rotate(0deg);
+    animation-timing-function: cubic-bezier(0.1, 0.8, 0.3, 1);
+  }
+  45% {
+    opacity: 1;
+    transform: translate(calc(-50% + var(--x)), calc(-50% + var(--y))) rotate(var(--r));
+    animation-timing-function: cubic-bezier(0.5, 0, 1, 1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--x)), calc(-50% + var(--y) + 56px)) rotate(calc(var(--r) * 2));
+  }
+}
+@keyframes hop {
+  0%,
+  100% {
+    transform: none;
+    animation-timing-function: cubic-bezier(0, 0.55, 0.45, 1);
+  }
+  35% {
+    transform: translateY(-14px);
+    animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45);
+  }
+  60% {
+    transform: none;
+  }
+  75% {
+    transform: translateY(-5px);
+  }
+}
+@keyframes tabs {
+  0% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(100%);
+  }
+  50% {
+    transform: translateX(200%);
+  }
+  75%,
+  100% {
+    transform: translateX(300%);
+  }
+}
+/* one 1.5s slot of the 6s tab tour */
+@keyframes slot {
+  0% {
+    opacity: 1;
+  }
+  25%,
+  100% {
+    opacity: 0;
+  }
+}

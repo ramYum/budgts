@@ -5,24 +5,43 @@ import { OnboardingWizardContent } from "./onboarding-wizard-content";
 import type { TourStepId } from "@/lib/tour/steps";
 import type { OnboardingState } from "@/server/onboarding";
 
-const STEPS: TourStepId[] = ["welcome", "auto-capture", "currency"];
+const STEPS: TourStepId[] = ["crystal", "welcome", "auto-capture", "currency"];
 
 function renderWizard(
   action: (prev: OnboardingState, formData: FormData) => Promise<OnboardingState> = vi
     .fn()
     .mockResolvedValue({}),
 ) {
-  return render(<OnboardingWizardContent stepIds={STEPS} defaultCurrency="USD" action={action} />);
+  return render(
+    <OnboardingWizardContent stepIds={STEPS} totalVisible={9} defaultCurrency="USD" action={action} />,
+  );
 }
 
 describe("OnboardingWizardContent", () => {
-  it("starts on Welcome and Get started moves to the pitch card", async () => {
+  it("opens with Crystal introducing herself, then walks through what Budgts does", async () => {
     const user = userEvent.setup();
     renderWizard();
+    expect(screen.getByRole("heading", { name: "Hi, I'm Crystal." })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Nice to meet you" }));
     expect(screen.getByRole("heading", { name: "Budgeting that does itself." })).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Get started" }));
-    expect(screen.getByRole("heading", { name: "Every purchase, tracked" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Show me how" }));
+    expect(screen.getByRole("heading", { name: "Every purchase, tracked." })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Back" }));
+    expect(screen.getByRole("heading", { name: "Budgeting that does itself." })).toBeInTheDocument();
+  });
+
+  it("reports progress across the whole guide, not just this half", async () => {
+    const user = userEvent.setup();
+    renderWizard();
+    const progress = screen.getByRole("progressbar", { name: "Welcome guide progress" });
+    expect(progress).toHaveAttribute("aria-valuenow", "1");
+    expect(progress).toHaveAttribute("aria-valuemax", "9");
+
+    await user.click(screen.getByRole("button", { name: "Nice to meet you" }));
+    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "2");
   });
 
   it("Skip on an early step jumps straight to the required currency step", async () => {
@@ -30,9 +49,19 @@ describe("OnboardingWizardContent", () => {
     renderWizard();
 
     await user.click(screen.getByRole("button", { name: "Skip" }));
-    expect(screen.getByRole("heading", { name: "Pick your currency" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Pick your currency." })).toBeInTheDocument();
     // The required last step has no Skip of its own.
     expect(screen.queryByRole("button", { name: "Skip" })).not.toBeInTheDocument();
+  });
+
+  it("previews amounts in the currency being chosen", async () => {
+    const user = userEvent.setup();
+    renderWizard();
+
+    await user.click(screen.getByRole("button", { name: "Skip" }));
+    expect(screen.getByText("$2,480.00")).toBeInTheDocument();
+    await user.selectOptions(screen.getByRole("combobox"), "EUR");
+    expect(screen.getByText("€2,480.00")).toBeInTheDocument();
   });
 
   it("submits the currency form via the injected action", async () => {

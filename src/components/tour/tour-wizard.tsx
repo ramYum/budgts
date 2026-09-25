@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import s from "./guide.module.css";
 
 export type StepNav = {
   index: number;
@@ -21,52 +22,74 @@ export type WizardStep = {
   render: (nav: StepNav) => ReactNode;
 };
 
+type Position = { index: number; dir: "none" | "next" | "back" };
+
+/** Move by `delta` steps within [0, last], remembering the direction. */
+function move(p: Position, delta: number, last: number): Position {
+  const to = Math.min(Math.max(p.index + delta, 0), last);
+  return to === p.index ? p : { index: to, dir: delta > 0 ? "next" : "back" };
+}
+
 /**
- * Generic full-screen step navigator shared by /onboarding and /tour. Owns
- * only index state, keyboard/focus navigation, and the fade transition — the
- * actual card content (and what Skip/Next/final buttons do) is supplied by
- * each step's `render`, since onboarding and the tour need different Skip
- * and completion behavior (see tour-card.tsx for the shared visual shell).
+ * Full-screen step navigator for the welcome guide, shared by /onboarding and
+ * /tour. Owns only position, keyboard/focus navigation and the direction of
+ * travel (the next card enters from the right, going back from the left; see
+ * guide.module.css). The card content, and what Skip / Next / the final button
+ * do, is supplied by each step's `render`, since onboarding and the tour need
+ * different Skip and completion behavior.
  *
  * `steps` is expected to be stable for the component's lifetime — the caller
  * resolves it once (see src/lib/tour/steps.ts) so a mid-tour data refresh
  * (e.g. after connecting a bank) never reshuffles the flow underfoot.
+ * `offset`/`total` place this route's steps within the whole guide, so the
+ * announcement matches the progress cells across /onboarding → /tour.
  */
-export function TourWizard({ steps }: { steps: WizardStep[] }) {
-  const [index, setIndex] = useState(0);
+export function TourWizard({
+  steps,
+  offset = 0,
+  total = steps.length,
+}: {
+  steps: WizardStep[];
+  offset?: number;
+  total?: number;
+}) {
+  const [{ index, dir }, setPosition] = useState<Position>({ index: 0, dir: "none" });
   const stageRef = useRef<HTMLDivElement>(null);
+  const last = steps.length - 1;
 
   useEffect(() => {
     stageRef.current?.querySelector<HTMLElement>("#tour-step-heading")?.focus();
   }, [index]);
 
+  const moveBy = (delta: number) => setPosition((p) => move(p, delta, last));
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const tag = (e.target as HTMLElement | null)?.tagName;
       if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
-      if (e.key === "ArrowRight") setIndex((i) => Math.min(i + 1, steps.length - 1));
-      if (e.key === "ArrowLeft") setIndex((i) => Math.max(i - 1, 0));
+      const delta = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+      if (delta) setPosition((p) => move(p, delta, last));
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [steps.length]);
+  }, [last]);
 
   const step = steps[index];
   const nav: StepNav = {
     index,
     isFirst: index === 0,
-    isLast: index === steps.length - 1,
-    next: () => setIndex((i) => Math.min(i + 1, steps.length - 1)),
-    back: () => setIndex((i) => Math.max(i - 1, 0)),
-    jumpToLast: () => setIndex(steps.length - 1),
+    isLast: index === last,
+    next: () => moveBy(1),
+    back: () => moveBy(-1),
+    jumpToLast: () => moveBy(last - index),
   };
 
   return (
-    <div className="flex min-h-dvh w-full flex-col items-center justify-center bg-bg p-6">
+    <div className="flex min-h-dvh w-full flex-col items-center justify-center overflow-x-clip bg-bg px-5 py-6">
       <p className="sr-only" aria-live="polite">
-        {`Step ${index + 1} of ${steps.length}: ${step.label}`}
+        {`Step ${offset + index + 1} of ${total}: ${step.label}`}
       </p>
-      <div key={step.id} ref={stageRef} className="w-full animate-[tour-in_0.25s_ease-out] motion-reduce:animate-none">
+      <div key={step.id} ref={stageRef} data-dir={dir} className={`${s.stage} flex w-full justify-center`}>
         {step.render(nav)}
       </div>
     </div>

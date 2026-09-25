@@ -19,10 +19,13 @@ export function ConnectBank({
   accounts,
   tone = "primary",
   label = "Connect a bank",
+  fullWidth = false,
 }: {
   accounts: BudgtsAccount[];
   tone?: "primary" | "outline";
   label?: string;
+  /** Stretch the button to its container (the welcome guide's primary action). */
+  fullWidth?: boolean;
 }) {
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>("idle");
@@ -119,7 +122,7 @@ export function ConnectBank({
 
   return (
     <div className="space-y-2">
-      <button type="button" onClick={start} disabled={busy} className={btn}>
+      <button type="button" onClick={start} disabled={busy} className={`${btn} ${fullWidth ? "w-full" : ""}`}>
         {phase === "starting"
           ? "Opening…"
           : phase === "exchanging"

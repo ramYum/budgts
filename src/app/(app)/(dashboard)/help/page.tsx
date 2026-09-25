@@ -45,7 +45,7 @@ export default function HelpPage() {
         href="/tour"
         className="card block rounded-2xl border border-hairline p-4 text-sm font-semibold text-accent"
       >
-        Replay the tour →
+        Replay the welcome guide →
       </Link>
       <ul className="space-y-4">
         {FAQ.map((item) => (

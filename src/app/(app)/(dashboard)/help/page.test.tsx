@@ -11,9 +11,9 @@ describe("HelpPage", () => {
     );
   });
 
-  it("still links to the guided tour", () => {
+  it("still links to the welcome guide", () => {
     render(<HelpPage />);
-    expect(screen.getByRole("link", { name: "Replay the tour →" })).toHaveAttribute("href", "/tour");
+    expect(screen.getByRole("link", { name: "Replay the welcome guide →" })).toHaveAttribute("href", "/tour");
   });
 
   it("still shows the existing FAQ content", () => {

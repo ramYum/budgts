@@ -18,33 +18,67 @@ vi.mock("@/server/plaid/actions", () => ({
   mapAccounts: vi.fn(),
 }));
 
-const NO_BANK_STEPS: TourStepId[] = ["auto-sort", "money-left", "done"];
+const NO_BANK_STEPS: TourStepId[] = ["auto-sort", "money-left", "plan", "done"];
 
 function renderWizard(
   stepIds: TourStepId[],
   action: (prev: TourState, formData: FormData) => Promise<TourState> = vi.fn().mockResolvedValue({}),
 ) {
   return render(
-    <TourWizardContent stepIds={stepIds} offset={0} totalVisible={stepIds.length} accounts={[]} action={action} />,
+    <TourWizardContent
+      stepIds={stepIds}
+      offset={0}
+      totalVisible={stepIds.length}
+      currency="USD"
+      accounts={[]}
+      action={action}
+    />,
   );
 }
 
+async function walkToDone(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole("button", { name: "Next" })); // -> money-left
+  await user.click(screen.getByRole("button", { name: "Next" })); // -> plan
+  await user.click(screen.getByRole("button", { name: "Next" })); // -> done
+}
+
 describe("TourWizardContent", () => {
-  it("shows the first step's heading and dots for every visible step", () => {
+  it("shows the first step's heading and progress over every visible step", () => {
     renderWizard(NO_BANK_STEPS);
-    expect(screen.getByRole("heading", { name: "Sorted for you" })).toBeInTheDocument();
-    expect(document.querySelectorAll('[role="presentation"] > span')).toHaveLength(3);
+    expect(screen.getByRole("heading", { name: "Sorted for you." })).toBeInTheDocument();
+    const progress = screen.getByRole("progressbar", { name: "Welcome guide progress" });
+    expect(progress).toHaveAttribute("aria-valuenow", "1");
+    expect(progress).toHaveAttribute("aria-valuemax", "4");
   });
 
-  it("Next moves forward through the cards", async () => {
+  it("continues the progress count from onboarding", () => {
+    render(
+      <TourWizardContent
+        stepIds={NO_BANK_STEPS}
+        offset={4}
+        totalVisible={8}
+        currency="USD"
+        accounts={[]}
+        action={vi.fn().mockResolvedValue({})}
+      />,
+    );
+    const progress = screen.getByRole("progressbar");
+    expect(progress).toHaveAttribute("aria-valuenow", "5");
+    expect(progress).toHaveAttribute("aria-valuemax", "8");
+  });
+
+  it("Next moves forward through the cards and Back returns", async () => {
     const user = userEvent.setup();
     renderWizard(NO_BANK_STEPS);
 
     await user.click(screen.getByRole("button", { name: "Next" }));
-    expect(screen.getByRole("heading", { name: "Know what's left" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Know what's left." })).toBeInTheDocument();
 
-    await user.click(screen.getByText("‹ Back"));
-    expect(screen.getByRole("heading", { name: "Sorted for you" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByRole("heading", { name: "Plan it. Then grow it." })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Back" }));
+    expect(screen.getByRole("heading", { name: "Know what's left." })).toBeInTheDocument();
   });
 
   it("the right arrow key advances and the left arrow key goes back", async () => {
@@ -52,10 +86,10 @@ describe("TourWizardContent", () => {
     renderWizard(NO_BANK_STEPS);
 
     await user.keyboard("{ArrowRight}");
-    expect(screen.getByRole("heading", { name: "Know what's left" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Know what's left." })).toBeInTheDocument();
 
     await user.keyboard("{ArrowLeft}");
-    expect(screen.getByRole("heading", { name: "Sorted for you" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Sorted for you." })).toBeInTheDocument();
   });
 
   it("Skip submits the completion action from a non-final step", async () => {
@@ -72,9 +106,8 @@ describe("TourWizardContent", () => {
     const user = userEvent.setup();
     renderWizard(NO_BANK_STEPS, action);
 
-    await user.click(screen.getByRole("button", { name: "Next" })); // -> money-left
-    await user.click(screen.getByRole("button", { name: "Next" })); // -> done
-    expect(screen.getByRole("heading", { name: "You're all set" })).toBeInTheDocument();
+    await walkToDone(user);
+    expect(screen.getByRole("heading", { name: "You're all set." })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Skip" })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "See my finances" }));
@@ -85,8 +118,7 @@ describe("TourWizardContent", () => {
     const user = userEvent.setup();
     renderWizard(NO_BANK_STEPS);
 
-    await user.click(screen.getByRole("button", { name: "Next" })); // -> money-left
-    await user.click(screen.getByRole("button", { name: "Next" })); // -> done
+    await walkToDone(user);
     expect(screen.getByRole("link", { name: "How Budgts Works" })).toHaveAttribute(
       "href",
       "/help/how-it-works",
@@ -104,31 +136,48 @@ describe("TourWizardContent", () => {
 
   it("does not reshuffle the visible steps when stepIds changes after mount", () => {
     const { rerender } = renderWizard(NO_BANK_STEPS);
-    expect(screen.getByRole("heading", { name: "Sorted for you" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Sorted for you." })).toBeInTheDocument();
 
     rerender(
       <TourWizardContent
         stepIds={["money-left", "done"]}
         offset={0}
         totalVisible={2}
+        currency="USD"
         accounts={[]}
         action={vi.fn().mockResolvedValue({})}
       />,
     );
-    // Still showing the original first step, not "Know what's left".
-    expect(screen.getByRole("heading", { name: "Sorted for you" })).toBeInTheDocument();
+    // Still showing the original first step, not "Know what's left."
+    expect(screen.getByRole("heading", { name: "Sorted for you." })).toBeInTheDocument();
   });
 
-  it("renders the purchase-icon row on the pitch card and Connect Bank on the bank card", async () => {
+  it("a replay opens with Crystal", () => {
+    renderWizard(["crystal", "welcome", "money-left", "plan", "done"]);
+    expect(screen.getByRole("heading", { name: "Hi, I'm Crystal." })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Nice to meet you" })).toBeInTheDocument();
+  });
+
+  it("shows how purchases arrive, then offers Connect Bank or adding by hand", async () => {
     const user = userEvent.setup();
     renderWizard(["auto-capture", "bank", "done"]);
     expect(screen.getByText("Phone tap")).toBeInTheDocument();
     expect(screen.getByText("Card")).toBeInTheDocument();
-    expect(screen.getByText("Online order")).toBeInTheDocument();
+    expect(screen.getByText("Online")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Next" }));
-    expect(screen.getByRole("heading", { name: "Connect your bank to turn it on" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Connect your bank." })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Connect a bank" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /I'll add things by hand/ })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /I'll add things by hand/ }));
+    expect(screen.getByRole("heading", { name: "You're all set." })).toBeInTheDocument();
+  });
+
+  it("previews Money Left with the real rule: came in minus went out", async () => {
+    const user = userEvent.setup();
+    renderWizard(NO_BANK_STEPS);
+    await user.click(screen.getByRole("button", { name: "Next" })); // -> money-left
+    expect(screen.getByText("+$3,028.21")).toBeInTheDocument();
+    expect(screen.getByText("−$1,357.48")).toBeInTheDocument();
   });
 });

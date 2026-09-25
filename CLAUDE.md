@@ -244,11 +244,14 @@ Money-Left-led information architecture is unchanged. See
 on) with sign-convention, transfer-ownership, paired-transfer and
 account-exclusion handling; Money Left + Savings Rate.
 
-**Shipped:** **First-run tour (v1)** — `/onboarding` → `/tour` card wizard
-(Connect your bank → Sorted for you → Know what's left), gated on
-`profiles.tour_seen_at` (migration `0014`, verified applied on production and
-staging 2026-09-25). Spec: `docs/specs/2026-09-15-first-run-tour-design.md`.
-A live-coachmark redesign (v2) is specced and planned but **not implemented**.
+**Shipped:** **Welcome guide (first-run tour v2, 2026-09-25)** — `/onboarding` →
+`/tour` card wizard narrated by **Crystal**, the robin (she introduces herself
+first), with an animated scene per card: what Budgts does, purchases arriving,
+currency, connect your bank, sorted for you, Money Left, budgets and goals, the
+four tabs. Gated on `profiles.tour_seen_at` (migration `0014`); replay from Help.
+Spec: `docs/specs/2026-09-25-welcome-guide-design.md` (flow rules from
+`docs/specs/2026-09-15-first-run-tour-design.md`). The live-coachmark design
+remains specced but **not implemented**.
 
 **Shipped:** **"How Budgts Works" guide** — a permanent static Help page
 (`/help/how-it-works`) teaching the end-to-end workflow (connect →

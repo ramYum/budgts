@@ -27,10 +27,16 @@ const withoutComments = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, "");
 
 describe("motion guardrails", () => {
   it("no CSS animation holds its end state (fill-mode both/forwards)", () => {
-    const css = withoutComments(readFileSync(join(SRC, "app", "globals.css"), "utf8"));
-    const declarations = css.match(/animation(?:-fill-mode)?\s*:[^;]*;/g) ?? [];
-    expect(declarations.length).toBeGreaterThan(0);
-    expect(declarations.filter((d) => /\b(both|forwards)\b/.test(d))).toEqual([]);
+    const sheets = walk(SRC).filter((p) => p.endsWith(".css"));
+    expect(sheets.map(rel)).toEqual(
+      expect.arrayContaining(["src/app/globals.css", "src/components/tour/guide.module.css"]),
+    );
+    const offenders = sheets.flatMap((p) =>
+      (withoutComments(readFileSync(p, "utf8")).match(/animation(?:-fill-mode)?\s*:[^;]*;/g) ?? [])
+        .filter((d) => /\b(both|forwards)\b/.test(d))
+        .map((d) => `${rel(p)}: ${d}`),
+    );
+    expect(offenders).toEqual([]);
   });
 
   it("no Tailwind animation class holds its end state either", () => {

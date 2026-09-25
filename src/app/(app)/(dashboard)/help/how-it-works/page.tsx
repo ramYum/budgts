@@ -48,7 +48,7 @@ const STEPS: { glyph: NavGlyph; heading: string; body: string }[] = [
  * core convenience pitch (connect → transactions arrive → auto-categorize →
  * review exceptions → set a budget → Money Left → track progress).
  * Complements, and deliberately doesn't duplicate, the hands-on first-run
- * tour reachable from "Replay the tour" on /help: this page teaches WHY/HOW
+ * welcome guide reachable from "Replay the welcome guide" on /help: this page teaches WHY/HOW
  * the workflow fits together; the tour shows WHERE the real controls are.
  * Purely static — no data — same terminology as the tour and the Help FAQ.
  * See docs/specs/2026-09-15-how-budgts-works-guide-design.md.
@@ -83,9 +83,9 @@ export default function HowItWorksPage() {
 
       <div className="card space-y-3 rounded-2xl border border-hairline p-4 text-center">
         <p className="text-sm font-semibold text-heading">You spend. Budgts keeps track.</p>
-        <p className="text-sm text-muted">Want to see it hands-on? The guided tour walks you through the real buttons.</p>
+        <p className="text-sm text-muted">Want Crystal to walk you through it? The welcome guide takes about a minute.</p>
         <PrimaryLinkButton href="/tour" className="mx-auto">
-          Take the guided tour
+          Open the welcome guide
         </PrimaryLinkButton>
       </div>
     </div>

@@ -35,9 +35,9 @@ describe("HowItWorksPage", () => {
     expect(screen.getByText(/not your savings-account balance/)).toBeInTheDocument();
   });
 
-  it("links to the guided tour as a hands-on follow-up, not a gate", () => {
+  it("links to the welcome guide as a hands-on follow-up, not a gate", () => {
     render(<HowItWorksPage />);
-    expect(screen.getByRole("link", { name: "Take the guided tour" })).toHaveAttribute("href", "/tour");
+    expect(screen.getByRole("link", { name: "Open the welcome guide" })).toHaveAttribute("href", "/tour");
   });
 
   it("links back to Help", () => {

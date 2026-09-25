@@ -21,7 +21,7 @@ export default async function OnboardingPage() {
 
   if (profile?.onboarded_at) redirect("/");
 
-  const { steps } = buildTourSteps({
+  const { steps, totalVisible } = buildTourSteps({
     phase: "onboarding",
     plaidEnabled: plaidUiEnabled(),
     hasBank: false,
@@ -31,6 +31,7 @@ export default async function OnboardingPage() {
   return (
     <OnboardingWizardContent
       stepIds={steps.map((s) => s.id)}
+      totalVisible={totalVisible}
       defaultCurrency={profile?.currency ?? "USD"}
       action={completeOnboarding}
     />

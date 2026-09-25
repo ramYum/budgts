@@ -6,12 +6,12 @@ import { buildTourSteps } from "@/lib/tour/steps";
 import { completeTour } from "@/server/tour";
 import { TourWizardContent } from "./tour-wizard-content";
 
-export const metadata: Metadata = { title: "Getting started" };
+export const metadata: Metadata = { title: "Welcome guide" };
 
 /**
- * The explainer half of the first-run tour, shown after `/onboarding`
- * completes and (with the pitch cards prepended) on every replay from Help.
- * See docs/specs/2026-09-15-first-run-tour-design.md.
+ * The explainer half of the welcome guide, shown after `/onboarding`
+ * completes and (with Crystal's intro cards prepended) on every replay from
+ * Help. See docs/specs/2026-09-25-welcome-guide-design.md.
  */
 export default async function TourPage({
   searchParams,
@@ -24,7 +24,7 @@ export default async function TourPage({
   const supabase = await createClient();
   const { data: profile } = await supabase
     .from("profiles")
-    .select("onboarded_at")
+    .select("onboarded_at, currency")
     .eq("id", user.id)
     .single();
   if (!profile?.onboarded_at) redirect("/onboarding");
@@ -54,6 +54,7 @@ export default async function TourPage({
       stepIds={steps.map((s) => s.id)}
       offset={offset}
       totalVisible={totalVisible}
+      currency={profile.currency ?? "USD"}
       accounts={accountsData ?? []}
       action={completeTour}
     />

@@ -1,15 +1,19 @@
-import type { ReactNode } from "react";
-import { Mascot } from "@/components/mascot";
+import { Fragment, type CSSProperties, type ReactNode } from "react";
+import { CaretLeft } from "@phosphor-icons/react/dist/ssr";
+import { Robin } from "@/components/mascot";
+import s from "./guide.module.css";
 
 /**
- * Shared full-screen card shell for the first-run tour (see
- * docs/specs/2026-09-15-first-run-tour-design.md). One card is visible at a
- * time; `TourWizard` swaps `children`/props as the step changes.
+ * One card of the welcome guide (docs/specs/2026-09-25-welcome-guide-design.md):
+ * back / progress / skip, the animated scene, Crystal's name tag, the heading
+ * (rising word by word), her words, then the step's own form or actions.
+ * Every part carries `.enter` with a cascade index, so the card arrives in
+ * reading order from the direction of travel (see TourWizard).
  */
 export function TourCard({
-  mood,
   heading,
   body,
+  scene,
   media,
   dotCount,
   dotIndex,
@@ -19,11 +23,11 @@ export function TourCard({
   onSkip,
   footnote,
 }: {
-  mood: "normal" | "happy" | "curious" | "sleepy";
   heading: string;
-  body?: ReactNode;
-  /** Optional slot between the mascot and the heading — the purchase-icon
-   * row, the connect-bank button, the currency select. */
+  body: string;
+  /** The step's animated vignette (scenes.tsx). Decorative: aria-hidden. */
+  scene: ReactNode;
+  /** Optional slot below the words: the currency form, the connect-bank button. */
   media?: ReactNode;
   dotCount: number;
   dotIndex: number;
@@ -33,57 +37,95 @@ export function TourCard({
   onSkip?: () => void;
   footnote?: ReactNode;
 }) {
+  const at = (i: number) => ({ "--i": i }) as CSSProperties;
+  const quiet = "press inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-muted hover:text-text";
+
   return (
-    <div className="flex w-full max-w-sm flex-col items-center gap-6 text-center">
-      {onBack || onSkip ? (
-        <div className="flex w-full items-center justify-between">
+    <div className="flex w-full max-w-sm flex-col gap-5">
+      <div className="grid grid-cols-[1fr_auto_1fr] items-center">
+        <span>
           {onBack ? (
-            <button type="button" onClick={onBack} className="text-xs font-medium text-muted hover:text-text">
-              ‹ Back
+            <button type="button" onClick={onBack} className={`${quiet} -ml-2`}>
+              <CaretLeft aria-hidden weight="bold" className="h-3.5 w-3.5" />
+              Back
             </button>
-          ) : (
-            <span />
-          )}
+          ) : null}
+        </span>
+        <Progress count={dotCount} index={dotIndex} />
+        <span className="flex justify-end">
           {onSkip ? (
-            <button type="button" onClick={onSkip} className="text-xs font-medium text-muted hover:text-text">
+            <button type="button" onClick={onSkip} className={`${quiet} -mr-2`}>
               Skip
             </button>
           ) : null}
-        </div>
-      ) : null}
-
-      <div className="flex w-full flex-col items-center gap-3 rounded-3xl border border-hairline bg-surface px-8 py-8">
-        <Mascot mood={mood} size={120} />
+        </span>
       </div>
 
-      <div className="space-y-2">
-        <h1 id="tour-step-heading" tabIndex={-1} className="text-xl font-semibold outline-none">
-          {heading}
-        </h1>
-        {body ? <p className="text-sm text-muted">{body}</p> : null}
+      <div className={`${s.sceneCard} ${s.enter} h-[236px] rounded-3xl border border-hairline`} style={at(0)} aria-hidden>
+        {scene}
       </div>
 
-      {media ? <div className="w-full">{media}</div> : null}
-
-      <div className="flex w-full flex-col items-center gap-2">
-        {primary}
-        {secondary}
-      </div>
-
-      {dotCount > 1 ? (
-        <div className="flex items-center gap-1.5" role="presentation">
-          {Array.from({ length: dotCount }, (_, i) => (
-            <span
-              key={i}
-              className={`h-1.5 rounded-full transition-all ${
-                i === dotIndex ? "w-4 bg-accent" : "w-1.5 bg-silver"
-              }`}
-            />
+      <div className="flex flex-col items-center gap-3 text-center">
+        <p className={`${s.enter} flex items-center gap-2`} style={at(1)}>
+          <Robin size={14} />
+          <span className="font-pixel-bold text-[8px] text-ink">CRYSTAL</span>
+        </p>
+        <h1
+          id="tour-step-heading"
+          tabIndex={-1}
+          className={`${s.heading} text-[26px] font-semibold leading-[1.15] tracking-tight text-heading`}
+        >
+          {heading.split(" ").map((word, i) => (
+            <Fragment key={i}>
+              {i > 0 ? " " : null}
+              <span className={s.word} style={{ "--w": i } as CSSProperties}>
+                {word}
+              </span>
+            </Fragment>
           ))}
+        </h1>
+        <p className={`${s.enter} max-w-[34ch] text-[15px] leading-relaxed text-muted`} style={at(3)}>
+          {body}
+        </p>
+      </div>
+
+      {media ? (
+        <div className={s.enter} style={at(4)}>
+          {media}
         </div>
       ) : null}
 
-      {footnote ? <p className="text-xs text-muted">{footnote}</p> : null}
+      {primary || secondary ? (
+        <div className={`${s.enter} flex flex-col items-center gap-3`} style={at(5)}>
+          {primary}
+          {secondary}
+        </div>
+      ) : null}
+
+      {footnote ? (
+        <p className={`${s.enter} text-center text-xs text-muted`} style={at(6)}>
+          {footnote}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/** Where you are in the guide, as square cells: done in ink, now in red. */
+function Progress({ count, index }: { count: number; index: number }) {
+  return (
+    <div
+      role="progressbar"
+      aria-label="Welcome guide progress"
+      aria-valuemin={1}
+      aria-valuemax={count}
+      aria-valuenow={index + 1}
+      aria-valuetext={`Step ${index + 1} of ${count}`}
+      className="flex items-center gap-[3px]"
+    >
+      {Array.from({ length: count }, (_, i) => (
+        <span key={i} className={s.pcell} data-state={i < index ? "done" : i === index ? "now" : "todo"} />
+      ))}
     </div>
   );
 }

@@ -1,9 +1,16 @@
 "use client";
 
-import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
+import dynamic from "next/dynamic";
 import { formatMoney } from "@/lib/budget/money";
 import type { DashboardBar } from "@/lib/budget/dashboard";
 import type { MonthSpend } from "@/lib/budget/spend-trend";
+
+// recharts stays out of the first-load bundle (see spending-charts.tsx); the
+// chart boxes below keep their size while it loads.
+const TrendBars = dynamic(() => import("./spending-charts").then((m) => m.TrendBars), { ssr: false });
+const BreakdownDonut = dynamic(() => import("./spending-charts").then((m) => m.BreakdownDonut), {
+  ssr: false,
+});
 
 /** "Where your money goes" categorical colors — a fixed identity per category,
  * in the one order validated (dataviz skill's `validate_palette.js`, adjacent
@@ -70,26 +77,7 @@ export function SpendingTrendCard({
         {changePct !== null ? <p className="text-xs text-muted">vs. last month</p> : null}
       </div>
       <div className="h-28" role="img" aria-label={`Spending by month: ${data.map((d) => `${d.label} ${formatMoney(d.spend, currency)}`).join(", ")}`}>
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 4 }} barCategoryGap="28%">
-            <Tooltip
-              cursor={false}
-              formatter={(value) => [formatMoney(Number(value), currency), "Spent"]}
-              labelFormatter={(_label, payload) => payload[0]?.payload.label ?? ""}
-              contentStyle={{
-                background: "var(--surface)",
-                border: "1px solid var(--border)",
-                borderRadius: 10,
-                fontSize: 12,
-              }}
-            />
-            <Bar dataKey="spend" radius={[4, 4, 0, 0]} maxBarSize={24} isAnimationActive={false}>
-              {data.map((d) => (
-                <Cell key={d.month} fill={d.current ? "var(--coral)" : "var(--border)"} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+        <TrendBars data={data} currency={currency} />
       </div>
       <div className="flex text-center text-xs text-muted">
         {data.map((d) => (
@@ -144,35 +132,7 @@ export function SpendingBreakdownCard({
       <h2 className="text-sm font-semibold">Where your money goes</h2>
       <div className="flex items-center gap-4">
         <div className="relative h-36 w-36 shrink-0" role="img" aria-label={`Spending breakdown: ${slices.map((s) => `${s.name} ${formatMoney(s.amount, currency)}`).join(", ")}`}>
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Tooltip
-                formatter={(value, name) => [formatMoney(Number(value), currency), name]}
-                wrapperStyle={{ zIndex: 10 }}
-                contentStyle={{
-                  background: "var(--surface)",
-                  border: "1px solid var(--border)",
-                  borderRadius: 10,
-                  fontSize: 12,
-                }}
-              />
-              <Pie
-                data={slices}
-                dataKey="amount"
-                nameKey="name"
-                innerRadius="68%"
-                outerRadius="100%"
-                paddingAngle={slices.length > 1 ? 2 : 0}
-                cornerRadius={3}
-                stroke="none"
-                isAnimationActive={false}
-              >
-                {slices.map((s) => (
-                  <Cell key={s.name} fill={s.color} />
-                ))}
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
+          <BreakdownDonut slices={slices} currency={currency} />
           <div className="pointer-events-none absolute inset-0 z-0 flex flex-col items-center justify-center">
             <p className="tnum text-lg font-bold leading-tight">{formatMoney(totalSpent, currency)}</p>
             <p className="text-[11px] text-muted">This month</p>

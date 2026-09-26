@@ -9,6 +9,10 @@ Steps you (the owner) do — Claude can't create the accounts or push to a remot
   308-redirects to it. `https://budgts.vercel.app` also still serves.
 - **Vercel:** team `tocino` (Hobby) / `crispyphata-5876`, project `budgts`,
   deploys from `main` (`ramYum/budgts`).
+- **Function region:** `cle1` (Cleveland), set in `vercel.json`: the same
+  AWS region (`us-east-2`) as the production Supabase database, so every
+  server-side query stays in-region (Vercel's default is `iad1`). Hobby allows
+  one region; move it if the database ever moves.
 - **Domain DNS:** `budgts.com` is registered + DNS-hosted at Cloudflare.
   Two records, both **DNS-only (grey cloud)**:
   `CNAME @ → 20b64e226c444eb2.vercel-dns-017.com` and

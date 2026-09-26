@@ -236,8 +236,9 @@ measured on staging with a heavy bank feed (~1,250 rows a month), found
 Home's 6-month window: 1.0s → 0.37s once parallel); the Activity list
 rendering every row of the month (9,800 DOM nodes, a 2 MB page, 400ms+ per
 tap or keystroke on a mid-range phone); Zod (~370 KB) and the Supabase
-browser client (~250 KB) in first-load bundles; and the robin drawn as ~170
-`<rect>`s per copy.
+browser client (~250 KB) in first-load bundles; the robin drawn as ~170
+`<rect>`s per copy; and functions running in `iad1` while the database is in
+`us-east-2`.
 
 `tests/unit/performance-guardrails.test.ts` enforces the checkable rules; a
 failure there names the rule it protects.
@@ -329,6 +330,10 @@ failure there names the rule it protects.
     slice, plus a "Show N more" button as the reachable exit); search and
     the filters still run over every row. Rows are a memoized component, so
     opening a transaction's sheet doesn't re-render the list behind it.
+14. **Functions run next to the database.** `vercel.json` pins functions to
+    `cle1` (Cleveland = AWS `us-east-2`, the production Supabase region), so
+    each sequential query doesn't cross from `iad1`. If the database ever
+    moves region, move this with it (Hobby allows one region).
 
 **If it gets slow again, look at:** Vercel → Observability / Logs for the
 slow route's function duration; Supabase → Query Performance (slowest and

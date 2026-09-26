@@ -1032,8 +1032,9 @@ On hiatus as of 2026-09-25 (paused, not abandoned): Budgts is currently a person
   now loads after the page (−253 KB from every first load). The robin is one path
   per colour per layer (~170 fewer DOM nodes per copy; 38 screenshots, static and
   with every animation layer forced on, pixel-identical at 1× and 2×). The service
-  worker uses navigation preload. Rules 3, 8, 10 and 13 in `conventions.md`.
-  Note for local benchmarking: this machine intermittently
+  worker uses navigation preload. Functions move to `cle1`, beside the `us-east-2`
+  database (`vercel.json`, its own commit; takes effect on deploy). Rules 3, 8,
+  10, 13 and 14 in `conventions.md`. Note for local benchmarking: this machine intermittently
   stalls every in-flight request to staging for ~10 s (both builds, identical
   pattern), so compare builds side by side, and don't share `.next` with another
   session's preview server (a concurrent build there replaced it mid-run).

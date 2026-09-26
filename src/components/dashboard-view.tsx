@@ -418,7 +418,7 @@ export function DashboardView({
           <CrystalPerch
             name={name}
             savingsRate={tiles.savingsRate}
-            className="absolute bottom-[calc(100%-2px)] right-4 md:right-10"
+            className="absolute inset-x-4 bottom-[calc(100%-2px)] md:inset-x-10"
           />
           <div className="px-card-raised p-2 md:p-6">
             <div className="flex flex-col gap-5 md:flex-row md:gap-10">

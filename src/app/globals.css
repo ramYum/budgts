@@ -771,14 +771,16 @@ body {
 }
 
 /* ─── Crystal on Home (src/components/crystal-perch.tsx) ────────────────────
- * Arrival (once per visit): she flutters down, lands with a squash and a
- * dust puff, says hi (0.7s), then a note on the month (3.3s).
- * Life (a 16s loop from 1.2s, restarted by every tap; her beak chirps every
- * 4s on its own loop, at 0.4s, 4.4s, 8.4s, 12.4s of each life cycle). Its
- * beats wait for the bubbles (done by 7.7s) so nothing collides:
- *   6.6s flutter-hop   8.4s chirp (+$ rises when the month is saving)
- *   10.0s turns to look at your greeting, 11.6s back   12.4s chirp (+$)
- *   13.4s two pecks
+ * Arrival (once per visit): she flutters down onto the right end of the
+ * Money left card, lands with a squash and a dust puff, says hi (0.7s), then
+ * a note on the month (3.3s). Her beak chirps every 4s on its own loop; a
+ * "+$" rises from it while the month is saving.
+ * The walk (from 8.6s, timed in the component, src/lib/crystal/roam.ts): the
+ * mover slides along the card's top edge while the arc layer hops (a script
+ * animation), 2-4 hops at a time, 4.5-8.5s rests between, the odd peck,
+ * turning back at each end. Its layers, outside in: .crystal-mover (where on
+ * the edge) > .crystal-arrive > .crystal-land > .crystal-arc (the hop) >
+ * .crystal-flip (which way she faces) > the peck layer > the robin.
  * A tap: she jumps and flaps, chirps back, hearts and sparkles burst, and
  * she says the next line. The robin-* layer rules below keep those layers'
  * own loops in the same animation list, so they carry on after the one-shot. */
@@ -859,91 +861,6 @@ body {
   100% {
     opacity: 0;
     transform: translate(var(--dx), -7px);
-  }
-}
-@keyframes crystal-life {
-  0%,
-  41.25% {
-    transform: none;
-  }
-  41.875% {
-    transform: scale(1.1, 0.88);
-    animation-timing-function: cubic-bezier(0, 0.55, 0.45, 1);
-  }
-  43.4375% {
-    transform: translateY(-13px) scale(0.96, 1.05);
-  }
-  45% {
-    transform: translateY(-11px);
-    animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45);
-  }
-  46.875% {
-    transform: none;
-  }
-  47.625% {
-    transform: scale(1.1, 0.9);
-  }
-  48.4375%,
-  62.25% {
-    transform: none;
-    animation-timing-function: steps(1, end);
-  }
-  62.5%,
-  72.25% {
-    transform: scaleX(-1);
-    animation-timing-function: steps(1, end);
-  }
-  72.5%,
-  83.5% {
-    transform: none;
-    animation-timing-function: steps(1, end);
-  }
-  83.75% {
-    transform: translate(3px, 3px);
-    animation-timing-function: steps(1, end);
-  }
-  84.6875% {
-    transform: none;
-    animation-timing-function: steps(1, end);
-  }
-  85.625% {
-    transform: translate(3px, 3px);
-    animation-timing-function: steps(1, end);
-  }
-  86.5625%,
-  100% {
-    transform: none;
-  }
-}
-/* the wing beats through the hop's crouch and hover, down for the fall */
-@keyframes crystal-flap {
-  0% {
-    opacity: 0;
-  }
-  41.875% {
-    opacity: 1;
-  }
-  42.5% {
-    opacity: 0;
-  }
-  43.125% {
-    opacity: 1;
-  }
-  43.75% {
-    opacity: 0;
-  }
-  44.375% {
-    opacity: 1;
-  }
-  45% {
-    opacity: 0;
-  }
-  45.625% {
-    opacity: 1;
-  }
-  46.25%,
-  100% {
-    opacity: 0;
   }
 }
 /* a saving rises from the beak in 3px (one-cell) steps */
@@ -1179,7 +1096,8 @@ body {
 .crystal-say[data-say="hello"] {
   display: none;
 }
-/* the bubble's tail: a two-cell step pointing right, at her */
+/* the bubble's tail: a two-cell step pointing at her (right, from a bubble
+ * on her left; left, from one on her right) */
 .crystal-tail {
   position: absolute;
   right: -4px;
@@ -1188,6 +1106,26 @@ body {
   height: 6px;
   background: var(--ink);
   clip-path: polygon(0 0, 2px 0, 2px 2px, 4px 2px, 4px 4px, 2px 4px, 2px 6px, 0 6px);
+}
+.crystal-say[data-side="right"] .crystal-tail {
+  right: auto;
+  left: -4px;
+  clip-path: polygon(4px 0, 2px 0, 2px 2px, 0 2px, 0 4px, 2px 4px, 2px 6px, 4px 6px);
+}
+/* Where she stands on the card's top edge: a fraction (--f) of the track,
+ * less her own 52px width. Transform only; the track is the size container. */
+.crystal-mover {
+  transform: translateX(calc(var(--f, 1) * (100cqw - 52px)));
+}
+/* facing left, she's mirrored, and a "+$" rises from where her beak now is */
+[data-facing="left"] .crystal-flip {
+  transform: scaleX(-1);
+}
+.crystal-token {
+  left: 37px;
+}
+[data-facing="left"] .crystal-token {
+  left: 3px;
 }
 .crystal-dust {
   position: absolute;
@@ -1359,28 +1297,25 @@ body {
     animation: crystal-arrive 900ms 120ms backwards;
   }
   .crystal-land,
-  .crystal-life,
+  .crystal-arc,
   .crystal-react {
     transform-origin: 50% 100%;
   }
   .crystal-land {
     animation: crystal-land 900ms ease-out 120ms backwards;
   }
-  .crystal-life {
-    animation: crystal-life 16s 1.2s infinite backwards;
+  /* each hop slides her one step along the edge (the arc layer hops) */
+  .crystal-mover {
+    transition: transform 360ms cubic-bezier(0.45, 0, 0.55, 1);
   }
   .crystal-react {
     animation: crystal-react 900ms;
   }
-  .crystal-life .robin-wing-up {
-    animation:
-      crystal-arrive-flap 640ms steps(1, end) 120ms,
-      crystal-flap 16s steps(1, end) 1.2s infinite;
+  .crystal-arrive .robin-wing-up {
+    animation: crystal-arrive-flap 640ms steps(1, end) 120ms;
   }
   .crystal-react .robin-wing-up {
-    animation:
-      crystal-flap 16s steps(1, end) 1.2s infinite,
-      crystal-react-flap 900ms steps(1, end);
+    animation: crystal-react-flap 900ms steps(1, end);
   }
   /* the chirp loop keeps its phase (tokens rise on it); the one-shot, last
    * in the list, wins while it plays */
@@ -1413,11 +1348,14 @@ body {
   }
   .crystal-say {
     opacity: 0; /* after its moment, a bubble has said its piece */
-    transform-origin: 100% 50%;
+    transform-origin: 100% 50%; /* it pops from its tail */
     animation-name: crystal-say;
     animation-duration: var(--say-for);
     animation-delay: var(--say-at);
     animation-fill-mode: backwards;
+  }
+  .crystal-say[data-side="right"] {
+    transform-origin: 0 50%;
   }
   .crystal-say[data-say="hello"] {
     display: block;

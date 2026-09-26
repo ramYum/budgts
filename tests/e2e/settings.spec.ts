@@ -16,7 +16,8 @@ test("manage categories: default set, rename, add, archive, and drill-in", async
     await onboardAndSkipTour(page);
 
     await page.getByRole("link", { name: "More" }).click();
-    await page.getByRole("link", { name: "Settings" }).click();
+    // The More page's row, not the desktop sidebar's own Settings link.
+    await page.getByRole("main").getByRole("link", { name: "Settings" }).click();
     // exact: with Plaid on, the header bell ("Categories up to date") is also a link.
     await page.getByRole("link", { name: "Categories", exact: true }).click();
 

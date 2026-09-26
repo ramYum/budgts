@@ -230,7 +230,14 @@ server renders); no `loading.tsx` and a 0s client router cache, so every tab
 tap waited on the server with no feedback; recharts in Home's first-load
 bundle. A 2026-09-25 audit also found the Activity page pulling a user's
 entire bank history (capped at 1000 rows) to find one date per account, and
-serial awaits on Budgets/Insights/Transactions.
+serial awaits on Budgets/Insights/Transactions. A later 2026-09-25 pass,
+measured on staging with a heavy bank feed (~1,250 rows a month), found
+`fetchAllRows` fetching its 1000-row pages one after another (8 in a row for
+Home's 6-month window: 1.0s → 0.37s once parallel); the Activity list
+rendering every row of the month (9,800 DOM nodes, a 2 MB page, 400ms+ per
+tap or keystroke on a mid-range phone); Zod (~370 KB) and the Supabase
+browser client (~250 KB) in first-load bundles; and the robin drawn as ~170
+`<rect>`s per copy.
 
 `tests/unit/performance-guardrails.test.ts` enforces the checkable rules; a
 failure there names the rule it protects.
@@ -246,7 +253,10 @@ failure there names the rule it protects.
    result, chain it off that promise (`profilePromise.then(...)`) so it still
    runs alongside everything else — never `await` A, then start B.
 3. **Every query is bounded.** Month/window reads use `fetchAllRows` with a
-   unique `order("id")`; lists use `.limit()`; "the earliest/latest X" is
+   unique `order("id")`, and the page builder passes `count` to its select
+   (`.select(cols, { count })`): the first page returns the total, so every
+   remaining page is fetched at once (two round trips for any size, not one
+   per 1000 rows); lists use `.limit()`; "the earliest/latest X" is
    `order(...).limit(1)`, never "fetch everything and scan"; counts use
    `{ count: "exact", head: true }`. No `select("*")` — name the columns.
 4. **Fetch a row set once per request.** Derive per-month slices in memory
@@ -269,7 +279,13 @@ failure there names the rule it protects.
    invalidates it, so a tab visited moments ago is fresh when tapped again.
 8. **No chart library; heavy client libraries load lazily.** Charts are
    server-rendered square-cell markup (`spending-overview.tsx`, no client JS);
-   Plaid Link only mounts once a link token exists.
+   Plaid Link only mounts once a link token exists. Zod is server-only:
+   client components take option lists from Zod-free modules
+   (`src/lib/accounts/account-types.ts`, `src/lib/categories/options.ts`,
+   `src/lib/budget/currencies.ts`), never from `src/lib/validation`. The
+   Supabase browser client is imported lazily inside the realtime listener's
+   effect, so it isn't in any page's first bundle. The robin draws one
+   `<path>` per colour per layer (`mascot.tsx`), not a `<rect>` per run.
 9. **Page-view background work is throttled and non-blocking.** `after()` +
    `nudgeRefresh` costs one conditional `UPDATE … RETURNING` per Home /
    Transactions view and calls Plaid at most once per 25 min per Item.
@@ -277,7 +293,9 @@ failure there names the rule it protects.
 10. **Service worker caches only content-hashed assets cache-first**
     (`/_next/static/`); un-hashed files (`/brand/*`, icons) are
     stale-while-revalidate. Bump `CACHE` in `public/sw.js` when its strategy
-    changes.
+    changes. Navigations use navigation preload (enabled on activate), so a
+    phone that stopped the idle worker doesn't hold the page request until
+    the worker boots.
 11. **Plaid sync is event-driven, one run per Item.** Every sync — the webhook
     (right after its 200, via `after()`), Sync now / account mapping / resume
     import, and the `/api/plaid/sync-due` reconciliation sweep (pg_cron every
@@ -305,6 +323,12 @@ failure there names the rule it protects.
     closing the mapping dialog unsaved (the exchange route handler can't
     update the page). Pinned by `performance-guardrails.test.ts` and the
     "exactly one server render" test in `tests/e2e/router-cache.spec.ts`.
+13. **Long lists render in slices.** A month of bank rows can be 1,000+.
+    The Activity list (`transaction-list.tsx`) renders 60 rows, then 60 more
+    as its end comes within 600px (an `IntersectionObserver`, rebuilt per
+    slice, plus a "Show N more" button as the reachable exit); search and
+    the filters still run over every row. Rows are a memoized component, so
+    opening a transaction's sheet doesn't re-render the list behind it.
 
 **If it gets slow again, look at:** Vercel → Observability / Logs for the
 slow route's function duration; Supabase → Query Performance (slowest and

@@ -7,7 +7,7 @@
  * under a standard category they no longer have (archived, or removed), Budgts
  * re-adds it automatically rather than sending them to a setup screen.
  */
-import type { CategoryKind } from "@/lib/validation/category";
+import type { CategoryKind } from "@/lib/categories/options";
 
 export interface StandardCategory {
   name: string;

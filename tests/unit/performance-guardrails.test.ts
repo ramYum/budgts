@@ -106,6 +106,18 @@ describe("performance guardrails", () => {
     expect(offenders).toEqual([]);
   });
 
+  // Rule 3: fetchAllRows sizes its parallel pages from the first page's count,
+  // so every caller's page builder must pass `count` to its select. Without it
+  // a window over 1000 rows throws instead of paging (never a silent subset).
+  it("every fetchAllRows page builder requests the count", () => {
+    const offenders = sourceFiles(SRC)
+      .filter((p) => !p.endsWith(join("supabase", "fetch-all-rows.ts")))
+      .filter((p) => /fetchAllRows\s*(<[^>]*>)?\s*\(/.test(code(p)))
+      .filter((p) => !/\{\s*count\s*\}\s*,?\s*\)/.test(code(p)))
+      .map(rel);
+    expect(offenders).toEqual([]);
+  });
+
   it("server components and routes never select *", () => {
     const offenders = [join(SRC, "app"), join(SRC, "components")]
       .flatMap(sourceFiles)
@@ -160,6 +172,18 @@ describe("performance guardrails", () => {
     expect(overview).not.toMatch(/^"use client"/m);
   });
 
+  // Rule 8: Zod (~370 KB of browser JS) is server-only. Client components take
+  // plain option lists (account types, category colours, currencies) from
+  // Zod-free modules; the schemas in src/lib/validation validate against them.
+  it("client components never import Zod or the validation schemas", () => {
+    const offenders = [join(SRC, "app"), join(SRC, "components")]
+      .flatMap(sourceFiles)
+      .filter((p) => isClient(read(p)))
+      .filter((p) => /from\s+["'](zod|@\/lib\/validation\/[^"']+)["']/.test(code(p)))
+      .map(rel);
+    expect(offenders).toEqual([]);
+  });
+
   // Rule 8: the service worker may only serve content-hashed build assets
   // cache-first; anything with a stable URL must revalidate, or a replaced
   // file is served stale forever.
@@ -168,6 +192,14 @@ describe("performance guardrails", () => {
     const imageBranch = sw.slice(sw.indexOf("svg|png"));
     expect(sw).toMatch(/startsWith\("\/_next\/static\/"\)\)\s*\{/);
     expect(imageBranch.slice(0, imageBranch.indexOf("return;"))).toMatch(/waitUntil\(/);
+  });
+
+  // Rule 10: a stopped worker must not delay page loads — navigation preload
+  // starts the request while the worker boots, and navigations use it.
+  it("service worker uses navigation preload for page loads", () => {
+    const sw = read(join(ROOT, "public", "sw.js"));
+    expect(sw).toMatch(/navigationPreload\?\.enable\(\)/);
+    expect(sw.slice(sw.indexOf('request.mode === "navigate"'))).toMatch(/await event\.preloadResponse/);
   });
 
   // Rule 11: every Plaid sync goes through the per-Item lease (sync-runner.ts),

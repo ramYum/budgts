@@ -11,10 +11,13 @@ self.addEventListener("install", (event) => {
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches
-      .keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
-      .then(() => self.clients.claim()),
+    Promise.all([
+      // Navigation preload: the browser starts a page's request while this
+      // worker is still booting (a phone stops idle workers), instead of
+      // waiting for it first. The response arrives as event.preloadResponse.
+      self.registration.navigationPreload?.enable(),
+      caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))),
+    ]).then(() => self.clients.claim()),
   );
 });
 
@@ -58,8 +61,17 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Page navigations: network-first, fall back to the offline page.
+  // Page navigations: network-first (the preloaded request when the browser
+  // started one, see activate), falling back to the offline page.
   if (request.mode === "navigate") {
-    event.respondWith(fetch(request).catch(() => caches.match(OFFLINE_URL)));
+    event.respondWith(
+      (async () => {
+        try {
+          return (await event.preloadResponse) || (await fetch(request));
+        } catch {
+          return caches.match(OFFLINE_URL);
+        }
+      })(),
+    );
   }
 });

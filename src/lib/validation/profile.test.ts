@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { SUPPORTED_CURRENCIES, currencySchema } from "./profile";
+import { SUPPORTED_CURRENCIES } from "@/lib/budget/currencies";
+import { currencySchema } from "./profile";
 
 describe("currencySchema", () => {
   it("accepts a supported currency", () => {

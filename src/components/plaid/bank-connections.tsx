@@ -71,10 +71,10 @@ export async function BankConnections() {
     // `.select()` silently caps at PostgREST's default 1000, which would
     // undercount the very notice this query exists to make accurate (see
     // fetch-all-rows.ts for the confirmed real-world case that pattern fixed).
-    fetchAllRows<{ plaid_account_id: string }>((from, to) =>
+    fetchAllRows<{ plaid_account_id: string }>((from, to, count) =>
       supabase
         .from("transactions")
-        .select("plaid_account_id")
+        .select("plaid_account_id", { count })
         .eq("status", "pending_review")
         .eq("pending_reason", "sign_convention_unknown")
         .not("plaid_account_id", "is", null)

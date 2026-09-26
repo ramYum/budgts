@@ -55,11 +55,12 @@ async function loadMonth(
   // fetchAllRows, not a bare await — see fetch-all-rows.ts: an unbounded
   // `.select()` silently caps at 1000 rows, which a heavy Plaid feed can
   // exceed within a single month.
-  const dataPromise = fetchAllRows((from, to) => {
+  const dataPromise = fetchAllRows((from, to, count) => {
     let q = supabase
       .from("transactions")
       .select(
         "category_id, amount, direction, occurred_at, status, is_transfer, duplicate_of_id, event_role, transfer_user_set, plaid_account_id",
+        { count },
       )
       .gte("occurred_at", start)
       .lt("occurred_at", end)

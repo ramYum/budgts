@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useMemo, useState } from "react";
-import { ACCOUNT_TYPES, type AccountType } from "@/lib/validation/account";
+import { ACCOUNT_TYPES, type AccountType } from "@/lib/accounts/account-types";
 import { mapAccounts, type PlaidActionState } from "@/server/plaid/actions";
 
 export type MappableAccount = {

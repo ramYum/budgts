@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useState, useTransition } from "react";
 import { Overlay } from "./overlay";
-import { ACCOUNT_TYPES } from "@/lib/validation/account";
+import { ACCOUNT_TYPES } from "@/lib/accounts/account-types";
 import {
   createAccount,
   setAccountArchived,

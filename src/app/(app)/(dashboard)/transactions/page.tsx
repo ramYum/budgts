@@ -58,11 +58,12 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
   // within a single month — see fetch-all-rows.ts. Keeps the intended
   // newest-first display order (occurred_at, created_at) and adds `id` as
   // a final tiebreaker so pagination across pages is deterministic.
-  const txnsPromise = fetchAllRows((from, to) => {
+  const txnsPromise = fetchAllRows((from, to, count) => {
     let q = supabase
       .from("transactions")
       .select(
         "id, amount, direction, occurred_at, description, note, is_transfer, category_id, account_id, category:categories(name,color), account:accounts!inner(name, is_archived)",
+        { count },
       )
       .gte("occurred_at", start)
       .lt("occurred_at", end)

@@ -27,6 +27,16 @@ describe("robin art", () => {
     expect(sha(raster([art.body, art.beak, art.eye, art.extra]))).toBe(PINNED[mood]);
   });
 
+  // The mascot draws each layer as one path per colour (mascot.tsx), which
+  // paints exactly the per-run rects only while no two runs in a layer overlap.
+  it.each(Object.keys(PINNED) as RobinMood[])("never overlaps two runs within one layer (%s)", (mood) => {
+    const art = ROBIN_ART[mood];
+    for (const layer of [art.body, art.beak, art.beakOpen, art.wingUp, art.eye, art.extra]) {
+      const cells = layer.flatMap((r) => Array.from({ length: r.w }, (_, i) => `${r.x + i},${r.y}`));
+      expect(new Set(cells).size).toBe(cells.length);
+    }
+  });
+
   it("stands on ROBIN_FEET_X: its feet are centred there, so a turn pivoting on it keeps them over their shadow", () => {
     const rows = raster([ROBIN_ART.happy.body]).slice(-3); // the leg rows, bottom of the art
     const xs = rows.flatMap((row) => row.split(" ").flatMap((fill, x) => (fill === "#111111" ? [x] : [])));

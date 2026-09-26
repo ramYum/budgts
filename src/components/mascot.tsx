@@ -11,11 +11,24 @@ import { ROBIN_ART, ROBIN_H, ROBIN_W, type RobinMood, type RobinRun } from "@/li
 
 const ROBIN_ASPECT = ROBIN_W / ROBIN_H;
 
-function Rects({ list }: { list: RobinRun[] }) {
+const pathsByLayer = new WeakMap<RobinRun[], [fill: string, d: string][]>();
+
+/** One layer of the art as a path per colour, each run a one-cell-tall
+ * rectangle in it. Runs never overlap within a layer (robin-art.test.ts), so
+ * this paints exactly what a <rect> per run did, in about 20 elements a
+ * robin instead of 170: a lighter page and less for React to hydrate. */
+function Runs({ list }: { list: RobinRun[] }) {
+  let paths = pathsByLayer.get(list);
+  if (!paths) {
+    const byFill = new Map<string, string>();
+    for (const r of list) byFill.set(r.fill, `${byFill.get(r.fill) ?? ""}M${r.x} ${r.y}h${r.w}v1h-${r.w}z`);
+    paths = [...byFill];
+    pathsByLayer.set(list, paths);
+  }
   return (
     <>
-      {list.map((r) => (
-        <rect key={`${r.x},${r.y}`} x={r.x} y={r.y} width={r.w} height={1} fill={r.fill} />
+      {paths.map(([fill, d]) => (
+        <path key={fill} d={d} fill={fill} />
       ))}
     </>
   );
@@ -52,25 +65,25 @@ export function Robin({
       aria-hidden={title ? undefined : true}
       aria-label={title}
     >
-      <Rects list={art.body} />
+      <Runs list={art.body} />
       <g className={chirps ? "robin-beak" : undefined}>
-        <Rects list={art.beak} />
+        <Runs list={art.beak} />
       </g>
       {chirps ? (
         <g className="robin-beak-open">
-          <Rects list={art.beakOpen} />
+          <Runs list={art.beakOpen} />
         </g>
       ) : null}
       {animated && flaps ? (
         <g className="robin-wing-up">
-          <Rects list={art.wingUp} />
+          <Runs list={art.wingUp} />
         </g>
       ) : null}
       <g className={animated && mood !== "sleepy" ? "robin-eye" : undefined}>
-        <Rects list={art.eye} />
+        <Runs list={art.eye} />
       </g>
       <g className={chirps ? "robin-chirp" : animated ? "robin-flicker" : undefined}>
-        <Rects list={art.extra} />
+        <Runs list={art.extra} />
       </g>
     </svg>
   );

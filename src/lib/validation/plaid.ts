@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { STANDARD_CATEGORY_NAMES } from "@/lib/categories/standard";
-import { ACCOUNT_TYPES } from "./account";
+import { ACCOUNT_TYPES } from "@/lib/accounts/account-types";
 
 /**
  * Shared validation for the Plaid UI server actions (design §11, §18, §24).

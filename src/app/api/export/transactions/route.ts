@@ -34,11 +34,12 @@ export async function GET() {
   // #1000 would be worse than no export at all. See fetch-all-rows.ts.
   let data: ExportRow[];
   try {
-    data = await fetchAllRows<ExportRow>((from, to) => {
+    data = await fetchAllRows<ExportRow>((from, to, count) => {
       let q = supabase
         .from("transactions")
         .select(
           "occurred_at, description, note, amount, direction, is_transfer, status, source, category:categories(name), account:accounts(name)",
+          { count },
         );
       // Skip soft-deleted bank rows. Guarded: column only exists where 0004 has run.
       if (plaidUiEnabled()) q = q.is("removed_at", null);

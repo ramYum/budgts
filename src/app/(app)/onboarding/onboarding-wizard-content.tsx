@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import type { OnboardingState } from "@/server/onboarding";
-import { SUPPORTED_CURRENCIES } from "@/lib/validation/profile";
+import { SUPPORTED_CURRENCIES } from "@/lib/budget/currencies";
 import { TourWizard, type WizardStep } from "@/components/tour/tour-wizard";
 import { TourCard } from "@/components/tour/tour-card";
 import { GuideScene } from "@/components/tour/scenes";

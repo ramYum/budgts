@@ -6,7 +6,7 @@ import { currentMonthKey, monthKey } from "@/lib/budget/month";
 import type { BudgetTxn } from "@/lib/budget/types";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
-import { fetchAllRows } from "@/lib/supabase/fetch-all-rows";
+import { fetchAllRows, type RowCount } from "@/lib/supabase/fetch-all-rows";
 import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
 import { isEventRole } from "@/lib/plaid/event-role";
 import { RealtimeRefresh } from "@/components/realtime-refresh";
@@ -59,8 +59,8 @@ export default async function BudgetsPage({ searchParams }: PageProps<"/budgets"
   // Every read below is independent, so they all start now and run together
   // (the page used to await excluded accounts, then categories/profile, then
   // transactions — three serial round trips).
-  const txnPage = (gte: string | null, lt: string | null) => (from: number, to: number) => {
-    let q = supabase.from("transactions").select(cols);
+  const txnPage = (gte: string | null, lt: string | null) => (from: number, to: number, count: RowCount) => {
+    let q = supabase.from("transactions").select(cols, { count });
     if (gte) q = q.gte("occurred_at", gte);
     if (lt) q = q.lt("occurred_at", lt);
     q = q.order("id", { ascending: true }).range(from, to);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { formatMoney } from "@/lib/budget/money";
 import { deleteTransaction, updateTransaction } from "@/server/transactions";
 import { Overlay } from "./overlay";
@@ -47,6 +47,97 @@ function fullDateLabel(iso: string) {
   });
 }
 
+/** Rows rendered at first, and added each time the reader nears the end. A
+ * heavy bank feed has 1,000+ rows a month; rendering every one up front made
+ * each tap and keystroke on this screen wait on the whole list. Search and
+ * the filters still cover every row. */
+const SLICE = 60;
+
+/** The rendered rows, grouped by day. Memoized so opening a transaction's
+ * sheet (state in the parent) doesn't re-render the list behind it. */
+const TxnDays = memo(function TxnDays({
+  rows,
+  currency,
+  onOpen,
+}: {
+  rows: TxnListItem[];
+  currency: string;
+  onOpen: (item: TxnListItem) => void;
+}) {
+  const groups = new Map<string, TxnListItem[]>();
+  for (const it of rows) {
+    const key = it.occurred_at.slice(0, 10);
+    const bucket = groups.get(key);
+    if (bucket) bucket.push(it);
+    else groups.set(key, [it]);
+  }
+  return [...groups.entries()].map(([day, dayRows]) => (
+    <section key={day}>
+      <h3 className="bg-surface-2/60 px-4 py-2 text-xs font-semibold text-muted">{dayLabel(day)}</h3>
+      <ul className="divide-y divide-hairline">
+        {dayRows.map((it) => (
+          <li key={it.id}>
+            <button
+              type="button"
+              onClick={() => onOpen(it)}
+              aria-labelledby={`txn-${it.id}-title`}
+              aria-describedby={`txn-${it.id}-meta txn-${it.id}-amount`}
+              className="press flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-surface-2"
+            >
+              <CategoryIcon name={it.is_transfer ? "Transfer" : (it.category?.name ?? "")} size={36} />
+              <span className="min-w-0 flex-1">
+                <span id={`txn-${it.id}-title`} className="block truncate text-sm font-medium">
+                  {it.description || it.category?.name || "Transaction"}
+                </span>
+                <span id={`txn-${it.id}-meta`} className="block truncate text-xs text-muted">
+                  {it.is_transfer ? "Transfer" : (it.category?.name ?? "Uncategorized")}
+                </span>
+              </span>
+              <span
+                id={`txn-${it.id}-amount`}
+                className={`shrink-0 text-sm font-medium tabular-nums ${it.direction === "credit" ? "text-pos" : ""}`}
+              >
+                {it.direction === "debit" ? "−" : "+"}
+                {formatMoney(it.amount, currency)}
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  ));
+});
+
+/** The end of the rendered rows. It adds the next slice when it scrolls
+ * within reach (well before it is on screen), or when tapped. The observer
+ * is rebuilt after every slice, so a screen tall enough to still show it
+ * keeps filling without a scroll. */
+function MoreRows({ remaining, onMore }: { remaining: number; onMore: () => void }) {
+  const ref = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) onMore();
+      },
+      { rootMargin: "0px 0px 600px 0px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [onMore, remaining]);
+  return (
+    <button
+      ref={ref}
+      type="button"
+      onClick={onMore}
+      className="press w-full rounded-xl border border-hairline bg-surface px-3 py-3 text-sm font-medium text-muted hover:bg-surface-2"
+    >
+      Show {Math.min(remaining, SLICE)} more
+    </button>
+  );
+}
+
 export function TransactionList({
   items,
   currency,
@@ -66,6 +157,8 @@ export function TransactionList({
   const [transferPending, startTransferTransition] = useTransition();
   const [search, setSearch] = useState("");
   const [kindFilter, setKindFilter] = useState<"all" | "spending" | "income" | "transfers">("all");
+  const [shown, setShown] = useState(SLICE);
+  const showMore = useCallback(() => setShown((n) => n + SLICE), []);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -80,6 +173,7 @@ export function TransactionList({
       return true;
     });
   }, [items, search, kindFilter]);
+  const visible = useMemo(() => filtered.slice(0, shown), [filtered, shown]);
 
   /** Flips `isTransfer` via the same `updateTransaction` action the edit form
    * uses — a one-tap toggle from the Detail view (design spec §22) rather than
@@ -128,7 +222,10 @@ export function TransactionList({
         <input
           type="search"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setShown(SLICE);
+          }}
           placeholder="Search transactions..."
           aria-label="Search transactions"
           className="w-full rounded-xl border border-hairline bg-surface py-3 pr-3 pl-10 text-sm outline-none transition-colors focus:border-ink"
@@ -136,7 +233,10 @@ export function TransactionList({
       </div>
       <SegmentedControl
         value={kindFilter}
-        onChange={setKindFilter}
+        onChange={(v) => {
+          setKindFilter(v);
+          setShown(SLICE);
+        }}
         options={[
           { value: "all", label: "All" },
           { value: "spending", label: "Spending" },
@@ -158,14 +258,6 @@ export function TransactionList({
     );
   }
 
-  const groups = new Map<string, TxnListItem[]>();
-  for (const it of filtered) {
-    const key = it.occurred_at.slice(0, 10);
-    const bucket = groups.get(key);
-    if (bucket) bucket.push(it);
-    else groups.set(key, [it]);
-  }
-
   /** Deletes, then runs `onDeleted` only if the server actually removed a row.
    * On failure the editor stays open so the message has somewhere to show. */
   const remove = (id: string, onDeleted: () => void) => {
@@ -185,42 +277,11 @@ export function TransactionList({
     <div className="space-y-5">
       {searchBar}
       <div className="reveal card divide-y divide-hairline overflow-hidden rounded-2xl border border-hairline" style={{ ["--i" as string]: 1 }}>
-      {[...groups.entries()].map(([day, rows]) => (
-        <section key={day}>
-          <h3 className="bg-surface-2/60 px-4 py-2 text-xs font-semibold text-muted">{dayLabel(day)}</h3>
-          <ul className="divide-y divide-hairline">
-            {rows.map((it) => (
-              <li key={it.id}>
-                <button
-                  type="button"
-                  onClick={() => setViewing(it)}
-                  aria-labelledby={`txn-${it.id}-title`}
-                  aria-describedby={`txn-${it.id}-meta txn-${it.id}-amount`}
-                  className="press flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-surface-2"
-                >
-                  <CategoryIcon name={it.is_transfer ? "Transfer" : (it.category?.name ?? "")} size={36} />
-                  <span className="min-w-0 flex-1">
-                    <span id={`txn-${it.id}-title`} className="block truncate text-sm font-medium">
-                      {it.description || it.category?.name || "Transaction"}
-                    </span>
-                    <span id={`txn-${it.id}-meta`} className="block truncate text-xs text-muted">
-                      {it.is_transfer ? "Transfer" : (it.category?.name ?? "Uncategorized")}
-                    </span>
-                  </span>
-                  <span
-                    id={`txn-${it.id}-amount`}
-                    className={`shrink-0 text-sm font-medium tabular-nums ${it.direction === "credit" ? "text-pos" : ""}`}
-                  >
-                    {it.direction === "debit" ? "−" : "+"}
-                    {formatMoney(it.amount, currency)}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ))}
+        <TxnDays rows={visible} currency={currency} onOpen={setViewing} />
       </div>
+      {filtered.length > visible.length ? (
+        <MoreRows remaining={filtered.length - visible.length} onMore={showMore} />
+      ) : null}
 
       {viewing ? (
         <Overlay title="Transaction" onClose={() => setViewing(null)}>

@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 
 /** Quiet period after the last change before the page is refreshed. */
 const DEBOUNCE_MS = 1500;
@@ -35,8 +34,6 @@ export function RealtimeRefreshListener({ tables, renderedAt }: { tables: string
   }, [renderedAt]);
 
   useEffect(() => {
-    const supabase = createClient();
-    const channel = supabase.channel(`refresh:${key}`);
     let timer: ReturnType<typeof setTimeout> | null = null;
     let newestChange = 0;
 
@@ -61,16 +58,27 @@ export function RealtimeRefreshListener({ tables, renderedAt }: { tables: string
       if (!document.hidden && stale() && !timer) timer = setTimeout(flush, DEBOUNCE_MS);
     };
 
-    for (const table of key.split(",")) {
-      channel.on("postgres_changes", { event: "*", schema: "public", table }, onChange);
-    }
-    channel.subscribe();
+    // The Supabase browser client (~250 KB) is only needed here, so it loads
+    // once the page is up instead of in every page's first bundle.
+    let cancelled = false;
+    let unsubscribe: (() => void) | null = null;
+    void import("@/lib/supabase/client").then(({ createClient }) => {
+      if (cancelled) return;
+      const supabase = createClient();
+      const channel = supabase.channel(`refresh:${key}`);
+      for (const table of key.split(",")) {
+        channel.on("postgres_changes", { event: "*", schema: "public", table }, onChange);
+      }
+      channel.subscribe();
+      unsubscribe = () => void supabase.removeChannel(channel);
+    });
     document.addEventListener("visibilitychange", onVisible);
 
     return () => {
+      cancelled = true;
       if (timer) clearTimeout(timer);
       document.removeEventListener("visibilitychange", onVisible);
-      void supabase.removeChannel(channel);
+      unsubscribe?.();
     };
   }, [router, key]);
 

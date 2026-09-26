@@ -1,7 +1,5 @@
 import { z } from "zod";
-
-export const ACCOUNT_TYPES = ["checking", "credit", "cash", "savings"] as const;
-export type AccountType = (typeof ACCOUNT_TYPES)[number];
+import { ACCOUNT_TYPES } from "@/lib/accounts/account-types";
 
 export const accountFormSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(40, "Keep the name under 40 characters"),

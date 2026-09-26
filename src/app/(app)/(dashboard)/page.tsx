@@ -7,7 +7,7 @@ import { goalsSummary, type SavingsContribution, type SavingsGoal } from "@/lib/
 import type { BudgetTxn } from "@/lib/budget/types";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
-import { fetchAllRows } from "@/lib/supabase/fetch-all-rows";
+import { fetchAllRows, type RowCount } from "@/lib/supabase/fetch-all-rows";
 import { selectableAccounts, type SelectableAccountRow } from "@/lib/accounts/selectable-accounts";
 import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
 import { isEventRole } from "@/lib/plaid/event-role";
@@ -65,10 +65,10 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
   // fetch-all-rows.ts. Ordered by `id` (unique) so pagination across pages
   // is deterministic; a timestamp column here has many exact ties from
   // bulk-inserted sync batches.
-  const txnPage = (gte: string, lt: string) => (from: number, to: number) => {
+  const txnPage = (gte: string, lt: string) => (from: number, to: number, count: RowCount) => {
     let q = supabase
       .from("transactions")
-      .select(txnCols)
+      .select(txnCols, { count })
       .gte("occurred_at", gte)
       .lt("occurred_at", lt)
       .order("id", { ascending: true })

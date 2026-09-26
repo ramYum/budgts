@@ -1016,3 +1016,24 @@ On hiatus as of 2026-09-25 (paused, not abandoned): Budgts is currently a person
   `spending-charts.tsx`. Verified on a staging-only local build with a seeded
   throwaway user (deleted afterwards): 12 screens at 390px, no console errors,
   Playwright e2e 12/12 (plaid.spec skipped by design).
+- **2026-09-25 — Speed pass: parallel paging, a sliced Activity list, lighter bundles.**
+  Measured first on staging with a heavy seeded feed (8,542 rows over 7 months,
+  ~1,250 a month, the shape of a real multi-bank month), old build vs new side by
+  side. No calculation changed: every screen's text (Home, Budgets month and all
+  time, Insights, Goals, Activity fully expanded) is byte-identical to the old
+  build. `fetchAllRows` asks for the count with the first page and fetches the rest
+  at once (Home 1,026 → 373 ms, Budgets all-time 1,115 → 342 ms, Insights 269 → 210
+  ms). The Activity list renders 60 rows at a time with memoized rows (page 1.97 MB
+  → 0.56 MB, 9,839 → 760 DOM nodes; on a 4× throttled CPU a tap on a transaction
+  went from 544–1,592 ms of event handling to 56–64 ms, a keystroke in search
+  from 544–688 ms to 104–128 ms, and the Activity tab from 2.3–2.7 s to 0.76–0.94
+  s). Zod left the browser bundle (−366 KB on
+  Activity, Accounts, Categories, Connected banks) and the Supabase browser client
+  now loads after the page (−253 KB from every first load). The robin is one path
+  per colour per layer (~170 fewer DOM nodes per copy; 38 screenshots, static and
+  with every animation layer forced on, pixel-identical at 1× and 2×). The service
+  worker uses navigation preload. Rules 3, 8, 10 and 13 in `conventions.md`.
+  Note for local benchmarking: this machine intermittently
+  stalls every in-flight request to staging for ~10 s (both builds, identical
+  pattern), so compare builds side by side, and don't share `.next` with another
+  session's preview server (a concurrent build there replaced it mid-run).

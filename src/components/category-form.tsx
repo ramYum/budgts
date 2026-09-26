@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect } from "react";
-import { CATEGORY_COLORS } from "@/lib/validation/category";
+import { CATEGORY_COLORS } from "@/lib/categories/options";
 import type { CategoryActionState } from "@/server/categories";
 
 const field =

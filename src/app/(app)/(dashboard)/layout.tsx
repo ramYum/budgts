@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { signOut } from "@/server/auth";
 import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
+import { firstRunRedirect } from "@/lib/tour/gate";
 import { applyNeedsCategoryFilter } from "@/lib/plaid/needs-category-window";
 import { Logo } from "@/components/logo";
 import { BottomNav } from "@/components/bottom-nav";
@@ -32,29 +33,17 @@ export default async function DashboardLayout({ children }: LayoutProps<"/">) {
   if (!user) redirect("/sign-in");
 
   const supabase = await createClient();
-  // One query for everything the gate needs. If app code ships before the
-  // tour_seen_at migration runs this errors; fall back to the columns that
-  // always exist and treat the tour as "seen" rather than looping (a missing
-  // column would otherwise bounce to /onboarding, which redirects back to /).
-  const full = await supabase
+  // One query for everything the gate needs. The welcome guide plays for every
+  // new user, so a failed read must not guess "already seen" and wave them
+  // past it: it surfaces (error boundary, with a retry) instead.
+  const { data: profile, error } = await supabase
     .from("profiles")
     .select("onboarded_at, created_at, tour_seen_at")
     .eq("id", user.id)
-    .single();
-  let profile: { onboarded_at: string | null; created_at: string } | null = full.data;
-  let tourSeen = true;
-  if (full.error) {
-    const base = await supabase
-      .from("profiles")
-      .select("onboarded_at, created_at")
-      .eq("id", user.id)
-      .single();
-    profile = base.data;
-  } else {
-    tourSeen = !!full.data?.tour_seen_at;
-  }
-  if (!profile?.onboarded_at) redirect("/onboarding");
-  if (!tourSeen) redirect("/tour");
+    .maybeSingle();
+  if (error) throw new Error(`Couldn't load your profile: ${error.message}`);
+  const firstRun = firstRunRedirect(profile);
+  if (firstRun || !profile) redirect(firstRun ?? "/onboarding");
 
   // The header bell's count (bank rows Budgts could not categorise, inside the
   // user's categorization window — same predicate as <NeedsCategory>, applied

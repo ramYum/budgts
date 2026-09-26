@@ -19,8 +19,10 @@ each part out of 10 and iterate until everything reaches 9+.
 - `/onboarding` (pre-setup, ends at the required currency step), then
   `completeOnboarding`, then `/tour?new=1` (explainer), then `completeTour`,
   which sets `profiles.tour_seen_at` and redirects to `/`.
-- The dashboard layout gate: not onboarded goes to `/onboarding`; tour not
-  seen goes to `/tour`.
+- The dashboard layout gate (`firstRunRedirect`, `src/lib/tour/gate.ts`):
+  not onboarded goes to `/onboarding`; tour not seen goes to `/tour`. It plays
+  for every new user: a failed profile read surfaces rather than counting as
+  "seen".
 - Onboarding Skip jumps to the currency step. Tour Skip completes the tour.
   Replay comes from Help (`/tour` without `?new=1` prepends the intro cards).
 - Step order is resolved once, server-side, by `buildTourSteps`, and frozen

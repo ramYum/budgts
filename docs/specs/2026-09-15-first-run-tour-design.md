@@ -97,12 +97,12 @@ check:
 if (!profile.tour_seen_at) redirect("/tour");
 ```
 
-Queried as a separate `select` from `onboarded_at`, so that a deploy where the
-app code ships before the migration runs degrades to "treat as seen" (log,
-don't loop) rather than folding into the `onboarded_at` check and producing
-`/onboarding` → `/` → `/onboarding` redirect loop. The migration still must
-land on prod before the deploy that reads this column ships — this is a
-belt-and-suspenders guard, not a substitute for ordering.
+**Updated 2026-09-25:** migration `0014` is on production and staging, so the
+original "treat as seen on a query error" deploy-order guard is gone: it
+would silently wave a new user past the guide on any failed read. The gate
+is one query and the pure `firstRunRedirect` (`src/lib/tour/gate.ts`):
+not onboarded → `/onboarding`, tour not seen → `/tour`. A read error now
+surfaces through the error boundary (with a retry) instead of guessing.
 
 ## Step sequencing
 

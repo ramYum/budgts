@@ -771,14 +771,15 @@ body {
 }
 
 /* ─── Crystal on Home (src/components/crystal-perch.tsx) ────────────────────
- * Arrival (once per visit): she flutters down onto the right end of the
- * Money left card, lands with a squash and a dust puff, says hi (0.7s), then
- * a note on the month (3.3s). Her beak chirps every 4s on its own loop; a
+ * Arrival (once per visit): she flutters down onto the middle of the Money
+ * left card's top edge, lands with a squash and a dust puff, says hi (0.7s),
+ * then a note on the month (3.3s). Her beak chirps every 4s on its own loop; a
  * "+$" rises from it while the month is saving.
  * The walk (from 8.6s, timed in the component, src/lib/crystal/roam.ts): the
  * mover slides along the card's top edge while the arc layer hops (a script
  * animation), 2-4 hops at a time, 4.5-8.5s rests between, the odd peck,
- * turning back at each end. Its layers, outside in: .crystal-mover (where on
+ * turning back at each end, and a line of encouragement at most every 8s
+ * while she rests. Its layers, outside in: .crystal-mover (where on
  * the edge) > .crystal-arrive > .crystal-land > .crystal-arc (the hop) >
  * .crystal-flip (which way she faces) > the peck layer > the robin.
  * A tap: she jumps and flaps, chirps back, hearts and sparkles burst, and
@@ -1115,7 +1116,7 @@ body {
 /* Where she stands on the card's top edge: a fraction (--f) of the track,
  * less her own 52px width. Transform only; the track is the size container. */
 .crystal-mover {
-  transform: translateX(calc(var(--f, 1) * (100cqw - 52px)));
+  transform: translateX(calc(var(--f, 0.5) * (100cqw - 52px)));
 }
 /* facing left, she's mirrored, and a "+$" rises from where her beak now is */
 [data-facing="left"] .crystal-flip {

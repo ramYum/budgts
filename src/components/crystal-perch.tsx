@@ -6,16 +6,17 @@ import { ROAM, bubbleSide, hopLength, nextOuting, type Dir } from "@/lib/crystal
 import { Robin } from "./mascot";
 
 /**
- * Crystal on Home: she flutters down onto the right end of the Money left
- * card, says hi, then one note on the month. After that she walks its top
+ * Crystal on Home: she flutters down onto the middle of the Money left card's
+ * top edge, says hi, then one note on the month. After that she walks the
  * edge (src/lib/crystal/roam.ts): a few small hops at a time, long rests
- * between, the odd peck, turning back at each end. She's there to be noticed,
- * not to pull focus from the figure she stands on, so she stays put while she
- * talks, and pauses whenever the card is off screen or the tab is hidden.
- * Tap her and she jumps, flaps, chirps back, hearts burst, and she says the
- * next line, her bubble opening toward the middle of the card. Arrival and
- * the tap reaction are CSS (globals.css `crystal-*`); the walk is timed here.
- * With motion off she sits at the right end with her note on the month.
+ * between, the odd peck, turning back at each end, and every so often, while
+ * she rests, a line of encouragement. She's there to be noticed, not to pull
+ * focus from the figure she stands on, so she stays put while she talks, and
+ * pauses whenever the card is off screen or the tab is hidden. Tap her and
+ * she jumps, flaps, chirps back, hearts burst, and she says the next line.
+ * Her bubbles open toward the middle of the card. Arrival and the tap
+ * reaction are CSS (globals.css `crystal-*`); the walk is timed here. With
+ * motion off she sits in the middle with her note on the month.
  */
 
 type Say = { hello: string; lines: string[] };
@@ -27,6 +28,24 @@ export function crystalLines(name: string, savingsRate: number | null): Say {
   if (savingsRate === null) return { hello, lines: ["No income yet", "Add income +", "Chirp chirp!"] };
   if (savingsRate < 0) return { hello, lines: ["Spent > earned", "Let's regroup", "We got this!"] };
   return { hello, lines: [`${formatSavingsRate(savingsRate)} saved!`, "Chirp chirp!", "Keep it up!", "Proud of you!"] };
+}
+
+/** Her lines of encouragement while she roams, to the month's mood: getting
+ * started, regrouping after an overspent month, or keeping a saving month
+ * going. Short enough for her bubble (it wraps to two lines on a phone). */
+export function crystalCheers(savingsRate: number | null): string[] {
+  if (savingsRate === null)
+    return ["Add income to begin!", "Every dollar has a job!", "Let's plan together!", "Small steps add up!", "You've got this!"];
+  if (savingsRate < 0)
+    return ["Tomorrow's a fresh start", "Small cuts add up!", "We can turn it around!", "One step at a time!", "You've got this!"];
+  return [
+    "You've got this!",
+    "Future you says thanks!",
+    "Small steps add up!",
+    "Every dollar has a job!",
+    "Consistency wins!",
+    "Keep that streak going!",
+  ];
 }
 
 const vars = (v: Record<string, string | number>) => v as CSSProperties;
@@ -78,7 +97,8 @@ const PECK: Keyframe[] = [0, 0.2, 0.4, 0.6, 0.8, 1].map((offset, i) => ({
   easing: "steps(1, end)",
 }));
 
-/** A speech bubble beside her, its stepped tail pointing at her. */
+/** A speech bubble beside her, its stepped tail pointing at her. A longer
+ * line wraps (136px wide at most on a phone), so it never runs off screen. */
 function Bubble({
   say,
   text,
@@ -97,12 +117,12 @@ function Bubble({
       aria-hidden
       data-say={say}
       data-side={side}
-      className={`crystal-say pointer-events-none absolute top-[6px] z-[1] whitespace-nowrap ${
+      className={`crystal-say pointer-events-none absolute top-[6px] z-[1] w-max max-w-[136px] md:max-w-[240px] ${
         side === "left" ? "right-full mr-2" : "left-full ml-2"
       }`}
       style={vars({ "--say-for": `${forMs}ms`, "--say-at": `${atMs}ms` })}
     >
-      <span className="px-badge-ink px-tag-bold block px-2 py-1 leading-none text-white">{text}</span>
+      <span className="px-badge-ink px-tag-bold block text-balance px-2 py-[3px] leading-3 text-white">{text}</span>
       <span className="crystal-tail" />
     </span>
   );
@@ -119,19 +139,30 @@ export function CrystalPerch({
   className?: string;
 }) {
   const [taps, setTaps] = useState(0);
-  const [side, setSide] = useState<"left" | "right">("left");
+  // what she's saying after her arrival: a tap's line or a cheer
+  const [speech, setSpeech] = useState<{
+    id: number;
+    kind: "tap" | "cheer";
+    text: string;
+    side: "left" | "right";
+  } | null>(null);
   const mood = savingsRate !== null && savingsRate < 0 ? "curious" : "happy";
   const { hello, lines } = crystalLines(name, savingsRate);
-  const said = taps > 0 ? lines[(taps - 1) % lines.length]! : null;
   const saving = savingsRate !== null && savingsRate > 0;
+  // her cheers follow the month on screen (read by the walk below)
+  const cheers = useRef<string[]>([]);
+  useEffect(() => {
+    cheers.current = crystalCheers(savingsRate);
+  }, [savingsRate]);
+  const speechIds = useRef(0);
 
   const trackRef = useRef<HTMLDivElement>(null);
   const moverRef = useRef<HTMLDivElement>(null);
   const arcRef = useRef<HTMLSpanElement>(null);
   const poseRef = useRef<HTMLSpanElement>(null);
-  // where she stands (0 left end … 1 right end) and until when she stays put;
-  // shared by the walk and a tap
-  const at = useRef({ f: 1, holdUntil: 0 });
+  // where she stands (0 left end … 1 right end), until when she stays put,
+  // and when she last spoke; shared by the walk and a tap
+  const at = useRef<{ f: number; holdUntil: number; lastSaid: number }>({ f: ROAM.startF, holdUntil: 0, lastSaid: 0 });
 
   useEffect(() => {
     const track = trackRef.current;
@@ -143,7 +174,10 @@ export function CrystalPerch({
     const wing = mover.querySelector<SVGGElement>(".robin-wing-up");
     const pos = at.current;
     pos.holdUntil = Math.max(pos.holdUntil, performance.now() + ROAM.firstOutingMs);
-    let dir: Dir = -1;
+    // her arrival's hello and note end at 7.7s: the first cheer counts from there
+    pos.lastSaid = Math.max(pos.lastSaid, performance.now() + 7700);
+    let dir: Dir = Math.random() < 0.5 ? -1 : 1;
+    let cheer = 0;
     let timer: number | undefined;
     let onScreen = true;
     let asleep = false;
@@ -156,7 +190,18 @@ export function CrystalPerch({
     const awake = () => onScreen && document.visibilityState === "visible";
     const facing = (d: Dir) => (d < 0 ? "left" : "right");
 
+    // a line of encouragement, at most every cheerEveryMs, while she rests
+    const say = () => {
+      const list = cheers.current;
+      speechIds.current += 1;
+      setSpeech({ id: speechIds.current, kind: "cheer", text: list[cheer++ % list.length]!, side: bubbleSide(pos.f) });
+      pos.lastSaid = performance.now();
+      pos.holdUntil = Math.max(pos.holdUntil, pos.lastSaid + ROAM.cheerMs);
+    };
+
     const rest = () => {
+      const now = performance.now();
+      if (now - pos.lastSaid >= ROAM.cheerEveryMs && now >= pos.holdUntil) say();
       const ms = between(ROAM.restMs[0], ROAM.restMs[1]);
       if (Math.random() < 0.4) {
         later(() => {
@@ -218,8 +263,11 @@ export function CrystalPerch({
   const tap = () => {
     // she stays where she is for the jump and her line, which opens toward
     // the middle of the card
-    at.current.holdUntil = performance.now() + ROAM.tapHoldMs;
-    setSide(bubbleSide(at.current.f));
+    const now = performance.now();
+    at.current.holdUntil = now + ROAM.tapHoldMs;
+    at.current.lastSaid = now + 850;
+    speechIds.current += 1;
+    setSpeech({ id: speechIds.current, kind: "tap", text: lines[taps % lines.length]!, side: bubbleSide(at.current.f) });
     setTaps((t) => t + 1);
   };
 
@@ -231,19 +279,27 @@ export function CrystalPerch({
         ref={moverRef}
         data-facing="right"
         className="crystal-mover pointer-events-auto relative w-[52px]"
-        style={vars({ "--f": 1 })}
+        style={vars({ "--f": ROAM.startF })}
       >
-        {said ? (
-          // she jumps, chirps back, lands, then speaks (the jump would hit a bubble above her)
-          <Bubble key={taps} say="tap" text={said} forMs={3000} atMs={850} side={side} />
+        {speech ? (
+          // a tap's line waits for her jump to land (it would hit a bubble above her)
+          <Bubble
+            key={speech.id}
+            say={speech.kind}
+            text={speech.text}
+            forMs={speech.kind === "tap" ? 3000 : ROAM.cheerMs - 400}
+            atMs={speech.kind === "tap" ? 850 : 0}
+            side={speech.side}
+          />
         ) : (
           <>
-            <Bubble say="hello" text={hello} forMs={2600} atMs={700} side="left" />
-            <Bubble say="note" text={lines[0]!} forMs={4400} atMs={3300} side="left" />
+            <Bubble say="hello" text={hello} forMs={2600} atMs={700} side={bubbleSide(ROAM.startF)} />
+            <Bubble say="note" text={lines[0]!} forMs={4400} atMs={3300} side={bubbleSide(ROAM.startF)} />
           </>
         )}
+        {/* a tap's line is announced; her cheers are decoration */}
         <span className="sr-only" aria-live="polite">
-          {said ?? ""}
+          {speech?.kind === "tap" ? speech.text : ""}
         </span>
 
         <button type="button" onClick={tap} aria-label="Say hi to Crystal" className="crystal-hit relative block">

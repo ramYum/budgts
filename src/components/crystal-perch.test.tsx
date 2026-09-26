@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import { CrystalPerch, crystalLines } from "./crystal-perch";
+import { CrystalPerch, crystalCheers, crystalLines } from "./crystal-perch";
 
 const bubbles = (container: HTMLElement) =>
   [...container.querySelectorAll<HTMLElement>(".crystal-say")].map((b) => [b.dataset.say, b.textContent]);
@@ -20,6 +20,25 @@ describe("crystalLines", () => {
   });
 });
 
+describe("crystalCheers", () => {
+  it("cheers to the month's mood: celebrating, regrouping, or getting started", () => {
+    expect(crystalCheers(0.32)).toContain("Future you says thanks!");
+    expect(crystalCheers(-0.2)).toContain("Tomorrow's a fresh start");
+    expect(crystalCheers(null)).toContain("Add income to begin!");
+  });
+
+  it("keeps every line short enough for her bubble, with no em-dashes", () => {
+    for (const rate of [0.32, -0.2, null]) {
+      const cheers = crystalCheers(rate);
+      expect(cheers.length).toBeGreaterThanOrEqual(5);
+      for (const line of cheers) {
+        expect(line.length).toBeLessThanOrEqual(24);
+        expect(line).not.toMatch(/[—–]/);
+      }
+    }
+  });
+});
+
 describe("CrystalPerch", () => {
   it("arrives saying hi, then her note on the month", () => {
     const { container } = render(<CrystalPerch name="Alex" savingsRate={0.32} />);
@@ -27,6 +46,13 @@ describe("CrystalPerch", () => {
       ["hello", "Hi, Alex!"],
       ["note", "32% saved!"],
     ]);
+  });
+
+  it("lands in the middle of the card's edge, her bubbles opening beside her", () => {
+    const { container } = render(<CrystalPerch name="Alex" savingsRate={0.32} />);
+    const mover = container.querySelector<HTMLElement>(".crystal-mover")!;
+    expect(mover.style.getPropertyValue("--f")).toBe("0.5");
+    for (const b of container.querySelectorAll<HTMLElement>(".crystal-say")) expect(b.dataset.side).toBe("right");
   });
 
   it("is a button: each tap makes her say the next line, announced politely", async () => {

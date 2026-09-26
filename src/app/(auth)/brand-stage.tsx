@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import { Robin } from "@/components/mascot";
+import { ROBIN_FEET_X } from "@/lib/brand/robin-art";
 
 /** The sign-in brand moment, animated in CSS alone (globals.css `stage-*`,
  * `saving`, `wm-*`, `ticker-*`) on one 8s beat. The robin hops two cells
@@ -44,13 +45,18 @@ export function BrandStage() {
             {s.text}
           </span>
         ))}
-        <div className="stage-wander">
+        {/* --feet is where she stands: her turn pivots there and her shadow
+            centres there, so it stays under her whichever way she faces */}
+        <div className="stage-wander" style={vars({ "--feet": `${ROBIN_FEET_X * 100}%` })}>
           <div className="stage-hop flex">
             <div className="stage-turn flex">
               <Robin size={88} mood="happy" />
             </div>
           </div>
-          <div className="stage-shadow pixel-corners mx-auto mt-1 h-2 w-14 bg-track" />
+          <div
+            className="stage-shadow pixel-corners mt-1 h-2 w-14 bg-track"
+            style={{ marginLeft: "calc(var(--feet) - 1.75rem)" }}
+          />
         </div>
       </div>
 

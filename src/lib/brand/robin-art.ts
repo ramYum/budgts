@@ -209,6 +209,14 @@ export const ROBIN_ART: Record<RobinMood, RobinArt> = {
 export const ROBIN_W = 26;
 export const ROBIN_H = 22;
 
+/** Where the robin stands: the middle of its feet (the bottom rows of BASE),
+ * as a fraction of the art's width. A turn pivots here and a ground shadow
+ * centres here, so both stay under the bird whichever way it faces. */
+export const ROBIN_FEET_X = (() => {
+  const xs = BASE.slice(-3).flatMap((row) => [...row].flatMap((k, x) => (k === "K" ? [x] : [])));
+  return ((Math.min(...xs) + Math.max(...xs) + 1) / 2 + 1) / ROBIN_W; // +1: the grid starts at -1
+})();
+
 /** Standalone SVG markup of the robin, `scale` px per cell, centered on a
  * `size`×`size` canvas with an optional background. */
 export function robinSvg({

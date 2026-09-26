@@ -1089,7 +1089,9 @@ body {
     animation: stage-shadow 8s steps(2, end) infinite;
   }
   .stage-turn {
-    transform-origin: 42% 50%; /* the bird's body, not its chirp marks */
+    /* she pivots on her feet (--feet, brand-stage.tsx), where her shadow is
+     * centred, so it stays under her when she faces left */
+    transform-origin: var(--feet) 50%;
     animation: stage-turn 8s steps(1, end) infinite;
   }
   .saving {

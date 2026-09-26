@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { ROBIN_ART, ROBIN_H, ROBIN_W, type RobinMood, type RobinRun } from "./robin-art";
+import { ROBIN_ART, ROBIN_FEET_X, ROBIN_H, ROBIN_W, type RobinMood, type RobinRun } from "./robin-art";
 
 /** The pixels a static render paints (body, beak, eye, extra, in paint
  * order), one row per line, each cell its fill or ".". */
@@ -25,6 +25,16 @@ describe("robin art", () => {
   it.each(Object.keys(PINNED) as RobinMood[])("keeps the static %s robin pixel-identical", (mood) => {
     const art = ROBIN_ART[mood];
     expect(sha(raster([art.body, art.beak, art.eye, art.extra]))).toBe(PINNED[mood]);
+  });
+
+  it("stands on ROBIN_FEET_X: its feet are centred there, so a turn pivoting on it keeps them over their shadow", () => {
+    const rows = raster([ROBIN_ART.happy.body]).slice(-3); // the leg rows, bottom of the art
+    const xs = rows.flatMap((row) => row.split(" ").flatMap((fill, x) => (fill === "#111111" ? [x] : [])));
+    const mid = (Math.min(...xs) + Math.max(...xs) + 1) / 2 / ROBIN_W;
+    expect(ROBIN_FEET_X).toBeCloseTo(mid, 6);
+    // mirrored about that point (facing left), the feet land on the same cells
+    const mirrored = xs.map((x) => Math.round(2 * ROBIN_FEET_X * ROBIN_W - x - 1)).sort((a, b) => a - b);
+    expect(mirrored).toEqual([...xs].sort((a, b) => a - b));
   });
 
   it("raises the wing behind the head: the flap frame never paints the face or the breast", () => {

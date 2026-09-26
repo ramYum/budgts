@@ -124,7 +124,7 @@ export function CategoryManager({
       {groups.map((g) => (
         <section key={g.key} className="space-y-3">
           <SectionHead title={g.title} count={g.list.length} />
-          <ul className="px-card px-rows p-3 md:p-4">
+          <ul className="px-card px-rows p-2 md:p-4">
             {g.list.map((c) => (
               <Row key={c.id} cat={c} currentMonth={currentMonth} onEdit={setEditing} />
             ))}

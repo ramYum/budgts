@@ -40,7 +40,7 @@ export default async function ProfilePage() {
     <>
       <PageHeader title="Profile" back="/settings" />
       <div className="space-y-8 md:max-w-[720px]">
-        <section className="px-card-ink flex items-center gap-4 p-3 md:p-4">
+        <section className="px-card-raised flex items-center gap-4 p-2 md:p-4">
           <span className="px-tile-ink flex h-14 w-14 shrink-0 items-center justify-center" aria-hidden>
             <span className="px-figure leading-none text-white">{(name || email || "?")[0]}</span>
           </span>
@@ -52,7 +52,7 @@ export default async function ProfilePage() {
 
         <section className="space-y-3">
           <SectionHead title="Details" />
-          <dl className="px-card px-rows p-3 md:p-4">
+          <dl className="px-card px-rows p-2 md:p-4">
             <div className="flex items-center gap-3 pb-3">
               <div className="min-w-0 flex-1">
                 <dt className="text-[13px] leading-5 text-muted">Email</dt>

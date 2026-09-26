@@ -16,8 +16,10 @@
   --charcoal: #111111;
   --graphite: #3d3d3d;
   --ash: #6e6e6e; /* secondary text, 5.1:1 on white */
-  --silver: #b9b9b9; /* control frames, inactive marks */
-  --gray: #e6e6e6; /* hairlines, card frames, empty cells */
+  --stone: #949494; /* control lines: fields, secondary buttons (3:1 on white) */
+  --silver: #b9b9b9; /* quiet marks, chevrons */
+  --gray: #e6e6e6; /* hover lines, empty cells */
+  --divider: #ececec; /* 1px rules between rows */
   --paper: #f4f4f4; /* canvas */
   --white: #ffffff;
   --signal: #e54848; /* accent: graphics only (3.9:1 on white) */
@@ -65,6 +67,12 @@
   --foreground: var(--text);
 
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Elevation. Frames are stepped, so every shadow is pulled in by a negative
+   * spread wider than the corner steps: it only ever shows below the card,
+   * never beside a notch. Tinted with the ink, never pure black. */
+  --shadow-card: 0 10px 20px -16px rgb(17 17 17 / 0.1);
+  --shadow-raised: 0 2px 6px -4px rgb(17 17 17 / 0.08), 0 22px 40px -26px rgb(17 17 17 / 0.22);
 }
 
 @theme inline {
@@ -227,35 +235,106 @@ body {
     letter-spacing: 0;
   }
 
+  /* Reading-face roles (Geist). Dogica is identity (titles, the wordmark,
+   * Crystal's voice); every number people act on is Geist, whose zero can't be
+   * misread as an eight. */
+  .t-num-xl,
+  .t-num-lg,
+  .t-num {
+    font-family: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  /* the one number on a screen: 32 on phones, 48 from md */
+  .t-num-xl {
+    font-size: 32px;
+    line-height: 40px;
+    letter-spacing: -0.03em;
+  }
+  /* a card's figure: 22 on phones, 28 from md */
+  .t-num-lg {
+    font-size: 22px;
+    line-height: 28px;
+    letter-spacing: -0.02em;
+  }
+  .t-num {
+    font-size: 17px;
+    line-height: 24px;
+    letter-spacing: -0.01em;
+  }
+  /* a section's name: sentence case, not a shouted tag */
+  .t-head {
+    font-size: 15px;
+    line-height: 24px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  @media (width >= 48rem) {
+    .t-num-xl {
+      font-size: 48px;
+      line-height: 56px;
+    }
+    .t-num-lg {
+      font-size: 28px;
+      line-height: 36px;
+      letter-spacing: -0.025em;
+    }
+    .t-num {
+      font-size: 20px;
+      line-height: 28px;
+    }
+    .t-head {
+      font-size: 16px;
+    }
+  }
+  /* small labels: a figure's name, day bands, badges, shares */
+  .t-label,
+  .t-label-strong {
+    font-size: 12px;
+    line-height: 16px;
+    letter-spacing: 0;
+  }
+  .t-label {
+    font-weight: 500;
+  }
+  .t-label-strong {
+    font-weight: 600;
+  }
+
+  /* Surfaces. Cards are soft stepped sheets; the lead card is lifted. */
+  .px-card {
+    box-shadow: var(--shadow-card);
+  }
+  .px-card-raised {
+    box-shadow: var(--shadow-raised);
+  }
+
   /* A primary button's raised edge: a drop-shadow follows the stepped corners
    * and paints outside the box, so rows of buttons stay aligned. Pressed, the
-   * button sinks onto half its edge. */
+   * button sinks onto its edge. */
   .px-raise {
-    filter: drop-shadow(0 4px 0 var(--signal-edge));
+    filter: drop-shadow(0 2px 0 var(--signal-edge));
   }
   .px-raise:disabled {
     filter: none;
   }
   .px-raise:active:not(:disabled) {
     transform: translateY(2px);
-    filter: drop-shadow(0 2px 0 var(--signal-edge));
+    filter: none;
   }
 
-  /* dotted 2px rules: dividers inside cards, and the hero's column rule */
+  /* 1px rules: dividers inside cards, and the hero's column rule */
   .px-rule {
-    height: 2px;
-    background: repeating-linear-gradient(90deg, var(--hairline) 0 2px, transparent 2px 4px);
+    height: 1px;
+    background: var(--divider);
   }
   .px-rule-v {
-    width: 2px;
-    background: repeating-linear-gradient(180deg, var(--hairline) 0 2px, transparent 2px 4px);
+    width: 1px;
+    background: var(--divider);
   }
-  /* rows in one card, divided by the dotted rule */
+  /* rows in one card, divided by a 1px rule */
   .px-rows > * + * {
-    background-image: repeating-linear-gradient(90deg, var(--hairline) 0 2px, transparent 2px 4px);
-    background-size: 100% 2px;
-    background-repeat: no-repeat;
-    background-position: top left;
+    border-top: 1px solid var(--divider);
   }
 
   /* an illustration stage: a grid of 2px dots every 16px */
@@ -263,15 +342,15 @@ body {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Crect x='7' y='7' width='2' height='2' fill='%23dcdcdc'/%3E%3C/svg%3E");
   }
 
-  /* Progress cells: N square-cornered cells across the bar. Each cell's width
-   * snaps down to a whole pixel and the spare pixels go into the gaps
-   * (space-between), so no cell lands on a fraction and blurs; the height
-   * follows the width up to --cell-h, so wide cards don't grow giant squares.
-   * The calc() lines are the fallback where round() isn't supported. */
+  /* Progress cells: N square-cornered cells across the bar, a segmented line
+   * rather than a wall of blocks. Each cell's width snaps down to a whole
+   * pixel and the spare pixels go into the gaps (space-between), so no cell
+   * lands on a fraction and blurs; the height follows the width up to
+   * --cell-h. The calc() lines are the fallback where round() isn't supported. */
   .px-cells {
     --n: 16;
-    --gap: 4px;
-    --cell-h: 20px;
+    --gap: 2px;
+    --cell-h: 8px;
     display: flex;
     justify-content: space-between;
     container-type: inline-size;

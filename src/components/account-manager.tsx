@@ -176,7 +176,7 @@ export function AccountManager({ groups, archived }: { groups: AccountGroup[]; a
   const section = (key: string, title: string, list: AccountItem[], aside?: ReactNode) => (
     <section key={key} className="space-y-3">
       <SectionHead title={title} aside={aside} />
-      <ul className="px-card px-rows p-3 md:p-4">
+      <ul className="px-card px-rows p-2 md:p-4">
         {list.map((a) => (
           <AccountRow key={a.id} a={a} pending={pending} onEdit={() => setEditing(a)} onToggle={() => toggle(a)} />
         ))}

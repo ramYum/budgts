@@ -8,7 +8,7 @@ export function HubSection({ title, children }: { title: string; children: React
   return (
     <section className="space-y-3">
       <SectionHead title={title} />
-      <ul className="px-card px-rows px-3 py-1 md:px-4">{children}</ul>
+      <ul className="px-card px-rows px-2 py-0.5 md:px-4 md:py-1">{children}</ul>
     </section>
   );
 }

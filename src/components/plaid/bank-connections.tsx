@@ -139,16 +139,16 @@ export async function BankConnections() {
       <PageHeader title="Connected banks" back="/more" backOnDesktop={false} />
       <div className="space-y-6 md:max-w-[720px]">
         {banks.length === 0 ? (
-          <div className="px-card-ink flex flex-col items-start gap-4 p-3 md:p-6">
+          <div className="px-card-raised flex flex-col items-start gap-4 p-2 md:p-6">
             <IconTile name="bank" />
             <p className="text-[15px] leading-6 text-ink">
-              Connect a bank and Budgts imports its transactions for you — categories filled in, ready to check.
+              Connect a bank and Budgts imports its transactions for you, categories filled in, ready to check.
               Manual entry still works for cash and anything your bank can&apos;t reach.
             </p>
             <p className="flex items-start gap-2 text-sm leading-5 text-muted">
               <Icon name="shield" className="-my-0.5 text-graphite" />
-              Your data is secure. Budgts can only read your account and transaction data to help you budget — it
-              cannot send money, make payments, make purchases, or transfer funds.
+              Your data is secure. Budgts can only read your account and transaction data to help you budget. It
+              can&apos;t send money, make payments, make purchases, or transfer funds.
             </p>
           </div>
         ) : (

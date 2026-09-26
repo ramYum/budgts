@@ -59,8 +59,8 @@ export function InstallApp() {
   }
 
   return (
-    <section className="px-card space-y-2 p-3 md:p-4">
-      <h2 className="px-tag text-ink">Install Budgts</h2>
+    <section className="px-card space-y-2 p-2 md:p-4">
+      <h2 className="text-[15px] font-semibold leading-6 text-ink">Install Budgts</h2>
       {mode === "prompt" ? (
         <>
           <p className="text-[15px] leading-6 text-muted">Add Budgts to your home screen to open it like an app.</p>

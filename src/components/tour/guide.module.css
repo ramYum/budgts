@@ -9,13 +9,10 @@
 
 /* ─── Shell ─────────────────────────────────────────────────────────────── */
 
+/* the stage inside the card's stepped frame; its dot grid is `.px-dots` */
 .sceneCard {
   position: relative;
   overflow: hidden;
-  background-color: var(--surface);
-  background-image: radial-gradient(var(--gray) 1px, transparent 1.3px);
-  background-size: 12px 12px;
-  background-position: 6px 6px;
 }
 
 .word {

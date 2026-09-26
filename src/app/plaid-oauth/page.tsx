@@ -154,7 +154,7 @@ export default function PlaidOAuthPage() {
           <h1 className="px-figure text-balance text-ink">Finishing your bank connection</h1>
           <p className="text-base leading-6 text-muted">This takes a few seconds. Keep this page open.</p>
         </div>
-        <ol className="px-card px-rows p-3 md:p-4" aria-live="polite">
+        <ol className="px-card px-rows p-2 md:p-4" aria-live="polite">
           {steps.map((st) => (
             <li key={st.label} className="flex items-center gap-4 py-4 first:pt-1 last:pb-1">
               <span
@@ -172,7 +172,7 @@ export default function PlaidOAuthPage() {
                 {st.label}
               </span>
               {st.state !== "waiting" ? (
-                <span className={`px-tag ${st.state === "done" ? "text-pos" : "text-muted"}`}>
+                <span className={`t-label-strong ${st.state === "done" ? "text-pos" : "text-muted"}`}>
                   {st.state === "done" ? "Done" : "Working"}
                 </span>
               ) : null}

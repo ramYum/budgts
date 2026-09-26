@@ -61,7 +61,7 @@ export function RowMenu({ label, items }: { label: string; items: RowMenuItem[] 
           id={id}
           role="menu"
           aria-label={label}
-          className="px-card-ink pop absolute right-0 top-full z-30 mt-1 min-w-44 p-1"
+          className="px-card-raised pop absolute right-0 top-full z-30 mt-1 min-w-44 p-1"
         >
           {items.map((it) => (
             <li key={it.label} role="none">

@@ -127,7 +127,7 @@ describe("DashboardView", () => {
 
   it("shows the disclaimer that this is cash flow, not an account balance", () => {
     render(<DashboardView {...baseProps} view={view} />);
-    expect(screen.getByText(/Income minus spending/)).toHaveTextContent("Income minus spending — not your savings balance.");
+    expect(screen.getByText(/Income minus spending/)).toHaveTextContent("Income minus spending. Not your savings balance.");
   });
 });
 

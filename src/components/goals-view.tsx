@@ -64,14 +64,19 @@ function GoalCard({
     });
 
   return (
-    <li className="reveal px-card flex flex-col p-3 md:p-4" style={{ ["--i" as string]: index + 2 }}>
+    <li className="reveal px-card flex flex-col p-2 md:p-4" style={{ ["--i" as string]: index + 2 }}>
       <div className="flex items-start gap-3">
         <IconTile name="goals" tone={g.complete ? "growth" : "gray"} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[15px] font-medium leading-6 text-ink">{g.name}</p>
           <p className="tnum text-sm leading-5 text-muted">
             {g.complete ? "Reached" : `${formatMoney(g.remaining, currency)} to go`}
-            {g.targetDate ? ` · by ${formatTargetDate(g.targetDate)}` : ""}
+            {g.targetDate ? (
+              <>
+                {" · "}
+                <span className="whitespace-nowrap">by {formatTargetDate(g.targetDate)}</span>
+              </>
+            ) : null}
           </p>
         </div>
         <Badge tone="growth">{g.pct}%</Badge>
@@ -81,7 +86,7 @@ function GoalCard({
         <span className="font-semibold text-ink">{formatMoney(g.saved, currency)}</span> of{" "}
         {formatMoney(g.target, currency)}
       </p>
-      <ProgressBar className="mt-2" pct={g.pct} tone="growth" cellHeight={16} start={index * 3} />
+      <ProgressBar className="mt-2" pct={g.pct} tone="growth" cellHeight={10} start={index * 3} />
 
       <div className="mt-5 flex items-center gap-3">
         <Button variant="secondary" icon="plus" onClick={() => onOpen({ kind: "add", goal: g })}>
@@ -131,7 +136,7 @@ export function GoalsView({
       />
 
       {items.length === 0 ? (
-        <div className="px-card-ink flex flex-col items-start gap-3 p-4 md:flex-row md:items-center md:gap-6 md:p-6">
+        <div className="px-card-raised flex flex-col items-start gap-3 p-4 md:flex-row md:items-center md:gap-6 md:p-6">
           <Mascot mood="curious" size={72} />
           <div>
             <p className="px-figure text-ink">No goals yet</p>
@@ -143,12 +148,12 @@ export function GoalsView({
         </div>
       ) : (
         <>
-          <section className="reveal px-card-ink relative p-3 md:p-6" style={{ ["--i" as string]: 1 }}>
+          <section className="reveal px-card-raised relative p-2 md:p-6" style={{ ["--i" as string]: 1 }}>
             <div className="flex items-center gap-6">
               <div className="min-w-0 flex-1">
-                <h2 className="px-tag text-ink">Total saved</h2>
+                <h2 className="text-sm font-medium leading-5 text-muted">Total saved</h2>
                 <p className={`${figureSize(saved)} tnum mt-3 text-ink`}>{saved}</p>
-                <ProgressBar className="mt-3 max-w-[616px]" pct={pct} tone="growth" />
+                <ProgressBar className="mt-3 max-w-[616px]" pct={pct} tone="growth" cellHeight={12} />
                 <p className="tnum mt-3 text-[15px] leading-6 text-muted">
                   {pct}% of <span className="font-semibold text-ink">{formatMoney(summary.totalTarget, currency)}</span>{" "}
                   across {summary.activeCount} {summary.activeCount === 1 ? "goal" : "goals"}

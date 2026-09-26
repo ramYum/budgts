@@ -40,7 +40,7 @@ export function Overlay({
       role="presentation"
     >
       <div
-        className={`px-card-ink max-h-[90dvh] w-full max-w-md overflow-y-auto px-3 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none sm:p-4 ${
+        className={`px-card-raised max-h-[90dvh] w-full max-w-md overflow-y-auto px-3 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] transition-[opacity,transform] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none sm:p-4 ${
           entered ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"
         }`}
         onClick={(e) => e.stopPropagation()}

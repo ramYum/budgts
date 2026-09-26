@@ -38,7 +38,7 @@ export function TourCard({
   footnote?: ReactNode;
 }) {
   const at = (i: number) => ({ "--i": i }) as CSSProperties;
-  const quiet = "press inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-muted hover:text-text";
+  const quiet = "press inline-flex min-h-9 items-center gap-1 px-2 text-[13px] font-medium text-muted hover:text-ink";
 
   return (
     <div className="flex w-full max-w-sm flex-col gap-5">
@@ -61,8 +61,8 @@ export function TourCard({
         </span>
       </div>
 
-      <div className={`${s.sceneCard} ${s.enter} h-[236px] rounded-3xl border border-hairline`} style={at(0)} aria-hidden>
-        {scene}
+      <div className={`${s.enter} px-card-raised`} style={at(0)} aria-hidden>
+        <div className={`${s.sceneCard} px-dots h-[236px]`}>{scene}</div>
       </div>
 
       <div className="flex flex-col items-center gap-3 text-center">

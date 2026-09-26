@@ -18,7 +18,7 @@ export function MonthNav({ base, month }: { base: string; month: string }) {
 
   return (
     <div className="flex items-center gap-3">
-      <p className="px-label whitespace-nowrap text-ink">{label}</p>
+      <p className="tnum whitespace-nowrap text-[15px] font-semibold leading-6 text-ink">{label}</p>
       <div className="flex items-center gap-2">
         <Link href={`${base}?m=${prev}`} className={step} aria-label="Previous month">
           <Icon name="chevron-left" />

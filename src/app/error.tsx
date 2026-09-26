@@ -1,7 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { Robin } from "@/components/mascot";
+import { StandaloneShell } from "@/components/standalone-shell";
+import { Button, LinkButton, Stage } from "@/components/ui";
 
 /**
  * Route-level error boundary. Without it a failed data load (e.g. a Supabase
@@ -10,25 +11,27 @@ import { Robin } from "@/components/mascot";
  */
 export default function RouteError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center gap-4 p-6">
-      <Robin mood="curious" size={64} />
-      <h1 className="text-2xl font-semibold tracking-tight">Something went wrong</h1>
-      <p className="text-sm text-muted">We couldn&apos;t load this page. Your data is safe. Try again, or head back home.</p>
-      <div className="flex gap-2 pt-1">
-        <button
-          type="button"
-          onClick={reset}
-          className="press rounded-xl bg-primary-btn px-4 py-2.5 text-sm font-medium text-on-primary-btn hover:brightness-95"
-        >
-          Try again
-        </button>
-        <Link
-          href="/"
-          className="press rounded-xl border border-ink bg-surface px-4 py-2.5 text-sm font-medium hover:bg-surface-2"
-        >
-          Home
-        </Link>
+    <StandaloneShell>
+      <div className="space-y-6">
+        <Stage>
+          <Robin mood="curious" size={88} />
+          <span className="h-1 w-16 bg-hairline" aria-hidden />
+        </Stage>
+        <div className="space-y-2">
+          <h1 className="px-figure text-ink">Something went wrong</h1>
+          <p className="text-base leading-6 text-muted">
+            We couldn&apos;t load this page. Your data is safe. Try again, or head back home.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <Button onClick={reset} icon="sync" size="lg">
+            Try again
+          </Button>
+          <LinkButton href="/" variant="secondary" icon="home" size="lg">
+            Home
+          </LinkButton>
+        </div>
       </div>
-    </main>
+    </StandaloneShell>
   );
 }

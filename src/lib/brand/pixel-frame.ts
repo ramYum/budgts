@@ -15,6 +15,7 @@ export const CELL = 2;
 export const PALETTE = {
   ink: "#111111",
   ash: "#6e6e6e",
+  stone: "#949494",
   silver: "#b9b9b9",
   gray: "#e6e6e6",
   paper: "#f4f4f4",
@@ -124,23 +125,25 @@ const solid = (make: Maker, color: string) => make(color, color, 0);
  * is set once per class, so every state keeps the same box.
  */
 export const FRAMES: { name: string; k: number; states: [string, FrameSpec][] }[] = [
-  // Cards: white sheets, hairline frame. Clickable ones darken on hover and
-  // thicken to ink on keyboard focus.
+  // Cards: soft white sheets, no line (a faint shadow sits below them,
+  // globals.css). Clickable ones draw a hairline on hover and an ink line on
+  // keyboard focus.
   {
     name: "px-card",
     k: 4,
     states: [
-      ["", card(P.gray, P.white)],
-      [":is(a, button):hover", card(P.silver, P.white)],
+      ["", solid(card, P.white)],
+      [":is(a, button):hover", card(P.gray, P.white)],
       [":is(a, button):focus-visible", card(P.ink, P.white, 2)],
     ],
   },
-  // The one number on a screen: an ink frame.
+  // The lead card on a screen: the same sheet, lifted by a deeper shadow.
   {
-    name: "px-card-ink",
+    name: "px-card-raised",
     k: 4,
     states: [
-      ["", card(P.ink, P.white)],
+      ["", solid(card, P.white)],
+      [":is(a, button):hover", card(P.gray, P.white)],
       [":is(a, button):focus-visible", card(P.ink, P.white, 2)],
     ],
   },
@@ -149,7 +152,7 @@ export const FRAMES: { name: string; k: number; states: [string, FrameSpec][] }[
     name: "px-card-quiet",
     k: 4,
     states: [
-      ["", card(P.silver, P.paper)],
+      ["", card(P.gray, P.paper)],
       [":is(a, button):hover", card(P.ink, P.paper)],
       [":is(a, button):focus-visible", card(P.ink, P.paper, 2)],
     ],
@@ -169,28 +172,29 @@ export const FRAMES: { name: string; k: number; states: [string, FrameSpec][] }[
     name: "px-field",
     k: 3,
     states: [
-      ["", control(P.silver, P.white)],
+      ["", control(P.stone, P.white)],
       [":hover", control(P.ash, P.white)],
       [":focus-within", control(P.ink, P.white, 2)],
       ["[data-invalid='true']", control(P.signalInk, P.white, 2)],
     ],
   },
-  // The search field: a stronger line, it leads its screen.
+  // The search field: a field that leads its screen.
   {
     name: "px-search",
     k: 3,
     states: [
-      ["", control(P.ash, P.white)],
+      ["", control(P.stone, P.white)],
+      [":hover", control(P.ash, P.white)],
       [":focus-within", control(P.ink, P.white, 2)],
     ],
   },
-  // Secondary button: ink line on white.
+  // Secondary button: a stone line on white, ink once hovered.
   {
     name: "px-btn",
     k: 3,
     states: [
-      ["", control(P.ink, P.white)],
-      [":hover", control(P.ink, P.paper)],
+      ["", control(P.stone, P.white)],
+      [":hover", control(P.ink, P.white)],
       [":focus-visible", control(P.ink, P.white, 2)],
       [":disabled", control(P.silver, P.white)],
     ],
@@ -217,13 +221,14 @@ export const FRAMES: { name: string; k: number; states: [string, FrameSpec][] }[
       [":disabled", solid(control, P.silver)],
     ],
   },
-  // Square step buttons (month back/forward, the back arrow, row menus).
+  // Square step buttons (month back/forward, the back arrow, row menus): a
+  // white tile that draws its line on hover.
   {
     name: "px-step",
     k: 3,
     states: [
-      ["", control(P.silver, P.white)],
-      [":hover", control(P.ink, P.white)],
+      ["", solid(control, P.white)],
+      [":hover", control(P.stone, P.white)],
       [":focus-visible", control(P.ink, P.white, 2)],
       ["[aria-disabled='true']", control(P.gray, P.paper)],
     ],
@@ -252,8 +257,8 @@ export const FRAMES: { name: string; k: number; states: [string, FrameSpec][] }[
     name: "px-chip",
     k: 2,
     states: [
-      ["", chip(P.silver, P.white)],
-      [":hover", chip(P.ink, P.white)],
+      ["", chip(P.gray, P.white)],
+      [":hover", chip(P.stone, P.white)],
       ["[aria-pressed='true']", solid(chip, P.ink)],
       [":focus-visible", chip(P.ink, P.white, 2)],
       ["[aria-pressed='true']:focus-visible", chip(P.signal, P.ink)],
@@ -270,7 +275,7 @@ export const FRAMES: { name: string; k: number; states: [string, FrameSpec][] }[
     name: "px-check",
     k: 2,
     states: [
-      ["", chip(P.silver, P.white)],
+      ["", chip(P.stone, P.white)],
       ["[data-state='done']", solid(chip, P.growth)],
       ["[data-state='working']", solid(chip, P.ink)],
     ],
@@ -279,7 +284,7 @@ export const FRAMES: { name: string; k: number; states: [string, FrameSpec][] }[
     name: "px-switch",
     k: 2,
     states: [
-      ["", chip(P.ash, P.white)],
+      ["", chip(P.stone, P.white)],
       ["[aria-checked='true']", solid(chip, P.ink)],
       [":focus-visible", chip(P.signal, P.white, 2)],
       ["[aria-checked='true']:focus-visible", chip(P.signal, P.ink)],

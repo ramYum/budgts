@@ -94,7 +94,7 @@ function SwitchKnob({ on }: { on: boolean }) {
     <span
       aria-hidden
       className={`block h-3 w-3 transition-transform motion-reduce:transition-none ${
-        on ? "translate-x-5 bg-white" : "translate-x-0 bg-muted"
+        on ? "translate-x-5 bg-white" : "translate-x-0 bg-silver"
       }`}
     />
   );
@@ -148,7 +148,7 @@ function BankCard({
     });
 
   return (
-    <li className="px-card-ink p-3 md:p-6">
+    <li className="px-card-raised p-2 md:p-6">
       <div className="flex items-start gap-4">
         <span className="px-tile flex h-14 w-14 shrink-0 items-center justify-center text-ink" aria-hidden>
           <Icon name="bank" />
@@ -264,7 +264,7 @@ function BankCard({
         ) : null}
       </div>
       <p className="mt-3 text-sm leading-5 text-muted">
-        Disconnecting a bank keeps every transaction it already imported — they stay in Budgts as history.
+        Disconnecting a bank keeps every transaction it already imported. They stay in Budgts as history.
       </p>
 
       {confirming ? (
@@ -315,8 +315,8 @@ function ImportToggle({ account }: { account: ConnectedBankAccount }) {
         disabled={pending}
         title={
           importing
-            ? "Importing — tap to pause. New transactions from a paused account aren't recovered later."
-            : "Paused — tap to resume importing new transactions from now on."
+            ? "Importing. Tap to pause. New transactions from a paused account aren't recovered later."
+            : "Paused. Tap to resume importing new transactions from now on."
         }
         className={switchClass}
       >
@@ -366,7 +366,7 @@ function ConnectToggle({ account, plaidItemId }: { account: ConnectedBankAccount
         aria-checked={false}
         aria-label={`Connect ${account.name ?? "Account"}`}
         disabled={pending}
-        title="Not connected — tap to start importing this account into a new Budgts account."
+        title="Not connected. Tap to start importing this account into a new Budgts account."
         className={switchClass}
       >
         <SwitchKnob on={false} />
@@ -386,10 +386,10 @@ function ConnectToggle({ account, plaidItemId }: { account: ConnectedBankAccount
  */
 function SignCheckNotice({ count }: { count: number }) {
   return (
-    <p className="px-band flex items-start gap-2 px-2 py-2 text-[15px] leading-6 text-ink md:ml-[60px]">
+    <p className="px-band flex items-start gap-2 px-1.5 py-1.5 text-sm leading-5 text-ink md:ml-[60px] md:px-2 md:py-2 md:text-[15px] md:leading-6">
       <Icon name="pending" className="text-graphite" />
       <span>
-        We&apos;re checking this account&apos;s transaction format —{" "}
+        We&apos;re checking this account&apos;s transaction format.{" "}
         <span className="font-semibold">
           {count} {count === 1 ? "transaction" : "transactions"}
         </span>{" "}
@@ -428,7 +428,7 @@ function AccountReviewNotice({ account }: { account: ConnectedBankAccount }) {
         <p>
           <span className="font-semibold text-signal-ink">Excluded from totals.</span> This account&apos;s bank feed
           showed unreliable data, so its transactions no longer count toward Money Left, budgets, or spending.
-          Nothing was deleted — every transaction is still here in your history.
+          Nothing was deleted. Every transaction is still here in your history.
         </p>
         {exclusionState.error ? <p className="text-neg">{exclusionState.error}</p> : null}
         <form action={exclusionAction}>
@@ -468,7 +468,7 @@ function AccountReviewNotice({ account }: { account: ConnectedBankAccount }) {
         ) : null}
       </div>
       <p className="text-graphite">
-        Excluding keeps every transaction visible in your history — it only stops this account from affecting Money
+        Excluding keeps every transaction visible in your history. It only stops this account from affecting Money
         Left, budgets, and spending totals.
       </p>
     </div>

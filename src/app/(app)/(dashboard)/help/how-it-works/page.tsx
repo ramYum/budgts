@@ -15,7 +15,7 @@ const STEPS: { icon: IconName; heading: string; body: string }[] = [
   {
     icon: "receipt",
     heading: "Transactions arrive automatically",
-    body: "New purchases show up on their own — taps, swipes and online orders. Manual entry is there for cash and anything your bank can't reach.",
+    body: "New purchases show up on their own: taps, swipes and online orders. Manual entry is there for cash and anything your bank can't reach.",
   },
   {
     icon: "tag",
@@ -35,7 +35,7 @@ const STEPS: { icon: IconName; heading: string; body: string }[] = [
   {
     icon: "coins",
     heading: "See your Money Left",
-    body: "Home shows income minus spending so far this month — a snapshot of the month's flow, not your savings balance.",
+    body: "Home shows income minus spending so far this month. It's a snapshot of the month's flow, not your savings balance.",
   },
   {
     icon: "insights",
@@ -62,11 +62,11 @@ export default function HowItWorksPage() {
         <div className="space-y-2">
           <h2 className="px-figure text-balance text-ink">You spend. Budgts keeps track.</h2>
           <p className="text-[15px] leading-6 text-muted">
-            Connect your accounts, spend normally, and Budgts organizes everything — so you don&apos;t have to.
+            Connect your accounts, spend normally, and Budgts organizes everything, so you don&apos;t have to.
           </p>
         </div>
 
-        <ol className="px-card px-3 py-4 md:px-4 md:py-6">
+        <ol className="px-card px-2 py-3 md:px-4 md:py-6">
           {STEPS.map((s, i) => (
             <li key={s.heading} className="relative flex gap-3 pb-6 last:pb-0 md:gap-4">
               {/* the dotted thread from one step to the next */}
@@ -75,7 +75,7 @@ export default function HowItWorksPage() {
               ) : null}
               <span className="px-tile-ink flex h-8 w-8 shrink-0 items-center justify-center">
                 <span className="sr-only">Step {i + 1}</span>
-                <span className="px-tag-bold tracking-normal text-white" aria-hidden>
+                <span className="t-label-strong tnum text-white" aria-hidden>
                   {String(i + 1).padStart(2, "0")}
                 </span>
               </span>
@@ -90,7 +90,7 @@ export default function HowItWorksPage() {
           ))}
         </ol>
 
-        <div className="px-card-ink flex flex-col items-start gap-4 p-3 sm:flex-row sm:items-center md:p-4">
+        <div className="px-card-raised flex flex-col items-start gap-4 p-3 sm:flex-row sm:items-center md:p-4">
           <Mascot mood="happy" size={80} />
           <div className="min-w-0 flex-1">
             <p className="text-[15px] font-medium leading-6 text-ink">Want Crystal to walk you through it?</p>

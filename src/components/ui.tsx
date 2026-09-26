@@ -126,7 +126,7 @@ export function TextButton({
  * the frame thickens to ink on focus and to red when `data-invalid`. 16px
  * type, so iOS never zooms the page on focus. */
 export const fieldClass =
-  "px-field w-full bg-transparent px-2 py-1 text-base leading-6 text-ink placeholder:text-[#8c8c8c] disabled:text-muted";
+  "px-field w-full bg-transparent px-2 py-1 text-base leading-6 text-ink placeholder:text-[#767676] disabled:text-muted";
 
 /** A field's label: a quiet line above it. */
 export const labelClass = "block space-y-1.5 text-sm font-medium leading-5 text-graphite";
@@ -198,13 +198,11 @@ export function ProgressBar({
   );
 }
 
-/** A money figure in pixel type, sized to fit: a long amount steps down a
- * size on a phone (and past 12 characters, on desktop too) rather than run
- * out of its card. */
+/** The size for a screen's one money figure: the hero size, stepping down
+ * past 13 characters on a phone rather than run out of its card. */
 export function figureSize(text: string): string {
-  if (text.length <= 9) return "px-figure-lg";
-  if (text.length <= 12) return "px-figure-lg max-md:text-[24px] max-md:leading-8";
-  return "px-figure-lg text-[16px] leading-6 md:text-[24px] md:leading-8";
+  if (text.length <= 13) return "t-num-xl";
+  return "t-num-lg md:text-[48px] md:leading-[56px]";
 }
 
 /* ─── Chips, tags, badges ──────────────────────────────────────────────── */
@@ -264,7 +262,7 @@ export function Badge({
 }) {
   return (
     <span
-      className={`px-tag-bold inline-flex h-7 items-center gap-1.5 whitespace-nowrap px-2 leading-none ${BADGE[tone]} ${className ?? ""}`}
+      className={`t-label-strong inline-flex h-6 items-center gap-1 whitespace-nowrap px-1.5 leading-none ${BADGE[tone]} ${className ?? ""}`}
     >
       {icon ? <Icon name={icon} size={12} /> : null}
       {children}
@@ -272,7 +270,7 @@ export function Badge({
   );
 }
 
-/** A section's small pixel heading, an optional count, and one link on the right. */
+/** A section's heading (sentence case), an optional count, and one link on the right. */
 export function SectionHead({
   title,
   count,
@@ -293,14 +291,9 @@ export function SectionHead({
 }) {
   return (
     <div className={`flex min-h-6 items-center justify-between gap-3 ${className ?? ""}`}>
-      <As className="px-tag text-ink">
+      <As className="t-head text-ink">
         {title}
-        {count !== undefined ? (
-          <>
-            {" "}
-            <span aria-hidden>·</span> {count}
-          </>
-        ) : null}
+        {count !== undefined ? <span className="tnum ml-2 font-medium text-muted">{count}</span> : null}
       </As>
       {href && action ? (
         <Link href={href} className="press -my-1 flex items-center text-[15px] leading-6 text-muted hover:text-ink">
@@ -325,12 +318,12 @@ const TILE: Record<TileTone, string> = {
   growth: "px-tile-growth text-pos",
 };
 
-/** An icon on a quiet stepped tile (40px by default). The icon stays 24px at
- * any tile size, so its cells stay whole. */
+/** An icon on a quiet stepped tile: 32px on a phone and 40px from md unless
+ * sized. The icon stays 24px at any tile size, so its cells stay whole. */
 export function IconTile({
   name,
   tone = "gray",
-  size = 40,
+  size,
   className,
 }: {
   name: IconName;
@@ -340,8 +333,8 @@ export function IconTile({
 }) {
   return (
     <span
-      className={`inline-flex shrink-0 items-center justify-center ${TILE[tone]} ${className ?? ""}`}
-      style={{ width: size, height: size }}
+      className={`inline-flex shrink-0 items-center justify-center ${size === undefined ? "h-8 w-8 md:h-10 md:w-10" : ""} ${TILE[tone]} ${className ?? ""}`}
+      style={size === undefined ? undefined : { width: size, height: size }}
       aria-hidden
     >
       <Icon name={name} />
@@ -372,7 +365,7 @@ export function categoryIcon(name: string): IconName {
  * category identity is carried by the icon and the name, never by a hue. */
 export function CategoryIcon({
   name,
-  size = 40,
+  size,
   tone = "gray",
 }: {
   name: string;

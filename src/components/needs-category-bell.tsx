@@ -33,7 +33,7 @@ export function NeedsCategoryBell({ count }: { count: number }) {
           aria-hidden
           className="px-badge-accent pip absolute -right-0.5 -top-0.5 grid h-[18px] min-w-[18px] place-items-center"
         >
-          <span className="px-tag-bold leading-none tracking-normal text-white">{n > 9 ? "9+" : n}</span>
+          <span className="tnum text-[11px] font-semibold leading-none text-white">{n > 9 ? "9+" : n}</span>
         </span>
       ) : null}
     </Link>

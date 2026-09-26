@@ -19,6 +19,7 @@ describe("pixel frames", () => {
     const token: Record<keyof typeof PALETTE, string> = {
       ink: "--charcoal",
       ash: "--ash",
+      stone: "--stone",
       silver: "--silver",
       gray: "--gray",
       paper: "--paper",

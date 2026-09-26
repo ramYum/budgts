@@ -22,7 +22,7 @@ export default function OfflinePage() {
           </Badge>
           <h1 className="px-figure text-ink">You&apos;re offline</h1>
           <p className="text-base leading-6 text-muted">
-            Budgts needs a connection to load your data. Nothing is lost — reconnect and it picks up right where you
+            Budgts needs a connection to load your data. Nothing is lost. Reconnect and it picks up right where you
             left off.
           </p>
         </div>

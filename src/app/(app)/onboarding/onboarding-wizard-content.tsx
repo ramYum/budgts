@@ -7,7 +7,7 @@ import { TourWizard, type WizardStep } from "@/components/tour/tour-wizard";
 import { TourCard } from "@/components/tour/tour-card";
 import { GuideScene } from "@/components/tour/scenes";
 import { GUIDE_COPY } from "@/components/tour/guide-copy";
-import { PrimaryButton } from "@/components/ui";
+import { PrimaryButton, Select, labelClass } from "@/components/ui";
 import type { TourStepId } from "@/lib/tour/steps";
 
 /**
@@ -64,20 +64,19 @@ export function OnboardingWizardContent({
               {...shared}
               media={
                 <form action={formAction} className="space-y-3 text-left">
-                  <label className="block space-y-1.5">
-                    <span className="text-xs font-medium text-muted">Currency</span>
-                    <select
+                  <label className={labelClass}>
+                    <span>Currency</span>
+                    <Select
                       name="currency"
                       defaultValue={defaultCurrency}
                       onChange={(e) => setCurrency(e.target.value)}
-                      className="w-full rounded-xl border border-hairline bg-surface px-3.5 py-3 text-sm outline-none transition-colors focus:border-ink"
                     >
                       {SUPPORTED_CURRENCIES.map((c) => (
                         <option key={c} value={c}>
                           {c}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </label>
                   {state.error ? <p className="text-sm text-neg">{state.error}</p> : null}
                   <PrimaryButton type="submit" arrow={!pending} disabled={pending} className="w-full">

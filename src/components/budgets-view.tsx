@@ -106,7 +106,7 @@ function CategoryDetail({
         <div className="flex items-center gap-3">
           <CategoryIcon name={bar.name} tone={bar.state === "over" ? "wash" : "gray"} />
           <div>
-            <p className="px-figure tnum text-ink">{formatMoney(bar.actual, currency)}</p>
+            <p className="t-num-lg text-ink">{formatMoney(bar.actual, currency)}</p>
             <p className="text-sm leading-5 text-muted">
               {bar.budget > 0 ? `of ${formatMoney(bar.budget, currency)} budget` : "no budget set"}
             </p>
@@ -119,7 +119,7 @@ function CategoryDetail({
           <div className="flex justify-between gap-4 pb-3 last:pb-0">
             <dt className="text-muted">{bar.state === "over" ? "Over by" : "Remaining"}</dt>
             <dd className={`tnum ${bar.state === "over" && bar.budget > 0 ? "text-neg" : "text-ink"}`}>
-              {bar.budget > 0 ? formatMoney(Math.abs(bar.remaining), currency) : "—"}
+              {bar.budget > 0 ? formatMoney(Math.abs(bar.remaining), currency) : "No budget"}
             </dd>
           </div>
           {trend !== null ? (
@@ -225,7 +225,7 @@ function BudgetCard({
           <ProgressBar pct={b.pctUsed} tone={b.state} start={index * 2} />
           <span className="flex items-baseline justify-between gap-3 text-sm leading-5">
             {unplanned ? (
-              <span className="font-medium text-neg">No budget — all unplanned</span>
+              <span className="font-medium text-neg">No budget, all unplanned</span>
             ) : over ? (
               <span className="tnum font-medium text-neg">Over by {formatMoney(b.actual - b.budget, currency)}</span>
             ) : b.budget > 0 ? (
@@ -322,7 +322,7 @@ export function BudgetsView(
         ) : (
           <section className="space-y-3">
             <SectionHead title="All time" count={props.allTimeRows.length} />
-            <ul className="px-card px-rows p-3 md:p-4">
+            <ul className="px-card px-rows p-2 md:p-4">
               {props.allTimeRows.map((r) => (
                 <li key={r.categoryId} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0 md:gap-4">
                   <CategoryIcon name={r.name} />
@@ -352,10 +352,10 @@ export function BudgetsView(
       {header}
       {toolbar}
 
-      <section className="reveal px-card-ink p-3 md:p-6" style={{ ["--i" as string]: 1 }}>
+      <section className="reveal px-card-raised p-2 md:p-6" style={{ ["--i" as string]: 1 }}>
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:gap-10">
           <div className="min-w-0 flex-1">
-            <h2 className="px-tag text-ink">Remaining</h2>
+            <h2 className="text-sm font-medium leading-5 text-muted">Remaining</h2>
             <p className={`${figureSize(remaining)} tnum mt-3 ${tiles.leftToSpend < 0 ? "text-neg" : "text-ink"}`}>
               {remaining}
             </p>
@@ -363,11 +363,11 @@ export function BudgetsView(
               <span className="font-semibold text-ink">{formatMoney(tiles.spent, currency)}</span> spent of{" "}
               <span className="font-semibold text-ink">{formatMoney(tiles.budgeted, currency)}</span> budgeted
             </p>
-            <ProgressBar className="mt-4 max-w-[480px]" pct={spentPct} tone={heroTone} />
+            <ProgressBar className="mt-4 max-w-[480px]" pct={spentPct} tone={heroTone} cellHeight={12} />
           </div>
           {unplanned ? (
             <div className="flex flex-col items-start gap-3 lg:w-[420px]">
-              <p className="px-warn flex items-start gap-2 px-2 py-1.5 text-[15px] leading-6 text-ink">
+              <p className="px-warn flex items-start gap-2 px-2 py-1.5 text-sm leading-6 text-ink md:text-[15px]">
                 <Icon name="warning" className="text-warn" />
                 <span>
                   <span className="font-semibold">{unplanned.name} has no budget.</span> All{" "}

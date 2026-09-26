@@ -89,9 +89,9 @@ function CrystalScene() {
 // ─── What Budgts does: Track · Plan · Grow ──────────────────────────────────
 
 const PILLARS: { name: string; icon: IconName; tile: string }[] = [
-  { name: "Track", icon: "activity", tile: "bg-surface-2 text-ink" },
-  { name: "Plan", icon: "budgets", tile: "bg-surface-2 text-ink" },
-  { name: "Grow", icon: "leaf", tile: "bg-primary-btn text-white" },
+  { name: "Track", icon: "activity", tile: "px-tile text-ink" },
+  { name: "Plan", icon: "budgets", tile: "px-tile text-ink" },
+  { name: "Grow", icon: "leaf", tile: "px-tile-accent text-white" },
 ];
 
 function WelcomeScene() {
@@ -107,7 +107,7 @@ function WelcomeScene() {
             </span>
           ) : null}
           <span className={`${s.pillar} flex flex-col items-center gap-3`} style={vars({ "--p": p })}>
-            <span className={`flex h-14 w-14 items-center justify-center rounded-2xl ${tile}`}>
+            <span className={`flex h-14 w-14 items-center justify-center ${tile}`}>
               <Icon name={icon} />
             </span>
             <span className={label}>{name}</span>
@@ -141,7 +141,7 @@ function CaptureScene({ currency }: { currency: string }) {
         {FEED.map(({ merchant, category, via, icon, minor }, i) => (
           <li
             key={merchant}
-            className={`${FEED_CLASS[i]} flex items-center gap-3 rounded-2xl border border-hairline bg-surface px-3 py-2.5`}
+            className={`${FEED_CLASS[i]} px-card flex items-center gap-3 px-1.5 py-1`}
           >
             <CategoryIcon name={category} size={32} />
             <span className="min-w-0 flex-1 text-left">
@@ -180,7 +180,7 @@ function CurrencyScene({ currency }: { currency: string }) {
 function Tile({ name, tone, children }: { name: string; tone: string; children: ReactNode }) {
   return (
     <span className="flex flex-col items-center gap-3">
-      <span className={`flex h-14 w-14 items-center justify-center rounded-2xl ${tone}`}>{children}</span>
+      <span className={`flex h-14 w-14 items-center justify-center ${tone}`}>{children}</span>
       <span className={label}>{name}</span>
     </span>
   );
@@ -190,7 +190,7 @@ function BankScene() {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-6">
       <div className="flex items-start gap-4">
-        <Tile name="Your bank" tone="bg-surface-2 text-ink">
+        <Tile name="Your bank" tone="px-tile text-ink">
           <Icon name="bank" />
         </Tile>
         <span className={`${s.linkPath} mt-[26px]`}>
@@ -201,7 +201,7 @@ function BankScene() {
             <Icon name="security" size={12} />
           </span>
         </span>
-        <Tile name="Budgts" tone="bg-signal-wash">
+        <Tile name="Budgts" tone="px-tile-wash">
           <Robin size={30} />
         </Tile>
       </div>
@@ -215,9 +215,9 @@ function BankScene() {
 function SortScene({ currency }: { currency: string }) {
   return (
     <div className="flex h-full flex-col justify-center gap-2.5 px-4">
-      <div className="relative flex items-center gap-3 rounded-2xl border border-hairline bg-surface px-3 py-3">
+      <div className="px-card relative flex items-center gap-3 px-1.5 py-1.5">
         <span className={`${s.stack} h-10 w-10 shrink-0`}>
-          <span className="flex items-center justify-center rounded-xl border border-dashed border-silver text-muted">
+          <span className="px-tile flex items-center justify-center text-muted">
             <Icon name="help" />
           </span>
           <span className={s.known}>
@@ -232,11 +232,11 @@ function SortScene({ currency }: { currency: string }) {
           </span>
         </span>
         <Amount minor={-4218} currency={currency} />
-        <span className={`${s.check} pixel-corners absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center bg-pos text-white`}>
+        <span className={`${s.check} pixel-corners absolute -right-4 -top-4 flex h-5 w-5 items-center justify-center bg-pos text-white`}>
           <Icon name="check" size={12} />
         </span>
       </div>
-      <div className="flex items-center gap-3 rounded-2xl border border-hairline bg-surface px-3 py-2.5 opacity-60">
+      <div className="px-card flex items-center gap-3 px-1.5 py-1 opacity-60">
         <CategoryIcon name="Transportation" size={32} />
         <span className="min-w-0 flex-1 text-left">
           <span className="block truncate text-[13px] font-medium text-text">Uber</span>
@@ -270,7 +270,7 @@ const OUT = 135748;
 function MoneyLeftScene({ currency }: { currency: string }) {
   return (
     <div className="flex h-full flex-col justify-center px-5">
-      <div className="rounded-2xl border border-hairline bg-surface p-4 text-left">
+      <div className="px-card p-2 text-left">
         <div className="flex items-center justify-between">
           <span className="text-[12px] text-muted">Money Left</span>
           <span className={`${chip} bg-ink`}>This month</span>
@@ -312,7 +312,7 @@ function PlanRow({
   children?: ReactNode;
 }) {
   return (
-    <div className="relative rounded-2xl border border-hairline bg-surface px-3 py-3 text-left">
+    <div className="px-card relative px-1.5 py-1.5 text-left">
       <div className="flex items-center gap-3">
         {icon}
         <span className="min-w-0 flex-1">
@@ -342,7 +342,7 @@ function PlanScene({ currency }: { currency: string }) {
       />
       <PlanRow
         icon={
-          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-surface-2 text-ink">
+          <span className="px-tile flex h-8 w-8 items-center justify-center text-ink">
             <Icon name="goals" />
           </span>
         }

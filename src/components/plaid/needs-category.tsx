@@ -113,10 +113,10 @@ export function NeedsCategory({
   const hidden = expanded ? 0 : Math.max(0, visible.length - FIRST);
 
   return (
-    <section id="needs-category" className="px-card-ink scroll-mt-20 p-3 md:p-4">
+    <section id="needs-category" className="px-card-raised scroll-mt-20 p-2 md:p-4">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="px-tag-bold text-neg">
-          Needs a category <span aria-hidden>·</span> {totalTxns}
+        <h2 className="t-head text-ink">
+          Needs a category <span className="tnum ml-1.5 font-medium text-signal-ink">{totalTxns}</span>
           <span className="sr-only">
             {" "}
             {totalTxns === 1 ? "transaction" : "transactions"} from {visible.length}{" "}

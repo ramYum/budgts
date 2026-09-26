@@ -22,12 +22,13 @@ function formatWhole(minor: number, currency: string): string {
   );
 }
 
-const ROWS = 10;
-const CELL = 10; // px, square
-const GAP = 2; // px between cells
+const ROWS = 14;
+const SEG_W = 24; // px: one column of flat segments per month
+const SEG_H = 4;
+const GAP = 2; // px between segments
 
 /**
- * Six months of spending as two-cell columns: past months in quiet gray, the
+ * Six months of spending as segmented columns: past months in quiet gray, the
  * current month in the accent with its value tagged on top (the one
  * highlighted mark). Unlit rows show as a faint track, so every column reads
  * against the same height.
@@ -62,16 +63,16 @@ export function SpendingTrendCard({
   const signed = (v: number) => `${v > 0 ? "+" : v < 0 ? "−" : ""}${formatMoney(Math.abs(v), currency)}`;
 
   return (
-    <section className="px-card p-3 md:p-4">
-      {title ? <h2 className="px-tag mb-3 text-ink">{title}</h2> : null}
+    <section className="px-card p-2 md:p-4">
+      {title ? <h2 className="mb-1 text-sm font-medium leading-5 text-muted">{title}</h2> : null}
       {figure === "change" && delta !== null ? (
         <>
-          <p className="px-figure tnum text-ink">{signed(delta)}</p>
+          <p className="t-num-lg text-ink">{signed(delta)}</p>
           <p className="text-sm leading-5 text-muted">vs {prevName}</p>
         </>
       ) : (
         <>
-          <p className="px-figure tnum text-ink">
+          <p className="t-num-lg text-ink">
             <RollingAmount value={total} currency={currency} />
           </p>
           <p className="text-sm leading-5 text-muted">
@@ -97,28 +98,25 @@ export function SpendingTrendCard({
             className="flex flex-col items-center gap-3"
             title={`${d.label}: ${formatMoney(d.spend, currency)}`}
           >
-            {/* two cells wide, built bottom-up over a faint track */}
-            <div
-              className="relative grid grid-cols-2"
-              style={{ gap: GAP, gridTemplateRows: `repeat(${ROWS}, ${CELL}px)`, width: CELL * 2 + GAP }}
-            >
-              {Array.from({ length: ROWS * 2 }, (_, i) => {
-                const rowFromBottom = ROWS - 1 - Math.floor(i / 2);
+            {/* flat segments, built bottom-up over a faint track */}
+            <div className="relative flex flex-col" style={{ gap: GAP, width: SEG_W }}>
+              {Array.from({ length: ROWS }, (_, i) => {
+                const rowFromBottom = ROWS - 1 - i;
                 const lit = rowFromBottom < d.lit;
                 return (
                   <span
                     key={i}
-                    className={`cell ${lit ? (d.current ? "bg-signal" : "bg-silver") : "bg-surface-2"}`}
-                    style={{ ["--d" as string]: col * 3 + rowFromBottom }}
+                    className={`cell block w-full ${lit ? (d.current ? "bg-signal" : "bg-silver") : "bg-surface-2"}`}
+                    style={{ height: SEG_H, ["--d" as string]: col * 3 + rowFromBottom }}
                   />
                 );
               })}
               {d.current && d.lit > 0 ? (
                 // pops on once its column has built (the .cell cadence: 22ms a step after 220ms)
                 <span
-                  className="pop px-badge-ink px-tag-bold absolute right-[-4px] whitespace-nowrap px-1.5 py-1 leading-none tracking-normal text-white md:right-[-8px]"
+                  className="pop px-badge-ink t-label-strong tnum absolute right-[-4px] whitespace-nowrap px-1.5 py-1 leading-none text-white md:right-[-8px]"
                   style={{
-                    bottom: ROWS * (CELL + GAP) + 6,
+                    bottom: ROWS * (SEG_H + GAP) + 6,
                     ["--at" as string]: `${(col * 3 + d.lit) * 22 + 380}ms`,
                   }}
                 >
@@ -151,12 +149,13 @@ const RAMP = ["var(--signal)", "#111111", "#6e6e6e", "#9e9e9e", "#d0d0d0"];
 const CHART_ORDER = ["Transportation", "Personal Care", "Food / Groceries", "Insurances", "Entertainment", "Housing"];
 const CUSTOM_SLOTS = 2;
 
-// A 14×14 grid of 8px cells on a 10px pitch: a ring three cells thick.
-const GRID = 14;
-const PITCH = 10;
-const DOT = 8;
-const R_OUT = 7.05;
-const R_IN = 4.05;
+// A 20×20 grid of 6px cells on an 8px pitch: a fine ring about two and a
+// half cells thick, with room for the total inside it.
+const GRID = 20;
+const PITCH = 8;
+const DOT = 6;
+const R_OUT = 9.9;
+const R_IN = 7.2;
 
 /** Ring cells in clockwise order from 12 o'clock, computed once. */
 const RING = (() => {
@@ -252,11 +251,11 @@ export function SpendingBreakdownCard({
   const size = GRID * PITCH - (PITCH - DOT);
 
   return (
-    <section className="px-card p-3 md:p-4">
+    <section className="px-card p-2 md:p-4">
       {header}
       <div className={layout === "row" ? "flex flex-col gap-6 sm:flex-row sm:items-center sm:gap-8" : "flex flex-col gap-6"}>
         <div
-          className="relative shrink-0"
+          className={`relative shrink-0 self-center ${layout === "row" ? "sm:self-auto" : ""}`}
           style={{ width: size, height: size }}
           role="img"
           aria-label={`Spending breakdown: ${slices.map((s) => `${s.name} ${formatMoney(s.amount, currency)}`).join(", ")}`}
@@ -276,7 +275,7 @@ export function SpendingBreakdownCard({
             ))}
           </svg>
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1">
-            <p className="px-tag text-muted">Total</p>
+            <p className="t-label text-muted">Total</p>
             <p className="tnum text-[15px] font-semibold leading-5 text-ink">
               <RollingAmount value={totalSpent} currency={currency} />
             </p>
@@ -292,7 +291,7 @@ export function SpendingBreakdownCard({
               <span className="h-3 w-3 shrink-0" style={{ background: s.color }} aria-hidden />
               <span className="min-w-0 flex-1 truncate text-ink">{s.name}</span>
               <span className="tnum shrink-0 text-ink">{formatMoney(s.amount, currency)}</span>
-              <span className="px-tag-bold w-9 shrink-0 text-right tracking-normal text-muted">{s.share}%</span>
+              <span className="t-label tnum w-9 shrink-0 text-right text-muted">{s.share}%</span>
             </li>
           ))}
         </ul>

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/page-header";
+import { Badge, IconTile } from "@/components/ui";
 
 export const metadata: Metadata = { title: "Appearance" };
 
@@ -8,15 +9,18 @@ export const metadata: Metadata = { title: "Appearance" };
  * current state rather than offering options that would do nothing. */
 export default function AppearancePage() {
   return (
-    <div className="space-y-4 pt-1">
+    <>
       <PageHeader title="Appearance" back="/settings" />
-      <div className="card flex items-center justify-between rounded-2xl border border-hairline p-4">
-        <div>
-          <p className="text-sm font-medium">Light</p>
-          <p className="text-xs text-muted">Dark mode isn&apos;t available yet.</p>
+      <div className="md:max-w-[720px]">
+        <div className="px-card flex items-center gap-4 p-2 md:p-4">
+          <IconTile name="appearance" />
+          <div className="min-w-0 flex-1">
+            <p className="text-[15px] font-medium leading-6 text-ink">Light</p>
+            <p className="text-[13px] leading-5 text-muted">Dark mode isn&apos;t available yet.</p>
+          </div>
+          <Badge tone="ink">Active</Badge>
         </div>
-        <span className="pixel-corners bg-ink px-2.5 py-1 text-xs font-medium text-on-primary">Active</span>
       </div>
-    </div>
+    </>
   );
 }

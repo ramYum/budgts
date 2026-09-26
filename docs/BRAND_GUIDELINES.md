@@ -4,8 +4,10 @@
 > restrained retro/pixel branding.** The financial UI is calm, precise and
 > highly readable; the pixel robin and Dogica type carry the personality.
 > The app is not pixel art. (Adopted 2026-09-25; replaces the cream/coral,
-> Poppins, raster-robin brand. Pixel-frame pass 2026-09-26: stepped frames,
-> Dogica titles and figures, Pixelarticons.)
+> Poppins, raster-robin brand. Pixel-frame pass 2026-09-26: stepped frames and
+> Pixelarticons. Soft-pixel pass the same day: borderless stepped surfaces on
+> soft shadows, Geist figures, sentence-case section heads, a compact phone
+> scale.)
 
 Source of truth in code: `src/app/globals.css` (tokens, type roles, motion),
 `src/lib/brand/pixel-frame.ts` (the frame table; `src/app/pixel-frames.css` is
@@ -18,10 +20,11 @@ generated from it), `src/components/ui.tsx` (primitives),
    plainly and large; everything else supports it.
 2. **One accent.** Signal red marks only what earns attention: the active
    tab, the current month, an over-budget category, the primary action.
-3. **Pixels frame; Geist reads.** Stepped frames, pixel icons, square-cell
-   data marks and Dogica titles and figures carry the retro note. Everything
-   people read at length (body copy, labels, buttons, list rows) stays in
-   Geist.
+3. **Pixel silhouettes, soft surfaces.** Stepped corners, pixel icons,
+   segmented data marks, the robin and Dogica titles carry the retro note.
+   Everything people read or act on (figures, labels, buttons, list rows)
+   is Geist, on borderless white sheets. Quiet by default: no outlines where
+   a surface already separates, no uppercase shouting.
 4. **Left-aligned, grid-true, generous air.** Swiss editorial restraint: no
    centered heroes, no decoration that doesn't organize content.
 
@@ -29,10 +32,12 @@ generated from it), `src/components/ui.tsx` (primitives),
 
 | Token | Hex | Use |
 | --- | --- | --- |
-| `--charcoal` (ink) | `#111111` | Text, filled cells, selected chips, secondary-button borders |
+| `--charcoal` (ink) | `#111111` | Text, filled cells, selected chips, focus lines |
 | `--ash` (muted) | `#6E6E6E` | Secondary text (5.1:1 on white) |
-| `--silver` | `#B9B9B9` | Chevrons, quiet marks |
-| `--gray` (hairline/track) | `#E6E6E6` | Borders, dividers, empty cells |
+| `--stone` | `#949494` | Control lines: fields, secondary buttons, switches (3:1 on white) |
+| `--silver` | `#B9B9B9` | Chevrons, quiet marks, past-month columns |
+| `--gray` (track) | `#E6E6E6` | Hover lines, empty cells |
+| `--divider` | `#ECECEC` | 1px rules between rows |
 | `--paper` (canvas) | `#F4F4F4` | App background |
 | `--white` (surface) | `#FFFFFF` | Cards and sheets |
 | `--signal` | `#E54848` | Accent for **graphics only** (3.9:1 on white) |
@@ -55,14 +60,26 @@ The frame generator's palette mirrors these tokens;
 
   | Class | Size / line | Use |
   | --- | --- | --- |
-  | `.px-title` | 16/24, md 24/32 | Screen titles, the About wordmark |
-  | `.px-figure` | 16/24 | Card figures and in-page headlines |
-  | `.px-figure-lg` | 32/40 | The hero figure (`figureSize()` steps a long amount down) |
-  | `.px-tag` / `.px-tag-bold` | 8/12, uppercase | Section heads, badges, tags |
-  | `.px-label` | 16/24 | The month in `<MonthNav>` |
+  | `.px-title` | 16/24, md 24/32 | Screen and sheet titles, the greeting |
+  | `.px-figure` | 16/24 | Stage headlines (404, Offline, Security, the OAuth return) |
+  | `.px-figure-lg` | 32/40 | The 404 digits |
+  | `.px-tag` / `.px-tag-bold` | 8/12, uppercase | Brand only: `TRACK : PLAN : GROW`, Crystal's bubble |
 
-- **Geist** for everything read: body 15/24, list names 15px medium, meta
-  13/20 muted, form labels 14px, buttons 15px semibold. Amounts use `tnum`.
+  Dogica never sets money or percentages: its zero reads as an eight.
+
+- **Geist** for everything read or acted on (`globals.css` roles, phone then md):
+
+  | Class | Size | Use |
+  | --- | --- | --- |
+  | `.t-num-xl` | 32 → 48, semibold, tabular | A screen's one figure (`figureSize()`) |
+  | `.t-num-lg` | 22 → 28 | A card's figure |
+  | `.t-num` | 17 → 20 | Secondary figures (Came in / Went out) |
+  | `.t-head` | 15 → 16, semibold | Section heads, sentence case, count in muted |
+  | `.t-label` / `.t-label-strong` | 12/16 | Badges, day bands, shares, small labels |
+
+  Body 15/24, list names 15px medium, meta 13/20 muted, a figure's name 14px
+  muted, form labels 14px, buttons 15px semibold, inputs 16px (iOS never
+  zooms).
 - **Geist Mono** is available for technical labels (rarely needed).
 
 ## Logo & mascot
@@ -94,38 +111,47 @@ The frame generator's palette mirrors these tokens;
   square `outline`. Frames are defined once in `FRAMES`
   (`src/lib/brand/pixel-frame.ts`) and generated into
   `src/app/pixel-frames.css` by `node --no-warnings tools/generate-pixel-frames.mjs`;
-  never edit the CSS by hand. Classes: `px-card` (white, gray line),
-  `px-card-ink` (the screen's lead card), `px-card-quiet`, `px-wash` (accent
-  wash), `px-warn`, `px-band`, `px-field` / `px-search`, `px-btn` /
-  `px-btn-primary` / `px-btn-danger`, `px-step` (square arrow buttons),
-  `px-tile*`, `px-nav`, `px-chip`, `px-badge*`, `px-check`, `px-switch`.
-- **Buttons** (`ui.tsx`): primary = red fill on a raised edge (`px-raise`, a
-  `drop-shadow` that paints outside the box, so rows stay aligned; one per
-  view); secondary = ink frame; danger = red frame; quiet utilities =
-  `TextButton`. Sizes: `md` 36px, `lg` 44px for a screen's closing action and
-  standalone pages (Sign out, 404, Offline).
+  never edit the CSS by hand. Classes: `px-card` (a white stepped sheet, no
+  line, `--shadow-card` below it), `px-card-raised` (the screen's lead card,
+  `--shadow-raised`), `px-card-quiet`, `px-wash` (accent wash), `px-warn`,
+  `px-band`, `px-field` / `px-search` (stone line), `px-btn` /
+  `px-btn-primary` / `px-btn-danger`, `px-step` (a white square that draws
+  its line on hover), `px-tile*`, `px-nav`, `px-chip`, `px-badge*`,
+  `px-check`, `px-switch`. Shadows use a negative spread wider than the
+  corner steps, so they only ever show below a card, never beside a notch.
+- **Padding:** cards 16px inside on a phone (8px frame + 8px), 24px from md;
+  lead cards 16 → 32. Icon tiles 32px on a phone, 40px from md.
+- **Buttons** (`ui.tsx`): primary = red fill on a 2px raised edge (`px-raise`,
+  a `drop-shadow` that paints outside the box, so rows stay aligned; one per
+  view); secondary = stone line, ink on hover; danger = red line; quiet
+  utilities = `TextButton`. Sizes: `md` 36px, `lg` 44px for a screen's
+  closing action and standalone pages (Sign in, Sign out, 404, Offline).
 - **Chips / segmented control:** selected = solid ink (`aria-pressed`); others
   = gray frame, muted text.
-- **Rules:** dotted, 2px on / 2px off (`px-rule`, `px-rule-v`); rows in one
-  card are divided by `px-rows`.
-- **Progress:** square cells snapped to whole pixels (`px-cells`, CSS
-  `round()` with container units); ink when on track, red when near/over,
-  green for savings. The figure is always printed beside it.
-- **Charts:** server-rendered square cells, no chart library. Trend = two-cell
-  columns, past months gray, current month red with a tagged value. Breakdown
-  = a ring of cells, largest share in red, the rest down a gray ramp, with a
-  legend naming every slice and its share.
+- **Rules:** solid 1px `--divider` (`px-rule`, `px-rule-v`); rows in one card
+  are divided by `px-rows`. Spacing groups first; a rule only where rows need it.
+- **Progress:** a segmented line of 16 cells snapped to whole pixels
+  (`px-cells`, CSS `round()` with container units), 8px tall in rows and
+  10–12px on lead cards; ink when on track, red when near/over, green for
+  savings. The figure is always printed beside it.
+- **Charts:** server-rendered cells, no chart library. Trend = one column of
+  flat 24×4px segments per month, past months gray, current month red with a
+  tagged value. Breakdown = a fine ring of 6px cells, largest share in red,
+  the rest down a gray ramp, with a legend naming every slice and its share.
+  Savings rate = a 10×10 waffle of 6px cells.
 - **Icons:** Pixelarticons (MIT) through `<Icon name>` (`src/components/icon.tsx`),
   named by meaning so a glyph changes in one place. Only at 12/24/36/48px, the
   set's 12-cell grid, with `crispEdges`. "More" and the kebab are three solid
   cells drawn on the set's grid (its own "more" reads as diamonds). The set has
   no columned-bank glyph; `bank` is its University. The active tab reads by
   the red marker bar and ink label. Category icons sit on a quiet tile.
-- **Lists:** one white card with dotted dividers; day groups use a quiet band
-  inside the card.
+- **Lists:** one white card with 1px dividers; day groups are a small
+  semibold label and the day's total, set off by space, not a band.
 - **Standalone screens** (Offline, the bank's OAuth return, a signed-out 404):
   `<StandaloneShell>`, the brand top-left and one 440px column centred in
-  the viewport, led by a dotted `<Stage>`.
+  the viewport, led by a dotted `<Stage>`. The route error boundary
+  (`src/app/error.tsx`) and sign-in use the same system; loading skeletons
+  are shaped like the screen they stand in for.
 
 ## Motion
 
@@ -161,8 +187,10 @@ enforces this.
 ## What not to do
 
 - No second accent color, gradients, glows or drop shadows doing layout work.
-- No pixel font in reading text, form labels or buttons; no Dogica off its
-  8px grid.
+- No pixel font in reading text, figures, form labels or buttons; no Dogica
+  off its 8px grid.
 - No `border-radius`, hand-drawn SVG icons or a second icon set.
+- No uppercase eyebrow over every section, no outline where a surface
+  already separates, no em-dash in UI copy.
 - No colored category dots or rainbow charts.
 - No centered marketing layouts inside the app.

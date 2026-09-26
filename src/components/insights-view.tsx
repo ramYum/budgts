@@ -15,13 +15,13 @@ import { CategoryIcon, Chevron, IconTile, SegmentedControl, figureSize } from ".
 function Waffle({ rate }: { rate: number | null }) {
   const lit = rate === null ? 0 : Math.max(0, Math.min(100, Math.round(rate * 100)));
   return (
-    <div className="grid shrink-0 grid-cols-10 gap-0.5" style={{ width: 98 }} aria-hidden>
+    <div className="grid shrink-0 grid-cols-10 gap-0.5" style={{ width: 78 }} aria-hidden>
       {Array.from({ length: 100 }, (_, i) => {
         const fill = (9 - Math.floor(i / 10)) * 10 + (i % 10);
         return (
           <span
             key={i}
-            className={`cell h-2 w-2 ${fill < lit ? "bg-ink" : "bg-track"}`}
+            className={`cell h-1.5 w-1.5 ${fill < lit ? "bg-ink" : "bg-surface-2"}`}
             style={{ ["--d" as string]: Math.floor(fill / 10) }}
           />
         );
@@ -58,8 +58,8 @@ export function InsightsView({
   const breakdownHeader = (
     <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
       <div>
-        <h2 className="px-tag text-ink">{tab === "spending" ? "Total spending" : "Total income"}</h2>
-        <p className="px-figure tnum mt-1 text-ink">
+        <h2 className="text-sm font-medium leading-5 text-muted">{tab === "spending" ? "Total spending" : "Total income"}</h2>
+        <p className="t-num-lg mt-1 text-ink">
           {formatMoney(tab === "spending" ? tiles.spent : tiles.income, currency)}
         </p>
       </div>
@@ -78,21 +78,21 @@ export function InsightsView({
   return (
     <div className="space-y-6 md:space-y-10">
       <div className="grid gap-6 lg:grid-cols-2">
-        <section className="reveal px-card-ink p-3 md:p-6" style={{ ["--i" as string]: 1 }}>
-          <h2 className="px-tag text-ink">Money left</h2>
+        <section className="reveal px-card-raised p-2 md:p-6" style={{ ["--i" as string]: 1 }}>
+          <h2 className="text-sm font-medium leading-5 text-muted">Money left</h2>
           <p className={`${figureSize(moneyLeft)} tnum mt-3 ${tiles.netSavings < 0 ? "text-neg" : "text-ink"}`}>
             {moneyLeft}
           </p>
           <p className="mt-2 text-[15px] leading-6 text-muted">Income minus spending, this month.</p>
         </section>
 
-        <section className="reveal px-card flex items-center gap-6 p-3 md:p-6" style={{ ["--i" as string]: 2 }}>
+        <section className="reveal px-card-raised flex items-center gap-6 p-2 md:p-6" style={{ ["--i" as string]: 2 }}>
           <div className="min-w-0 flex-1">
-            <h2 className="px-tag text-ink">Savings rate</h2>
+            <h2 className="text-sm font-medium leading-5 text-muted">Savings rate</h2>
             <p
-              className={`px-figure-lg tnum mt-3 ${tiles.savingsRate !== null && tiles.savingsRate < 0 ? "text-neg" : "text-ink"}`}
+              className={`t-num-xl mt-2 ${tiles.savingsRate !== null && tiles.savingsRate < 0 ? "text-neg" : "text-ink"}`}
             >
-              {tiles.savingsRate === null ? "—" : formatSavingsRate(tiles.savingsRate)}
+              {tiles.savingsRate === null ? "No income" : formatSavingsRate(tiles.savingsRate)}
             </p>
             <p className="mt-2 text-[15px] leading-6 text-muted">
               {tiles.savingsRate === null ? "No income this month yet" : "of income kept"}
@@ -120,7 +120,7 @@ export function InsightsView({
         >
           <IconTile name="idea" tone="accent" />
           <span className="min-w-0 flex-1">
-            <span className="px-tag block text-neg">Where you could save</span>
+            <span className="t-label-strong block text-signal-ink">Where you could save</span>
             {suggestion.kind === "unbudgeted" ? (
               <>
                 <span className="block text-[15px] font-medium leading-6 text-ink">
@@ -155,7 +155,7 @@ export function InsightsView({
               header={breakdownHeader}
             />
           ) : (
-            <section className="px-card p-3 md:p-4">
+            <section className="px-card p-2 md:p-4">
               {breakdownHeader}
               {tab === "spending" ? (
                 <p className="text-[15px] leading-6 text-muted">No spending recorded this month yet.</p>
@@ -166,7 +166,7 @@ export function InsightsView({
                       <CategoryIcon name={s.name} />
                       <span className="min-w-0 flex-1 truncate text-[15px] leading-6 text-ink">{s.name}</span>
                       <span className="tnum text-[15px] leading-6 text-ink">{formatMoney(s.amount, currency)}</span>
-                      <span className="px-tag-bold w-9 text-right tracking-normal text-muted">{incomeShares[i]}%</span>
+                      <span className="t-label tnum w-9 text-right text-muted">{incomeShares[i]}%</span>
                     </li>
                   ))}
                 </ul>

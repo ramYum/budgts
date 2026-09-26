@@ -305,7 +305,7 @@ describe("ConnectedBanks — sign-convention 'checking this account' notice", ()
     // copy as drawn in the 2026-09-26 design: the held count, so the gap is explained
     expect(
       screen.getByText(
-        wholeText("We're checking this account's transaction format — 3 transactions appear once it's verified."),
+        wholeText("We're checking this account's transaction format. 3 transactions appear once it's verified."),
       ),
     ).toBeInTheDocument();
     // Never the word "sign convention" or "inverted"/"standard" — internal terms.

@@ -38,7 +38,7 @@ export default function AboutPage() {
           </p>
         </section>
 
-        <dl className="px-card px-rows p-3 md:p-4">
+        <dl className="px-card px-rows p-2 md:p-4">
           {DETAILS.map(([label, value]) => (
             <div key={label} className="flex items-baseline justify-between gap-4 py-3.5 first:pt-0 last:pb-0">
               <dt className="text-[15px] leading-6 text-muted">{label}</dt>

@@ -63,10 +63,10 @@ function WhereRow({ b, month, currency, row }: { b: DashboardBar; month: string;
   const over = b.state === "over" && b.budget > 0;
 
   return (
-    <li className="rise relative py-4 first:pt-0 last:pb-0" style={at(row * 60 + 240)}>
+    <li className="rise relative py-3 first:pt-0 last:pb-0 md:py-4" style={at(row * 60 + 240)}>
       <div className="flex items-center gap-3 md:gap-4">
         <CategoryIcon name={b.name} tone={unplanned || over ? "wash" : "gray"} />
-        <div className="min-w-0 flex-1 space-y-2">
+        <div className="min-w-0 flex-1 space-y-1.5 md:space-y-2">
           <div className="flex items-baseline justify-between gap-3 text-[15px] leading-6">
             <Link
               href={`/transactions?m=${month}&category=${b.categoryId}`}
@@ -77,9 +77,9 @@ function WhereRow({ b, month, currency, row }: { b: DashboardBar; month: string;
             <span className="tnum shrink-0 font-semibold text-ink">{formatMoney(b.actual, currency)}</span>
           </div>
           <ProgressBar pct={b.pctUsed} tone={b.state} start={row * 3} />
-          <div className="flex items-baseline justify-between gap-3 text-sm leading-5">
+          <div className="flex items-baseline justify-between gap-3 text-[13px] leading-5 md:text-sm">
             {unplanned ? (
-              <span className="font-medium text-neg">No budget — all unplanned</span>
+              <span className="font-medium text-neg">No budget, all unplanned</span>
             ) : over ? (
               <span className="tnum font-medium text-neg">Over by {formatMoney(b.actual - b.budget, currency)}</span>
             ) : b.budget > 0 ? (
@@ -255,7 +255,7 @@ export function DashboardView({
         )
       ) : null}
       {tiles.spent === 0 ? (
-        <div className="px-card p-3 md:p-4">
+        <div className="px-card p-2 md:p-4">
           <Mascot mood="sleepy" size={60} />
           <p className="mt-4 text-[15px] font-medium leading-6 text-ink">No spending yet this month</p>
           <p className="text-sm leading-5 text-muted">Your categories are ready. Spending shows up here as it happens.</p>
@@ -279,7 +279,7 @@ export function DashboardView({
           screen to see how you&apos;re tracking.
         </div>
       ) : (
-        <ul className="px-card px-rows p-3 md:p-4">
+        <ul className="px-card px-rows p-2 md:p-4">
           {bars.map((b, row) => (
             <WhereRow key={b.categoryId} b={b} month={month} currency={currency} row={row} />
           ))}
@@ -295,14 +295,14 @@ export function DashboardView({
           ? `/budgets?m=${month}&edit=${suggestion.categoryId}`
           : `/transactions?m=${month}&category=${suggestion.categoryId}`
       }
-      className="px-wash press flex items-center gap-4 p-4"
+      className="px-wash press flex items-center gap-3 p-2 md:gap-4 md:p-4"
     >
       {/* the idea lamp switches on */}
       <span className="lamp" style={at(380)}>
         <IconTile name="idea" tone="accent" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="px-tag block text-neg">What can I change?</span>
+        <span className="t-label-strong block text-signal-ink">What can I change?</span>
         {suggestion.kind === "unbudgeted" ? (
           <>
             <span className="block text-[15px] font-medium leading-6 text-ink">Give {suggestion.name} a budget</span>
@@ -328,9 +328,9 @@ export function DashboardView({
     savings.activeCount > 0 ? (
       <section className="space-y-3">
         <SectionHead title="Savings" href="/goals" action="Goals" />
-        <div className="px-card p-3 md:p-4">
+        <div className="px-card p-2 md:p-4">
           <div className="flex items-center justify-between gap-3">
-            <p className="px-figure tnum text-ink">
+            <p className="t-num-lg text-ink">
               <RollingAmount value={savings.totalSaved} currency={currency} />
             </p>
             {savings.totalTarget > 0 ? (
@@ -354,7 +354,7 @@ export function DashboardView({
     <section className="space-y-3">
       <SectionHead title="Recent activity" href="/transactions" action="See all" />
       {recent.length === 0 ? (
-        <div className="px-card p-3 md:p-4">
+        <div className="px-card p-2 md:p-4">
           <IconTile name="receipt" />
           <p className="mt-4 text-[15px] font-medium leading-6 text-ink">Nothing recorded yet</p>
           <p className="text-sm leading-5 text-muted">
@@ -365,7 +365,7 @@ export function DashboardView({
           </div>
         </div>
       ) : (
-        <ul className="px-card px-rows p-3 md:p-4">
+        <ul className="px-card px-rows p-2 md:p-4">
           {recent.map((r, k) => (
             <li key={r.id} className="rise flex items-center gap-3 py-3 md:gap-4 first:pt-0 last:pb-0" style={at(k * 60 + 200)}>
               <CategoryIcon name={r.isTransfer ? "Transfer" : (r.category?.name ?? "")} />
@@ -420,10 +420,10 @@ export function DashboardView({
             savingsRate={tiles.savingsRate}
             className="absolute bottom-[calc(100%-2px)] right-4 md:right-10"
           />
-          <div className="px-card-ink p-3 md:p-6">
+          <div className="px-card-raised p-2 md:p-6">
             <div className="flex flex-col gap-5 md:flex-row md:gap-10">
               <div className="min-w-0 flex-1">
-                <h2 id="home-money-left" className="px-tag text-ink">
+                <h2 id="home-money-left" className="text-sm font-medium leading-5 text-muted">
                   Money left
                 </h2>
                 <p className={`${figureSize(moneyLeft)} tnum mt-3 ${negative ? "text-neg" : "text-ink"}`}>
@@ -449,7 +449,7 @@ export function DashboardView({
                     </>
                   )}
                 </p>
-                <ProgressBar className="mt-4 max-w-[444px]" pct={keptPct} tone={negative ? "over" : "under"} />
+                <ProgressBar className="mt-4 max-w-[444px]" pct={keptPct} tone={negative ? "over" : "under"} cellHeight={12} />
               </div>
               <div className="px-rule md:hidden" aria-hidden />
               <div className="px-rule-v hidden md:block" aria-hidden />
@@ -459,26 +459,26 @@ export function DashboardView({
                     Came in
                     <AddIncome accounts={accounts} categories={categories} defaultDate={defaultDate} variant="icon" />
                   </dt>
-                  <dd className={`tnum text-xl font-semibold leading-7 ${tiles.income > 0 ? "text-pos" : "text-ink"}`}>
+                  <dd className={`t-num ${tiles.income > 0 ? "text-pos" : "text-ink"}`}>
                     {signed(tiles.income, currency, "in")}
                   </dd>
                 </div>
                 <div>
                   <dt className="flex min-h-7 items-center text-sm leading-5 text-muted">Went out</dt>
-                  <dd className="tnum text-xl font-semibold leading-7 text-ink">{signed(tiles.spent, currency, "out")}</dd>
+                  <dd className="t-num text-ink">{signed(tiles.spent, currency, "out")}</dd>
                 </div>
               </dl>
             </div>
             <div className="px-rule mt-5" aria-hidden />
-            <p className="rise mt-4 flex items-start gap-2 text-sm leading-5 text-muted" style={at(760)}>
+            <p className="rise mt-4 flex items-start gap-2 text-[13px] leading-5 text-muted md:text-sm" style={at(760)}>
               <Icon name="info" size={12} className="mt-1" />
-              Income minus spending — not your savings balance.
+              Income minus spending. Not your savings balance.
             </p>
           </div>
         </section>
       </Reveal>
 
-      <div className="mt-10 flex flex-col gap-10 xl:grid xl:grid-cols-[minmax(0,1fr)_420px] xl:items-start xl:gap-6">
+      <div className="mt-8 flex flex-col gap-8 md:mt-10 md:gap-10 xl:grid xl:grid-cols-[minmax(0,1fr)_420px] xl:items-start xl:gap-6">
         {/* phones read one column in priority order; wide screens split it in two */}
         <div className="contents xl:flex xl:flex-col xl:gap-10">
           {quiet && stepsDone < steps.length ? (
@@ -488,7 +488,7 @@ export function DashboardView({
                   title="Get set up"
                   aside={
                     <span className="flex items-center gap-2">
-                      <span className="px-tag text-muted">
+                      <span className="t-label tnum text-muted">
                         {stepsDone} of {steps.length}
                       </span>
                       <ProgressBar
@@ -500,7 +500,7 @@ export function DashboardView({
                     </span>
                   }
                 />
-                <ol className="px-card px-rows p-3 md:p-4">{steps.map((s) => s.node)}</ol>
+                <ol className="px-card px-rows p-2 md:p-4">{steps.map((s) => s.node)}</ol>
               </section>
             </Reveal>
           ) : null}

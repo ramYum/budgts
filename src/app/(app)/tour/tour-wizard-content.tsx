@@ -80,7 +80,7 @@ export function TourWizardContent({
                 <button
                   type="button"
                   onClick={nav.next}
-                  className="press rounded-lg px-2 py-1 text-sm font-medium text-muted hover:text-text"
+                  className="press inline-flex min-h-9 items-center px-2 text-sm font-medium text-muted hover:text-ink"
                 >
                   I&apos;ll add things by hand →
                 </button>

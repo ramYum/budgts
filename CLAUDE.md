@@ -94,7 +94,7 @@ What carries over is the **spirit**:
 | Validation | Zod schemas shared client + server |
 | Forms | Native `<form action>` + server actions (`useActionState`), Zod-validated on the server |
 | Charts | Server-rendered square-cell markup (`src/components/spending-overview.tsx`); no chart library |
-| Design system | `docs/BRAND_GUIDELINES.md`: stepped pixel frames (generated, `src/lib/brand/pixel-frame.ts`), Geist for reading + Dogica for titles/figures/tags, charcoal on light gray, one red accent, Pixelarticons (`<Icon>`), pixel robin |
+| Design system | `docs/BRAND_GUIDELINES.md`: soft-pixel: borderless stepped surfaces (generated, `src/lib/brand/pixel-frame.ts`), Geist for figures and reading + Dogica for titles and brand moments, charcoal on light gray, one red accent, Pixelarticons (`<Icon>`), pixel robin |
 | AI extraction (V2) | Claude API — `claude-sonnet-5`, vision for receipts (consult the `claude-api` skill) |
 | Testing | Vitest + React Testing Library (unit/component), Playwright (e2e) |
 
@@ -267,14 +267,18 @@ transactions arrive → auto-categorize → review exceptions → budget → Mon
 Left → track progress); linked from `/help` and the tour's final card.
 Spec: `docs/specs/2026-09-15-how-budgts-works-guide-design.md`.
 
-**Committed, not yet deployed:** **Pixel design pass (2026-09-26)** — the
-owner's mobile + desktop mockups applied to every in-app screen (Home,
-Activity, Budgets, Goals, Insights, Accounts, Connected banks, More,
-Settings and its sub-pages, Help, How Budgts works, About, 404, Offline,
-the Plaid OAuth return): stepped pixel frames, Dogica titles and figures,
-Pixelarticons replacing Phosphor. Sign-in, onboarding, the welcome guide and
-Appearance kept their layouts (icons only). Presentation only: no money math
-changed. See `docs/BRAND_GUIDELINES.md`.
+**Shipped:** **Pixel design pass (2026-09-26, `dd7c775`, live)** — the
+owner's mobile + desktop mockups applied to every in-app screen: stepped
+pixel frames, Pixelarticons replacing Phosphor.
+
+**Committed, not yet deployed:** **Soft-pixel pass (2026-09-26)** — the owner
+asked for cleaner, more modern and less overwhelming (especially on phones)
+while keeping the art style: borderless stepped surfaces on soft shadows,
+Geist figures (Dogica's zero read as an eight), sentence-case section heads,
+segmented thin progress, lighter charts, a compact phone scale, no em-dashes
+in UI copy; sign-in, onboarding, the welcome guide, Appearance, loading and
+the error boundary brought into the same system. Presentation only: no money
+math changed. See `docs/BRAND_GUIDELINES.md`.
 
 **In progress:** **V1.5** — recurring-series detection (migration `0016`,
 `/api/plaid/recurring-scan`) and subscription / bill classification layers

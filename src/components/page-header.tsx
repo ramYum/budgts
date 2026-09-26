@@ -44,11 +44,11 @@ export function PageHeader({
   children?: ReactNode;
 }) {
   return (
-    <header className="mb-6 md:mb-14 md:pr-14">
+    <header className="mb-5 md:mb-14 md:pr-14">
       {/* The phone's second row exists only with a month: an empty row would
           still take the row gap. */}
       <div
-        className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-6 md:grid-cols-[minmax(0,1fr)_auto_auto] md:gap-x-4 md:[grid-template-areas:'title_month_action'] ${
+        className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-4 md:grid-cols-[minmax(0,1fr)_auto_auto] md:gap-x-4 md:[grid-template-areas:'title_month_action'] ${
           month ? "[grid-template-areas:'title_action'_'month_month']" : "[grid-template-areas:'title_action']"
         }`}
       >

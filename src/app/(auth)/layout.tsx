@@ -9,7 +9,7 @@ export default function AuthLayout({ children }: LayoutProps<"/">) {
         <div className="page-enter mb-8">
           <BrandStage />
         </div>
-        <div className="reveal card rounded-3xl border border-hairline p-6" style={{ ["--i" as string]: 2 }}>
+        <div className="reveal px-card-raised p-5" style={{ ["--i" as string]: 2 }}>
           {children}
         </div>
       </div>

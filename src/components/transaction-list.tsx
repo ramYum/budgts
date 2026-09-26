@@ -85,14 +85,14 @@ const TxnDays = memo(function TxnDays({
     else groups.set(key, [it]);
   }
   return [...groups.entries()].map(([day, dayRows]) => (
-    <section key={day}>
-      <h3 className="flex items-center justify-between gap-3 bg-surface-2 px-3 py-2.5 md:px-4">
-        <span className="px-tag text-graphite">{dayLabel(day)}</span>
-        <span className="px-tag tnum tracking-normal text-graphite">
+    <section key={day} className="[&:first-child>h3]:pt-4">
+      <h3 className="flex items-center justify-between gap-3 px-2 pb-1 pt-5 md:px-4 md:pt-6">
+        <span className="t-label-strong text-graphite">{dayLabel(day)}</span>
+        <span className="t-label tnum text-muted">
           {signedTotal(dayTotals.get(day) ?? 0, currency)}
         </span>
       </h3>
-      <ul className="px-rows px-3 md:px-4">
+      <ul className="px-rows px-2 md:px-4">
         {dayRows.map((it) => {
           const needsCategory = !it.is_transfer && !it.category_id;
           const refund =

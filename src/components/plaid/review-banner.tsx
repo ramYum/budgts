@@ -36,7 +36,7 @@ export function buildReviewMessages(accounts: ReviewBannerAccount[]): {
       ? null
       : `${summarizeNames(excludedAccounts.map((a) => a.name ?? "an account"))} ${
           excludedAccounts.length === 1 ? "is" : "are"
-        } excluded from your financial totals because its bank feed showed unreliable data. Nothing was deleted — every transaction is still in your history.`;
+        } excluded from your financial totals because its bank feed showed unreliable data. Nothing was deleted. Every transaction is still in your history.`;
 
   const advisory =
     advisoryAccounts.length === 0

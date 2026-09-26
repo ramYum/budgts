@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Plus } from "@phosphor-icons/react";
 import { createTransaction } from "@/server/transactions";
 import { Overlay } from "./overlay";
-import { CountUp } from "./count-up";
+import { RollingAmount } from "./rolling-amount";
 import { TransactionForm, type AccountOption, type CategoryOption } from "./transaction-form";
 
 /**
@@ -41,7 +41,7 @@ export function IncomeTile({
         </span>
         <span className="block text-[13px] text-muted">Income</span>
         <span className="tnum mt-2 block text-xl font-semibold tracking-tight">
-          <CountUp value={value} currency={currency} />
+          <RollingAmount value={value} currency={currency} />
         </span>
         <span className="mt-1 block text-xs text-muted">Tap to add income</span>
       </button>

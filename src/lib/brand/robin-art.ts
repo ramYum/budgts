@@ -11,8 +11,17 @@ export type RobinMood = "normal" | "happy" | "curious" | "sleepy";
 export type RobinRun = { x: number; y: number; w: number; fill: string };
 
 /** `beak` is the shut lower beak and `beakOpen` what replaces it mid-chirp;
- * static renders (icons, reduced motion) draw `beak` and never `beakOpen`. */
-type RobinArt = { body: RobinRun[]; beak: RobinRun[]; beakOpen: RobinRun[]; eye: RobinRun[]; extra: RobinRun[] };
+ * `wingUp` is the raised-wing frame of a flap, painted over the resting wing.
+ * Static renders (icons, reduced motion) draw `beak` and never `beakOpen` or
+ * `wingUp`. */
+type RobinArt = {
+  body: RobinRun[];
+  beak: RobinRun[];
+  beakOpen: RobinRun[];
+  wingUp: RobinRun[];
+  eye: RobinRun[];
+  extra: RobinRun[];
+};
 
 const PALETTE: Record<string, string> = {
   B: "#7b4a2b", // head & back
@@ -80,6 +89,64 @@ const SLEEP: Cell[] = [
   [20, 3, "z"], [21, 3, "z"], [22, 3, "z"],
 ];
 
+/** Letters of a small drawing → cells, its top-left at (x0, y0). */
+function stamp(rows: string[], x0: number, y0: number): Cell[] {
+  const cells: Cell[] = [];
+  rows.forEach((row, dy) =>
+    row.split("").forEach((k, dx) => {
+      if (k !== ".") cells.push([x0 + dx, y0 + dy, k]);
+    }),
+  );
+  return cells;
+}
+
+// A flap's raised wing: up and back from the shoulder, clear of the head,
+// with a lighter leading edge and two feather tips on the trailing edge.
+const WING_RAISED = stamp(
+  [
+    ".DB......",
+    ".DDB.....",
+    "D.DDB....",
+    "..DDDB...",
+    ".D.DDDB..",
+    "...DDDDB.",
+    ".....DD..",
+  ],
+  0,
+  2,
+);
+// What the resting wing covered: the back, shading into the belly.
+const WING_BED = stamp(
+  [
+    ".BB..",
+    "BBBB.",
+    "BBBBB",
+    "BBBBB",
+    "BBwW.",
+    "Bww..",
+    ".w...",
+  ],
+  4,
+  8,
+);
+
+/** The raised-wing frame: the bed, the wing over it, and the wing's outline
+ * wherever it stands out against empty space. */
+function wingUpCells(): Cell[] {
+  const at = (x: number, y: number) => BASE[y]?.[x] ?? ".";
+  const cells = new Map<string, Cell>();
+  for (const c of [...WING_BED, ...WING_RAISED]) cells.set(`${c[0]},${c[1]}`, c);
+  const wing = new Set(WING_RAISED.map(([x, y]) => `${x},${y}`));
+  for (const [x, y] of WING_RAISED) {
+    for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]] as const) {
+      const key = `${nx},${ny}`;
+      if (!wing.has(key) && !cells.has(key) && at(nx, ny) === ".") cells.set(key, [nx, ny, "K"]);
+    }
+  }
+  return [...cells.values()];
+}
+const WING_UP = wingUpCells();
+
 /** Horizontal runs of one color → one rect each (keeps the SVG small). */
 function runs(cells: Cell[]): RobinRun[] {
   const sorted = [...cells].sort((a, b) => a[1] - b[1] || a[0] - b[0]);
@@ -121,7 +188,14 @@ function build(mood: RobinMood): RobinArt {
     }
   }
   const extra = mood === "sleepy" ? SLEEP : mood === "curious" ? QUESTION : CHIRP;
-  return { body: runs(body), beak: runs(beak), beakOpen: runs(BEAK_OPEN), eye: runs(eye), extra: runs(extra) };
+  return {
+    body: runs(body),
+    beak: runs(beak),
+    beakOpen: runs(BEAK_OPEN),
+    wingUp: runs(WING_UP),
+    eye: runs(eye),
+    extra: runs(extra),
+  };
 }
 
 export const ROBIN_ART: Record<RobinMood, RobinArt> = {

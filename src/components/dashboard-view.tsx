@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { CSSProperties } from "react";
 import { ArrowDownRight, ArrowUpRight, CaretRight, Lightbulb } from "@phosphor-icons/react/dist/ssr";
 import { formatMoney, formatSavingsRate } from "@/lib/budget/money";
 import { BudgetOverAlert } from "./budget-over-alert";
@@ -7,12 +8,16 @@ import type { MonthSpend } from "@/lib/budget/spend-trend";
 import type { GoalsSummary } from "@/lib/budget/savings";
 import { MonthNav } from "./month-nav";
 import { IncomeTile } from "./income-tile";
-import { CountUp } from "./count-up";
+import { RollingAmount } from "./rolling-amount";
 import { Greeting, RelativeDay } from "./local-time";
-import { Mascot } from "./mascot";
+import { CrystalPerch } from "./crystal-perch";
+import { Reveal } from "./reveal";
 import { CategoryIcon, ProgressBar } from "./ui";
 import { SpendingBreakdownCard, SpendingTrendCard } from "./spending-overview";
 import type { AccountOption, CategoryOption } from "./transaction-form";
+
+/** An entrance's start, for `.rise` / `.pop` / `.lamp` (globals.css). */
+const at = (ms: number) => ({ "--at": `${ms}ms` }) as CSSProperties;
 
 export type RecentActivityItem = {
   id: string;
@@ -41,10 +46,10 @@ function Tile({
       <ArrowUpRight aria-hidden className="absolute right-4 top-4 h-4 w-4 text-muted" />
       <p className="text-[13px] text-muted">{label}</p>
       <p className="tnum mt-2 text-xl font-semibold tracking-tight">
-        <CountUp value={value} currency={currency} />
+        <RollingAmount value={value} currency={currency} />
       </p>
       {change ? (
-        <p className={`tnum mt-1 flex items-center gap-0.5 text-xs ${good ? "text-pos" : "text-neg"}`}>
+        <p className={`rise tnum mt-1 flex items-center gap-0.5 text-xs ${good ? "text-pos" : "text-neg"}`} style={at(620)}>
           {change.pct < 0 ? (
             <ArrowDownRight aria-hidden className="h-3 w-3" />
           ) : (
@@ -103,8 +108,8 @@ export function DashboardView({
 }) {
   const { tiles, bars } = view;
   const spendChangePct = pctChange(tiles.spent, prevView.tiles.spent);
-  const name = (userEmail.split("@")[0] ?? "").split(/[+._-]/)[0];
-  const mood = tiles.savingsRate !== null && tiles.savingsRate < 0 ? "curious" : "happy";
+  const handle = (userEmail.split("@")[0] ?? "").split(/[+._-]/)[0] ?? "";
+  const name = handle ? `${handle[0]!.toUpperCase()}${handle.slice(1)}` : "";
   const negative = tiles.netSavings < 0;
 
   const biggestMover = bars
@@ -115,72 +120,77 @@ export function DashboardView({
     })
     .sort((a, b) => b.delta - a.delta)[0];
 
-  // entrance cascade: each block rises in a beat after the one above it
-  let order = 0;
-  const step = () => ({ ["--i" as string]: order++ });
+  // Entrance: the greeting rises word by word as Crystal flutters down beside
+  // it, then each block below rises a beat after the one above (--i); blocks
+  // below the fold wait and play as they scroll into view (reveal.tsx).
+  let order = 1;
+  const next = () => order++;
 
   return (
     <div className="space-y-5 pt-1">
-      <div className="reveal flex items-end justify-between gap-3" style={step()}>
+      <div className="flex items-end justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[26px] font-semibold leading-[1.1] tracking-tight">
-            <Greeting />
-            {name ? `, ${name[0]!.toUpperCase()}${name.slice(1)}` : ""}.
+            <Greeting name={name} />
           </p>
-          <p className="mt-1.5 text-[13px] text-muted">
+          <p className="rise mt-1.5 text-[13px] text-muted" style={at(340)}>
             {tiles.savingsRate !== null && tiles.savingsRate >= 0
               ? "You're doing well this month."
               : "Let's see where things stand."}
           </p>
         </div>
-        <Link href="/more" aria-label="More" className="-mb-1 shrink-0">
-          <Mascot mood={mood} size={68} />
-        </Link>
+        <CrystalPerch name={name} savingsRate={tiles.savingsRate} />
       </div>
 
-      <div className="reveal" style={step()}>
+      <Reveal i={next()}>
         <MonthNav base="/" month={month} />
-      </div>
+      </Reveal>
 
       {tiles.budgeted > tiles.income ? (
-        <div className="reveal" style={step()}>
+        <Reveal i={next()}>
           <BudgetOverAlert month={month} budgeted={tiles.budgeted} income={tiles.income} currency={currency} />
-        </div>
+        </Reveal>
       ) : null}
 
-      {/* the hero: one number, stated plainly */}
-      <section className="reveal card relative rounded-2xl border border-hairline p-5" style={step()}>
-        <span className="pixel-corners absolute right-5 top-5 bg-ink px-2 py-0.5 text-[11px] font-medium text-on-primary">
-          This month
-        </span>
-        <p className="text-[13px] text-muted">Money Left</p>
-        <p
-          className={`tnum mt-2 text-[40px] font-semibold leading-none tracking-[-0.03em] ${
-            negative ? "text-neg" : "text-text"
-          }`}
-        >
-          <CountUp value={tiles.netSavings} currency={currency} />
-        </p>
-        <p className="tnum mt-3 text-[13px] leading-snug text-muted">
-          <span className="text-text">{formatMoney(tiles.leftToSpend, currency)}</span> left of{" "}
-          {formatMoney(tiles.budgeted, currency)} budgeted
-        </p>
-        <p
-          className={`tnum mt-1 text-[13px] leading-snug ${
-            tiles.savingsRate !== null && tiles.savingsRate < 0 ? "text-neg" : "text-muted"
-          }`}
-        >
-          {tiles.savingsRate === null
-            ? "no income this month"
-            : `${formatSavingsRate(tiles.savingsRate)} saved this month`}
-          {tiles.savingsRate !== null && tiles.savingsRate < 0 ? " — spent more than you earned" : null}
-        </p>
-        <p className="mt-4 border-t border-hairline pt-3 text-[11px] leading-relaxed text-muted">
-          Based on income minus spending — doesn&apos;t measure savings-account balances.
-        </p>
-      </section>
+      {/* the hero: one number, stated plainly; its reels roll in, then the detail lines follow */}
+      <Reveal i={next()}>
+        <section className="card relative rounded-2xl border border-hairline p-5">
+          <span
+            className="pop pixel-corners absolute right-5 top-5 bg-ink px-2 py-0.5 text-[11px] font-medium text-on-primary"
+            style={at(420)}
+          >
+            This month
+          </span>
+          <p className="text-[13px] text-muted">Money Left</p>
+          <p
+            className={`tnum mt-2 text-[40px] font-semibold leading-none tracking-[-0.03em] ${
+              negative ? "text-neg" : "text-text"
+            }`}
+          >
+            <RollingAmount value={tiles.netSavings} currency={currency} />
+          </p>
+          <p className="rise tnum mt-3 text-[13px] leading-snug text-muted" style={at(560)}>
+            <span className="text-text">{formatMoney(tiles.leftToSpend, currency)}</span> left of{" "}
+            {formatMoney(tiles.budgeted, currency)} budgeted
+          </p>
+          <p
+            className={`rise tnum mt-1 text-[13px] leading-snug ${
+              tiles.savingsRate !== null && tiles.savingsRate < 0 ? "text-neg" : "text-muted"
+            }`}
+            style={at(640)}
+          >
+            {tiles.savingsRate === null
+              ? "no income this month"
+              : `${formatSavingsRate(tiles.savingsRate)} saved this month`}
+            {tiles.savingsRate !== null && tiles.savingsRate < 0 ? " — spent more than you earned" : null}
+          </p>
+          <p className="rise mt-4 border-t border-hairline pt-3 text-[11px] leading-relaxed text-muted" style={at(760)}>
+            Based on income minus spending — doesn&apos;t measure savings-account balances.
+          </p>
+        </section>
+      </Reveal>
 
-      <section className="reveal space-y-2" style={step()}>
+      <Reveal i={next()} className="space-y-2">
         <p className="text-[13px] text-muted">so far this month</p>
         <div className="grid grid-cols-2 gap-3">
         <IncomeTile
@@ -197,9 +207,9 @@ export function DashboardView({
           change={spendChangePct !== null ? { pct: spendChangePct, goodWhenDown: true } : null}
         />
         </div>
-      </section>
+      </Reveal>
 
-      <section className="reveal space-y-3" style={step()}>
+      <Reveal i={next()} className="space-y-3">
         <SectionHead title="Where it went" href={`/budgets?m=${month}`} action="See spending" />
         {bars.length === 0 ? (
           <p className="text-sm text-muted">
@@ -211,10 +221,10 @@ export function DashboardView({
           </p>
         ) : (
           <ul className="card divide-y divide-hairline overflow-hidden rounded-2xl border border-hairline">
-            {bars.map((b) => {
+            {bars.map((b, row) => {
               const over = b.state === "over";
               return (
-                <li key={b.categoryId}>
+                <li key={b.categoryId} className="rise" style={at(row * 60 + 240)}>
                   <Link
                     href={`/transactions?m=${month}&category=${b.categoryId}`}
                     className="press flex items-center gap-3 px-4 py-3.5 hover:bg-surface-2"
@@ -228,7 +238,7 @@ export function DashboardView({
                           {b.budget > 0 ? ` / ${formatMoney(b.budget, currency)}` : ""}
                         </span>
                       </div>
-                      <ProgressBar pct={b.pctUsed} tone={b.state} />
+                      <ProgressBar pct={b.pctUsed} tone={b.state} start={row * 3} />
                       {over ? (
                         <p className="tnum text-xs text-neg">Over by {formatMoney(b.actual - b.budget, currency)}</p>
                       ) : b.budget > 0 ? (
@@ -244,18 +254,19 @@ export function DashboardView({
             })}
           </ul>
         )}
-      </section>
+      </Reveal>
 
       {biggestMover && biggestMover.delta > 0 ? (
-        <section className="reveal" style={step()}>
+        <Reveal i={next()}>
           <Link
             href={`/transactions?m=${month}&category=${biggestMover.categoryId}`}
             aria-label="See spending"
             aria-describedby="home-mover"
             className="lift card flex items-center gap-4 rounded-2xl border border-hairline p-4"
           >
+            {/* the idea lamp switches on */}
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-signal-wash text-signal">
-              <Lightbulb aria-hidden weight="fill" className="h-5 w-5" />
+              <Lightbulb aria-hidden weight="fill" className="lamp h-5 w-5" style={at(380)} />
             </span>
             <div id="home-mover" className="min-w-0 flex-1">
               <p className="text-[13px] text-muted">What can I change?</p>
@@ -267,32 +278,36 @@ export function DashboardView({
             </div>
             <CaretRight aria-hidden className="h-4 w-4 shrink-0 text-silver" />
           </Link>
-        </section>
+        </Reveal>
       ) : null}
 
       {savings.activeCount > 0 ? (
-        <section className="reveal card space-y-3 rounded-2xl border border-hairline p-5" style={step()}>
-          <SectionHead title="Savings" href="/goals" action="View goals" />
-          <p className="tnum text-xl font-semibold tracking-tight">{formatMoney(savings.totalSaved, currency)} kept</p>
-          <ProgressBar
-            pct={savings.totalTarget > 0 ? (savings.totalSaved / savings.totalTarget) * 100 : 0}
-            tone="under"
-          />
-          <p className="tnum text-xs text-muted">
-            {formatMoney(savings.totalSaved, currency)} of {formatMoney(savings.totalTarget, currency)} toward your{" "}
-            {savings.activeCount === 1 ? "goal" : "goals"}
-          </p>
-        </section>
+        <Reveal i={next()}>
+          <section className="card space-y-3 rounded-2xl border border-hairline p-5">
+            <SectionHead title="Savings" href="/goals" action="View goals" />
+            <p className="tnum text-xl font-semibold tracking-tight">
+              <RollingAmount value={savings.totalSaved} currency={currency} /> kept
+            </p>
+            <ProgressBar
+              pct={savings.totalTarget > 0 ? (savings.totalSaved / savings.totalTarget) * 100 : 0}
+              tone="under"
+            />
+            <p className="tnum text-xs text-muted">
+              {formatMoney(savings.totalSaved, currency)} of {formatMoney(savings.totalTarget, currency)} toward your{" "}
+              {savings.activeCount === 1 ? "goal" : "goals"}
+            </p>
+          </section>
+        </Reveal>
       ) : null}
 
-      <section className="reveal space-y-3" style={step()}>
+      <Reveal i={next()} className="space-y-3">
         <SectionHead title="Recent activity" href="/transactions" action="See all" />
         {recent.length === 0 ? (
           <p className="text-sm text-muted">Nothing recorded yet this month.</p>
         ) : (
           <ul className="card divide-y divide-hairline overflow-hidden rounded-2xl border border-hairline">
-            {recent.map((r) => (
-              <li key={r.id} className="flex items-center gap-3 px-4 py-3">
+            {recent.map((r, k) => (
+              <li key={r.id} className="rise flex items-center gap-3 px-4 py-3" style={at(k * 60 + 200)}>
                 <CategoryIcon name={r.isTransfer ? "Transfer" : (r.category?.name ?? "")} size={36} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{r.description || r.category?.name || "Transaction"}</p>
@@ -308,14 +323,14 @@ export function DashboardView({
             ))}
           </ul>
         )}
-      </section>
+      </Reveal>
 
-      <div className="reveal" style={step()}>
+      <Reveal i={next()}>
         <SpendingTrendCard trend={trend} changePct={spendChangePct} currency={currency} />
-      </div>
-      <div className="reveal" style={step()}>
+      </Reveal>
+      <Reveal i={next()}>
         <SpendingBreakdownCard bars={view.bars} totalSpent={tiles.spent} currency={currency} />
-      </div>
+      </Reveal>
     </div>
   );
 }

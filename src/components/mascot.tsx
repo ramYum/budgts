@@ -21,17 +21,21 @@ function Rects({ list }: { list: RobinRun[] }) {
   );
 }
 
-/** Bare robin art. `size` is the rendered height in px. */
+/** Bare robin art. `size` is the rendered height in px. `flaps` adds the
+ * raised-wing frame (hidden at rest) for a parent's choreography to flap:
+ * Crystal on Home (globals.css `crystal-*`). */
 export function Robin({
   mood = "normal",
   size = 56,
   animated = true,
+  flaps = false,
   className,
   title,
 }: {
   mood?: RobinMood;
   size?: number;
   animated?: boolean;
+  flaps?: boolean;
   className?: string;
   title?: string;
 }) {
@@ -55,6 +59,11 @@ export function Robin({
       {chirps ? (
         <g className="robin-beak-open">
           <Rects list={art.beakOpen} />
+        </g>
+      ) : null}
+      {animated && flaps ? (
+        <g className="robin-wing-up">
+          <Rects list={art.wingUp} />
         </g>
       ) : null}
       <g className={animated && mood !== "sleepy" ? "robin-eye" : undefined}>

@@ -13,7 +13,7 @@ import {
   Question,
   Target,
 } from "@phosphor-icons/react/dist/ssr";
-import { CountUp } from "@/components/count-up";
+import { RollingAmount } from "@/components/rolling-amount";
 import { Robin } from "@/components/mascot";
 import { NavIcon, type NavGlyph } from "@/components/nav-icons";
 import { CategoryIcon, ProgressBar } from "@/components/ui";
@@ -290,7 +290,7 @@ function MoneyLeftScene({ currency }: { currency: string }) {
           <span className={`${chip} bg-ink`}>This month</span>
         </div>
         <p className="tnum mt-2 text-[32px] font-semibold leading-none tracking-tight text-text">
-          <CountUp value={IN - OUT} currency={currency} />
+          <RollingAmount value={IN - OUT} currency={currency} />
         </p>
         <div className="mt-3 grid grid-cols-2 gap-3 text-[11px]">
           <span>

@@ -19,7 +19,12 @@ const SECONDARY: Item[] = [
   { href: "/insights", label: "Insights", glyph: "insights" },
 ];
 
-const TERTIARY: Item[] = [{ href: "/settings", label: "Settings", glyph: "settings" }];
+// "More" holds what the rows above don't: the welcome guide, Help, About and
+// connected banks (the same page as the phone's More tab).
+const TERTIARY: Item[] = [
+  { href: "/settings", label: "Settings", glyph: "settings" },
+  { href: "/more", label: "More", glyph: "more" },
+];
 
 function Row({ item, active }: { item: Item; active: boolean }) {
   return (

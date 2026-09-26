@@ -1,6 +1,6 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { Fragment, useSyncExternalStore, type CSSProperties } from "react";
 import { dateKeyAt, greetingForHour, localDateKey, relativeDayLabel } from "@/lib/local-date";
 
 // The wall clock isn't a subscribable store; a page reload/refresh re-reads it.
@@ -12,13 +12,26 @@ const subscribe = () => () => {};
  * browser re-renders with the local value — useSyncExternalStore's
  * server-snapshot path, so there's no hydration mismatch.
  */
-export function Greeting() {
+export function Greeting({ name }: { name?: string }) {
   const hour = useSyncExternalStore(
     subscribe,
     () => new Date().getHours(),
     () => new Date().getUTCHours(),
   );
-  return <>{greetingForHour(hour)}</>;
+  // "Good afternoon, Alex." — each word rises in turn (globals.css `.rise`).
+  const words = `${greetingForHour(hour)}${name ? `, ${name}` : ""}.`.split(" ");
+  return (
+    <>
+      {words.map((word, i) => (
+        <Fragment key={i}>
+          {i > 0 ? " " : null}
+          <span className="rise inline-block" style={{ "--at": `${i * 70 + 60}ms` } as CSSProperties}>
+            {word}
+          </span>
+        </Fragment>
+      ))}
+    </>
+  );
 }
 
 function formatShort(iso: string) {

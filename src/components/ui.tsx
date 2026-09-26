@@ -56,34 +56,37 @@ export function PrimaryLinkButton({
 const CELLS = 16;
 
 /** Progress as a row of square cells (the Budgts data mark): filled cells in
- * ink, or in the accent once a budget is near/over. Cells step in one by one.
- * `pct` only picks how many cells light up; the number itself is shown as
- * text beside it, never read off the bar. */
+ * ink, or in the accent once a budget is near/over. Cells step in one by one,
+ * `start` steps after the page's first (so stacked rows cascade); an over
+ * row flashes twice once it's full. `pct` only picks how many cells light
+ * up; the number itself is shown as text beside it, never read off the bar. */
 export function ProgressBar({
   pct,
   tone = "under",
   className,
   cells = CELLS,
+  start = 0,
 }: {
   pct: number;
   tone?: "under" | "near" | "over";
   className?: string;
   cells?: number;
+  start?: number;
 }) {
   const clamped = Math.min(100, Math.max(0, pct));
   const lit = tone === "over" ? cells : clamped > 0 ? Math.max(1, Math.round((clamped / 100) * cells)) : 0;
   const fill = tone === "under" ? "bg-fill-under" : "bg-fill-over";
   return (
     <div
-      className={`grid gap-[3px] ${className ?? ""}`}
-      style={{ gridTemplateColumns: `repeat(${cells}, minmax(0, 1fr))` }}
+      className={`grid gap-[3px] ${tone === "over" ? "cells-over" : ""} ${className ?? ""}`}
+      style={{ gridTemplateColumns: `repeat(${cells}, minmax(0, 1fr))`, ["--alarm" as string]: start + cells }}
       aria-hidden
     >
       {Array.from({ length: cells }, (_, i) => (
         <span
           key={i}
           className={`cell aspect-square rounded-[1px] ${i < lit ? fill : "bg-track"}`}
-          style={{ ["--d" as string]: i }}
+          style={{ ["--d" as string]: start + i }}
         />
       ))}
     </div>

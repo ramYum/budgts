@@ -54,6 +54,11 @@ test("welcome guide: a new user meets Crystal, walks every card, lands on Home, 
     await expect(page).toHaveURL(/\/$/);
     await expect(page.getByText("so far this month")).toBeVisible();
 
+    // Crystal lives on Home: tap her and she answers (a new user has no
+    // income yet, so that's her first line).
+    await page.getByRole("button", { name: "Say hi to Crystal" }).click();
+    await expect(page.locator('[aria-live="polite"]', { hasText: "No income yet" })).toHaveCount(1);
+
     // Replay from Help.
     await page.getByRole("link", { name: "More" }).click();
     await page.getByRole("link", { name: "Help" }).click();

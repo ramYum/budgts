@@ -2,6 +2,7 @@ import { ArrowDownRight, ArrowUpRight } from "@phosphor-icons/react/dist/ssr";
 import { formatMoney } from "@/lib/budget/money";
 import type { DashboardBar } from "@/lib/budget/dashboard";
 import type { MonthSpend } from "@/lib/budget/spend-trend";
+import { RollingAmount } from "./rolling-amount";
 
 // Pixel charts: plain server-rendered markup, no chart library and no client
 // JS. Every mark is a square cell; cells step in on first paint (globals.css
@@ -48,7 +49,7 @@ export function SpendingTrendCard({
         <div>
           <p className="text-[13px] text-muted">Total spending</p>
           <p className="tnum mt-1 text-[28px] font-semibold leading-none tracking-tight">
-            {formatMoney(total, currency)}
+            <RollingAmount value={total} currency={currency} />
           </p>
           {changePct !== null ? (
             <p className={`tnum mt-2 flex items-center gap-1 text-[13px] ${up ? "text-neg" : "text-pos"}`}>
@@ -92,9 +93,13 @@ export function SpendingTrendCard({
                 );
               })}
               {d.current && d.lit > 0 ? (
+                // pops on once its column has built (the .cell cadence: 22ms a step after 220ms)
                 <span
-                  className="pixel-corners tnum absolute right-0 whitespace-nowrap bg-ink px-1.5 py-1 text-[11px] font-medium text-on-primary"
-                  style={{ bottom: d.lit * (CELL + GAP) + 4 }}
+                  className="pop pixel-corners tnum absolute right-0 whitespace-nowrap bg-ink px-1.5 py-1 text-[11px] font-medium text-on-primary"
+                  style={{
+                    bottom: d.lit * (CELL + GAP) + 4,
+                    ["--at" as string]: `${(col * 3 + d.lit) * 22 + 380}ms`,
+                  }}
                 >
                   {formatMoney(d.spend, currency)}
                 </span>
@@ -222,13 +227,19 @@ export function SpendingBreakdownCard({
             ))}
           </svg>
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-            <p className="tnum text-[15px] font-semibold leading-tight">{formatMoney(totalSpent, currency)}</p>
+            <p className="tnum text-[15px] font-semibold leading-tight">
+              <RollingAmount value={totalSpent} currency={currency} />
+            </p>
             <p className="text-[11px] text-muted">Total</p>
           </div>
         </div>
         <ul className="min-w-0 flex-1 space-y-2.5 text-[13px]">
-          {slices.map((s) => (
-            <li key={s.name} className="flex items-center gap-2.5">
+          {slices.map((s, k) => (
+            <li
+              key={s.name}
+              className="rise flex items-center gap-2.5"
+              style={{ ["--at" as string]: `${k * 70 + 300}ms` }}
+            >
               <span className="h-2.5 w-2.5 shrink-0 rounded-[1px]" style={{ background: s.color }} aria-hidden />
               <span className="min-w-0 flex-1 truncate">{s.name}</span>
               <span className="tnum shrink-0 text-muted">{Math.round((s.amount / totalSpent) * 100)}%</span>

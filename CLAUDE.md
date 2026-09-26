@@ -253,6 +253,14 @@ Spec: `docs/specs/2026-09-25-welcome-guide-design.md` (flow rules from
 `docs/specs/2026-09-15-first-run-tour-design.md`). The live-coachmark design
 remains specced but **not implemented**.
 
+**Shipped:** **Home motion (2026-09-25)** — Crystal lives on Home
+(`crystal-perch.tsx`: arrival, a 16s life loop, a tap reaction, speech
+bubbles; the robin gained a raised-wing frame), rolling money figures
+(`rolling-amount.tsx`, replaced `CountUp`), scroll-aware reveals
+(`reveal.tsx`), an over-budget flash and cascades. Presentation only. The
+welcome-guide gate is `firstRunRedirect` (`src/lib/tour/gate.ts`). Spec:
+`docs/specs/2026-09-25-home-motion-design.md`.
+
 **Shipped:** **"How Budgts Works" guide** — a permanent static Help page
 (`/help/how-it-works`) teaching the end-to-end workflow (connect →
 transactions arrive → auto-categorize → review exceptions → budget → Money

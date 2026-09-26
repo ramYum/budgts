@@ -488,6 +488,420 @@ body {
   }
 }
 
+/* a tag or badge snaps in (run with steps(3, end), sprite-style) */
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Rolling figures (rolling-amount.tsx): each digit's reel spins up from 0
+ * and lands on its resting digit (no `to`: it ends on the base style). */
+@keyframes roll-in {
+  from {
+    transform: translateY(0);
+  }
+}
+
+/* an over-budget row, once filled, flashes twice (steps(1, end)) */
+@keyframes cell-alarm {
+  0% {
+    opacity: 1;
+  }
+  20% {
+    opacity: 0.2;
+  }
+  40% {
+    opacity: 1;
+  }
+  60% {
+    opacity: 0.2;
+  }
+  80%,
+  100% {
+    opacity: 1;
+  }
+}
+
+/* the idea lamp switches on: a dim bulb catches, stutters, holds */
+@keyframes lamp-on {
+  0% {
+    opacity: 0.15;
+  }
+  30% {
+    opacity: 1;
+  }
+  42% {
+    opacity: 0.35;
+  }
+  56% {
+    opacity: 1;
+  }
+  66% {
+    opacity: 0.5;
+  }
+  76%,
+  100% {
+    opacity: 1;
+  }
+}
+
+/* ─── Crystal on Home (src/components/crystal-perch.tsx) ────────────────────
+ * Arrival (once per visit): she flutters down, lands with a squash and a
+ * dust puff, says hi (0.7s), then a note on the month (3.3s).
+ * Life (a 16s loop from 1.2s, restarted by every tap; her beak chirps every
+ * 4s on its own loop, at 0.4s, 4.4s, 8.4s, 12.4s of each life cycle). Its
+ * beats wait for the bubbles (done by 7.7s) so nothing collides:
+ *   6.6s flutter-hop   8.4s chirp (+$ rises when the month is saving)
+ *   10.0s turns to look at your greeting, 11.6s back   12.4s chirp (+$)
+ *   13.4s two pecks
+ * A tap: she jumps and flaps, chirps back, hearts and sparkles burst, and
+ * she says the next line. The robin-* layer rules below keep those layers'
+ * own loops in the same animation list, so they carry on after the one-shot. */
+@keyframes crystal-arrive {
+  0% {
+    opacity: 0;
+    transform: translateY(-64px);
+    animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45);
+  }
+  8% {
+    opacity: 1;
+  }
+  45% {
+    transform: translateY(0);
+    animation-timing-function: cubic-bezier(0, 0.55, 0.45, 1);
+  }
+  62% {
+    transform: translateY(-9px);
+    animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45);
+  }
+  78%,
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes crystal-land {
+  0%,
+  44% {
+    transform: none;
+  }
+  49% {
+    transform: scale(1.12, 0.84);
+  }
+  56% {
+    transform: scale(0.95, 1.06);
+  }
+  62% {
+    transform: none;
+  }
+  79% {
+    transform: scale(1.06, 0.92);
+  }
+  88%,
+  100% {
+    transform: none;
+  }
+}
+@keyframes crystal-arrive-flap {
+  0% {
+    opacity: 1;
+  }
+  12% {
+    opacity: 0;
+  }
+  24% {
+    opacity: 1;
+  }
+  36% {
+    opacity: 0;
+  }
+  48% {
+    opacity: 1;
+  }
+  60%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes crystal-dust {
+  0% {
+    opacity: 0;
+  }
+  1% {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx), -7px);
+  }
+}
+@keyframes crystal-life {
+  0%,
+  41.25% {
+    transform: none;
+  }
+  41.875% {
+    transform: scale(1.1, 0.88);
+    animation-timing-function: cubic-bezier(0, 0.55, 0.45, 1);
+  }
+  43.4375% {
+    transform: translateY(-13px) scale(0.96, 1.05);
+  }
+  45% {
+    transform: translateY(-11px);
+    animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45);
+  }
+  46.875% {
+    transform: none;
+  }
+  47.625% {
+    transform: scale(1.1, 0.9);
+  }
+  48.4375%,
+  62.25% {
+    transform: none;
+    animation-timing-function: steps(1, end);
+  }
+  62.5%,
+  72.25% {
+    transform: scaleX(-1);
+    animation-timing-function: steps(1, end);
+  }
+  72.5%,
+  83.5% {
+    transform: none;
+    animation-timing-function: steps(1, end);
+  }
+  83.75% {
+    transform: translate(3px, 3px);
+    animation-timing-function: steps(1, end);
+  }
+  84.6875% {
+    transform: none;
+    animation-timing-function: steps(1, end);
+  }
+  85.625% {
+    transform: translate(3px, 3px);
+    animation-timing-function: steps(1, end);
+  }
+  86.5625%,
+  100% {
+    transform: none;
+  }
+}
+/* the wing beats through the hop's crouch and hover, down for the fall */
+@keyframes crystal-flap {
+  0% {
+    opacity: 0;
+  }
+  41.875% {
+    opacity: 1;
+  }
+  42.5% {
+    opacity: 0;
+  }
+  43.125% {
+    opacity: 1;
+  }
+  43.75% {
+    opacity: 0;
+  }
+  44.375% {
+    opacity: 1;
+  }
+  45% {
+    opacity: 0;
+  }
+  45.625% {
+    opacity: 1;
+  }
+  46.25%,
+  100% {
+    opacity: 0;
+  }
+}
+/* a saving rises from the beak in 3px (one-cell) steps */
+@keyframes crystal-token {
+  0%,
+  2.4% {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  2.5% {
+    opacity: 1;
+    transform: translateY(0);
+    animation-timing-function: steps(6, end);
+  }
+  9% {
+    opacity: 1;
+    transform: translateY(-18px);
+    animation-timing-function: steps(2, end);
+  }
+  10.5%,
+  100% {
+    opacity: 0;
+    transform: translateY(-21px);
+  }
+}
+/* a speech bubble pops from its tail, holds, pops away */
+@keyframes crystal-say {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+    animation-timing-function: steps(3, end);
+  }
+  4% {
+    opacity: 1;
+    transform: none;
+  }
+  94% {
+    opacity: 1;
+    transform: none;
+    animation-timing-function: steps(2, end);
+  }
+  97%,
+  100% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+@keyframes crystal-react {
+  0% {
+    transform: none;
+    animation-timing-function: ease-out;
+  }
+  8% {
+    transform: scale(1.12, 0.86);
+    animation-timing-function: cubic-bezier(0, 0.55, 0.45, 1);
+  }
+  30% {
+    transform: translateY(-18px) scale(0.95, 1.06);
+  }
+  52% {
+    transform: translateY(-16px);
+    animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45);
+  }
+  74% {
+    transform: none;
+  }
+  82% {
+    transform: scale(1.1, 0.9);
+  }
+  92%,
+  100% {
+    transform: none;
+  }
+}
+@keyframes crystal-react-flap {
+  0% {
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  17% {
+    opacity: 0;
+  }
+  26% {
+    opacity: 1;
+  }
+  35% {
+    opacity: 0;
+  }
+  44% {
+    opacity: 1;
+  }
+  53% {
+    opacity: 0;
+  }
+  62% {
+    opacity: 1;
+  }
+  70%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes crystal-react-beak-open {
+  0% {
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  30% {
+    opacity: 0;
+  }
+  40% {
+    opacity: 1;
+  }
+  58%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes crystal-react-beak {
+  0% {
+    opacity: 1;
+  }
+  12% {
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  40% {
+    opacity: 0;
+  }
+  58%,
+  100% {
+    opacity: 1;
+  }
+}
+@keyframes crystal-react-chirp {
+  0% {
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  34% {
+    opacity: 0;
+  }
+  40% {
+    opacity: 1;
+  }
+  70%,
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes crystal-burst {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.4);
+  }
+  12% {
+    opacity: 1;
+    transform: translate(calc(var(--x) * 0.35), calc(var(--y) * 0.35)) scale(1);
+    animation-timing-function: cubic-bezier(0.1, 0.8, 0.3, 1);
+  }
+  72% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--x), var(--y));
+  }
+}
+
 /* Resting states of the animated brand pieces, i.e. what shows with motion
  * off. Declared before the motion block so it can override them. */
 .robin-beak-open,
@@ -508,6 +922,77 @@ body {
   display: block;
 }
 
+/* Rolling figures: the ghost digit keeps the column's width and baseline in
+ * the text; the reel sits over it, resting on its digit (5% = one of 20
+ * lines; lap reels rest in the second 0–9). The window is clipped to the
+ * digits' own ink, not the line box: Geist digits are a 0.75em band centred
+ * in any line (0.73em above a baseline that sits at 50% + 0.355em), so a
+ * rolling reel shows no stray digit fragments above or below the figure. */
+.roll-col {
+  position: relative;
+  display: inline-block;
+  clip-path: inset(calc(50% - 0.44em) -0.2em);
+}
+.roll-ghost {
+  visibility: hidden;
+}
+.roll-reel {
+  position: absolute;
+  inset: 0 0 auto 0;
+  white-space: pre;
+  text-align: center;
+  transform: translateY(calc((var(--v) + 10 * var(--lap)) * -5%));
+}
+
+/* Crystal on Home: the flap frame, bursts, dust and savings only exist
+ * mid-motion; with motion off she sits still with her note on the month. */
+.robin-wing-up,
+.crystal-token,
+.crystal-dust,
+.crystal-burst > * {
+  opacity: 0;
+}
+.crystal-say[data-say="hello"] {
+  display: none;
+}
+.crystal-tail {
+  position: absolute;
+  right: 9px;
+  bottom: -3px;
+  width: 4px;
+  height: 4px;
+  background: var(--ink);
+  box-shadow: 2px 2px 0 0 var(--ink);
+}
+.crystal-dust {
+  position: absolute;
+  bottom: 0;
+  width: 3px;
+  height: 3px;
+  background: var(--silver);
+}
+/* a 5×4 pixel heart and a four-point sparkle, drawn from one 2px cell */
+.crystal-heart,
+.crystal-spark {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+}
+.crystal-heart {
+  color: var(--signal);
+  box-shadow:
+    2px 0 currentColor, 6px 0 currentColor,
+    0 2px currentColor, 2px 2px currentColor, 4px 2px currentColor, 6px 2px currentColor, 8px 2px currentColor,
+    2px 4px currentColor, 4px 4px currentColor, 6px 4px currentColor,
+    4px 6px currentColor;
+}
+.crystal-spark {
+  background: currentColor;
+  box-shadow:
+    2px 0 currentColor, -2px 0 currentColor,
+    0 2px currentColor, 0 -2px currentColor;
+}
+
 /* Entrance animations fill `backwards`, never `both`: they hold their start
  * state through the delay, then let go. `both` would pin the end keyframe
  * forever, and an ended transform animation leaves an identity matrix, not
@@ -524,6 +1009,48 @@ body {
   .reveal {
     animation: rise-in 560ms var(--ease-out) backwards;
     animation-delay: calc(var(--i, 0) * 70ms + 40ms);
+  }
+  /* A block that starts below the fold (reveal.tsx) waits unseen, its charts
+   * and reels with it, then plays as it scrolls into view. */
+  .reveal[data-reveal="armed"] {
+    opacity: 0;
+    animation: none;
+  }
+  .reveal.reveal[data-reveal="armed"] * {
+    animation: none; /* outranks every descendant entrance below */
+  }
+  .reveal[data-reveal="shown"] {
+    animation: rise-in 640ms var(--ease-out) backwards;
+  }
+
+  /* one-off entrances placed by an inline --at delay */
+  .rise {
+    animation: rise-in 520ms var(--ease-out) backwards;
+    animation-delay: var(--at, 0ms);
+  }
+  .pop {
+    animation: pop-in 300ms steps(3, end) backwards;
+    animation-delay: var(--at, 0ms);
+  }
+
+  /* reels spin in left to right, then glide to each new value */
+  .roll-reel {
+    animation: roll-in 1.4s var(--ease-out) backwards;
+    animation-delay: calc(var(--c, 0) * 45ms + 120ms);
+    transition: transform 900ms var(--ease-out);
+  }
+
+  /* an over-budget row fills, then flashes twice once it's full */
+  .cells-over .cell {
+    animation:
+      cell-in 240ms steps(3, end) backwards,
+      cell-alarm 720ms steps(1, end);
+    animation-delay: calc(var(--d, 0) * 22ms + 220ms), calc(var(--alarm, 16) * 22ms + 520ms);
+  }
+
+  .lamp {
+    animation: lamp-on 760ms steps(1, end) backwards;
+    animation-delay: var(--at, 0ms);
   }
 
   .cell {
@@ -598,6 +1125,80 @@ body {
 
   .pip {
     animation: pip-in 220ms steps(3, end) backwards;
+  }
+
+  /* Crystal on Home (timeline above the crystal-* keyframes) */
+  .crystal-arrive {
+    animation: crystal-arrive 900ms 120ms backwards;
+  }
+  .crystal-land,
+  .crystal-life,
+  .crystal-react {
+    transform-origin: 50% 100%;
+  }
+  .crystal-land {
+    animation: crystal-land 900ms ease-out 120ms backwards;
+  }
+  .crystal-life {
+    animation: crystal-life 16s 1.2s infinite backwards;
+  }
+  .crystal-react {
+    animation: crystal-react 900ms;
+  }
+  .crystal-life .robin-wing-up {
+    animation:
+      crystal-arrive-flap 640ms steps(1, end) 120ms,
+      crystal-flap 16s steps(1, end) 1.2s infinite;
+  }
+  .crystal-react .robin-wing-up {
+    animation:
+      crystal-flap 16s steps(1, end) 1.2s infinite,
+      crystal-react-flap 900ms steps(1, end);
+  }
+  /* the chirp loop keeps its phase (tokens rise on it); the one-shot, last
+   * in the list, wins while it plays */
+  .crystal-react .robin-beak {
+    animation:
+      robin-beak var(--robin-chirp, 4s) steps(1, end) infinite,
+      crystal-react-beak 600ms steps(1, end);
+  }
+  .crystal-react .robin-beak-open {
+    animation:
+      robin-beak-open var(--robin-chirp, 4s) steps(1, end) infinite,
+      crystal-react-beak-open 600ms steps(1, end);
+  }
+  .crystal-react .robin-chirp {
+    animation:
+      robin-chirp var(--robin-chirp, 4s) steps(1, end) infinite,
+      crystal-react-chirp 600ms steps(1, end);
+  }
+  .crystal-dust {
+    animation: crystal-dust 560ms ease-out backwards;
+    animation-delay: var(--at, 520ms);
+  }
+  .crystal-token {
+    animation: crystal-token 16s infinite backwards;
+    animation-delay: var(--at);
+  }
+  .crystal-burst > * {
+    animation: crystal-burst 900ms backwards;
+    animation-delay: var(--t);
+  }
+  .crystal-say {
+    opacity: 0; /* after its moment, a bubble has said its piece */
+    transform-origin: calc(100% - 10px) 100%;
+    animation-name: crystal-say;
+    animation-duration: var(--say-for);
+    animation-delay: var(--say-at);
+    animation-fill-mode: backwards;
+  }
+  .crystal-say[data-say="hello"] {
+    display: block;
+  }
+  @media (hover: hover) {
+    .crystal-hit:hover .crystal-land {
+      animation: robin-hop 360ms steps(4, end);
+    }
   }
 
   .press {

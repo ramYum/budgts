@@ -60,7 +60,9 @@ Light theme only. Category identity is carried by icon + name, never by hue.
   (`src/app/(auth)/brand-stage.tsx`): the robin, the wordmark, the
   `TRACK : PLAN : GROW` tag, a short red rule and a typed savings line.
 - **Name:** the robin is **Crystal** (she). She introduces herself in the
-  welcome guide and narrates it; her name tag is Dogica Bold, "CRYSTAL".
+  welcome guide and narrates it; her name tag is Dogica Bold, "CRYSTAL". On
+  Home she lives beside the greeting and reacts when tapped; her speech
+  bubbles are ink pixel chips in Dogica Bold with a stepped tail.
 - **Moods:** `normal`/`happy` (chirping: the beak opens twice while the marks
   sound; the marks rest hidden while animated), `curious` ("?", used for
   errors and a negative month), `sleepy` (eyes shut, "z", used for empty lists
@@ -106,12 +108,17 @@ enforces this.
 | `reveal` cascade (`--i`) | Reading order of the sections |
 | `cell` (stepped, sprite-like) | Magnitude being built, cell by cell |
 | Robin blink / chirp / hop | The brand is alive: a single then a double blink every 4.8s, a two-note chirp every 4s (`--robin-chirp`), a hop on hover. Runs wherever the robin shows, the header logo included |
+| Crystal on Home (`crystal-*`, `crystal-perch.tsx`) | Your budget buddy lives beside the greeting: she flutters down (the art's raised-wing frame, `wingUp`), lands with a squash and a dust puff, says hi, then one note on the month ("55% saved!"). Her 16s life loop waits for the bubbles, then: a flutter-hop, a "+$" rising from a chirp while the month is saving, a look back at your greeting, two pecks. Tap her: she jumps, flaps, chirps back, hearts and sparkles fan out, and she lands and says the next line. Motion off: she sits with her note |
+| Rolling figures (`roll-*`, `rolling-amount.tsx`) | Money settles into place: each digit's reel spins in (ones and cents a full lap), left to right, then glides to each new value. Clipped to the digits' own ink band, so a rolling reel never shows stray fragments. Resting style is the final figure |
+| Scroll reveal (`reveal.tsx`) | A block that starts below the fold waits, and its cells and reels play as it scrolls into view, not unseen at load |
+| Over-budget flash (`cells-over`) | An over row fills, then flashes twice once it's full |
+| Idea lamp (`lamp`) | "What can I change?" switches on: the bulb catches, stutters, holds |
 | Sign-in stage (`stage-*`, `saving`, `wm-*`, `ticker-*`) | The brand's one big moment, on an 8s beat: the robin hops within ±8px of center (4px sprite steps), turns and chirps; a "+$" saving rises from each chirp; the wordmark steps in, then ripples when the robin lands; five savings lines type and erase in turn |
 | Welcome guide (`src/components/tour/guide.module.css`) | Teaching by showing: each card enters from the direction of travel and its heading rises word by word; its scene acts out the feature (Crystal drops in and says hi, purchases land, a "?" flips to its category, Money Left counts up, a saving lands on a goal, confetti and a tour of the four tabs at the end). Every scene's resting state is its finished state |
 | `press` (scale 0.98) / `lift` | A tap was felt / a card is interactive |
 | `pip` | The active-tab marker snaps in |
 | `.skeleton` sweep | Content is loading, shaped like what's coming |
-| Count-up | Headline figures settle into place |
+| `rise` / `pop` (`--at`) | One-off entrances placed on the beat: the greeting word by word, a hero's detail lines, a tag snapping on after its chart column builds |
 
 ## What not to do
 

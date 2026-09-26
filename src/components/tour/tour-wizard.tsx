@@ -85,7 +85,7 @@ export function TourWizard({
   };
 
   return (
-    <div className="flex min-h-dvh w-full flex-col items-center justify-center overflow-x-clip bg-bg px-5 py-6">
+    <div className="flex min-h-dvh w-full flex-col items-center justify-center overflow-x-clip bg-bg px-6 py-6 md:px-5">
       <p className="sr-only" aria-live="polite">
         {`Step ${offset + index + 1} of ${total}: ${step.label}`}
       </p>

@@ -8,12 +8,12 @@ import { Logo } from "./logo";
 export function StandaloneShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-dvh w-full flex-col">
-      <header className="px-4 py-4 md:px-10 md:py-7">
+      <header className="px-6 py-4 md:px-10 md:py-7">
         <Link href="/" aria-label="Budgts home" className="press inline-flex">
           <Logo size={22} />
         </Link>
       </header>
-      <main className="mx-auto flex w-full max-w-[472px] flex-1 flex-col justify-center px-4 pb-12 pt-6">{children}</main>
+      <main className="mx-auto flex w-full max-w-[472px] flex-1 flex-col justify-center px-6 pb-12 pt-6 md:px-4">{children}</main>
     </div>
   );
 }

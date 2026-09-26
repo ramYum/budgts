@@ -129,6 +129,14 @@ body {
     letter-spacing: -0.02em;
     color: var(--heading);
   }
+
+  /* No one-word last lines on a phone: its 24px gutter makes every line
+   * short. (Crystal's bubbles set their own balanced wrap.) */
+  @media (width < 48rem) {
+    body {
+      text-wrap-style: pretty;
+    }
+  }
 }
 
 /* Surfaces: white sheets on the gray canvas, a single hairline, no drop shadow

@@ -82,7 +82,7 @@ export async function ReviewBanner() {
 
   return (
     // the pages' own column, so the warning lines up with what it qualifies
-    <div className="mx-auto w-full max-w-[1136px] space-y-3 px-4 pt-3 md:px-12 md:pt-8">
+    <div className="mx-auto w-full max-w-[1136px] space-y-3 px-6 pt-3 md:px-12 md:pt-8">
       {excluded ? (
         <div className="px-wash flex items-start gap-3 p-3 text-[15px] leading-6 text-ink md:p-4">
           <Icon name="warning" className="text-signal" />

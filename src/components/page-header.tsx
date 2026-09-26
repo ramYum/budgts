@@ -48,11 +48,11 @@ export function PageHeader({
       {/* The phone's second row exists only with a month: an empty row would
           still take the row gap. */}
       <div
-        className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-4 md:grid-cols-[minmax(0,1fr)_auto_auto] md:gap-x-4 md:[grid-template-areas:'title_month_action'] ${
+        className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-4 md:grid-cols-[minmax(0,1fr)_auto_auto] md:gap-x-4 md:[grid-template-areas:'title_month_action'] ${
           month ? "[grid-template-areas:'title_action'_'month_month']" : "[grid-template-areas:'title_action']"
         }`}
       >
-        <div className="flex min-h-10 min-w-0 items-center gap-3 [grid-area:title] md:gap-4">
+        <div className="flex min-h-10 min-w-0 items-center gap-2 [grid-area:title] md:gap-4">
           {back ? <BackLink href={back} className={backOnDesktop ? "" : "md:hidden"} /> : null}
           <div className="min-w-0">
             <h1 className="px-title text-ink">{title}</h1>

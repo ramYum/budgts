@@ -121,6 +121,11 @@ The frame generator's palette mirrors these tokens;
   corner steps, so they only ever show below a card, never beside a notch.
 - **Padding:** cards 16px inside on a phone (8px frame + 8px), 24px from md;
   lead cards 16 → 32. Icon tiles 32px on a phone, 40px from md.
+- **Page gutter:** 24px on a phone, on every screen (the tabs, the header,
+  the welcome guide, sign-in, standalone screens), so cards sit off the
+  glass; desktop keeps its own (48px beside the sidebar). A phone's copy
+  wraps `pretty` (no one-word last lines); page-header gaps are 8px there so
+  titles like "Savings goals" stay on one line.
 - **Buttons** (`ui.tsx`): primary = red fill on a 2px raised edge (`px-raise`,
   a `drop-shadow` that paints outside the box, so rows stay aligned; one per
   view); secondary = stone line, ink on hover; danger = red line; quiet

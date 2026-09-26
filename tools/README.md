@@ -49,6 +49,19 @@ crisp; maskable variants keep the bird inside the 80% safe zone.
 node tools/generate-app-icons.mjs
 ```
 
+## generate-pixel-frames.mjs
+
+Regenerates `src/app/pixel-frames.css`, every stepped pixel frame (cards,
+controls, chips, and their hover/focus/selected states), from the one table
+in `src/lib/brand/pixel-frame.ts`. Change a frame there, then run:
+
+```
+node --no-warnings tools/generate-pixel-frames.mjs
+```
+
+`tests/unit/pixel-frames.test.ts` fails if the committed CSS is out of date
+or the frame palette drifts from the tokens in `globals.css`.
+
 ## sign-convention-remediation-dryrun.ts
 
 Read-only report for the one-time historical sign-convention migration

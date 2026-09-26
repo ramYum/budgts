@@ -114,6 +114,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
     { data: recentRows },
     { data: goalRows },
     { data: contribRows },
+    { count: bankCount },
   ] = await Promise.all([
     trendTxnRowsPromise,
     supabase
@@ -146,6 +147,10 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
       .eq("is_archived", false)
       .order("created_at"),
     supabase.from("savings_contributions").select("goal_id, amount"),
+    // "Get set up" marks the bank step done once any connection exists.
+    plaidUiEnabled()
+      ? supabase.from("plaid_items").select("id", { count: "exact", head: true })
+      : Promise.resolve({ count: null }),
   ]);
 
   const excludedPlaidAccountIds = new Set((excludedPlaidAccounts ?? []).map((a) => a.id));
@@ -230,6 +235,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
         savings={savings}
         recent={recent}
         userEmail={user.email ?? ""}
+        setup={{ bankConnected: plaidUiEnabled() ? (bankCount ?? 0) > 0 : null }}
       />
     </div>
   );

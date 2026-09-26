@@ -74,14 +74,19 @@ function bank(over: Partial<ConnectedBank> = {}): ConnectedBank {
 
 afterEach(() => vi.clearAllMocks());
 
+/** Matches the element whose whole text is `text`, even when it spans child
+ * elements ("… — <span>3 transactions</span> appear …"). */
+const wholeText = (text: string) => (_: string, el: Element | null) =>
+  el?.textContent === text && Array.from(el.children).every((c) => c.textContent !== text);
+
 describe("ConnectedBanks", () => {
   it("shows the connection, its accounts, and the retained-history guarantee", () => {
     render(<ConnectedBanks banks={[bank()]} budgtsAccounts={[{ id: "acc-1", name: "Checking" }]} />);
 
     expect(screen.getByText("First Platypus Bank")).toBeInTheDocument();
     expect(screen.getByText("Connected")).toBeInTheDocument();
-    expect(screen.getByText("→ Checking")).toBeInTheDocument();
-    expect(screen.getByText("not imported")).toBeInTheDocument();
+    expect(screen.getByText("Imports into Checking")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Not imported/ })).toBeInTheDocument();
     expect(
       screen.getByText(/Disconnecting a bank keeps every transaction it already imported/),
     ).toBeInTheDocument();
@@ -297,9 +302,10 @@ describe("ConnectedBanks — sign-convention 'checking this account' notice", ()
 
     render(<ConnectedBanks banks={[checking]} budgtsAccounts={[{ id: "acc-1", name: "Checking" }]} />);
 
+    // copy as drawn in the 2026-09-26 design: the held count, so the gap is explained
     expect(
       screen.getByText(
-        "We're checking this account's transaction format. Your transactions will appear once verified.",
+        wholeText("We're checking this account's transaction format — 3 transactions appear once it's verified."),
       ),
     ).toBeInTheDocument();
     // Never the word "sign convention" or "inverted"/"standard" — internal terms.
@@ -405,7 +411,7 @@ describe("ConnectedBanks — connect switch (never-mapped accounts)", () => {
   it("renders an OFF connect switch (not plain text) for an account never set up", () => {
     render(<ConnectedBanks banks={[bank()]} budgtsAccounts={[{ id: "acc-1", name: "Checking" }]} />);
     // "Plaid Saving" fixture: linkState ignored, mappedAccountName null — never mapped.
-    expect(screen.getByText("not imported")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Not imported/ })).toBeInTheDocument();
     const toggle = screen.getByRole("switch", { name: /connect.*Plaid Saving/i });
     expect(toggle).toHaveAttribute("aria-checked", "false");
   });

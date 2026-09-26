@@ -47,12 +47,12 @@ test("welcome guide: a new user meets Crystal, walks every card, lands on Home, 
     }
 
     await page.waitForURL((u) => u.pathname === "/", { timeout: 20000 });
-    await expect(page.getByText("so far this month")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Money left" })).toBeVisible();
 
     // Reload stays on Home — the tour doesn't show again.
     await page.reload();
     await expect(page).toHaveURL(/\/$/);
-    await expect(page.getByText("so far this month")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Money left" })).toBeVisible();
 
     // Crystal lives on Home: tap her and she answers (a new user has no
     // income yet, so that's her first line).

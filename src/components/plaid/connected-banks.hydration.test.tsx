@@ -44,7 +44,7 @@ function bank(lastSyncedAt: string): ConnectedBank {
   };
 }
 
-describe("ConnectedBanks 'Last synced' hydration", () => {
+describe("ConnectedBanks 'Synced' hydration", () => {
   it("hydrates without a mismatch when the clock crosses a relative-time boundary between render and hydration", async () => {
     // 59.4 min before the server render ("59 min ago"); a minute later in the browser it is "1 hr ago".
     const syncedAt = new Date(NOW - 59.4 * 60_000).toISOString();
@@ -58,7 +58,7 @@ describe("ConnectedBanks 'Last synced' hydration", () => {
     });
 
     expect(errors).toEqual([]);
-    expect(text).toContain("Last synced 1 hr ago");
+    expect(text).toContain("Synced 1 hr ago");
   });
 
   it("uses a sync timestamp whose calendar date really differs between UTC and New York", () => {
@@ -83,6 +83,6 @@ describe("ConnectedBanks 'Last synced' hydration", () => {
 
     expect(errors).toEqual([]);
     // Once hydrated, the viewer sees the date in their own time zone.
-    expect(text).toContain("Last synced Sep 9");
+    expect(text).toContain("Synced Sep 9");
   });
 });

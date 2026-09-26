@@ -9,6 +9,10 @@ import { onboardAndSkipTour } from "./helpers/onboard";
 
 test.skip(!hasAdminCredentials(), "needs SUPABASE_SECRET_KEY (see .env.local)");
 
+// A category row's link reads its name, then what's in it ("Housing Nothing this month").
+const categoryLink = (page: import("@playwright/test").Page, name: string) =>
+  page.getByRole("link", { name: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&")} `) });
+
 test("manage categories: default set, rename, add, archive, and drill-in", async ({ page }) => {
   const user = await createTestUser();
   try {
@@ -18,8 +22,8 @@ test("manage categories: default set, rename, add, archive, and drill-in", async
     await page.getByRole("link", { name: "More" }).click();
     // The More page's row, not the desktop sidebar's own Settings link.
     await page.getByRole("main").getByRole("link", { name: "Settings" }).click();
-    // exact: with Plaid on, the header bell ("Categories up to date") is also a link.
-    await page.getByRole("link", { name: "Categories", exact: true }).click();
+    // The row reads "Categories 8"; with Plaid on, the bell ("Categories up to date") is also a link.
+    await page.getByRole("link", { name: /^Categories \d+$/ }).click();
 
     // The six seeded expense categories.
     for (const name of [
@@ -30,34 +34,34 @@ test("manage categories: default set, rename, add, archive, and drill-in", async
       "Transportation",
       "Food / Groceries",
     ]) {
-      await expect(page.getByRole("link", { name, exact: true })).toBeVisible();
+      await expect(categoryLink(page, name)).toBeVisible();
     }
 
     // Rename Entertainment.
     await page.locator("li", { hasText: "Entertainment" }).getByRole("button", { name: "Edit" }).click();
     await page.getByLabel("Name").fill("Fun money");
     await page.getByRole("button", { name: "Save changes" }).click();
-    await expect(page.getByRole("link", { name: "Fun money", exact: true })).toBeVisible();
+    await expect(categoryLink(page, "Fun money")).toBeVisible();
 
     // Add a category.
-    await page.locator("section", { hasText: "Categories" }).getByRole("button", { name: "+ Add" }).click();
+    await page.getByRole("button", { name: "Add category" }).click();
     await page.getByLabel("Name").fill("Gifts");
     await page.getByRole("button", { name: "Add", exact: true }).click();
-    await expect(page.getByRole("link", { name: "Gifts", exact: true })).toBeVisible();
+    await expect(categoryLink(page, "Gifts")).toBeVisible();
 
     // Archive Insurances -> it leaves the transaction form's category list.
     const insurancesRow = page.locator("li", { hasText: "Insurances" });
     await insurancesRow.getByRole("button", { name: "Archive" }).click();
     await expect(insurancesRow.getByRole("button", { name: "Restore" })).toBeVisible();
     await page.goto("/transactions");
-    await page.getByRole("button", { name: "+ Add" }).click();
+    await page.getByRole("button", { name: "Add transaction" }).click();
     await expect(page.getByLabel("Category").locator("option", { hasText: "Insurances" })).toHaveCount(0);
     await expect(page.getByLabel("Category").locator("option", { hasText: "Gifts" })).toHaveCount(1);
     await page.getByRole("button", { name: "Cancel" }).click();
 
     // Drill into a category from Settings.
     await page.goto("/settings/categories");
-    await page.getByRole("link", { name: "Housing", exact: true }).click();
+    await categoryLink(page, "Housing").click();
     await expect(page).toHaveURL(/category=/);
     await expect(page.getByText("Showing")).toBeVisible();
     await expect(page.getByText("Housing", { exact: true })).toBeVisible();

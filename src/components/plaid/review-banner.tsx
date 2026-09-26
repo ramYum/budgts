@@ -1,5 +1,7 @@
+import Link from "next/link";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
+import { Icon } from "@/components/icon";
 
 function summarizeNames(names: string[]): string {
   if (names.length === 1) return names[0];
@@ -79,25 +81,28 @@ export async function ReviewBanner() {
   if (!advisory && !excluded) return null;
 
   return (
-    <div className="mx-4 mt-3 space-y-2">
+    // the pages' own column, so the warning lines up with what it qualifies
+    <div className="mx-auto w-full max-w-[1136px] space-y-3 px-4 pt-3 md:px-12 md:pt-8">
       {excluded ? (
-        <div className="rounded-lg border border-neg/40 bg-neg/5 px-3 py-2 text-sm text-neg">
+        <div className="px-wash flex items-start gap-3 p-3 text-[15px] leading-6 text-ink md:p-4">
+          <Icon name="warning" className="text-signal" />
           <p>
-            <span className="font-medium">Excluded from totals.</span> {excluded}{" "}
-            <a href="/settings" className="underline underline-offset-2">
+            <span className="font-semibold text-signal-ink">Excluded from totals.</span> {excluded}{" "}
+            <Link href="/settings" className="font-medium underline underline-offset-2">
               Review it in Settings
-            </a>
+            </Link>
             .
           </p>
         </div>
       ) : null}
       {advisory ? (
-        <div className="rounded-lg border border-warn/40 bg-warn/10 px-3 py-2 text-sm text-warn">
+        <div className="px-warn flex items-start gap-3 p-3 text-[15px] leading-6 text-ink md:p-4">
+          <Icon name="warning" className="text-warn" />
           <p>
-            <span className="font-medium">Totals may be inaccurate.</span> {advisory}{" "}
-            <a href="/settings" className="underline underline-offset-2">
+            <span className="font-semibold">Totals may be inaccurate.</span> {advisory}{" "}
+            <Link href="/settings" className="font-medium underline underline-offset-2">
               Review it in Settings
-            </a>
+            </Link>
             .
           </p>
         </div>

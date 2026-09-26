@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { ArrowRight, EnvelopeSimple, GoogleLogo } from "@phosphor-icons/react";
+import { Icon } from "@/components/icon";
 import { requestMagicLink, signInWithGoogle, type MagicLinkState } from "@/server/auth";
 
 const field =
@@ -17,7 +17,7 @@ export function SignInForm({ next, initialError }: { next: string; initialError?
     return (
       <div className="space-y-3">
         <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface-2">
-          <EnvelopeSimple aria-hidden className="h-5 w-5" />
+          <Icon name="mail" />
         </span>
         <h1 className="text-xl font-semibold">Check your email</h1>
         <p className="text-sm text-muted">We sent a sign-in link. Open it on this device to continue.</p>
@@ -48,7 +48,7 @@ export function SignInForm({ next, initialError }: { next: string; initialError?
         {error ? <p className="text-sm text-neg">{error}</p> : null}
         <button className={button} type="submit" disabled={pending}>
           {pending ? "Sending…" : "Email me a sign-in link"}
-          {pending ? null : <ArrowRight aria-hidden className="h-4 w-4" />}
+          {pending ? null : <Icon name="forward" />}
         </button>
       </form>
 
@@ -64,7 +64,7 @@ export function SignInForm({ next, initialError }: { next: string; initialError?
           className="press inline-flex w-full items-center justify-center gap-2 rounded-xl border border-ink bg-surface px-4 py-3 text-sm font-medium hover:bg-surface-2"
           type="submit"
         >
-          <GoogleLogo aria-hidden weight="bold" className="h-4 w-4" />
+          <Icon name="google" />
           Continue with Google
         </button>
       </form>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Icon } from "./icon";
 
 const HREF = "/transactions#needs-category";
 
@@ -23,29 +24,16 @@ export function NeedsCategoryBell({ count }: { count: number }) {
     <Link
       href={HREF}
       aria-label={label}
-      className="relative -m-1.5 grid place-items-center rounded-full p-1.5 text-muted transition-colors hover:text-text"
+      className="press relative grid h-10 w-10 place-items-center text-ink hover:text-graphite"
     >
-      <svg width={18} height={18} viewBox="0 0 24 24" fill="none" aria-hidden>
-        <path
-          d="M6 9a6 6 0 0 1 12 0c0 3.6.9 5.4 1.8 6.4a.7.7 0 0 1-.52 1.16H4.72a.7.7 0 0 1-.52-1.16C5.1 14.4 6 12.6 6 9Z"
-          stroke="currentColor"
-          strokeWidth={1.6}
-          strokeLinejoin="round"
-        />
-        <path
-          d="M9.5 19a2.5 2.5 0 0 0 5 0"
-          stroke="currentColor"
-          strokeWidth={1.6}
-          strokeLinecap="round"
-        />
-      </svg>
+      <Icon name="bell" />
       {n > 0 ? (
         <span
           data-testid="needs-category-count"
           aria-hidden
-          className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center pip rounded-full bg-accent px-1 text-[0.625rem] font-semibold leading-none text-accent-ink"
+          className="px-badge-accent pip absolute -right-0.5 -top-0.5 grid h-[18px] min-w-[18px] place-items-center"
         >
-          {n > 9 ? "9+" : n}
+          <span className="px-tag-bold leading-none tracking-normal text-white">{n > 9 ? "9+" : n}</span>
         </span>
       ) : null}
     </Link>

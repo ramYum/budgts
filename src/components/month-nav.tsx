@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { CaretLeft, CaretRight } from "@phosphor-icons/react/dist/ssr";
 import { monthKey } from "@/lib/budget/month";
+import { Icon } from "./icon";
 
 /** September 2026 ‹ › : server component, links change the `?m=` param. */
 export function MonthNav({ base, month }: { base: string; month: string }) {
@@ -14,18 +14,17 @@ export function MonthNav({ base, month }: { base: string; month: string }) {
     timeZone: "UTC",
   });
 
-  const step =
-    "press flex h-8 w-8 items-center justify-center rounded-lg border border-hairline bg-surface text-muted hover:border-silver hover:text-text";
+  const step = "px-step press flex h-9 w-9 items-center justify-center text-ink";
 
   return (
-    <div className="flex items-center gap-2">
-      <h1 className="min-w-[9.5ch] text-[17px] font-semibold tracking-tight">{label}</h1>
-      <div className="flex items-center gap-1.5">
+    <div className="flex items-center gap-3">
+      <p className="px-label whitespace-nowrap text-ink">{label}</p>
+      <div className="flex items-center gap-2">
         <Link href={`${base}?m=${prev}`} className={step} aria-label="Previous month">
-          <CaretLeft aria-hidden className="h-4 w-4" />
+          <Icon name="chevron-left" />
         </Link>
         <Link href={`${base}?m=${next}`} className={step} aria-label="Next month">
-          <CaretRight aria-hidden className="h-4 w-4" />
+          <Icon name="chevron-right" />
         </Link>
       </div>
     </div>

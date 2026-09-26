@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { buildDashboard, type DashboardCategory } from "@/lib/budget/dashboard";
 import { monthlyActuals } from "@/lib/budget/actuals";
 import { currentMonthKey, monthKey } from "@/lib/budget/month";
+import { priorMonths, spendTrend } from "@/lib/budget/spend-trend";
 import type { BudgetTxn } from "@/lib/budget/types";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
@@ -10,6 +11,7 @@ import { fetchAllRows } from "@/lib/supabase/fetch-all-rows";
 import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
 import { isEventRole } from "@/lib/plaid/event-role";
 import { PageHeader } from "@/components/page-header";
+import { MonthNav } from "@/components/month-nav";
 import { InsightsView } from "@/components/insights-view";
 
 export const metadata: Metadata = { title: "Insights" };
@@ -44,13 +46,14 @@ type TxnRow = Pick<
 
 /** Mirrors the dashboard page's own query + qualification columns exactly
  * (same `event_role`/`transfer_user_set`/account-exclusion handling) so
- * Insights can never disagree with Home for the same month. */
-async function loadMonth(
+ * Insights can never disagree with Home for the same month. One window
+ * [start, end) covers the six-month trend; the months are sliced from it. */
+async function loadRange(
   supabase: Awaited<ReturnType<typeof createClient>>,
-  month: string,
+  start: string,
+  end: string,
   excludedPlaidAccountIdsPromise: Promise<Set<string>>,
 ): Promise<BudgetTxn[]> {
-  const { start, end } = monthRange(month);
   const plaidOn = plaidUiEnabled();
   // fetchAllRows, not a bare await — see fetch-all-rows.ts: an unbounded
   // `.select()` silently caps at 1000 rows, which a heavy Plaid feed can
@@ -107,20 +110,30 @@ export default async function InsightsPage({ searchParams }: PageProps<"/insight
   })();
 
   // One parallel round: the month loads no longer wait for the lookups above.
-  const [{ data: categories }, { data: budgetRows }, { data: profile }, currentTxns, prevTxns] =
-    await Promise.all([
-      supabase.from("categories").select("id, kind, name, color").eq("is_archived", false),
-      supabase.from("budgets").select("category_id, amount").eq("month", `${month}-01`),
-      supabase.from("profiles").select("currency").eq("id", user.id).single(),
-      loadMonth(supabase, month, excludedPlaidAccountIds),
-      loadMonth(supabase, prev, excludedPlaidAccountIds),
-    ]);
+  // The trend card's six months, oldest first; this month and last month are
+  // slices of the same rows, exactly as Home does it.
+  const trendMonths = priorMonths(month, 6);
+  const { start: windowStart } = monthRange(trendMonths[0]!);
+  const { start, end } = monthRange(month);
+  const { start: prevStart, end: prevEnd } = monthRange(prev);
+
+  const [{ data: categories }, { data: budgetRows }, { data: profile }, windowTxns] = await Promise.all([
+    supabase.from("categories").select("id, kind, name, color").eq("is_archived", false),
+    supabase.from("budgets").select("category_id, amount").eq("month", `${month}-01`),
+    supabase.from("profiles").select("currency").eq("id", user.id).single(),
+    loadRange(supabase, windowStart, end, excludedPlaidAccountIds),
+  ]);
+  const inRange = (t: BudgetTxn, from: string, to: string) =>
+    t.occurredAt.getTime() >= Date.parse(from) && t.occurredAt.getTime() < Date.parse(to);
+  const currentTxns = windowTxns.filter((t) => inRange(t, start, end));
+  const prevTxns = windowTxns.filter((t) => inRange(t, prevStart, prevEnd));
 
   const cats: DashboardCategory[] = (categories ?? []) as DashboardCategory[];
   const budgets = (budgetRows ?? []).map((b) => ({ categoryId: b.category_id, amount: b.amount }));
 
   const current = buildDashboard(currentTxns, cats, budgets, month);
   const previous = buildDashboard(prevTxns, cats, [], prev);
+  const trend = spendTrend(windowTxns, cats, trendMonths);
 
   const incomeCategories = cats.filter((c) => c.kind === "income");
   const currentIncomeByCategory = monthlyActuals(currentTxns, month);
@@ -130,15 +143,21 @@ export default async function InsightsPage({ searchParams }: PageProps<"/insight
     .sort((a, b) => b.amount - a.amount);
 
   return (
-    <div className="pt-1">
-      <PageHeader title="Insights" back="/more" />
+    <>
+      <PageHeader
+        title="Insights"
+        back="/more"
+        backOnDesktop={false}
+        month={<MonthNav base="/insights" month={month} />}
+      />
       <InsightsView
         month={month}
         currency={profile?.currency ?? "USD"}
         current={current}
         previous={previous}
+        trend={trend}
         incomeSources={incomeSources}
       />
-    </div>
+    </>
   );
 }

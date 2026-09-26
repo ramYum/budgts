@@ -2,38 +2,49 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { NavIcon, type NavGlyph } from "./nav-icons";
+import { Icon, type IconName } from "./icon";
 
-const NAV: { href: string; label: string; glyph: NavGlyph }[] = [
-  { href: "/", label: "Home", glyph: "home" },
-  { href: "/budgets", label: "Budgets", glyph: "budgets" },
-  { href: "/transactions", label: "Activity", glyph: "activity" },
-  { href: "/more", label: "More", glyph: "more" },
+const NAV: { href: string; label: string; icon: IconName }[] = [
+  { href: "/", label: "Home", icon: "home" },
+  { href: "/budgets", label: "Budgets", icon: "budgets" },
+  { href: "/transactions", label: "Activity", icon: "activity" },
+  { href: "/more", label: "More", icon: "more" },
 ];
 
+// Everything the phone reaches through More keeps More lit.
+const MORE = ["/more", "/goals", "/accounts", "/insights", "/settings", "/help", "/about", "/connected-banks"];
+
 /** Fixed bottom tab bar, mobile only (the desktop sidebar takes over at `md`).
- * The active tab is the one red element in the bar: filled icon, red label,
- * and a single pixel marker that pops in above it. */
+ * The current tab is the one red element in the bar: a red icon, an ink
+ * label, and a pixel marker that pops in on the bar's top edge. */
 export function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-20 mx-auto w-full max-w-md border-t border-hairline bg-surface/90 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur-xl md:hidden">
-      <div className="grid grid-cols-4">
+    <nav
+      aria-label="Main"
+      className="fixed inset-x-0 bottom-0 z-20 border-t-2 border-hairline bg-surface pb-[max(0.25rem,env(safe-area-inset-bottom))] md:hidden"
+    >
+      <div className="mx-auto grid max-w-md grid-cols-4">
         {NAV.map((item) => {
-          const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+          const active =
+            item.href === "/"
+              ? pathname === "/"
+              : item.href === "/more"
+                ? MORE.some((p) => pathname.startsWith(p))
+                : pathname.startsWith(item.href);
           return (
             <Link
               key={item.href}
               href={item.href}
               aria-current={active ? "page" : undefined}
-              className={`press relative flex flex-col items-center gap-1 pt-3 pb-1 text-[11px] font-medium ${
-                active ? "text-accent" : "text-muted hover:text-text"
+              className={`press relative flex flex-col items-center gap-1 pb-2 pt-3 text-[13px] leading-4 ${
+                active ? "font-semibold text-text" : "text-muted hover:text-text"
               }`}
             >
-              {active ? <span className="pip absolute top-0 h-[3px] w-6 bg-accent" aria-hidden /> : null}
-              <NavIcon glyph={item.glyph} weight={active ? (item.glyph === "more" ? "bold" : "fill") : "regular"} className="h-[22px] w-[22px]" />
-              <span className={active ? "text-neg" : undefined}>{item.label}</span>
+              {active ? <span className="pip absolute -top-0.5 h-1 w-4 bg-accent" aria-hidden /> : null}
+              <Icon name={item.icon} className={active ? "text-accent" : ""} />
+              {item.label}
             </Link>
           );
         })}

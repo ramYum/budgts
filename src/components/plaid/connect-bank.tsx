@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { PlaidLinkOnSuccessMetadata } from "react-plaid-link";
 import { Overlay } from "@/components/overlay";
+import { Button } from "@/components/ui";
 import { AccountMapping, type MappableAccount } from "./account-mapping";
 import { LinkHandoff } from "./link-handoff";
 import { clearLinkContext, saveLinkContext } from "./oauth-storage";
@@ -20,12 +21,15 @@ export function ConnectBank({
   tone = "primary",
   label = "Connect a bank",
   fullWidth = false,
+  buttonClassName = "",
 }: {
   accounts: BudgtsAccount[];
   tone?: "primary" | "outline";
   label?: string;
   /** Stretch the button to its container (the welcome guide's primary action). */
   fullWidth?: boolean;
+  /** extra classes for the button (e.g. `md:w-auto` to undo fullWidth on desktop) */
+  buttonClassName?: string;
 }) {
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>("idle");
@@ -115,20 +119,18 @@ export function ConnectBank({
   }, [closeMapping, router]);
 
   const busy = phase === "starting" || phase === "exchanging";
-  const btn =
-    tone === "primary"
-      ? "press rounded-xl bg-primary-btn px-4 py-3 text-sm font-medium text-on-primary-btn disabled:opacity-50"
-      : "press rounded-xl bg-primary-btn px-3.5 py-2 text-sm font-medium text-on-primary-btn disabled:opacity-50";
 
   return (
     <div className="space-y-2">
-      <button type="button" onClick={start} disabled={busy} className={`${btn} ${fullWidth ? "w-full" : ""}`}>
-        {phase === "starting"
-          ? "Opening…"
-          : phase === "exchanging"
-            ? "Connecting…"
-            : label}
-      </button>
+      <Button
+        variant={tone === "primary" ? "primary" : "secondary"}
+        icon="plus"
+        onClick={start}
+        disabled={busy}
+        className={`${fullWidth ? "w-full" : ""} ${buttonClassName}`}
+      >
+        {phase === "starting" ? "Opening…" : phase === "exchanging" ? "Connecting…" : label}
+      </Button>
 
       {linkToken && (phase === "linking" || phase === "exchanging") ? (
         <LinkHandoff linkToken={linkToken} onSuccess={handleSuccess} onExit={handleExit} />

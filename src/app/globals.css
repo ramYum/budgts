@@ -1,13 +1,14 @@
 @import "tailwindcss";
+@import "./pixel-frames.css";
 
-/* Budgts design system: editorial Swiss minimalism, premium fintech clarity,
- * restrained pixel branding (docs/BRAND_GUIDELINES.md).
+/* Budgts design system: pixel-minimal fintech (docs/BRAND_GUIDELINES.md).
  *
  * One neutral family (charcoal on light gray), ONE accent (signal red), used
- * only where attention is earned: the active tab, the current month, an
- * over-budget category, the primary action. Pixel texture lives in the brand
- * (robin, wordmark) and in data marks (square-cell bars/rings), never in body
- * copy. Components consume the semantic roles below, never raw hex. */
+ * only where attention is earned: the current page, an over-budget category,
+ * the primary action. Pixel texture carries the brand and the structure:
+ * Dogica titles, tags and figures, stepped 2px-cell frames (pixel-frames.css),
+ * Pixelarticons, square-cell data marks. Reading text stays in Geist.
+ * Components consume the semantic roles below, never raw hex. */
 :root {
   color-scheme: light;
 
@@ -15,15 +16,19 @@
   --charcoal: #111111;
   --graphite: #3d3d3d;
   --ash: #6e6e6e; /* secondary text, 5.1:1 on white */
-  --silver: #b9b9b9; /* inactive marks */
-  --gray: #e6e6e6; /* hairlines, empty cells */
+  --silver: #b9b9b9; /* control frames, inactive marks */
+  --gray: #e6e6e6; /* hairlines, card frames, empty cells */
   --paper: #f4f4f4; /* canvas */
   --white: #ffffff;
   --signal: #e54848; /* accent: graphics only (3.9:1 on white) */
   --signal-strong: #d63c3c; /* accent as a fill behind white text (4.6:1) */
   --signal-ink: #c93434; /* accent as text (5.2:1 on white) */
   --signal-wash: #fdeeee;
+  --signal-line: #f8d9d9; /* a wash card's hover line */
+  --signal-edge: #9f2a2a; /* the raised edge under a primary button */
   --growth: #18794a; /* money in */
+  --growth-wash: #e6f2eb;
+  --warn-wash: #fbf0da;
 
   /* semantic roles */
   --bg: var(--paper);
@@ -90,6 +95,11 @@
   --color-tint: var(--tint);
   --color-fill-under: var(--fill-under);
   --color-fill-over: var(--fill-over);
+  --color-graphite: var(--graphite);
+  --color-paper: var(--paper);
+  --color-signal-ink: var(--signal-ink);
+  --color-growth-wash: var(--growth-wash);
+  --color-warn-wash: var(--warn-wash);
   --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
   --font-display: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", monospace;
@@ -148,6 +158,136 @@ body {
 .font-pixel-bold {
   font-family: var(--font-dogica-bold), var(--font-geist-mono), monospace;
   -webkit-font-smoothing: none;
+}
+
+/* The pixel vocabulary (type roles, raised edge, rules, cells), in the
+ * components layer with the frames, so a utility can still adjust one. */
+@layer components {
+  /* Pixel type roles. Dogica only at its 8px grid (8 / 16 / 24 / 32), spacing
+   * in whole font-pixels: no tracking on display text, and word-spacing -.25em
+   * trims its very wide space by exactly two font-pixels at every size. */
+  .px-title,
+  .px-figure,
+  .px-figure-lg,
+  .px-tag,
+  .px-tag-bold,
+  .px-label {
+    -webkit-font-smoothing: none;
+    word-spacing: -0.25em;
+    font-variant-ligatures: none;
+    /* each Dogica file is one weight: never let a heading synthesise bold */
+    font-weight: 400;
+    font-synthesis: none;
+  }
+  /* screen titles and headings: 16 on phones, 24 from md */
+  .px-title {
+    font-family: var(--font-dogica-bold), var(--font-geist-mono), monospace;
+    font-size: 16px;
+    line-height: 24px;
+    letter-spacing: 0;
+  }
+  @media (width >= 48rem) {
+    .px-title {
+      font-size: 24px;
+      line-height: 32px;
+    }
+  }
+  /* the one number on a screen, and a card's figure */
+  .px-figure-lg {
+    font-family: var(--font-dogica-bold), var(--font-geist-mono), monospace;
+    font-size: 32px;
+    line-height: 40px;
+    letter-spacing: 0;
+  }
+  .px-figure {
+    font-family: var(--font-dogica-bold), var(--font-geist-mono), monospace;
+    font-size: 16px;
+    line-height: 24px;
+    letter-spacing: 0;
+  }
+  /* small uppercase tags (section heads, day bands): 8px, 1px tracking */
+  .px-tag,
+  .px-tag-bold {
+    font-size: 8px;
+    line-height: 12px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .px-tag {
+    font-family: var(--font-dogica-pixel), var(--font-geist-mono), monospace;
+  }
+  .px-tag-bold {
+    font-family: var(--font-dogica-bold), var(--font-geist-mono), monospace;
+  }
+  /* the month and other quiet pixel labels: 16px Dogica Pixel */
+  .px-label {
+    font-family: var(--font-dogica-pixel), var(--font-geist-mono), monospace;
+    font-size: 16px;
+    line-height: 24px;
+    letter-spacing: 0;
+  }
+
+  /* A primary button's raised edge: a drop-shadow follows the stepped corners
+   * and paints outside the box, so rows of buttons stay aligned. Pressed, the
+   * button sinks onto half its edge. */
+  .px-raise {
+    filter: drop-shadow(0 4px 0 var(--signal-edge));
+  }
+  .px-raise:disabled {
+    filter: none;
+  }
+  .px-raise:active:not(:disabled) {
+    transform: translateY(2px);
+    filter: drop-shadow(0 2px 0 var(--signal-edge));
+  }
+
+  /* dotted 2px rules: dividers inside cards, and the hero's column rule */
+  .px-rule {
+    height: 2px;
+    background: repeating-linear-gradient(90deg, var(--hairline) 0 2px, transparent 2px 4px);
+  }
+  .px-rule-v {
+    width: 2px;
+    background: repeating-linear-gradient(180deg, var(--hairline) 0 2px, transparent 2px 4px);
+  }
+  /* rows in one card, divided by the dotted rule */
+  .px-rows > * + * {
+    background-image: repeating-linear-gradient(90deg, var(--hairline) 0 2px, transparent 2px 4px);
+    background-size: 100% 2px;
+    background-repeat: no-repeat;
+    background-position: top left;
+  }
+
+  /* an illustration stage: a grid of 2px dots every 16px */
+  .px-dots {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Crect x='7' y='7' width='2' height='2' fill='%23dcdcdc'/%3E%3C/svg%3E");
+  }
+
+  /* Progress cells: N square-cornered cells across the bar. Each cell's width
+   * snaps down to a whole pixel and the spare pixels go into the gaps
+   * (space-between), so no cell lands on a fraction and blurs; the height
+   * follows the width up to --cell-h, so wide cards don't grow giant squares.
+   * The calc() lines are the fallback where round() isn't supported. */
+  .px-cells {
+    --n: 16;
+    --gap: 4px;
+    --cell-h: 20px;
+    display: flex;
+    justify-content: space-between;
+    container-type: inline-size;
+  }
+  .px-cells > * {
+    flex: none;
+    width: calc((100cqw - (var(--n) - 1) * var(--gap)) / var(--n));
+    height: min(var(--cell-h), calc((100cqw - (var(--n) - 1) * var(--gap)) / var(--n)));
+    width: round(down, calc((100cqw - (var(--n) - 1) * var(--gap)) / var(--n)), 1px);
+    height: min(var(--cell-h), round(down, calc((100cqw - (var(--n) - 1) * var(--gap)) / var(--n)), 1px));
+  }
+
+  /* inputs inside a frame: the frame shows focus, not a square outline */
+  :where(.px-field, .px-search) :is(input, select, textarea):focus-visible {
+    outline: none;
+  }
 }
 
 /* ─── Motion ────────────────────────────────────────────────────────────────
@@ -936,6 +1076,11 @@ body {
 .roll-ghost {
   visibility: hidden;
 }
+/* Dogica figures: the digits sit well inside their line box, so the window is
+ * the line box itself (neighbouring reel lines fall outside it). */
+:is(.px-figure, .px-figure-lg) .roll-col {
+  clip-path: inset(0 -0.2em);
+}
 .roll-reel {
   position: absolute;
   inset: 0 0 auto 0;
@@ -955,14 +1100,15 @@ body {
 .crystal-say[data-say="hello"] {
   display: none;
 }
+/* the bubble's tail: a two-cell step pointing right, at her */
 .crystal-tail {
   position: absolute;
-  right: 9px;
-  bottom: -3px;
+  right: -4px;
+  top: calc(50% - 3px);
   width: 4px;
-  height: 4px;
+  height: 6px;
   background: var(--ink);
-  box-shadow: 2px 2px 0 0 var(--ink);
+  clip-path: polygon(0 0, 2px 0, 2px 2px, 4px 2px, 4px 4px, 2px 4px, 2px 6px, 0 6px);
 }
 .crystal-dust {
   position: absolute;
@@ -1188,7 +1334,7 @@ body {
   }
   .crystal-say {
     opacity: 0; /* after its moment, a bubble has said its piece */
-    transform-origin: calc(100% - 10px) 100%;
+    transform-origin: 100% 50%;
     animation-name: crystal-say;
     animation-duration: var(--say-for);
     animation-delay: var(--say-at);
@@ -1248,9 +1394,13 @@ body {
   color: #ffffff;
 }
 
-:where(a, button, input, select, textarea, [tabindex]):focus-visible {
-  outline: 2px solid var(--ring);
-  outline-offset: 2px;
+/* The default focus ring, in the base layer so a stepped frame (components
+ * layer) can replace it by thickening its own line. */
+@layer base {
+  :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
 }
 
 input::placeholder,

@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { syncConnection } from "@/server/plaid/actions";
+import { buttonClass } from "@/components/ui";
 import { LinkHandoff } from "./link-handoff";
 import { clearLinkContext, saveLinkContext } from "./oauth-storage";
 
@@ -56,7 +57,7 @@ export function ReconnectButton({ itemId }: { itemId: string }) {
         type="button"
         onClick={start}
         disabled={busy}
-        className="press rounded-xl bg-primary-btn px-3.5 py-2 text-sm font-medium text-on-primary-btn disabled:opacity-50"
+        className={buttonClass("primary")}
       >
         {phase === "starting" ? "Opening…" : phase === "finishing" ? "Finishing…" : "Reconnect"}
       </button>

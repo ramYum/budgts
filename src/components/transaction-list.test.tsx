@@ -111,7 +111,7 @@ describe("TransactionList", () => {
     expect(screen.getByRole("button", { name: "Whole Foods" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Spotify" })).toBeInTheDocument();
 
-    await user.type(screen.getByPlaceholderText("Search transactions..."), "spotify");
+    await user.type(screen.getByPlaceholderText("Search transactions"), "spotify");
 
     expect(screen.queryByRole("button", { name: "Whole Foods" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Spotify" })).toBeInTheDocument();
@@ -194,7 +194,7 @@ describe("TransactionList", () => {
       const user = userEvent.setup();
       render(<TransactionList items={many} {...props} />);
       expect(screen.queryByRole("button", { name: "Needle Store" })).not.toBeInTheDocument();
-      await user.type(screen.getByPlaceholderText("Search transactions..."), "needle");
+      await user.type(screen.getByPlaceholderText("Search transactions"), "needle");
       expect(screen.getByRole("button", { name: "Needle Store" })).toBeInTheDocument();
       expect(rowCount()).toBe(1);
     });

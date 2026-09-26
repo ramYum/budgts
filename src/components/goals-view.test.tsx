@@ -34,20 +34,24 @@ const summary: GoalsSummary = {
   completeCount: 0,
 };
 
+/** Matches the element whose whole text is `text`, even when it spans child
+ * elements ("<span>$2,500.00</span> of $10,000.00"). */
+const wholeText = (text: string) => (_: string, el: Element | null) =>
+  el?.textContent === text && Array.from(el.children).every((c) => c.textContent !== text);
+
 describe("GoalsView", () => {
   it("renders a goal with amounts, percent and remaining", () => {
     render(<GoalsView items={[progress()]} summary={summary} currency="USD" />);
     expect(screen.getByText("Emergency Fund")).toBeInTheDocument();
-    expect(screen.getByText("$2,500.00 / $10,000.00")).toBeInTheDocument();
+    expect(screen.getByText(wholeText("$2,500.00 of $10,000.00"))).toBeInTheDocument();
     expect(screen.getByText("25%")).toBeInTheDocument();
     expect(screen.getByText("$7,500.00 to go")).toBeInTheDocument();
   });
 
   it("shows the summary line", () => {
     render(<GoalsView items={[progress()]} summary={summary} currency="USD" />);
-    expect(
-      screen.getByText("$2,500.00 of $10,000.00 saved across 1 goal"),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Total saved" })).toBeInTheDocument();
+    expect(screen.getByText(wholeText("25% of $10,000.00 across 1 goal"))).toBeInTheDocument();
   });
 
   it("marks a completed goal as reached", () => {

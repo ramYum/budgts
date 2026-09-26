@@ -1,45 +1,46 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/page-header";
-import { NavIcon, type NavGlyph } from "@/components/nav-icons";
+import { Icon, type IconName } from "@/components/icon";
+import { Mascot } from "@/components/mascot";
 import { PrimaryLinkButton } from "@/components/ui";
 
-export const metadata: Metadata = { title: "How Budgts Works" };
+export const metadata: Metadata = { title: "How Budgts works" };
 
-const STEPS: { glyph: NavGlyph; heading: string; body: string }[] = [
+const STEPS: { icon: IconName; heading: string; body: string }[] = [
   {
-    glyph: "connected-banks",
+    icon: "bank",
     heading: "Connect your accounts",
-    body: "Connect your bank and card accounts once. Budgts automatically brings in your transactions, so you don't have to enter every purchase yourself.",
+    body: "Connect your bank and card accounts once. Budgts brings in your transactions, so you don't enter every purchase yourself.",
   },
   {
-    glyph: "activity",
+    icon: "receipt",
     heading: "Transactions arrive automatically",
-    body: "Once you're connected, new purchases show up on their own — taps, swipes, and online orders included. Manual entry is there for cash and anything your bank can't reach, not the everyday habit.",
+    body: "New purchases show up on their own — taps, swipes and online orders. Manual entry is there for cash and anything your bank can't reach.",
   },
   {
-    glyph: "categorize",
+    icon: "tag",
     heading: "Budgts sorts them for you",
-    body: "Every purchase gets filed into the right category automatically. When Budgts isn't confident, it asks instead of guessing — and remembers your answer for that merchant next time.",
+    body: "Every purchase is filed into the right category. When Budgts isn't sure it asks instead of guessing, and remembers your answer.",
   },
   {
-    glyph: "review",
+    icon: "bell",
     heading: "You review the exceptions",
-    body: "Most purchases are handled automatically. When Budgts isn't sure, we'll ask — the needs-a-category bell shows you exactly what needs a look, and answering once takes care of it going forward.",
+    body: "The bell shows exactly what needs a look. Answering once takes care of that merchant from then on.",
   },
   {
-    glyph: "budgets",
+    icon: "budgets",
     heading: "Set your budgets",
-    body: "Tell Budgts how much you want to spend per category, once. From there, Budgts compares your actual spending against that plan automatically.",
+    body: "Tell Budgts how much to spend per category, once. It compares your real spending against that plan.",
   },
   {
-    glyph: "money-left",
+    icon: "coins",
     heading: "See your Money Left",
-    body: "Home shows Money Left — your income minus your spending so far this month. It's a snapshot of the month's flow, not your savings-account balance.",
+    body: "Home shows income minus spending so far this month — a snapshot of the month's flow, not your savings balance.",
   },
   {
-    glyph: "insights",
+    icon: "insights",
     heading: "Track your progress",
-    body: "As the months add up, Budgts turns your organized activity into a clear picture — spending trends, how much of your income you're keeping, and how your budgets are holding up.",
+    body: "As months add up you see spending trends, how much income you keep and how budgets are holding.",
   },
 ];
 
@@ -55,39 +56,51 @@ const STEPS: { glyph: NavGlyph; heading: string; body: string }[] = [
  */
 export default function HowItWorksPage() {
   return (
-    <div className="space-y-6 pt-1">
-      <PageHeader title="How Budgts Works" back="/help" />
+    <>
+      <PageHeader title="How Budgts works" back="/help" />
+      <div className="space-y-6 md:max-w-[720px]">
+        <div className="space-y-2">
+          <h2 className="px-figure text-balance text-ink">You spend. Budgts keeps track.</h2>
+          <p className="text-[15px] leading-6 text-muted">
+            Connect your accounts, spend normally, and Budgts organizes everything — so you don&apos;t have to.
+          </p>
+        </div>
 
-      <div className="space-y-2 text-center">
-        <h2 className="text-xl font-semibold text-heading">You spend. Budgts keeps track.</h2>
-        <p className="text-sm text-muted">
-          Connect your accounts, spend normally, and Budgts automatically keeps track of your
-          transactions and organizes your spending — so you don&apos;t have to.
-        </p>
+        <ol className="px-card px-3 py-4 md:px-4 md:py-6">
+          {STEPS.map((s, i) => (
+            <li key={s.heading} className="relative flex gap-3 pb-6 last:pb-0 md:gap-4">
+              {/* the dotted thread from one step to the next */}
+              {i < STEPS.length - 1 ? (
+                <span className="px-rule-v absolute bottom-0 left-[15px] top-10" aria-hidden />
+              ) : null}
+              <span className="px-tile-ink flex h-8 w-8 shrink-0 items-center justify-center">
+                <span className="sr-only">Step {i + 1}</span>
+                <span className="px-tag-bold tracking-normal text-white" aria-hidden>
+                  {String(i + 1).padStart(2, "0")}
+                </span>
+              </span>
+              <div className="min-w-0 space-y-1 pt-1">
+                <p className="flex items-center gap-2 text-[15px] font-medium leading-6 text-ink">
+                  <Icon name={s.icon} />
+                  {s.heading}
+                </p>
+                <p className="text-sm leading-5 text-muted">{s.body}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+
+        <div className="px-card-ink flex flex-col items-start gap-4 p-3 sm:flex-row sm:items-center md:p-4">
+          <Mascot mood="happy" size={80} />
+          <div className="min-w-0 flex-1">
+            <p className="text-[15px] font-medium leading-6 text-ink">Want Crystal to walk you through it?</p>
+            <p className="text-[13px] leading-5 text-muted">The welcome guide takes about a minute.</p>
+          </div>
+          <PrimaryLinkButton href="/tour" arrow>
+            Open the welcome guide
+          </PrimaryLinkButton>
+        </div>
       </div>
-
-      <ol className="card divide-y divide-hairline overflow-hidden rounded-2xl border border-hairline">
-        {STEPS.map((s, i) => (
-          <li key={s.heading} className="flex gap-3 p-4">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-surface-2 text-accent">
-              <NavIcon glyph={s.glyph} className="h-5 w-5" />
-            </span>
-            <div className="space-y-0.5">
-              <p className="text-xs font-medium text-muted">Step {i + 1}</p>
-              <p className="text-sm font-semibold text-heading">{s.heading}</p>
-              <p className="text-sm text-muted">{s.body}</p>
-            </div>
-          </li>
-        ))}
-      </ol>
-
-      <div className="card space-y-3 rounded-2xl border border-hairline p-4 text-center">
-        <p className="text-sm font-semibold text-heading">You spend. Budgts keeps track.</p>
-        <p className="text-sm text-muted">Want Crystal to walk you through it? The welcome guide takes about a minute.</p>
-        <PrimaryLinkButton href="/tour" className="mx-auto">
-          Open the welcome guide
-        </PrimaryLinkButton>
-      </div>
-    </div>
+    </>
   );
 }

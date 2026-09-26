@@ -20,19 +20,19 @@ type Say = { hello: string; lines: string[] };
  * (one per tap). Copy only; the rate is the dashboard's own figure. */
 export function crystalLines(name: string, savingsRate: number | null): Say {
   const hello = name && name.length <= 8 ? `Hi, ${name}!` : "Hi there!";
-  if (savingsRate === null) return { hello, lines: ["No income yet", "Tap Income +", "Chirp chirp!"] };
+  if (savingsRate === null) return { hello, lines: ["No income yet", "Add income +", "Chirp chirp!"] };
   if (savingsRate < 0) return { hello, lines: ["Spent > earned", "Let's regroup", "We got this!"] };
   return { hello, lines: [`${formatSavingsRate(savingsRate)} saved!`, "Chirp chirp!", "Keep it up!", "Proud of you!"] };
 }
 
 const vars = (v: Record<string, string | number>) => v as CSSProperties;
 
-// Landing puffs at her feet (the art's feet sit at ~33–45px of 78).
+// Landing puffs at her feet (the art's feet sit at ~22–30px of her 52px width).
 const DUST = [
-  { left: 26, dx: -14 },
-  { left: 33, dx: -6 },
-  { left: 45, dx: 6 },
-  { left: 52, dx: 14 },
+  { left: 17, dx: -10 },
+  { left: 22, dx: -4 },
+  { left: 30, dx: 4 },
+  { left: 35, dx: 10 },
 ];
 
 // A fixed burst from her head (no randomness, so server and client agree),
@@ -47,23 +47,30 @@ const BURST: { kind: "heart" | "spark"; x: number; y: number; t: number; c?: str
   { kind: "spark", x: 14, y: -30, t: 240, c: "var(--ink)" },
 ];
 
+/** A speech bubble to her left, its stepped tail pointing at her. */
 function Bubble({ say, text, forMs, atMs }: { say: string; text: string; forMs: number; atMs: number }) {
   return (
     <span
       aria-hidden
       data-say={say}
-      className="crystal-say pointer-events-none absolute bottom-full right-1 z-[1] whitespace-nowrap"
+      className="crystal-say pointer-events-none absolute right-full top-[6px] z-[1] mr-2 whitespace-nowrap"
       style={vars({ "--say-for": `${forMs}ms`, "--say-at": `${atMs}ms` })}
     >
-      <span className="pixel-corners font-pixel-bold block bg-ink px-2 py-1 text-[8px] uppercase leading-none text-white">
-        {text}
-      </span>
+      <span className="px-badge-ink px-tag-bold block px-2 py-1 leading-none text-white">{text}</span>
       <span className="crystal-tail" />
     </span>
   );
 }
 
-export function CrystalPerch({ name, savingsRate }: { name: string; savingsRate: number | null }) {
+export function CrystalPerch({
+  name,
+  savingsRate,
+  className,
+}: {
+  name: string;
+  savingsRate: number | null;
+  className?: string;
+}) {
   const [taps, setTaps] = useState(0);
   const mood = savingsRate !== null && savingsRate < 0 ? "curious" : "happy";
   const { hello, lines } = crystalLines(name, savingsRate);
@@ -71,10 +78,9 @@ export function CrystalPerch({ name, savingsRate }: { name: string; savingsRate:
   const saving = savingsRate !== null && savingsRate > 0;
 
   return (
-    // On desktop the notification bell sits in a row just above: the extra
-    // top room keeps her bubbles clear of it. The bubbles anchor to the inner
-    // box (her own top), so the room above her is what moves them.
-    <div className="-mb-1 shrink-0 pt-1 md:pt-8">
+    // She perches on the hero card's top edge (the parent places her); her
+    // bubbles open to her left, over the card's own line.
+    <div className={`shrink-0 ${className ?? ""}`}>
       <div className="relative">
         {said ? (
           // she jumps, chirps back, lands, then speaks (the jump would hit a bubble above her)
@@ -99,7 +105,7 @@ export function CrystalPerch({ name, savingsRate }: { name: string; savingsRate:
             <span className="crystal-land block">
               <span key={taps} className="crystal-life block">
                 <span className={`flex ${taps ? "crystal-react" : ""}`}>
-                  <Robin mood={mood} size={66} flaps />
+                  <Robin mood={mood} size={44} flaps />
                 </span>
               </span>
             </span>
@@ -119,7 +125,7 @@ export function CrystalPerch({ name, savingsRate }: { name: string; savingsRate:
                   <span
                     key={at}
                     aria-hidden
-                    className="crystal-token font-pixel-bold absolute left-[56px] top-[-4px] text-[8px] leading-none text-signal"
+                    className="crystal-token font-pixel-bold absolute left-[37px] top-[-4px] text-[8px] leading-none text-signal"
                     style={vars({ "--at": `${at}ms` })}
                   >
                     +$
@@ -128,7 +134,7 @@ export function CrystalPerch({ name, savingsRate }: { name: string; savingsRate:
               : null}
             {taps > 0 ? (
               <>
-                <span aria-hidden className="crystal-burst absolute left-[35px] top-[10px]">
+                <span aria-hidden className="crystal-burst absolute left-[23px] top-[6px]">
                   {BURST.map((p, i) => (
                     <span
                       key={i}

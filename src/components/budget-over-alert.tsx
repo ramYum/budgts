@@ -3,6 +3,7 @@
 import { useCallback, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { formatMoney } from "@/lib/budget/money";
+import { Icon } from "./icon";
 
 /**
  * Dismissal is per browser tab session, not per-view: switching tabs and
@@ -62,27 +63,20 @@ export function BudgetOverAlert({
   }
 
   return (
-    <div className="card relative flex gap-3 rounded-2xl border border-hairline p-4 pr-10 text-[13px] leading-relaxed text-text">
-      <span className="mt-1 h-3.5 w-1 shrink-0 bg-accent" aria-hidden />
+    <div className="px-warn relative flex items-start gap-3 p-3 pr-12 text-[15px] leading-6 text-ink md:p-4 md:pr-14">
+      <Icon name="warning" className="text-warn" />
       <button
         type="button"
         onClick={dismiss}
         aria-label="Dismiss"
-        className="press absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-text"
+        className="press absolute right-2 top-2 flex h-9 w-9 items-center justify-center text-muted hover:text-ink"
       >
-        <svg viewBox="0 0 20 20" width="14" height="14" fill="none" aria-hidden="true">
-          <path
-            d="M5 5l10 10M15 5L5 15"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-          />
-        </svg>
+        <Icon name="close" />
       </button>
-      <p>
+      <p className="tnum">
         This month&apos;s budgets add up to {formatMoney(budgeted, currency)}, more than the{" "}
         {formatMoney(income, currency)} you&apos;ve brought in so far.{" "}
-        <Link href="/budgets" className="underline underline-offset-2">
+        <Link href="/budgets" className="font-medium underline underline-offset-2">
           Review your budgets
         </Link>
         .

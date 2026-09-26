@@ -3,9 +3,9 @@ import { describe, expect, it } from "vitest";
 import HelpPage from "./page";
 
 describe("HelpPage", () => {
-  it("links to the How Budgts Works guide", () => {
+  it("links to the How Budgts works guide", () => {
     render(<HelpPage />);
-    expect(screen.getByRole("link", { name: /How Budgts Works/ })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /How Budgts works/ })).toHaveAttribute(
       "href",
       "/help/how-it-works",
     );
@@ -13,7 +13,7 @@ describe("HelpPage", () => {
 
   it("still links to the welcome guide", () => {
     render(<HelpPage />);
-    expect(screen.getByRole("link", { name: "Replay the welcome guide →" })).toHaveAttribute("href", "/tour");
+    expect(screen.getByRole("link", { name: /Replay the welcome guide/ })).toHaveAttribute("href", "/tour");
   });
 
   it("still shows the existing FAQ content", () => {

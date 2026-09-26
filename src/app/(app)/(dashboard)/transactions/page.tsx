@@ -7,6 +7,9 @@ import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { currentMonthKey, todayDateKey } from "@/lib/budget/month";
 import { AddTransaction } from "@/components/add-transaction";
 import { MonthNav } from "@/components/month-nav";
+import { PageHeader } from "@/components/page-header";
+import { Icon } from "@/components/icon";
+import { IconTile } from "@/components/ui";
 import { TransactionList, type TxnListItem } from "@/components/transaction-list";
 import type { AccountOption, CategoryOption } from "@/components/transaction-form";
 import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
@@ -178,12 +181,15 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
 
   const showConnectPrompt = plaidOn && (txns ?? []).length === 0 && !categoryFilter;
 
+  const hasPanel = needsCategory.length > 0;
+
   return (
-    <div className="space-y-5 pt-1">
-      <div className="flex items-center justify-between">
-        <MonthNav base="/transactions" month={m} />
-        <AddTransaction accounts={accountOpts} categories={categoryOpts} defaultDate={defaultDate} />
-      </div>
+    <div>
+      <PageHeader
+        title="Activity"
+        month={<MonthNav base="/transactions" month={m} />}
+        action={<AddTransaction accounts={accountOpts} categories={categoryOpts} defaultDate={defaultDate} />}
+      />
 
       {/* Streams in: its per-account lookups never hold up the ledger. */}
       <Suspense fallback={null}>
@@ -191,41 +197,63 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
       </Suspense>
 
       {categoryFilter ? (
-        <div className="flex items-center justify-between rounded-lg border border-hairline bg-tint px-3 py-2 text-sm text-primary">
-          <span>
-            Showing{" "}
-            <span className="font-semibold">
-              {categoryOpts.find((c) => c.id === categoryFilter)?.name ?? "category"}
+        <div className="px-band mb-6 flex items-center justify-between gap-3 px-2 py-1 text-[15px] leading-6 text-ink">
+          <span className="flex min-w-0 items-center gap-2">
+            <Icon name="categories" className="text-graphite" />
+            <span className="truncate">
+              Showing{" "}
+              <span className="font-semibold">
+                {categoryOpts.find((c) => c.id === categoryFilter)?.name ?? "category"}
+              </span>
             </span>
           </span>
-          <Link href={`/transactions?m=${m}`} className="text-xs font-medium text-primary/60 hover:text-primary">
+          <Link
+            href={`/transactions?m=${m}`}
+            className="press -my-1 flex shrink-0 items-center gap-1 font-medium text-graphite hover:text-ink"
+          >
             Clear
+            <Icon name="close" />
           </Link>
         </div>
       ) : null}
 
-      <NeedsCategory
-        items={needsCategory}
-        categories={categoryOpts}
-        missingStandard={missingStandard}
-        currency={currency}
-      />
+      {/* Phones: the to-do panel leads, above the list. Wide screens: it
+          takes the right-hand column beside the ledger. */}
+      <div
+        className={
+          hasPanel ? "flex flex-col gap-6 xl:grid xl:grid-cols-[minmax(0,1fr)_420px] xl:items-start" : "space-y-6"
+        }
+      >
+        {hasPanel ? (
+          <div className="xl:col-start-2 xl:row-start-1">
+            <NeedsCategory
+              items={needsCategory}
+              categories={categoryOpts}
+              missingStandard={missingStandard}
+              currency={currency}
+            />
+          </div>
+        ) : null}
 
-      {showConnectPrompt ? (
-        <div className="card space-y-3 rounded-2xl border border-hairline p-4">
-          <p className="text-sm text-muted">
-            Connect a bank to fill this in automatically, or add a transaction by hand.
-          </p>
-          <ConnectBank accounts={accountOpts} tone="outline" />
+        <div className="min-w-0 space-y-6 xl:col-start-1 xl:row-start-1">
+          {showConnectPrompt ? (
+            <div className="px-card flex flex-col items-start gap-3 p-3 sm:flex-row sm:items-center md:p-4">
+              <IconTile name="bank" />
+              <p className="flex-1 text-[15px] leading-6 text-graphite">
+                Connect a bank to fill this in on its own, or add a transaction by hand.
+              </p>
+              <ConnectBank accounts={accountOpts} tone="outline" />
+            </div>
+          ) : null}
+
+          <TransactionList
+            items={(txns ?? []) as unknown as TxnListItem[]}
+            currency={currency}
+            accounts={accountOpts}
+            categories={categoryOpts}
+          />
         </div>
-      ) : null}
-
-      <TransactionList
-        items={(txns ?? []) as unknown as TxnListItem[]}
-        currency={currency}
-        accounts={accountOpts}
-        categories={categoryOpts}
-      />
+      </div>
     </div>
   );
 }

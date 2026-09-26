@@ -47,6 +47,8 @@ export default async function BudgetsPage({ searchParams }: PageProps<"/budgets"
   const sp = await searchParams;
   const month = typeof sp.m === "string" && MONTH_RE.test(sp.m) ? sp.m : currentMonthKey();
   const range = sp.range === "all" ? "all" : "month";
+  // Home's "Set budget" links here with the category to open (a uuid).
+  const edit = typeof sp.edit === "string" && /^[0-9a-f-]{36}$/i.test(sp.edit) ? sp.edit : null;
 
   const user = await getSessionUser();
   if (!user) redirect("/sign-in");
@@ -126,9 +128,7 @@ export default async function BudgetsPage({ searchParams }: PageProps<"/budgets"
       .sort((a, b) => b.total - a.total);
 
     return (
-      <div className="pt-1">
-        <BudgetsView range="all" month={month} currency={currency} allTimeRows={rows} categories={cats} />
-      </div>
+      <BudgetsView range="all" month={month} currency={currency} allTimeRows={rows} categories={cats} />
     );
   }
 
@@ -141,7 +141,7 @@ export default async function BudgetsPage({ searchParams }: PageProps<"/budgets"
   );
 
   return (
-    <div className="pt-1">
+    <>
       <RealtimeRefresh tables={["budgets"]} />
       <BudgetsView
         range="month"
@@ -151,7 +151,8 @@ export default async function BudgetsPage({ searchParams }: PageProps<"/budgets"
         prevView={prevView}
         categories={cats}
         unbudgetedCategories={unbudgeted}
+        initialEdit={edit}
       />
-    </div>
+    </>
   );
 }

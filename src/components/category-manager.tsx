@@ -4,7 +4,8 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { Overlay } from "./overlay";
 import { CategoryForm, type CategoryInitial } from "./category-form";
-import { CategoryIcon } from "./ui";
+import { RowMenu } from "./row-menu";
+import { Button, CategoryIcon, SectionHead, TextButton } from "./ui";
 import { createCategory, setCategoryArchived, updateCategory } from "@/server/categories";
 
 export type CategoryItem = {
@@ -13,6 +14,8 @@ export type CategoryItem = {
   kind: "expense" | "income";
   color: string;
   is_archived: boolean;
+  /** transactions in it this month */
+  txnCount: number;
 };
 
 function Row({
@@ -25,6 +28,7 @@ function Row({
   currentMonth: string;
 }) {
   const [pending, start] = useTransition();
+  const archiveLabel = cat.is_archived ? "Restore" : "Archive";
 
   const toggleArchive = () => {
     start(async () => {
@@ -36,28 +40,66 @@ function Row({
   };
 
   return (
-    <li className={`flex items-center gap-3 py-2 ${cat.is_archived ? "opacity-50" : ""}`}>
-      <CategoryIcon name={cat.name} size={32} />
+    <li className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0 md:gap-4">
+      <span className={cat.is_archived ? "opacity-60" : ""}>
+        <CategoryIcon name={cat.name} />
+      </span>
       <Link
         href={`/transactions?m=${currentMonth}&category=${cat.id}`}
-        className="min-w-0 flex-1 truncate text-sm hover:underline"
+        className={`group min-w-0 flex-1 ${cat.is_archived ? "opacity-60" : ""}`}
       >
-        {cat.name}
+        <span className="block truncate text-[15px] font-medium leading-6 text-ink group-hover:underline">
+          {cat.name}
+        </span>
+        <span className="block truncate text-[13px] leading-5 text-muted">
+          {cat.txnCount === 0
+            ? "Nothing this month"
+            : `${cat.txnCount} ${cat.txnCount === 1 ? "transaction" : "transactions"} this month`}
+        </span>
       </Link>
-      {!cat.is_archived ? (
-        <button type="button" onClick={() => onEdit(cat)} className="text-xs text-muted hover:text-text">
-          Edit
-        </button>
-      ) : null}
-      <button
-        type="button"
-        onClick={toggleArchive}
-        disabled={pending}
-        className="text-xs text-muted hover:text-text disabled:opacity-50"
-      >
-        {cat.is_archived ? "Restore" : "Archive"}
-      </button>
+      <div className="hidden items-center gap-4 md:flex">
+        {!cat.is_archived ? (
+          <TextButton icon="edit" onClick={() => onEdit(cat)} aria-label={`Edit ${cat.name}`}>
+            Edit
+          </TextButton>
+        ) : null}
+        <TextButton
+          icon="archive"
+          onClick={toggleArchive}
+          disabled={pending}
+          aria-label={`${archiveLabel} ${cat.name}`}
+        >
+          {archiveLabel}
+        </TextButton>
+      </div>
+      <span className="-mr-2 md:hidden">
+        <RowMenu
+          label={`More for ${cat.name}`}
+          items={[
+            ...(!cat.is_archived ? [{ label: "Edit", icon: "edit" as const, onSelect: () => onEdit(cat) }] : []),
+            { label: archiveLabel, icon: "archive", onSelect: toggleArchive, disabled: pending },
+          ]}
+        />
+      </span>
     </li>
+  );
+}
+
+/** The screen's primary action: a new category. */
+export function AddCategoryButton() {
+  const [adding, setAdding] = useState(false);
+  return (
+    <>
+      <Button icon="plus" onClick={() => setAdding(true)} aria-label="Add category">
+        <span className="md:hidden">Add</span>
+        <span className="hidden md:inline">Add category</span>
+      </Button>
+      {adding ? (
+        <Overlay title="Add category" onClose={() => setAdding(false)}>
+          <CategoryForm action={createCategory} onDone={() => setAdding(false)} submitLabel="Add" />
+        </Overlay>
+      ) : null}
+    </>
   );
 }
 
@@ -69,48 +111,27 @@ export function CategoryManager({
   currentMonth: string;
 }) {
   const [editing, setEditing] = useState<CategoryItem | null>(null);
-  const [adding, setAdding] = useState(false);
 
-  const expense = categories.filter((c) => c.kind === "expense");
-  const income = categories.filter((c) => c.kind === "income");
-  const section = (label: string, list: CategoryItem[]) => (
-    <div className="space-y-1 px-4 py-3">
-      <h3 className="text-xs font-medium text-muted">{label}</h3>
-      <ul className="divide-y divide-hairline">
-        {list.map((c) => (
-          <Row key={c.id} cat={c} currentMonth={currentMonth} onEdit={setEditing} />
-        ))}
-      </ul>
-    </div>
-  );
+  const active = categories.filter((c) => !c.is_archived);
+  const groups = [
+    { key: "expense", title: "Expense", list: active.filter((c) => c.kind === "expense") },
+    { key: "income", title: "Income", list: active.filter((c) => c.kind === "income") },
+    { key: "archived", title: "Archived", list: categories.filter((c) => c.is_archived) },
+  ].filter((g) => g.list.length > 0);
 
   return (
-    <section className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h2 className="flex items-center gap-2 text-sm font-semibold">
-          <span className="h-3.5 w-1 shrink-0 bg-accent" aria-hidden />
-          Categories
-        </h2>
-        <button
-          type="button"
-          onClick={() => setAdding(true)}
-          className="press rounded-xl border border-hairline bg-surface px-3 py-2 text-sm font-medium hover:bg-surface-2"
-        >
-          + Add
-        </button>
-      </div>
-      <p className="text-xs text-muted">Tap a category to see its transactions.</p>
+    <div className="space-y-8">
+      {groups.map((g) => (
+        <section key={g.key} className="space-y-3">
+          <SectionHead title={g.title} count={g.list.length} />
+          <ul className="px-card px-rows p-3 md:p-4">
+            {g.list.map((c) => (
+              <Row key={c.id} cat={c} currentMonth={currentMonth} onEdit={setEditing} />
+            ))}
+          </ul>
+        </section>
+      ))}
 
-      <div className="card divide-y divide-hairline overflow-hidden rounded-2xl border border-hairline">
-        {section("Expense", expense)}
-        {income.length ? section("Income", income) : null}
-      </div>
-
-      {adding ? (
-        <Overlay title="Add category" onClose={() => setAdding(false)}>
-          <CategoryForm action={createCategory} onDone={() => setAdding(false)} submitLabel="Add" />
-        </Overlay>
-      ) : null}
       {editing ? (
         <Overlay title="Edit category" onClose={() => setEditing(null)}>
           <CategoryForm
@@ -121,6 +142,6 @@ export function CategoryManager({
           />
         </Overlay>
       ) : null}
-    </section>
+    </div>
   );
 }

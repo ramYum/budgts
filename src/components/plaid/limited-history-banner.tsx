@@ -1,6 +1,7 @@
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
 import { buildLimitedHistoryMessages } from "@/lib/plaid/history-coverage";
+import { Icon } from "@/components/icon";
 
 /**
  * Owner-facing advisory when a Plaid connection's initial backfill fell
@@ -90,9 +91,10 @@ export async function LimitedHistoryBanner() {
   if (messages.length === 0) return null;
 
   return (
-    <div className="space-y-1.5">
+    <div className="mb-6 space-y-2">
       {messages.map((m, i) => (
-        <div key={i} className="rounded-md border border-neg/40 bg-neg/5 px-2.5 py-1.5 text-xs text-neg">
+        <div key={i} className="px-warn flex items-start gap-2 px-2 py-1.5 text-sm leading-5 text-ink">
+          <Icon name="warning" className="-my-0.5 text-warn" />
           <p>{m}</p>
         </div>
       ))}

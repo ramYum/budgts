@@ -1,93 +1,114 @@
-import { ArrowDownRight, ArrowUpRight } from "@phosphor-icons/react/dist/ssr";
+import type { ReactNode } from "react";
 import { formatMoney } from "@/lib/budget/money";
 import type { DashboardBar } from "@/lib/budget/dashboard";
 import type { MonthSpend } from "@/lib/budget/spend-trend";
 import { RollingAmount } from "./rolling-amount";
 
 // Pixel charts: plain server-rendered markup, no chart library and no client
-// JS. Every mark is a square cell; cells step in on first paint (globals.css
-// `.cell`). Values are always also printed as text (labels, legend, aria), so
-// no number is readable only from a mark.
+// JS. Every mark is a square cell on whole pixels; cells step in on first
+// paint (globals.css `.cell`). Values are always also printed as text (labels,
+// legend, aria), so no number is readable only from a mark.
 
-function monthShortLabel(month: string): string {
+function monthLabel(month: string, style: "short" | "long"): string {
   const [y, m] = month.split("-").map(Number);
-  return new Date(Date.UTC(y!, m! - 1, 1)).toLocaleDateString("en-US", {
-    month: "short",
-    timeZone: "UTC",
-  });
+  return new Date(Date.UTC(y!, m! - 1, 1)).toLocaleDateString("en-US", { month: style, timeZone: "UTC" });
 }
 
-const ROWS = 9;
+/** "$1,671" for a chart tag: whole units, cut (not rounded) so the tag never
+ * claims more than was spent. Display only; minor units stay the source. */
+function formatWhole(minor: number, currency: string): string {
+  return new Intl.NumberFormat(undefined, { style: "currency", currency, maximumFractionDigits: 0 }).format(
+    Math.trunc(minor / 100),
+  );
+}
+
+const ROWS = 10;
 const CELL = 10; // px, square
 const GAP = 2; // px between cells
 
-/** "Total spending": value + delta + a 6-month column of cells per month.
- * Past months in quiet gray, the current month in the accent with its value
- * tagged on top (the one highlighted mark). */
+/**
+ * Six months of spending as two-cell columns: past months in quiet gray, the
+ * current month in the accent with its value tagged on top (the one
+ * highlighted mark). Unlit rows show as a faint track, so every column reads
+ * against the same height.
+ *
+ * `figure="total"` (Home) leads with this month's spending; `figure="change"`
+ * (Insights) leads with the change against last month.
+ */
 export function SpendingTrendCard({
   trend,
-  changePct,
   currency,
+  figure = "total",
+  title,
 }: {
   trend: MonthSpend[];
-  changePct: number | null;
   currency: string;
+  figure?: "total" | "change";
+  /** a pixel tag inside the card (when the section has no heading outside it) */
+  title?: string;
 }) {
-  const total = trend.at(-1)?.spend ?? 0;
+  const current = trend.at(-1);
+  const previous = trend.at(-2);
+  const total = current?.spend ?? 0;
+  const delta = current && previous ? current.spend - previous.spend : null;
+  const prevName = previous ? monthLabel(previous.month, "long") : "";
   const max = Math.max(0, ...trend.map((t) => t.spend));
   const data = trend.map((t, i) => ({
     ...t,
-    label: monthShortLabel(t.month),
+    label: monthLabel(t.month, "short"),
     current: i === trend.length - 1,
     lit: max > 0 && t.spend > 0 ? Math.max(1, Math.round((t.spend / max) * ROWS)) : 0,
   }));
-  const up = changePct !== null && changePct > 0;
+  const signed = (v: number) => `${v > 0 ? "+" : v < 0 ? "−" : ""}${formatMoney(Math.abs(v), currency)}`;
 
   return (
-    <section className="card space-y-5 rounded-2xl border border-hairline p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-[13px] text-muted">Total spending</p>
-          <p className="tnum mt-1 text-[28px] font-semibold leading-none tracking-tight">
+    <section className="px-card p-3 md:p-4">
+      {title ? <h2 className="px-tag mb-3 text-ink">{title}</h2> : null}
+      {figure === "change" && delta !== null ? (
+        <>
+          <p className="px-figure tnum text-ink">{signed(delta)}</p>
+          <p className="text-sm leading-5 text-muted">vs {prevName}</p>
+        </>
+      ) : (
+        <>
+          <p className="px-figure tnum text-ink">
             <RollingAmount value={total} currency={currency} />
           </p>
-          {changePct !== null ? (
-            <p className={`tnum mt-2 flex items-center gap-1 text-[13px] ${up ? "text-neg" : "text-pos"}`}>
-              {up ? (
-                <ArrowUpRight aria-hidden className="h-3.5 w-3.5" />
-              ) : (
-                <ArrowDownRight aria-hidden className="h-3.5 w-3.5" />
-              )}
-              {Math.abs(Math.round(changePct))}% from last month
-            </p>
-          ) : null}
-        </div>
-        <span className="rounded-lg border border-hairline px-2.5 py-1 text-xs text-muted">6 months</span>
-      </div>
+          <p className="text-sm leading-5 text-muted">
+            This month
+            {delta !== null ? (
+              <>
+                {" "}
+                · <span className="tnum text-ink">{signed(delta)}</span> vs {prevName}
+              </>
+            ) : null}
+          </p>
+        </>
+      )}
 
       <div
         role="img"
         aria-label={`Spending by month: ${data.map((d) => `${d.label} ${formatMoney(d.spend, currency)}`).join(", ")}`}
-        className="grid grid-cols-6 items-end gap-2 pt-7"
+        className="mt-8 grid grid-cols-6 items-end gap-2 pt-7"
       >
         {data.map((d, col) => (
           <div
             key={d.month}
-            className="flex flex-col items-center gap-2"
+            className="flex flex-col items-center gap-3"
             title={`${d.label}: ${formatMoney(d.spend, currency)}`}
           >
-            {/* two cells wide, built bottom-up; unlit rows stay empty */}
+            {/* two cells wide, built bottom-up over a faint track */}
             <div
               className="relative grid grid-cols-2"
               style={{ gap: GAP, gridTemplateRows: `repeat(${ROWS}, ${CELL}px)`, width: CELL * 2 + GAP }}
             >
               {Array.from({ length: ROWS * 2 }, (_, i) => {
                 const rowFromBottom = ROWS - 1 - Math.floor(i / 2);
-                if (rowFromBottom >= d.lit) return <span key={i} />;
+                const lit = rowFromBottom < d.lit;
                 return (
                   <span
                     key={i}
-                    className={`cell rounded-[1px] ${d.current ? "bg-signal" : "bg-[var(--cell-past)]"}`}
+                    className={`cell ${lit ? (d.current ? "bg-signal" : "bg-silver") : "bg-surface-2"}`}
                     style={{ ["--d" as string]: col * 3 + rowFromBottom }}
                   />
                 );
@@ -95,17 +116,17 @@ export function SpendingTrendCard({
               {d.current && d.lit > 0 ? (
                 // pops on once its column has built (the .cell cadence: 22ms a step after 220ms)
                 <span
-                  className="pop pixel-corners tnum absolute right-0 whitespace-nowrap bg-ink px-1.5 py-1 text-[11px] font-medium text-on-primary"
+                  className="pop px-badge-ink px-tag-bold absolute right-[-4px] whitespace-nowrap px-1.5 py-1 leading-none tracking-normal text-white md:right-[-8px]"
                   style={{
-                    bottom: d.lit * (CELL + GAP) + 4,
+                    bottom: ROWS * (CELL + GAP) + 6,
                     ["--at" as string]: `${(col * 3 + d.lit) * 22 + 380}ms`,
                   }}
                 >
-                  {formatMoney(d.spend, currency)}
+                  {formatWhole(d.spend, currency)}
                 </span>
               ) : null}
             </div>
-            <span className={`text-[11px] ${d.current ? "font-semibold text-text" : "text-muted"}`}>
+            <span className={`text-[15px] leading-5 ${d.current ? "font-semibold text-ink" : "text-muted"}`}>
               {d.label}
             </span>
           </div>
@@ -119,19 +140,23 @@ export function SpendingTrendCard({
  *
  * Deliberate encoding (brand direction: monochrome + one accent): the largest
  * share is the one highlighted slice in the accent; the rest step down a
- * neutral ramp by size, with everything past the 4th folded into "Other".
- * Identity is never color-alone: the legend beside it names every slice with
- * its share, in the same order the ring draws them (clockwise from 12). */
-const RAMP = ["var(--signal)", "#111111", "#6e6e6e", "#a8a8a8", "#d6d6d6"];
+ * neutral ramp by size, with everything past the 4th folded into "Other"
+ * (five named slices show as they are). Identity is never color-alone: the
+ * legend names every slice with its amount and share, in the order the ring
+ * draws them (clockwise from 12). */
+const RAMP = ["var(--signal)", "#111111", "#6e6e6e", "#9e9e9e", "#d0d0d0"];
 
 // Grouping (unchanged): known categories in a fixed order, then up to two
 // custom ones, then the uncategorized remainder as "Other".
 const CHART_ORDER = ["Transportation", "Personal Care", "Food / Groceries", "Insurances", "Entertainment", "Housing"];
 const CUSTOM_SLOTS = 2;
 
-const GRID = 21;
-const R_OUT = 10.45;
-const R_IN = 7.1;
+// A 14×14 grid of 8px cells on a 10px pitch: a ring three cells thick.
+const GRID = 14;
+const PITCH = 10;
+const DOT = 8;
+const R_OUT = 7.05;
+const R_IN = 4.05;
 
 /** Ring cells in clockwise order from 12 o'clock, computed once. */
 const RING = (() => {
@@ -150,14 +175,37 @@ const RING = (() => {
   return cells.sort((p, q) => p.a - q.a);
 })();
 
+/** Whole-percent shares that add up to exactly 100 (largest remainder), so
+ * the legend never reads 101%. */
+export function sharesOf(amounts: number[]): number[] {
+  const total = amounts.reduce((s, a) => s + a, 0);
+  if (total <= 0) return amounts.map(() => 0);
+  const raw = amounts.map((a) => (a / total) * 100);
+  const floors = raw.map(Math.floor);
+  let left = 100 - floors.reduce((s, f) => s + f, 0);
+  const order = raw.map((r, i) => ({ i, rem: r - Math.floor(r) })).sort((a, b) => b.rem - a.rem);
+  for (const { i } of order) {
+    if (left <= 0) break;
+    floors[i]! += 1;
+    left -= 1;
+  }
+  return floors;
+}
+
 export function SpendingBreakdownCard({
   bars,
   totalSpent,
   currency,
+  layout = "stack",
+  header,
 }: {
   bars: DashboardBar[];
   totalSpent: number;
   currency: string;
+  /** "stack": ring over legend (a narrow column); "row": ring beside legend */
+  layout?: "stack" | "row";
+  /** what heads the card, inside its frame (Insights: tag, figure, toggle) */
+  header?: ReactNode;
 }) {
   const known = CHART_ORDER.map((name) => bars.find((b) => b.name === name))
     .filter((b): b is DashboardBar => !!b && b.actual > 0)
@@ -179,16 +227,15 @@ export function SpendingBreakdownCard({
     return null;
   }
 
-  // Display: the four largest named slices, everything else as "Other".
-  const top = grouped
-    .filter((s) => s.name !== "Other")
-    .sort((a, b) => b.amount - a.amount)
-    .slice(0, 4);
+  // Display: every slice when there are five or fewer, else the four largest
+  // named slices and everything else as "Other".
+  const byAmount = [...grouped].sort((a, b) => b.amount - a.amount);
+  const fits = grouped.length <= RAMP.length;
+  const top = fits ? byAmount : byAmount.filter((s) => s.name !== "Other").slice(0, 4);
   const rest = totalSpent - top.reduce((sum, s) => sum + s.amount, 0);
-  const slices = [...top, ...(rest > 0 ? [{ name: "Other", amount: rest }] : [])].map((s, i) => ({
-    ...s,
-    color: RAMP[i]!,
-  }));
+  const list = [...top, ...(!fits && rest > 0 ? [{ name: "Other", amount: rest }] : [])];
+  const shares = sharesOf(list.map((s) => s.amount));
+  const slices = list.map((s, i) => ({ ...s, color: RAMP[i]!, share: shares[i]! }));
 
   // cumulative share → which slice each ring cell belongs to
   const bounds: number[] = [];
@@ -202,47 +249,50 @@ export function SpendingBreakdownCard({
     const k = bounds.findIndex((b) => t <= b);
     return slices[k === -1 ? slices.length - 1 : k]!.color;
   };
+  const size = GRID * PITCH - (PITCH - DOT);
 
   return (
-    <section className="card space-y-4 rounded-2xl border border-hairline p-5">
-      <h2 className="text-[15px] font-semibold">Where your money goes</h2>
-      <div className="flex items-center gap-5">
+    <section className="px-card p-3 md:p-4">
+      {header}
+      <div className={layout === "row" ? "flex flex-col gap-6 sm:flex-row sm:items-center sm:gap-8" : "flex flex-col gap-6"}>
         <div
-          className="relative h-36 w-36 shrink-0"
+          className="relative shrink-0"
+          style={{ width: size, height: size }}
           role="img"
           aria-label={`Spending breakdown: ${slices.map((s) => `${s.name} ${formatMoney(s.amount, currency)}`).join(", ")}`}
         >
-          <svg viewBox={`0 0 ${GRID} ${GRID}`} className="h-full w-full" shapeRendering="crispEdges" aria-hidden>
+          <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size} shapeRendering="crispEdges" aria-hidden>
             {RING.map((cell, i) => (
               <rect
                 key={i}
-                x={cell.x + 0.09}
-                y={cell.y + 0.09}
-                width={0.82}
-                height={0.82}
+                x={cell.x * PITCH}
+                y={cell.y * PITCH}
+                width={DOT}
+                height={DOT}
                 fill={colorAt(i)}
                 className="cell"
                 style={{ ["--d" as string]: Math.floor(i / 4) }}
               />
             ))}
           </svg>
-          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-            <p className="tnum text-[15px] font-semibold leading-tight">
+          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1">
+            <p className="px-tag text-muted">Total</p>
+            <p className="tnum text-[15px] font-semibold leading-5 text-ink">
               <RollingAmount value={totalSpent} currency={currency} />
             </p>
-            <p className="text-[11px] text-muted">Total</p>
           </div>
         </div>
-        <ul className="min-w-0 flex-1 space-y-2.5 text-[13px]">
+        <ul className="min-w-0 flex-1 space-y-3">
           {slices.map((s, k) => (
             <li
               key={s.name}
-              className="rise flex items-center gap-2.5"
+              className="rise flex items-center gap-2.5 text-[15px] leading-6"
               style={{ ["--at" as string]: `${k * 70 + 300}ms` }}
             >
-              <span className="h-2.5 w-2.5 shrink-0 rounded-[1px]" style={{ background: s.color }} aria-hidden />
-              <span className="min-w-0 flex-1 truncate">{s.name}</span>
-              <span className="tnum shrink-0 text-muted">{Math.round((s.amount / totalSpent) * 100)}%</span>
+              <span className="h-3 w-3 shrink-0" style={{ background: s.color }} aria-hidden />
+              <span className="min-w-0 flex-1 truncate text-ink">{s.name}</span>
+              <span className="tnum shrink-0 text-ink">{formatMoney(s.amount, currency)}</span>
+              <span className="px-tag-bold w-9 shrink-0 text-right tracking-normal text-muted">{s.share}%</span>
             </li>
           ))}
         </ul>

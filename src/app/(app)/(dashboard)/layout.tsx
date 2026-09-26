@@ -1,7 +1,7 @@
 import { Suspense, cache } from "react";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
-import { signOut } from "@/server/auth";
 import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
 import { firstRunRedirect } from "@/lib/tour/gate";
 import { applyNeedsCategoryFilter } from "@/lib/plaid/needs-category-window";
@@ -57,25 +57,18 @@ export default async function DashboardLayout({ children }: LayoutProps<"/">) {
   );
 
   return (
-    <div className="flex min-h-dvh w-full flex-col md:pl-60">
+    <div className="flex min-h-dvh w-full flex-col md:pl-[248px]">
       {/* Keeps the bell count fresh after a sync lands, on every dashboard route. */}
       {plaidOn ? <RealtimeRefresh tables={["transactions"]} /> : null}
 
-      <DesktopSidebar />
+      <DesktopSidebar email={user.email ?? ""} />
 
-      <header className="sticky top-0 z-10 flex items-center justify-between bg-bg/85 px-4 py-3 backdrop-blur-xl md:hidden">
-        <Logo size={26} />
-        <div className="flex items-center gap-3">
-          {plaidOn ? bell : null}
-          <form action={signOut}>
-            <button
-              type="submit"
-              className="press rounded-lg px-2 py-1 text-xs text-muted hover:bg-surface-2 hover:text-text"
-            >
-              Sign out
-            </button>
-          </form>
-        </div>
+      {/* Phone: the brand and the bell; sign out lives in Settings. */}
+      <header className="sticky top-0 z-10 flex h-14 items-center justify-between bg-bg/90 px-4 backdrop-blur-xl md:hidden">
+        <Link href="/" aria-label="Budgts home" className="press">
+          <Logo size={22} />
+        </Link>
+        {plaidOn ? bell : null}
       </header>
 
       {plaidOn ? (
@@ -84,10 +77,11 @@ export default async function DashboardLayout({ children }: LayoutProps<"/">) {
         </Suspense>
       ) : null}
 
-      <main className="mx-auto w-full max-w-md flex-1 px-4 py-4 pb-24 md:max-w-4xl md:px-8 md:py-8 md:pb-8">
-        {plaidOn ? (
-          <div className="mb-2 hidden items-center justify-end md:flex">{bell}</div>
-        ) : null}
+      {/* One content column, 1040px at most (pages lay out their own tracks).
+          On desktop the bell closes the page's header row: it sits in the
+          top-right corner, and <PageHeader> leaves room for it. */}
+      <main className="relative mx-auto w-full max-w-[1136px] flex-1 px-4 pb-28 pt-2 md:px-12 md:pb-16 md:pt-10">
+        {plaidOn ? <div className="absolute right-12 top-10 hidden md:block">{bell}</div> : null}
         {children}
       </main>
 

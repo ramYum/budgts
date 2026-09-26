@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Button } from "./ui";
 
 /** The non-standard Chromium install event; captured early by <SwRegister />. */
 export interface BeforeInstallPromptEvent extends Event {
@@ -58,21 +59,17 @@ export function InstallApp() {
   }
 
   return (
-    <section className="card space-y-2 rounded-2xl border border-hairline p-4">
-      <h2 className="text-sm font-semibold">Install Budgts</h2>
+    <section className="px-card space-y-2 p-3 md:p-4">
+      <h2 className="px-tag text-ink">Install Budgts</h2>
       {mode === "prompt" ? (
         <>
-          <p className="text-sm text-muted">Add Budgts to your home screen to open it like an app.</p>
-          <button
-            type="button"
-            onClick={install}
-            className="press rounded-xl bg-primary-btn px-4 py-3 text-sm font-medium text-on-primary-btn"
-          >
+          <p className="text-[15px] leading-6 text-muted">Add Budgts to your home screen to open it like an app.</p>
+          <Button variant="secondary" icon="download" onClick={install}>
             Install app
-          </button>
+          </Button>
         </>
       ) : (
-        <p className="text-sm text-muted">
+        <p className="text-[15px] leading-6 text-muted">
           In Safari, tap the Share button, then <strong>Add to Home Screen</strong>.
         </p>
       )}

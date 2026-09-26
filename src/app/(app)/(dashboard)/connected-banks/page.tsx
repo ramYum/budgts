@@ -3,7 +3,7 @@ import { PageHeader } from "@/components/page-header";
 import { BankConnections } from "@/components/plaid/bank-connections";
 import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
 
-export const metadata: Metadata = { title: "Connected Banks" };
+export const metadata: Metadata = { title: "Connected banks" };
 
 /** Trustworthy, transparent bank-connection management (design spec §33-35).
  * `BankConnections` is the existing, self-contained component (fetches its
@@ -11,16 +11,16 @@ export const metadata: Metadata = { title: "Connected Banks" };
  * its own instead of living inside Settings. */
 export default function ConnectedBanksPage() {
   return (
-    <div className="pt-1">
-      <PageHeader title="Connected Banks" back="/more" />
-      {plaidUiEnabled() ? (
-        <BankConnections />
-      ) : (
-        <p className="text-sm text-muted">
-          Bank connections aren&apos;t available yet on this deployment. Manual entry works for every
-          account in the meantime — add transactions from Activity.
+    plaidUiEnabled() ? (
+      <BankConnections />
+    ) : (
+      <>
+        <PageHeader title="Connected banks" back="/more" backOnDesktop={false} />
+        <p className="text-[15px] leading-6 text-muted md:max-w-[720px]">
+          Bank connections aren&apos;t available yet on this deployment. Manual entry works for every account in
+          the meantime — add transactions from Activity.
         </p>
-      )}
-    </div>
+      </>
+    )
   );
 }

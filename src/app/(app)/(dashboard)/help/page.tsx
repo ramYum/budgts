@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Icon } from "@/components/icon";
+import { Robin } from "@/components/mascot";
 import { PageHeader } from "@/components/page-header";
+import { Chevron, IconTile, SectionHead } from "@/components/ui";
 
 export const metadata: Metadata = { title: "Help" };
 
@@ -30,31 +33,52 @@ const FAQ: { q: string; a: string }[] = [
 /** Static help content — no backend needed (design spec §43). */
 export default function HelpPage() {
   return (
-    <div className="space-y-6 pt-1">
+    <>
       <PageHeader title="Help" back="/more" />
-      <Link
-        href="/help/how-it-works"
-        className="card block space-y-1 rounded-2xl border border-hairline p-4"
-      >
-        <p className="text-sm font-semibold text-accent">How Budgts Works →</p>
-        <p className="text-sm text-muted">
-          The short version: you spend, Budgts keeps track. See the whole workflow in one page.
-        </p>
-      </Link>
-      <Link
-        href="/tour"
-        className="card block rounded-2xl border border-hairline p-4 text-sm font-semibold text-accent"
-      >
-        Replay the welcome guide →
-      </Link>
-      <ul className="space-y-4">
-        {FAQ.map((item) => (
-          <li key={item.q} className="card space-y-1.5 rounded-2xl border border-hairline p-4">
-            <p className="text-sm font-semibold text-heading">{item.q}</p>
-            <p className="text-sm text-muted">{item.a}</p>
-          </li>
-        ))}
-      </ul>
-    </div>
+      <div className="space-y-8 md:max-w-[720px]">
+        <div className="grid gap-4 md:grid-cols-2 md:gap-6">
+          <Link href="/help/how-it-works" className="px-card-ink press group flex items-center gap-4 p-3 md:p-4">
+            <IconTile name="list" tone="accent" />
+            <span className="min-w-0 flex-1">
+              <span className="block text-[15px] font-medium leading-6 text-ink group-hover:underline">
+                How Budgts works
+              </span>
+              <span className="block text-[13px] leading-5 text-muted">
+                You spend, Budgts keeps track — the whole flow on one page.
+              </span>
+            </span>
+            <Chevron />
+          </Link>
+          <Link href="/tour" className="px-card press group flex items-center gap-4 p-3 md:p-4">
+            <span className="px-tile-wash flex h-10 w-10 shrink-0 items-center justify-center" aria-hidden>
+              <Robin size={22} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[15px] font-medium leading-6 text-ink group-hover:underline">
+                Replay the welcome guide
+              </span>
+              <span className="block text-[13px] leading-5 text-muted">A one-minute tour with Crystal.</span>
+            </span>
+            <Chevron />
+          </Link>
+        </div>
+
+        <section className="space-y-3">
+          <SectionHead title="Common questions" />
+          <div className="px-card px-rows px-3 py-1 md:px-4">
+            {FAQ.map((item, i) => (
+              <details key={item.q} className="group py-3" open={i === 0}>
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-1 text-[15px] font-medium leading-6 text-ink [&::-webkit-details-marker]:hidden">
+                  {item.q}
+                  <Icon name="plus" className="group-open:hidden" />
+                  <Icon name="minus" className="hidden group-open:block" />
+                </summary>
+                <p className="pb-1 pt-2 text-[15px] leading-6 text-muted">{item.a}</p>
+              </details>
+            ))}
+          </div>
+        </section>
+      </div>
+    </>
   );
 }

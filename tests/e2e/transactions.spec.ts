@@ -18,16 +18,17 @@ test("sign in, onboard, add a transaction, edit it, delete it", async ({ page })
 
     // New user -> onboarding -> the first-run tour -> dashboard.
     await onboardAndSkipTour(page);
-    await expect(page.getByText("so far this month")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Money left" })).toBeVisible();
 
     // Add a transaction.
-    await page.getByRole("link", { name: "Activity" }).click();
-    await page.getByRole("button", { name: "+ Add" }).click();
+    await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Activity" }).click();
+    await page.getByRole("button", { name: "Add transaction" }).click();
     await page.getByLabel("Amount").fill("12.34");
     await page.getByLabel("Description").fill("Groceries test");
     await page.getByRole("button", { name: "Add", exact: true }).click();
     await expect(page.getByText("Groceries test")).toBeVisible();
-    await expect(page.getByText("−$12.34")).toBeVisible();
+    // the row, and its day's total
+    await expect(page.getByText("−$12.34").first()).toBeVisible();
 
     // CSV export includes the new row.
     const csv = await page.request.get("/api/export/transactions");

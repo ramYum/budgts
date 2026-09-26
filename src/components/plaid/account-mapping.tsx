@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { ACCOUNT_TYPES, type AccountType } from "@/lib/accounts/account-types";
 import { mapAccounts, type PlaidActionState } from "@/server/plaid/actions";
+import { buttonClass, fieldClass as field, labelClass } from "@/components/ui";
 
 export type MappableAccount = {
   plaidAccountId: string;
@@ -19,8 +20,6 @@ type BudgtsAccount = { id: string; name: string };
 type Mode = "new" | "existing" | "ignore";
 type Row = { mode: Mode; name: string; type: AccountType; existingAccountId: string };
 
-const field =
-  "w-full rounded-xl border border-hairline bg-surface px-3.5 py-3 text-sm outline-none transition-colors focus:border-ink";
 
 /** Shared with ConnectToggle (connected-banks.tsx) — the minimal shape both
  * the bulk mapping form and the per-account quick-connect switch need to
@@ -92,7 +91,7 @@ export function AccountMapping({
         <button
           type="button"
           onClick={onDone}
-          className="w-full press rounded-xl bg-primary-btn px-4 py-3 text-sm font-medium text-on-primary-btn"
+          className={buttonClass("primary", "w-full")}
         >
           Done
         </button>
@@ -113,13 +112,13 @@ export function AccountMapping({
         {plaidAccounts.map((a, i) => {
           const r = rows[i];
           return (
-            <li key={a.plaidAccountId} className="card space-y-2 rounded-xl border border-hairline p-3">
+            <li key={a.plaidAccountId} className="px-card space-y-3 p-3">
               <div className="flex items-baseline justify-between gap-2">
-                <span className="truncate text-sm font-medium">{accountLabel(a)}</span>
-                <span className="shrink-0 text-xs text-muted">{a.subtype ?? a.type ?? "account"}</span>
+                <span className="truncate text-[15px] font-medium leading-6 text-ink">{accountLabel(a)}</span>
+                <span className="shrink-0 text-sm text-muted">{a.subtype ?? a.type ?? "account"}</span>
               </div>
 
-              <label className="block space-y-1 text-xs font-medium text-muted">
+              <label className={labelClass}>
                 Import as
                 <select
                   className={field}
@@ -184,7 +183,7 @@ export function AccountMapping({
       <button
         type="submit"
         disabled={pending}
-        className="w-full press rounded-xl bg-primary-btn px-4 py-3 text-sm font-medium text-on-primary-btn disabled:opacity-50"
+        className={buttonClass("primary", "w-full")}
       >
         {pending ? "Saving…" : "Import transactions"}
       </button>

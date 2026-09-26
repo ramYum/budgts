@@ -4,24 +4,29 @@ import { useState } from "react";
 import Link from "next/link";
 import { formatMoney, formatSavingsRate } from "@/lib/budget/money";
 import type { DashboardView as DV } from "@/lib/budget/dashboard";
-import { ArrowDownRight, ArrowUpRight, CaretRight, Lightbulb } from "@phosphor-icons/react";
-import { CategoryIcon, SegmentedControl } from "./ui";
+import type { MonthSpend } from "@/lib/budget/spend-trend";
+import { pickSuggestion } from "@/lib/insights/suggestion";
+import { SpendingBreakdownCard, SpendingTrendCard, sharesOf } from "./spending-overview";
+import { CategoryIcon, Chevron, IconTile, SegmentedControl, figureSize } from "./ui";
 
-function pctChange(current: number, previous: number): number | null {
-  if (previous <= 0) return null;
-  return ((current - previous) / previous) * 100;
-}
-
-function ChangeLabel({ current, previous, goodWhenDown }: { current: number; previous: number; goodWhenDown: boolean }) {
-  const change = pctChange(current, previous);
-  if (change === null) return null;
-  const down = change < 0;
-  const good = goodWhenDown ? down : !down;
+/** Savings rate as a 10×10 waffle: one cell per percent, filled from the
+ * bottom-left, row by row. The figure beside it is the real number; the
+ * waffle is its picture (a negative month shows no cells). */
+function Waffle({ rate }: { rate: number | null }) {
+  const lit = rate === null ? 0 : Math.max(0, Math.min(100, Math.round(rate * 100)));
   return (
-    <span className={`tnum flex items-center gap-0.5 text-[13px] ${good ? "text-pos" : "text-neg"}`}>
-      {down ? <ArrowDownRight aria-hidden className="h-3.5 w-3.5" /> : <ArrowUpRight aria-hidden className="h-3.5 w-3.5" />}
-      {Math.abs(Math.round(change))}% vs. last month
-    </span>
+    <div className="grid shrink-0 grid-cols-10 gap-0.5" style={{ width: 98 }} aria-hidden>
+      {Array.from({ length: 100 }, (_, i) => {
+        const fill = (9 - Math.floor(i / 10)) * 10 + (i % 10);
+        return (
+          <span
+            key={i}
+            className={`cell h-2 w-2 ${fill < lit ? "bg-ink" : "bg-track"}`}
+            style={{ ["--d" as string]: Math.floor(fill / 10) }}
+          />
+        );
+      })}
+    </div>
   );
 }
 
@@ -30,73 +35,36 @@ export function InsightsView({
   currency,
   current,
   previous,
+  trend,
   incomeSources,
 }: {
   month: string;
   currency: string;
   current: DV;
   previous: DV;
+  trend: MonthSpend[];
   incomeSources: { name: string; color: string; amount: number }[];
 }) {
   const [tab, setTab] = useState<"spending" | "income">("spending");
+  const { tiles } = current;
+  const suggestion = pickSuggestion(current.bars, previous.bars, tiles.spent);
+  const moneyLeft = formatMoney(tiles.netSavings, currency);
+  const rateDelta =
+    tiles.savingsRate !== null && previous.tiles.savingsRate !== null
+      ? Math.round((tiles.savingsRate - previous.tiles.savingsRate) * 100)
+      : null;
+  const incomeShares = sharesOf(incomeSources.map((s) => s.amount));
 
-  const biggestMover = [...current.bars]
-    .filter((b) => b.actual > 0)
-    .map((b) => {
-      const prevBar = previous.bars.find((p) => p.categoryId === b.categoryId);
-      const delta = b.actual - (prevBar?.actual ?? 0);
-      return { ...b, delta };
-    })
-    .sort((a, b) => b.delta - a.delta)[0];
-
-  return (
-    <div className="space-y-5">
-      <section className="reveal card grid grid-cols-2 divide-x divide-hairline rounded-2xl border border-hairline">
-        <div className="p-5">
-          <p className="text-[13px] text-muted">Your money story</p>
-          <p className="tnum mt-2 text-[28px] font-semibold leading-none tracking-tight">
-            {formatMoney(current.tiles.netSavings, currency)}
-          </p>
-          <p className="mt-2 text-xs text-muted">Money left</p>
-        </div>
-        <div className="p-5">
-          <p className="text-[13px] text-muted">Savings rate</p>
-          <p className="tnum mt-2 text-[28px] font-semibold leading-none tracking-tight">
-            {current.tiles.savingsRate === null ? "—" : formatSavingsRate(current.tiles.savingsRate)}
-          </p>
-        {current.tiles.savingsRate !== null && previous.tiles.savingsRate !== null ? (
-          <p className="mt-2 text-xs text-muted">
-            {current.tiles.savingsRate >= previous.tiles.savingsRate ? "↑" : "↓"}{" "}
-            {Math.abs(Math.round((current.tiles.savingsRate - previous.tiles.savingsRate) * 100))} pts vs. last month
-          </p>
-        ) : null}
-        </div>
-      </section>
-
-      {biggestMover && biggestMover.delta > 0 ? (
-        <Link
-          href={`/transactions?m=${month}&category=${biggestMover.categoryId}`}
-          aria-label="See spending"
-          aria-describedby="insights-mover"
-          className="reveal lift card flex items-center gap-4 rounded-2xl border border-hairline p-4"
-          style={{ ["--i" as string]: 1 }}
-        >
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-signal-wash text-signal">
-            <Lightbulb aria-hidden weight="fill" className="h-5 w-5" />
-          </span>
-          <span id="insights-mover" className="min-w-0 flex-1">
-            <span className="block text-[13px] text-muted">Where you could save</span>
-            <span className="block text-sm font-semibold">{biggestMover.name}</span>
-            <span className="tnum block text-xs text-muted">
-              {formatMoney(biggestMover.actual, currency)} this month,{" "}
-              <span className="text-neg">up {formatMoney(biggestMover.delta, currency)} vs. last month</span>
-            </span>
-          </span>
-          <CaretRight aria-hidden className="h-4 w-4 shrink-0 text-silver" />
-        </Link>
-      ) : null}
-
+  const breakdownHeader = (
+    <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <h2 className="px-tag text-ink">{tab === "spending" ? "Total spending" : "Total income"}</h2>
+        <p className="px-figure tnum mt-1 text-ink">
+          {formatMoney(tab === "spending" ? tiles.spent : tiles.income, currency)}
+        </p>
+      </div>
       <SegmentedControl
+        label="Show"
         value={tab}
         onChange={setTab}
         options={[
@@ -104,55 +72,114 @@ export function InsightsView({
           { value: "income", label: "Income" },
         ]}
       />
+    </div>
+  );
 
-      {tab === "spending" ? (
-        <section className="space-y-3">
-          <div>
-            <p className="text-[13px] text-muted">Total spending</p>
-            <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <p className="tnum text-[32px] font-semibold leading-none tracking-tight">{formatMoney(current.tiles.spent, currency)}</p>
-              <ChangeLabel current={current.tiles.spent} previous={previous.tiles.spent} goodWhenDown />
-            </div>
-          </div>
-          <ul className="card divide-y divide-hairline overflow-hidden rounded-2xl border border-hairline">
-            {current.bars.map((b) => (
-              <li key={b.categoryId}>
-                <Link
-                  href={`/transactions?m=${month}&category=${b.categoryId}`}
-                  className="press flex items-center gap-3 px-4 py-3 text-sm hover:bg-surface-2"
-                >
-                  <CategoryIcon name={b.name} size={32} />
-                  <span className="min-w-0 flex-1 truncate font-medium">{b.name}</span>
-                  <span className="tnum text-muted">{formatMoney(b.actual, currency)}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+  return (
+    <div className="space-y-6 md:space-y-10">
+      <div className="grid gap-6 lg:grid-cols-2">
+        <section className="reveal px-card-ink p-3 md:p-6" style={{ ["--i" as string]: 1 }}>
+          <h2 className="px-tag text-ink">Money left</h2>
+          <p className={`${figureSize(moneyLeft)} tnum mt-3 ${tiles.netSavings < 0 ? "text-neg" : "text-ink"}`}>
+            {moneyLeft}
+          </p>
+          <p className="mt-2 text-[15px] leading-6 text-muted">Income minus spending, this month.</p>
         </section>
-      ) : (
-        <section className="space-y-3">
-          <div>
-            <p className="text-[13px] text-muted">Total income</p>
-            <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <p className="tnum text-[32px] font-semibold leading-none tracking-tight">{formatMoney(current.tiles.income, currency)}</p>
-              <ChangeLabel current={current.tiles.income} previous={previous.tiles.income} goodWhenDown={false} />
-            </div>
+
+        <section className="reveal px-card flex items-center gap-6 p-3 md:p-6" style={{ ["--i" as string]: 2 }}>
+          <div className="min-w-0 flex-1">
+            <h2 className="px-tag text-ink">Savings rate</h2>
+            <p
+              className={`px-figure-lg tnum mt-3 ${tiles.savingsRate !== null && tiles.savingsRate < 0 ? "text-neg" : "text-ink"}`}
+            >
+              {tiles.savingsRate === null ? "—" : formatSavingsRate(tiles.savingsRate)}
+            </p>
+            <p className="mt-2 text-[15px] leading-6 text-muted">
+              {tiles.savingsRate === null ? "No income this month yet" : "of income kept"}
+            </p>
+            {rateDelta !== null ? (
+              <p className="tnum text-sm leading-5 text-muted">
+                {rateDelta >= 0 ? "↑" : "↓"} {Math.abs(rateDelta)} pts vs. last month
+              </p>
+            ) : null}
+            <p className="whitespace-nowrap text-sm leading-5 text-muted">1 cell = 1%</p>
           </div>
-          {incomeSources.length > 0 ? (
-            <ul className="card divide-y divide-hairline overflow-hidden rounded-2xl border border-hairline">
-              {incomeSources.map((s) => (
-                <li key={s.name} className="flex items-center gap-3 px-4 py-3 text-sm">
-                  <CategoryIcon name={s.name} size={32} />
-                  <span className="min-w-0 flex-1 truncate font-medium">{s.name}</span>
-                  <span className="tnum text-muted">{formatMoney(s.amount, currency)}</span>
-                </li>
-              ))}
-            </ul>
+          <Waffle rate={tiles.savingsRate} />
+        </section>
+      </div>
+
+      {suggestion ? (
+        <Link
+          href={
+            suggestion.kind === "unbudgeted"
+              ? `/budgets?m=${month}&edit=${suggestion.categoryId}`
+              : `/transactions?m=${month}&category=${suggestion.categoryId}`
+          }
+          className="reveal px-wash press flex items-center gap-4 p-4"
+          style={{ ["--i" as string]: 3 }}
+        >
+          <IconTile name="idea" tone="accent" />
+          <span className="min-w-0 flex-1">
+            <span className="px-tag block text-neg">Where you could save</span>
+            {suggestion.kind === "unbudgeted" ? (
+              <>
+                <span className="block text-[15px] font-medium leading-6 text-ink">
+                  {suggestion.name} is {suggestion.share}% of your spending
+                </span>
+                <span className="tnum block text-sm leading-5 text-graphite">
+                  {formatMoney(suggestion.amount, currency)} with no budget. Setting one makes the plan real.
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="block text-[15px] font-medium leading-6 text-ink">{suggestion.name}</span>
+                <span className="tnum block text-sm leading-5 text-graphite">
+                  {formatMoney(suggestion.amount, currency)} this month,{" "}
+                  <span className="text-neg">up {formatMoney(suggestion.delta, currency)} vs. last month</span>
+                </span>
+              </>
+            )}
+          </span>
+          <Chevron />
+        </Link>
+      ) : null}
+
+      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+        <div className="reveal" style={{ ["--i" as string]: 4 }}>
+          {tab === "spending" && tiles.spent > 0 ? (
+            <SpendingBreakdownCard
+              bars={current.bars}
+              totalSpent={tiles.spent}
+              currency={currency}
+              layout="row"
+              header={breakdownHeader}
+            />
           ) : (
-            <p className="text-sm text-muted">No income recorded this month yet.</p>
+            <section className="px-card p-3 md:p-4">
+              {breakdownHeader}
+              {tab === "spending" ? (
+                <p className="text-[15px] leading-6 text-muted">No spending recorded this month yet.</p>
+              ) : incomeSources.length > 0 ? (
+                <ul className="px-rows">
+                  {incomeSources.map((s, i) => (
+                    <li key={s.name} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                      <CategoryIcon name={s.name} />
+                      <span className="min-w-0 flex-1 truncate text-[15px] leading-6 text-ink">{s.name}</span>
+                      <span className="tnum text-[15px] leading-6 text-ink">{formatMoney(s.amount, currency)}</span>
+                      <span className="px-tag-bold w-9 text-right tracking-normal text-muted">{incomeShares[i]}%</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-[15px] leading-6 text-muted">No income recorded this month yet.</p>
+              )}
+            </section>
           )}
-        </section>
-      )}
+        </div>
+        <div className="reveal" style={{ ["--i" as string]: 5 }}>
+          <SpendingTrendCard trend={trend} currency={currency} figure="change" title="Spending · 6 months" />
+        </div>
+      </div>
     </div>
   );
 }

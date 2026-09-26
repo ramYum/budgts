@@ -7,7 +7,7 @@ describe("HowItWorksPage", () => {
     render(<HowItWorksPage />);
     expect(screen.getByRole("heading", { name: "You spend. Budgts keeps track." })).toBeInTheDocument();
     expect(
-      screen.getByText(/Connect your accounts, spend normally, and Budgts automatically keeps track/),
+      screen.getByText(/Connect your accounts, spend normally, and Budgts organizes everything/),
     ).toBeInTheDocument();
   });
 
@@ -32,7 +32,7 @@ describe("HowItWorksPage", () => {
 
   it("never describes Money Left as a savings balance", () => {
     render(<HowItWorksPage />);
-    expect(screen.getByText(/not your savings-account balance/)).toBeInTheDocument();
+    expect(screen.getByText(/not your savings balance/)).toBeInTheDocument();
   });
 
   it("links to the welcome guide as a hands-on follow-up, not a gate", () => {

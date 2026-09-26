@@ -94,7 +94,8 @@ test("connect a bank, map an account, import, categorize, disconnect, history re
 
     // --- Map: the real <AccountMapping> UI, server-rendered from the DB ---
     await page.goto("/connected-banks");
-    await expect(page.getByText("First Platypus Bank (Sandbox)")).toBeVisible();
+    // the Sandbox suffix is shown as a badge, not in the name
+    await expect(page.getByText("First Platypus Bank", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Choose accounts to import" }).click();
     await importOnlyPlaidChecking(page);
     await page.getByRole("button", { name: "Import transactions" }).click();
@@ -147,7 +148,7 @@ test("connect a bank, map an account, import, categorize, disconnect, history re
     await page.goto("/connected-banks");
     await page.getByRole("button", { name: "Disconnect" }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Disconnect" }).click();
-    await expect(page.getByText("First Platypus Bank (Sandbox)")).toHaveCount(0);
+    await expect(page.getByText("First Platypus Bank", { exact: true })).toHaveCount(0);
 
     const csvAfter = await (await page.request.get("/api/export/transactions")).text();
     expect(csvAfter.split("\n").length).toBe(importedRows); // nothing lost

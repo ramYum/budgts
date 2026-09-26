@@ -1,24 +1,45 @@
 "use client";
 
-import { useActionState, useEffect, useState, useTransition } from "react";
+import { useActionState, useEffect, useState, useTransition, type ReactNode } from "react";
 import { Overlay } from "./overlay";
-import { ACCOUNT_TYPES } from "@/lib/accounts/account-types";
+import { ACCOUNT_TYPES, type AccountType } from "@/lib/accounts/account-types";
 import {
   createAccount,
   setAccountArchived,
   updateAccount,
   type AccountActionState,
 } from "@/server/accounts";
+import type { IconName } from "./icon";
+import { RowMenu } from "./row-menu";
+import { Badge, Button, IconTile, SectionHead, Select, TextButton, fieldClass, labelClass } from "./ui";
 
 export type AccountItem = {
   id: string;
   name: string;
-  type: (typeof ACCOUNT_TYPES)[number];
+  type: AccountType;
   is_archived: boolean;
+  /** the bank's last four, for a linked account */
+  mask?: string | null;
+  /** transactions this month (the Activity list's count for the account) */
+  txnCount: number;
 };
 
-const field =
-  "w-full rounded-xl border border-hairline bg-surface px-3.5 py-3 text-sm outline-none transition-colors focus:border-ink";
+export type AccountGroup = {
+  key: string;
+  title: string;
+  /** a linked bank's connection state; none for accounts added by hand */
+  status?: "connected" | "attention";
+  accounts: AccountItem[];
+};
+
+const TYPE_ICON: Record<AccountType, IconName> = {
+  checking: "wallet",
+  credit: "credit-card",
+  savings: "coins",
+  cash: "wallet",
+};
+
+const typeLabel = (t: AccountType) => t[0]!.toUpperCase() + t.slice(1);
 
 function AccountForm({
   action,
@@ -39,44 +60,108 @@ function AccountForm({
   }, [state.ok, onDone]);
 
   return (
-    <form action={formAction} className="space-y-3">
+    <form action={formAction} className="space-y-4">
       {initial ? <input type="hidden" name="id" value={initial.id} /> : null}
-      <label className="block space-y-1 text-xs font-medium text-muted">
+      <label className={labelClass}>
         Name
-        <input className={field} name="name" defaultValue={initial?.name ?? ""} maxLength={40} required autoFocus />
+        <input className={fieldClass} name="name" defaultValue={initial?.name ?? ""} maxLength={40} required autoFocus />
       </label>
-      <label className="block space-y-1 text-xs font-medium text-muted">
+      <label className={labelClass}>
         Type
-        <select className={field} name="type" defaultValue={initial?.type ?? "checking"}>
+        <Select name="type" defaultValue={initial?.type ?? "checking"}>
           {ACCOUNT_TYPES.map((t) => (
             <option key={t} value={t}>
-              {t[0].toUpperCase() + t.slice(1)}
+              {typeLabel(t)}
             </option>
           ))}
-        </select>
+        </Select>
       </label>
       {state.fieldError || state.error ? (
         <p className="text-sm text-neg">{state.fieldError ?? state.error}</p>
       ) : null}
-      <div className="flex gap-2 pt-1">
-        <button
-          type="submit"
-          disabled={pending}
-          className="flex-1 press rounded-xl bg-primary-btn px-4 py-3 text-sm font-medium text-on-primary-btn disabled:opacity-50"
-        >
+      <div className="flex gap-3 pt-2">
+        <Button type="submit" disabled={pending} className="flex-1">
           {pending ? "Saving…" : submitLabel}
-        </button>
-        <button type="button" onClick={onDone} className="press rounded-xl border border-hairline bg-surface px-3.5 py-3 text-sm">
+        </Button>
+        <Button variant="secondary" onClick={onDone}>
           Cancel
-        </button>
+        </Button>
       </div>
     </form>
   );
 }
 
-export function AccountManager({ accounts }: { accounts: AccountItem[] }) {
-  const [editing, setEditing] = useState<AccountItem | null>(null);
+/** The screen's primary action: add an account kept by hand (cash, a card
+ * the bank can't reach). */
+export function AddAccountButton() {
   const [adding, setAdding] = useState(false);
+  return (
+    <>
+      <Button icon="plus" onClick={() => setAdding(true)} aria-label="Add account">
+        <span className="md:hidden">Add</span>
+        <span className="hidden md:inline">Add account</span>
+      </Button>
+      {adding ? (
+        <Overlay title="Add account" onClose={() => setAdding(false)}>
+          <AccountForm action={createAccount} onDone={() => setAdding(false)} submitLabel="Add" />
+        </Overlay>
+      ) : null}
+    </>
+  );
+}
+
+function AccountRow({
+  a,
+  pending,
+  onEdit,
+  onToggle,
+}: {
+  a: AccountItem;
+  pending: boolean;
+  onEdit: () => void;
+  onToggle: () => void;
+}) {
+  const archiveLabel = a.is_archived ? "Restore" : "Archive";
+  return (
+    <li className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0 md:gap-4">
+      <IconTile name={TYPE_ICON[a.type] ?? "wallet"} />
+      <div className={`min-w-0 flex-1 ${a.is_archived ? "opacity-60" : ""}`}>
+        <p className="truncate text-[15px] font-medium leading-6 text-ink">
+          {a.name}
+          {a.mask && !a.name.includes(a.mask) ? <span className="tnum"> ••{a.mask}</span> : null}
+        </p>
+        <p className="truncate text-[13px] leading-5 text-muted">
+          {typeLabel(a.type)} ·{" "}
+          {a.txnCount === 0
+            ? "nothing this month"
+            : `${a.txnCount} ${a.txnCount === 1 ? "transaction" : "transactions"} this month`}
+        </p>
+      </div>
+      <div className="hidden items-center gap-4 md:flex">
+        {!a.is_archived ? (
+          <TextButton icon="edit" onClick={onEdit} aria-label={`Edit ${a.name}`}>
+            Edit
+          </TextButton>
+        ) : null}
+        <TextButton icon="archive" onClick={onToggle} disabled={pending} aria-label={`${archiveLabel} ${a.name}`}>
+          {archiveLabel}
+        </TextButton>
+      </div>
+      <span className="-mr-2 md:hidden">
+        <RowMenu
+          label={`More for ${a.name}`}
+          items={[
+            ...(!a.is_archived ? [{ label: "Edit", icon: "edit" as const, onSelect: onEdit }] : []),
+            { label: archiveLabel, icon: "archive", onSelect: onToggle, disabled: pending },
+          ]}
+        />
+      </span>
+    </li>
+  );
+}
+
+export function AccountManager({ groups, archived }: { groups: AccountGroup[]; archived: AccountItem[] }) {
+  const [editing, setEditing] = useState<AccountItem | null>(null);
   const [pending, start] = useTransition();
 
   const toggle = (a: AccountItem) => {
@@ -88,48 +173,37 @@ export function AccountManager({ accounts }: { accounts: AccountItem[] }) {
     });
   };
 
-  return (
-    <section className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h2 className="flex items-center gap-2 text-sm font-semibold">
-          <span className="h-3.5 w-1 shrink-0 bg-accent" aria-hidden />
-          Accounts
-        </h2>
-        <button
-          type="button"
-          onClick={() => setAdding(true)}
-          className="press rounded-xl border border-hairline bg-surface px-3 py-2 text-sm font-medium hover:bg-surface-2"
-        >
-          + Add
-        </button>
-      </div>
-      <ul className="card divide-y divide-hairline rounded-2xl border border-hairline px-4">
-        {accounts.map((a) => (
-          <li key={a.id} className={`flex items-center gap-3 py-2 ${a.is_archived ? "opacity-50" : ""}`}>
-            <span className="min-w-0 flex-1 truncate text-sm">{a.name}</span>
-            <span className="text-xs text-muted">{a.type}</span>
-            {!a.is_archived ? (
-              <button type="button" onClick={() => setEditing(a)} className="text-xs text-muted hover:text-text">
-                Edit
-              </button>
-            ) : null}
-            <button
-              type="button"
-              onClick={() => toggle(a)}
-              disabled={pending}
-              className="text-xs text-muted hover:text-text disabled:opacity-50"
-            >
-              {a.is_archived ? "Restore" : "Archive"}
-            </button>
-          </li>
+  const section = (key: string, title: string, list: AccountItem[], aside?: ReactNode) => (
+    <section key={key} className="space-y-3">
+      <SectionHead title={title} aside={aside} />
+      <ul className="px-card px-rows p-3 md:p-4">
+        {list.map((a) => (
+          <AccountRow key={a.id} a={a} pending={pending} onEdit={() => setEditing(a)} onToggle={() => toggle(a)} />
         ))}
       </ul>
+    </section>
+  );
 
-      {adding ? (
-        <Overlay title="Add account" onClose={() => setAdding(false)}>
-          <AccountForm action={createAccount} onDone={() => setAdding(false)} submitLabel="Add" />
-        </Overlay>
-      ) : null}
+  return (
+    <div className="space-y-8">
+      {groups.map((g) =>
+        section(
+          g.key,
+          g.title,
+          g.accounts,
+          g.status === "connected" ? (
+            <Badge tone="growth" icon="check">
+              Connected
+            </Badge>
+          ) : g.status === "attention" ? (
+            <Badge tone="wash" icon="warning">
+              Needs attention
+            </Badge>
+          ) : undefined,
+        ),
+      )}
+      {archived.length > 0 ? section("archived", "Archived", archived) : null}
+
       {editing ? (
         <Overlay title="Edit account" onClose={() => setEditing(null)}>
           <AccountForm
@@ -140,6 +214,6 @@ export function AccountManager({ accounts }: { accounts: AccountItem[] }) {
           />
         </Overlay>
       ) : null}
-    </section>
+    </div>
   );
 }

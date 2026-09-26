@@ -68,9 +68,10 @@ describe("NeedsCategory", () => {
     );
 
     expect(screen.getByText("Blue Bottle Coffee")).toBeInTheDocument();
-    expect(screen.getByText(/2 txns/)).toBeInTheDocument();
+    expect(screen.getByText(/^2 purchases · latest/)).toBeInTheDocument();
     expect(screen.getByText("Other Shop")).toBeInTheDocument();
-    expect(screen.getByText(/^1 txn/)).toBeInTheDocument();
+    // a lone purchase shows its date, not a count of one
+    expect(screen.queryByText(/1 purchase/)).not.toBeInTheDocument();
   });
 
   it("categorizes a merchant group using its most recent transaction as the anchor, and removes the card", async () => {

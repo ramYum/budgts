@@ -12,6 +12,11 @@ vi.mock("@/server/transactions", () => ({
   createTransaction: vi.fn(),
 }));
 
+/** Matches the element whose whole text is `text`, even when it spans child
+ * elements ("$60.00 <span>left</span>"). */
+const wholeText = (text: string) => (_: string, el: Element | null) =>
+  el?.textContent === text && Array.from(el.children).every((c) => c.textContent !== text);
+
 const view: DV = {
   tiles: { income: 500000, spent: 55000, netSavings: -55000, budgeted: 75000, leftToSpend: 20000, savingsRate: -0.11 },
   bars: [
@@ -71,14 +76,15 @@ const baseProps = {
   savings: { totalTarget: 0, totalSaved: 0, activeCount: 0, completeCount: 0 },
   recent: [],
   userEmail: "alex@example.com",
+  setup: { bankConnected: true },
 };
 
 describe("DashboardView", () => {
   it("renders the headline figures with formatted amounts", () => {
     render(<DashboardView {...baseProps} view={view} />);
-    expect(screen.getByText("Income").nextElementSibling).toHaveTextContent("$5,000.00");
-    expect(screen.getByText("Spending").nextElementSibling).toHaveTextContent("$550.00");
-    expect(screen.getByText("Money Left").nextElementSibling).toHaveTextContent("-$550.00");
+    expect(screen.getByText("Came in").nextElementSibling).toHaveTextContent("+$5,000.00");
+    expect(screen.getByText("Went out").nextElementSibling).toHaveTextContent("−$550.00");
+    expect(screen.getByText("Money left").nextElementSibling).toHaveTextContent("-$550.00");
   });
 
   it("shows an over-budget category with its overspend", () => {
@@ -88,14 +94,16 @@ describe("DashboardView", () => {
 
   it("shows the remaining amount for a category still within budget", () => {
     render(<DashboardView {...baseProps} view={view} />);
-    expect(screen.getByText("$60.00 left")).toBeInTheDocument();
-    expect(screen.getByText("$190.00 left")).toBeInTheDocument();
+    expect(screen.getByText(wholeText("$60.00 left"))).toBeInTheDocument();
+    expect(screen.getByText(wholeText("$190.00 left"))).toBeInTheDocument();
   });
 
   it("links each bar to that category's transactions for the month", () => {
     render(<DashboardView {...baseProps} view={view} />);
-    const link = screen.getByRole("link", { name: /Food \/ Groceries/ });
-    expect(link).toHaveAttribute("href", "/transactions?m=2026-09&category=groceries");
+    // every link named for the category (its row, the breakdown) opens its transactions
+    const links = screen.getAllByRole("link", { name: /Food \/ Groceries/ });
+    expect(links.length).toBeGreaterThan(0);
+    for (const link of links) expect(link).toHaveAttribute("href", "/transactions?m=2026-09&category=groceries");
   });
 
   it("prompts to set a budget when there are no bars", () => {
@@ -103,11 +111,11 @@ describe("DashboardView", () => {
     expect(screen.getByText(/Set a budget/i)).toBeInTheDocument();
   });
 
-  it("opens an add-income form locked to money in when the Income tile is tapped", async () => {
+  it("opens an add-income form locked to money in from the Came in figure", async () => {
     const user = userEvent.setup();
     render(<DashboardView {...baseProps} view={view} />);
 
-    await user.click(screen.getByRole("button", { name: /Income/ }));
+    await user.click(screen.getByRole("button", { name: "Add income" }));
 
     const dialog = screen.getByRole("dialog", { name: "Add income" });
     expect(dialog).toBeInTheDocument();
@@ -119,9 +127,7 @@ describe("DashboardView", () => {
 
   it("shows the disclaimer that this is cash flow, not an account balance", () => {
     render(<DashboardView {...baseProps} view={view} />);
-    expect(
-      screen.getByText(/Based on income minus spending/i),
-    ).toHaveTextContent("Based on income minus spending — doesn't measure savings-account balances.");
+    expect(screen.getByText(/Income minus spending/)).toHaveTextContent("Income minus spending — not your savings balance.");
   });
 });
 
@@ -159,7 +165,7 @@ describe("DashboardView savings rate presentation", () => {
       tiles: { ...view.tiles, netSavings: 350000, savingsRate: 0.3 },
     };
     render(<DashboardView {...baseProps} view={positive} />);
-    expect(screen.getByText("30% saved this month")).toBeInTheDocument();
+    expect(screen.getByText(/of this month's income kept/)).toHaveTextContent("30% of this month's income kept.");
   });
 
   it("clearly indicates a negative savings rate as overspending", () => {
@@ -168,9 +174,9 @@ describe("DashboardView savings rate presentation", () => {
       tiles: { ...view.tiles, netSavings: -55000, savingsRate: -0.11 },
     };
     render(<DashboardView {...baseProps} view={negative} />);
-    const rateEl = screen.getByText(/saved this month/);
-    expect(rateEl).toHaveTextContent("-11% saved this month");
-    expect(rateEl).toHaveTextContent(/spent more than you earned/i);
+    const rateEl = screen.getByText(/more went out than came in/);
+    expect(rateEl).toHaveTextContent("$550.00 more went out than came in.");
+    expect(rateEl).toHaveClass("text-neg");
   });
 
   it("shows a savings rate over 100% without clamping it", () => {
@@ -179,15 +185,15 @@ describe("DashboardView savings rate presentation", () => {
       tiles: { ...view.tiles, netSavings: 750000, savingsRate: 1.5 },
     };
     render(<DashboardView {...baseProps} view={over} />);
-    expect(screen.getByText("150% saved this month")).toBeInTheDocument();
+    expect(screen.getByText(/of this month's income kept/)).toHaveTextContent("150% of this month's income kept.");
   });
 
-  it('shows "no income this month" instead of 0% or blank when savingsRate is null', () => {
+  it('says "no income yet" instead of 0% or blank when savingsRate is null', () => {
     const noIncome: DV = {
       ...view,
       tiles: { ...view.tiles, income: 0, savingsRate: null },
     };
     render(<DashboardView {...baseProps} view={noIncome} />);
-    expect(screen.getByText("no income this month")).toBeInTheDocument();
+    expect(screen.getByText("No income yet this month.")).toBeInTheDocument();
   });
 });

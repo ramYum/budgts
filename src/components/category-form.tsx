@@ -3,9 +3,8 @@
 import { useActionState, useEffect } from "react";
 import { CATEGORY_COLORS } from "@/lib/categories/options";
 import type { CategoryActionState } from "@/server/categories";
+import { Button, Select, fieldClass as field, labelClass as label } from "./ui";
 
-const field =
-  "w-full rounded-xl border border-hairline bg-surface px-3.5 py-3 text-sm outline-none transition-colors focus:border-ink";
 
 export type CategoryInitial = {
   id: string;
@@ -35,20 +34,20 @@ export function CategoryForm({
   }, [state, onDone]);
 
   return (
-    <form action={formAction} className="space-y-3">
+    <form action={formAction} className="space-y-4">
       {initial ? <input type="hidden" name="id" value={initial.id} /> : null}
 
-      <label className="block space-y-1 text-xs font-medium text-muted">
+      <label className={label}>
         Name
         <input className={field} name="name" defaultValue={initial?.name ?? ""} maxLength={40} required autoFocus />
       </label>
 
-      <label className="block space-y-1 text-xs font-medium text-muted">
+      <label className={label}>
         Type
-        <select className={field} name="kind" defaultValue={initial?.kind ?? "expense"}>
+        <Select name="kind" defaultValue={initial?.kind ?? "expense"}>
           <option value="expense">Expense</option>
           <option value="income">Income</option>
-        </select>
+        </Select>
       </label>
 
       <input type="hidden" name="color" value={initial?.color ?? CATEGORY_COLORS[0]} />
@@ -57,21 +56,13 @@ export function CategoryForm({
         <p className="text-sm text-neg">{state.fieldError ?? state.error}</p>
       ) : null}
 
-      <div className="flex gap-2 pt-1">
-        <button
-          type="submit"
-          disabled={pending}
-          className="flex-1 press rounded-xl bg-primary-btn px-4 py-3 text-sm font-medium text-on-primary-btn disabled:opacity-50"
-        >
+      <div className="flex gap-3 pt-2">
+        <Button type="submit" disabled={pending} className="flex-1">
           {pending ? "Saving…" : submitLabel}
-        </button>
-        <button
-          type="button"
-          onClick={() => onDone()}
-          className="press rounded-xl border border-hairline bg-surface px-3.5 py-3 text-sm"
-        >
+        </Button>
+        <Button variant="secondary" onClick={() => onDone()}>
           Cancel
-        </button>
+        </Button>
       </div>
     </form>
   );

@@ -1,12 +1,12 @@
 "use client";
 
-import { memo, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { formatMoney } from "@/lib/budget/money";
 import { deleteTransaction, updateTransaction } from "@/server/transactions";
 import { Overlay } from "./overlay";
 import { Mascot } from "./mascot";
-import { CategoryIcon, SegmentedControl } from "./ui";
-import { MagnifyingGlass } from "@phosphor-icons/react";
+import { Icon } from "./icon";
+import { Button, CategoryIcon, SegmentedControl } from "./ui";
 import {
   TransactionForm,
   type AccountOption,
@@ -47,20 +47,33 @@ function fullDateLabel(iso: string) {
   });
 }
 
+/** A day's net for its band: money in minus money out across that day's
+ * listed rows. Display only; each row keeps its own amount. */
+function signedTotal(minor: number, currency: string) {
+  return `${minor > 0 ? "+" : minor < 0 ? "−" : ""}${formatMoney(Math.abs(minor), currency)}`;
+}
+
 /** Rows rendered at first, and added each time the reader nears the end. A
  * heavy bank feed has 1,000+ rows a month; rendering every one up front made
  * each tap and keystroke on this screen wait on the whole list. Search and
  * the filters still cover every row. */
 const SLICE = 60;
 
-/** The rendered rows, grouped by day. Memoized so opening a transaction's
- * sheet (state in the parent) doesn't re-render the list behind it. */
+/** The rendered rows, grouped by day under a pixel band with the day's net.
+ * Memoized so opening a transaction's sheet (state in the parent) doesn't
+ * re-render the list behind it. */
 const TxnDays = memo(function TxnDays({
   rows,
+  dayTotals,
+  kinds,
   currency,
   onOpen,
 }: {
   rows: TxnListItem[];
+  /** each day's net across every matching row, not just the rendered slice */
+  dayTotals: Map<string, number>;
+  /** category id -> kind, to mark a refund (money back into a spending category) */
+  kinds: Map<string, "expense" | "income">;
   currency: string;
   onOpen: (item: TxnListItem) => void;
 }) {
@@ -73,36 +86,55 @@ const TxnDays = memo(function TxnDays({
   }
   return [...groups.entries()].map(([day, dayRows]) => (
     <section key={day}>
-      <h3 className="bg-surface-2/60 px-4 py-2 text-xs font-semibold text-muted">{dayLabel(day)}</h3>
-      <ul className="divide-y divide-hairline">
-        {dayRows.map((it) => (
-          <li key={it.id}>
-            <button
-              type="button"
-              onClick={() => onOpen(it)}
-              aria-labelledby={`txn-${it.id}-title`}
-              aria-describedby={`txn-${it.id}-meta txn-${it.id}-amount`}
-              className="press flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-surface-2"
-            >
-              <CategoryIcon name={it.is_transfer ? "Transfer" : (it.category?.name ?? "")} size={36} />
-              <span className="min-w-0 flex-1">
-                <span id={`txn-${it.id}-title`} className="block truncate text-sm font-medium">
-                  {it.description || it.category?.name || "Transaction"}
-                </span>
-                <span id={`txn-${it.id}-meta`} className="block truncate text-xs text-muted">
-                  {it.is_transfer ? "Transfer" : (it.category?.name ?? "Uncategorized")}
-                </span>
-              </span>
-              <span
-                id={`txn-${it.id}-amount`}
-                className={`shrink-0 text-sm font-medium tabular-nums ${it.direction === "credit" ? "text-pos" : ""}`}
+      <h3 className="flex items-center justify-between gap-3 bg-surface-2 px-3 py-2.5 md:px-4">
+        <span className="px-tag text-graphite">{dayLabel(day)}</span>
+        <span className="px-tag tnum tracking-normal text-graphite">
+          {signedTotal(dayTotals.get(day) ?? 0, currency)}
+        </span>
+      </h3>
+      <ul className="px-rows px-3 md:px-4">
+        {dayRows.map((it) => {
+          const needsCategory = !it.is_transfer && !it.category_id;
+          const refund =
+            !it.is_transfer && it.direction === "credit" && !!it.category_id && kinds.get(it.category_id) === "expense";
+          return (
+            <li key={it.id}>
+              <button
+                type="button"
+                onClick={() => onOpen(it)}
+                aria-labelledby={`txn-${it.id}-title`}
+                aria-describedby={`txn-${it.id}-meta txn-${it.id}-amount`}
+                className="press group flex w-full items-center gap-3 py-3 text-left md:gap-4"
               >
-                {it.direction === "debit" ? "−" : "+"}
-                {formatMoney(it.amount, currency)}
-              </span>
-            </button>
-          </li>
-        ))}
+                <CategoryIcon name={it.is_transfer ? "Transfer" : (it.category?.name ?? "")} />
+                <span className="min-w-0 flex-1">
+                  <span
+                    id={`txn-${it.id}-title`}
+                    className="block truncate text-[15px] font-medium leading-6 text-ink group-hover:underline"
+                  >
+                    {it.description || it.category?.name || "Transaction"}
+                  </span>
+                  <span
+                    id={`txn-${it.id}-meta`}
+                    className={`block truncate text-sm leading-5 ${needsCategory ? "text-warn" : "text-muted"}`}
+                  >
+                    {it.is_transfer ? "Transfer" : needsCategory ? "Needs a category" : it.category?.name}
+                    {refund ? " · Refund" : ""}
+                  </span>
+                </span>
+                <span
+                  id={`txn-${it.id}-amount`}
+                  className={`tnum shrink-0 text-[15px] font-semibold leading-6 ${
+                    it.direction === "credit" ? "text-pos" : "text-ink"
+                  }`}
+                >
+                  {it.direction === "debit" ? "−" : "+"}
+                  {formatMoney(it.amount, currency)}
+                </span>
+              </button>
+            </li>
+          );
+        })}
       </ul>
     </section>
   ));
@@ -127,14 +159,19 @@ function MoreRows({ remaining, onMore }: { remaining: number; onMore: () => void
     return () => io.disconnect();
   }, [onMore, remaining]);
   return (
-    <button
-      ref={ref}
-      type="button"
-      onClick={onMore}
-      className="press w-full rounded-xl border border-hairline bg-surface px-3 py-3 text-sm font-medium text-muted hover:bg-surface-2"
-    >
+    <Button ref={ref} variant="secondary" onClick={onMore} className="w-full" iconAfter="chevron-down">
       Show {Math.min(remaining, SLICE)} more
-    </button>
+    </Button>
+  );
+}
+
+/** A label/value line in the transaction sheet. */
+function Detail({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex justify-between gap-4 py-3 first:pt-0 last:pb-0">
+      <dt className="text-muted">{label}</dt>
+      <dd className="text-right text-ink">{children}</dd>
+    </div>
   );
 }
 
@@ -159,6 +196,7 @@ export function TransactionList({
   const [kindFilter, setKindFilter] = useState<"all" | "spending" | "income" | "transfers">("all");
   const [shown, setShown] = useState(SLICE);
   const showMore = useCallback(() => setShown((n) => n + SLICE), []);
+  const kinds = useMemo(() => new Map(categories.map((c) => [c.id, c.kind])), [categories]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -174,6 +212,14 @@ export function TransactionList({
     });
   }, [items, search, kindFilter]);
   const visible = useMemo(() => filtered.slice(0, shown), [filtered, shown]);
+  const dayTotals = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const it of filtered) {
+      const day = it.occurred_at.slice(0, 10);
+      totals.set(day, (totals.get(day) ?? 0) + (it.direction === "credit" ? it.amount : -it.amount));
+    }
+    return totals;
+  }, [filtered]);
 
   /** Flips `isTransfer` via the same `updateTransaction` action the edit form
    * uses — a one-tap toggle from the Detail view (design spec §22) rather than
@@ -202,11 +248,12 @@ export function TransactionList({
 
   if (items.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-hairline px-6 py-12 text-center">
-        <Mascot mood="sleepy" size={72} />
-        <p className="max-w-xs text-sm text-muted">
-          No transactions this month yet. Add your first with{" "}
-          <span className="font-medium text-text">+ Add</span>.
+      <div className="px-card flex flex-col items-start gap-2 p-4 md:p-6">
+        <Mascot mood="sleepy" size={60} />
+        <p className="mt-2 text-[15px] font-medium leading-6 text-ink">No transactions this month yet.</p>
+        <p className="text-sm leading-5 text-muted">
+          Add your first with <span className="font-semibold text-ink">Add</span>, or connect a bank and they arrive
+          on their own.
         </p>
       </div>
     );
@@ -214,11 +261,8 @@ export function TransactionList({
 
   const searchBar = (
     <div className="space-y-3">
-      <div className="relative">
-        <MagnifyingGlass
-          aria-hidden
-          className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-muted"
-        />
+      <label className="px-search flex h-[46px] items-center gap-2 px-2 text-graphite">
+        <Icon name="search" />
         <input
           type="search"
           value={search}
@@ -226,12 +270,13 @@ export function TransactionList({
             setSearch(e.target.value);
             setShown(SLICE);
           }}
-          placeholder="Search transactions..."
+          placeholder="Search transactions"
           aria-label="Search transactions"
-          className="w-full rounded-xl border border-hairline bg-surface py-3 pr-3 pl-10 text-sm outline-none transition-colors focus:border-ink"
+          className="min-w-0 flex-1 bg-transparent text-base leading-6 text-ink outline-none placeholder:text-muted"
         />
-      </div>
+      </label>
       <SegmentedControl
+        label="Show"
         value={kindFilter}
         onChange={(v) => {
           setKindFilter(v);
@@ -249,11 +294,9 @@ export function TransactionList({
 
   if (filtered.length === 0) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-6">
         {searchBar}
-        <p className="rounded-2xl border border-dashed border-hairline py-10 text-center text-sm text-muted">
-          No matching transactions.
-        </p>
+        <p className="px-card p-4 text-center text-[15px] leading-6 text-muted md:p-6">No matching transactions.</p>
       </div>
     );
   }
@@ -274,10 +317,10 @@ export function TransactionList({
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       {searchBar}
-      <div className="reveal card divide-y divide-hairline overflow-hidden rounded-2xl border border-hairline" style={{ ["--i" as string]: 1 }}>
-        <TxnDays rows={visible} currency={currency} onOpen={setViewing} />
+      <div className="reveal px-card pb-1" style={{ ["--i" as string]: 1 }}>
+        <TxnDays rows={visible} dayTotals={dayTotals} kinds={kinds} currency={currency} onOpen={setViewing} />
       </div>
       {filtered.length > visible.length ? (
         <MoreRows remaining={filtered.length - visible.length} onMore={showMore} />
@@ -286,55 +329,49 @@ export function TransactionList({
       {viewing ? (
         <Overlay title="Transaction" onClose={() => setViewing(null)}>
           <div className="flex items-center gap-3">
-            <CategoryIcon name={viewing.is_transfer ? "Transfer" : (viewing.category?.name ?? "")} size={44} />
+            <CategoryIcon name={viewing.is_transfer ? "Transfer" : (viewing.category?.name ?? "")} />
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium">
+              <p className="truncate text-[15px] font-medium leading-6 text-ink">
                 {viewing.description || viewing.category?.name || "Transaction"}
               </p>
-              {viewing.note ? <p className="text-xs text-muted">{viewing.note}</p> : null}
+              {viewing.note ? <p className="text-sm leading-5 text-muted">{viewing.note}</p> : null}
             </div>
           </div>
-          <dl className="mt-4 divide-y divide-hairline rounded-xl border border-hairline text-sm [&>div]:px-3.5 [&>div]:py-2.5">
-            <div className="flex justify-between gap-3">
-              <dt className="text-muted">Date</dt>
-              <dd className="text-right">{fullDateLabel(viewing.occurred_at)}</dd>
-            </div>
-            <div className="flex justify-between gap-3">
-              <dt className="text-muted">Category</dt>
-              <dd className="text-right">{viewing.is_transfer ? "Transfer" : (viewing.category?.name ?? "Uncategorized")}</dd>
-            </div>
-            <div className="flex justify-between gap-3">
-              <dt className="text-muted">Account</dt>
-              <dd className="text-right">{viewing.account?.name}</dd>
-            </div>
-            <div className="flex justify-between gap-3">
-              <dt className="text-muted">Amount</dt>
-              <dd className={`text-right tabular-nums ${viewing.direction === "credit" ? "font-medium text-pos" : ""}`}>
+          <dl className="px-card px-rows mt-4 p-3 text-[15px] leading-6">
+            <Detail label="Date">{fullDateLabel(viewing.occurred_at)}</Detail>
+            <Detail label="Category">
+              {viewing.is_transfer ? "Transfer" : (viewing.category?.name ?? "Needs a category")}
+            </Detail>
+            <Detail label="Account">{viewing.account?.name}</Detail>
+            <Detail label="Amount">
+              <span className={`tnum font-semibold ${viewing.direction === "credit" ? "text-pos" : ""}`}>
                 {viewing.direction === "debit" ? "−" : "+"}
                 {formatMoney(viewing.amount, currency)}
-              </dd>
-            </div>
+              </span>
+            </Detail>
           </dl>
           {transferError ? <p className="mt-2 text-sm text-neg">{transferError}</p> : null}
-          <div className="mt-4 flex gap-2">
-            <button
-              type="button"
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Button
+              variant="secondary"
+              icon="edit"
+              className="flex-1"
               onClick={() => {
                 setEditing(viewing);
                 setViewing(null);
               }}
-              className="press flex-1 rounded-xl border border-ink bg-surface px-3 py-3 text-sm font-medium hover:bg-surface-2"
             >
               Edit
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="secondary"
+              icon="transfer"
+              className="flex-1"
               disabled={transferPending}
               onClick={() => toggleTransfer(viewing)}
-              className="press flex-1 rounded-xl border border-hairline bg-surface px-3 py-3 text-sm font-medium hover:bg-surface-2 disabled:opacity-50"
             >
               {viewing.is_transfer ? "Remove transfer" : "Mark as transfer"}
-            </button>
+            </Button>
           </div>
         </Overlay>
       ) : null}
@@ -356,14 +393,14 @@ export function TransactionList({
             onDone={() => setEditing(null)}
             submitLabel="Save changes"
           />
-          <button
-            type="button"
+          <Button
+            variant="danger"
+            className="mt-3 w-full"
             disabled={pending}
             onClick={() => remove(editing.id, () => setEditing(null))}
-            className="press mt-2 w-full rounded-xl border border-neg/30 px-3 py-3 text-sm font-medium text-neg hover:bg-signal-wash disabled:opacity-50"
           >
             Delete transaction
-          </button>
+          </Button>
           {deleteError ? <p className="mt-2 text-sm text-neg">{deleteError}</p> : null}
         </Overlay>
       ) : null}

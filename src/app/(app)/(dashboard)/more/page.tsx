@@ -1,81 +1,76 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Play } from "@phosphor-icons/react/dist/ssr";
-import { NavIcon, type NavGlyph } from "@/components/nav-icons";
+import { redirect } from "next/navigation";
+import { createClient, getSessionUser } from "@/lib/supabase/server";
+import { hubCounts, plural } from "@/lib/hub-counts";
+import { Icon } from "@/components/icon";
 import { InstallApp } from "@/components/install-app";
 import { Robin } from "@/components/mascot";
+import { PageHeader } from "@/components/page-header";
+import { HubRow, HubSection } from "@/components/hub-list";
 
 export const metadata: Metadata = { title: "More" };
-
-function Row({ href, label, glyph }: { href: string; label: string; glyph: NavGlyph }) {
-  return (
-    <li>
-      <Link
-        href={href}
-        className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium hover:bg-surface-2"
-      >
-        <NavIcon glyph={glyph} className="h-5 w-5 text-muted" />
-        <span className="flex-1">{label}</span>
-        <NavIcon glyph="back" className="h-4 w-4 rotate-180 text-muted" />
-      </Link>
-    </li>
-  );
-}
 
 /** Secondary hub — everything not in the primary Home/Budgets/Activity tabs
  * (design spec §42). Desktop already surfaces Goals/Accounts/Insights/Settings
  * in the sidebar, so this route mainly serves mobile, but stays reachable
  * everywhere for consistency. */
-export default function MorePage() {
+export default async function MorePage() {
+  const user = await getSessionUser();
+  if (!user) redirect("/sign-in");
+  const counts = await hubCounts(await createClient());
+
   return (
-    <div className="space-y-6 pt-1">
-      <h1 className="text-xl font-semibold">More</h1>
+    <>
+      <PageHeader title="More" />
+      <div className="space-y-8 md:max-w-[720px]">
+        {/* Replays the welcome guide (/tour without ?new=1 opens with Crystal's
+         * introduction; finishing or skipping it lands back on Home). */}
+        <Link href="/tour" className="px-card-ink press group flex items-center gap-4 p-3 md:p-4">
+          <span className="px-tile-wash flex h-14 w-14 shrink-0 items-center justify-center" aria-hidden>
+            <Robin size={44} />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[15px] font-medium leading-6 text-ink group-hover:underline">
+              Play welcome guide
+            </span>
+            <span className="block text-[13px] leading-5 text-muted">A one-minute tour with Crystal.</span>
+          </span>
+          <span className="px-tile-accent flex h-10 w-10 shrink-0 items-center justify-center text-white" aria-hidden>
+            <Icon name="play" />
+          </span>
+        </Link>
 
-      {/* Replays the welcome guide (/tour without ?new=1 opens with Crystal's
-       * introduction; finishing or skipping it lands back on Home). */}
-      <Link
-        href="/tour"
-        className="press lift card flex items-center gap-3.5 rounded-2xl border border-hairline p-4"
-      >
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-signal-wash">
-          <Robin size={30} />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-sm font-semibold text-text">Play welcome guide</span>
-          <span className="mt-0.5 block text-xs text-muted">A one-minute tour with Crystal.</span>
-        </span>
-        <span
-          aria-hidden
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-btn text-on-primary-btn"
-        >
-          <Play weight="fill" className="h-4 w-4" />
-        </span>
-      </Link>
+        <InstallApp />
 
-      <InstallApp />
+        <HubSection title="Your money">
+          <HubRow href="/goals" label="Savings goals" icon="goals" value={plural(counts.goals, "goal", "goals")} />
+          <HubRow href="/accounts" label="Accounts" icon="accounts" value={counts.accounts} />
+          <HubRow href="/insights" label="Insights" icon="insights" />
+        </HubSection>
 
-      <ul className="card divide-y divide-hairline overflow-hidden rounded-2xl border border-hairline">
-        <Row href="/goals" label="Savings Goals" glyph="goals" />
-        <Row href="/accounts" label="Accounts" glyph="accounts" />
-        <Row href="/insights" label="Insights" glyph="insights" />
-      </ul>
+        <HubSection title="Banks & settings">
+          <HubRow
+            href="/connected-banks"
+            label="Connected banks"
+            icon="bank"
+            value={counts.banks === null ? undefined : plural(counts.banks, "bank", "banks")}
+          />
+          <HubRow href="/settings" label="Settings" icon="settings" />
+        </HubSection>
 
-      <ul className="card divide-y divide-hairline overflow-hidden rounded-2xl border border-hairline">
-        <Row href="/connected-banks" label="Connected Banks" glyph="connected-banks" />
-        <Row href="/settings" label="Settings" glyph="settings" />
-      </ul>
+        <HubSection title="Help">
+          <HubRow href="/help" label="Help" icon="help" />
+          <HubRow href="/about" label="About Budgts" icon="about" value="V1" />
+        </HubSection>
 
-      <ul className="card divide-y divide-hairline overflow-hidden rounded-2xl border border-hairline">
-        <Row href="/help" label="Help" glyph="help" />
-        <Row href="/about" label="About Budgts" glyph="about" />
-      </ul>
-
-      <div className="flex flex-col items-center gap-3 pt-6 pb-2">
-        <Robin size={36} mood="normal" />
-        <p className="font-pixel text-[8px] uppercase text-muted">
-          Track <span className="text-accent">:</span> Plan <span className="text-accent">:</span> Grow
-        </p>
+        <div className="flex flex-col items-center gap-3 pb-2 pt-4" aria-hidden>
+          <Robin size={44} mood="normal" />
+          <p className="px-tag text-muted">
+            Track <span className="text-accent">:</span> Plan <span className="text-accent">:</span> Grow
+          </p>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

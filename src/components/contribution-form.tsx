@@ -3,10 +3,8 @@
 import { useActionState, useEffect } from "react";
 import type { SavingsActionState } from "@/server/savings";
 import { localDateKey } from "@/lib/local-date";
+import { Button, fieldClass as field, labelClass as label } from "./ui";
 
-const field =
-  "w-full rounded-xl border border-hairline bg-surface px-3.5 py-3 text-sm outline-none transition-colors focus:border-ink";
-const label = "block space-y-1 text-xs font-medium text-muted";
 
 /**
  * One contribution against a goal. Reused for both "Add" and "Withdraw / correct"
@@ -37,7 +35,7 @@ export function ContributionForm({
   }, [state.ok, onDone]);
 
   return (
-    <form action={formAction} className="space-y-3">
+    <form action={formAction} className="space-y-4">
       <input type="hidden" name="goalId" value={goalId} />
 
       <label className={label}>
@@ -51,7 +49,7 @@ export function ContributionForm({
           autoFocus
         />
       </label>
-      {hint ? <p className="text-xs text-muted">{hint}</p> : null}
+      {hint ? <p className="text-sm leading-5 text-muted">{hint}</p> : null}
 
       <label className={label}>
         Date
@@ -67,21 +65,13 @@ export function ContributionForm({
         <p className="text-sm text-neg">{state.fieldError ?? state.error}</p>
       ) : null}
 
-      <div className="flex gap-2 pt-1">
-        <button
-          type="submit"
-          disabled={pending}
-          className="flex-1 press rounded-xl bg-primary-btn px-4 py-3 text-sm font-medium text-on-primary-btn disabled:opacity-50"
-        >
+      <div className="flex gap-3 pt-2">
+        <Button type="submit" disabled={pending} className="flex-1">
           {pending ? "Saving…" : submitLabel}
-        </button>
-        <button
-          type="button"
-          onClick={onDone}
-          className="press rounded-xl border border-hairline bg-surface px-3.5 py-3 text-sm"
-        >
+        </Button>
+        <Button variant="secondary" onClick={onDone}>
           Cancel
-        </button>
+        </Button>
       </div>
     </form>
   );

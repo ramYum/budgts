@@ -3,6 +3,7 @@
 import { useActionState, useEffect } from "react";
 import type { TxnActionState } from "@/server/transactions";
 import { resolveDefaultDate } from "@/lib/local-date";
+import { Button, Select, fieldClass as field, labelClass as label } from "./ui";
 
 export type AccountOption = { id: string; name: string };
 export type CategoryOption = { id: string; name: string; kind: "expense" | "income" };
@@ -18,10 +19,6 @@ export type TransactionInitial = {
   accountId: string;
   categoryId: string | null;
 };
-
-const field =
-  "w-full rounded-xl border border-hairline bg-surface px-3.5 py-3 text-sm outline-none transition-colors focus:border-ink";
-const label = "block space-y-1 text-xs font-medium text-muted";
 
 function toDateInput(iso: string) {
   return iso.slice(0, 10);
@@ -63,7 +60,7 @@ export function TransactionForm({
   }, [state.ok, onDone]);
 
   return (
-    <form action={formAction} className="space-y-3">
+    <form action={formAction} className="space-y-4">
       {initial ? <input type="hidden" name="id" value={initial.id} /> : null}
 
       <div className="grid grid-cols-2 gap-3">
@@ -82,37 +79,36 @@ export function TransactionForm({
           Direction
           {directionLocked ? (
             <>
-              <p className={`${field} bg-tint text-muted`}>
+              <p className="px-band px-2 py-1 text-base leading-6 text-graphite">
                 {initialDirection === "credit" ? "Money in" : "Money out"}
               </p>
               <input type="hidden" name="direction" value={initialDirection} />
             </>
           ) : (
-            <select className={field} name="direction" defaultValue={initial?.direction ?? initialDirection}>
+            <Select name="direction" defaultValue={initial?.direction ?? initialDirection}>
               <option value="debit">Money out</option>
               <option value="credit">Money in</option>
-            </select>
+            </Select>
           )}
         </label>
       </div>
-      {fe.amount ? <p className="text-xs text-neg">{fe.amount}</p> : null}
+      {fe.amount ? <p className="text-sm text-neg">{fe.amount}</p> : null}
 
       <label className={label}>
         Account
-        <select className={field} name="accountId" defaultValue={initial?.accountId ?? accounts[0]?.id} required>
+        <Select name="accountId" defaultValue={initial?.accountId ?? accounts[0]?.id} required>
           {accounts.map((a) => (
             <option key={a.id} value={a.id}>
               {a.name}
             </option>
           ))}
-        </select>
+        </Select>
       </label>
-      {fe.accountId ? <p className="text-xs text-neg">{fe.accountId}</p> : null}
+      {fe.accountId ? <p className="text-sm text-neg">{fe.accountId}</p> : null}
 
       <label className={label}>
         Category
-        <select
-          className={field}
+        <Select
           name="categoryId"
           defaultValue={
             initial?.categoryId ??
@@ -126,7 +122,7 @@ export function TransactionForm({
               {!directionLocked && c.kind === "income" ? " (income)" : ""}
             </option>
           ))}
-        </select>
+        </Select>
       </label>
 
       <label className={label}>
@@ -139,41 +135,33 @@ export function TransactionForm({
           required
         />
       </label>
-      {fe.occurredAt ? <p className="text-xs text-neg">{fe.occurredAt}</p> : null}
+      {fe.occurredAt ? <p className="text-sm text-neg">{fe.occurredAt}</p> : null}
 
       <label className={label}>
         Description
         <input className={field} name="description" defaultValue={initial?.description ?? ""} maxLength={200} />
       </label>
-      {fe.description ? <p className="text-xs text-neg">{fe.description}</p> : null}
+      {fe.description ? <p className="text-sm text-neg">{fe.description}</p> : null}
 
       <label className={label}>
         Note (optional)
         <textarea className={field} name="note" rows={2} defaultValue={initial?.note ?? ""} maxLength={1000} />
       </label>
 
-      <label className="flex items-center gap-2 text-xs text-muted">
-        <input type="checkbox" name="isTransfer" defaultChecked={initial?.isTransfer ?? false} className="accent-[var(--accent)]" />
+      <label className="flex items-center gap-2.5 text-sm leading-5 text-graphite">
+        <input type="checkbox" name="isTransfer" defaultChecked={initial?.isTransfer ?? false} className="h-4 w-4 accent-[var(--ink)]" />
         Transfer between my own accounts (excluded from spend &amp; income)
       </label>
 
       {state.error ? <p className="text-sm text-neg">{state.error}</p> : null}
 
-      <div className="flex gap-2 pt-1">
-        <button
-          type="submit"
-          disabled={pending}
-          className="flex-1 press rounded-xl bg-primary-btn px-4 py-3 text-sm font-medium text-on-primary-btn disabled:opacity-50"
-        >
+      <div className="flex gap-3 pt-2">
+        <Button type="submit" disabled={pending} className="flex-1">
           {pending ? "Saving…" : submitLabel}
-        </button>
-        <button
-          type="button"
-          onClick={onDone}
-          className="press rounded-xl border border-hairline bg-surface px-3.5 py-3 text-sm"
-        >
+        </Button>
+        <Button variant="secondary" onClick={onDone}>
           Cancel
-        </button>
+        </Button>
       </div>
     </form>
   );

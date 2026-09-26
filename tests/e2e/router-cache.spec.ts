@@ -23,15 +23,15 @@ test("a new transaction shows on recently visited tabs within the router-cache w
     await onboardAndSkipTour(page);
 
     // Visit Budgets so it sits in the client router cache, then come back.
-    await page.getByRole("link", { name: "Budgets" }).click();
+    await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Budgets" }).click();
     await page.waitForURL((u) => u.pathname === "/budgets");
     await expect(page.getByRole("button", { name: /Food \/ Groceries/ })).toBeVisible();
     await expect(page.getByText("$77.77")).toHaveCount(0);
 
     // Add a transaction from Activity.
-    await page.getByRole("link", { name: "Activity" }).click();
+    await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Activity" }).click();
     await page.waitForURL((u) => u.pathname === "/transactions");
-    await page.getByRole("button", { name: "+ Add" }).click();
+    await page.getByRole("button", { name: "Add transaction" }).click();
     await page.getByLabel("Amount").fill("77.77");
     await page.getByLabel("Category").selectOption({ label: "Food / Groceries" });
     await page.getByLabel("Description").fill("router cache check");
@@ -39,11 +39,11 @@ test("a new transaction shows on recently visited tabs within the router-cache w
     await expect(page.getByText("router cache check")).toBeVisible();
 
     // Back to Budgets and Home by tapping tabs, well inside the 30s window.
-    await page.getByRole("link", { name: "Budgets" }).click();
+    await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Budgets" }).click();
     await page.waitForURL((u) => u.pathname === "/budgets");
     await expect(page.getByText("$77.77").first()).toBeVisible({ timeout: 5000 });
 
-    await page.getByRole("link", { name: "Home" }).click();
+    await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Home" }).click();
     await page.waitForURL((u) => u.pathname === "/");
     await expect(page.getByText("$77.77").first()).toBeVisible({ timeout: 5000 });
   } finally {
@@ -60,9 +60,9 @@ test("an edit costs exactly one server render (no client or realtime re-refresh)
   try {
     await page.goto(`/auth/callback?token_hash=${await magicTokenHash(user.email)}&type=magiclink&next=/`);
     await onboardAndSkipTour(page);
-    await page.getByRole("link", { name: "Activity" }).click();
+    await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Activity" }).click();
     await page.waitForURL((u) => u.pathname === "/transactions");
-    await page.getByRole("button", { name: "+ Add" }).click();
+    await page.getByRole("button", { name: "Add transaction" }).click();
     await page.getByLabel("Amount").fill("12.34");
     await page.getByLabel("Category").selectOption({ label: "Food / Groceries" });
     await page.getByLabel("Description").fill("one render check");

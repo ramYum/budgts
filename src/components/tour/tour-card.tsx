@@ -1,5 +1,5 @@
 import { Fragment, type CSSProperties, type ReactNode } from "react";
-import { CaretLeft } from "@phosphor-icons/react/dist/ssr";
+import { Icon } from "@/components/icon";
 import { Robin } from "@/components/mascot";
 import s from "./guide.module.css";
 
@@ -46,7 +46,7 @@ export function TourCard({
         <span>
           {onBack ? (
             <button type="button" onClick={onBack} className={`${quiet} -ml-2`}>
-              <CaretLeft aria-hidden weight="bold" className="h-3.5 w-3.5" />
+              <Icon name="chevron-left" size={12} />
               Back
             </button>
           ) : null}

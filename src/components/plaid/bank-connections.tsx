@@ -2,6 +2,9 @@ import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { fetchAllRows } from "@/lib/supabase/fetch-all-rows";
 import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
 import { ConnectBank } from "./connect-bank";
+import { PageHeader } from "@/components/page-header";
+import { Icon } from "@/components/icon";
+import { IconTile } from "@/components/ui";
 import {
   ConnectedBanks,
   type ConnectedBank,
@@ -132,37 +135,39 @@ export async function BankConnections() {
   });
 
   return (
-    <section className="space-y-3">
-      <h2 className="flex items-center gap-2 text-sm font-semibold">
-        <span className="h-3.5 w-1 shrink-0 bg-accent" aria-hidden />
-        Connected banks
-      </h2>
-
-      {/* One ConnectBank at a fixed position in both states: saving the first
-          bank's mapping re-renders this page (server-action revalidation), and
-          a remount here would drop the mapping overlay before it can show a
-          "first sync didn't finish" warning. */}
-      <div className={banks.length === 0 ? "card space-y-3 rounded-2xl border border-hairline p-4" : "space-y-3"}>
+    <>
+      <PageHeader title="Connected banks" back="/more" backOnDesktop={false} />
+      <div className="space-y-6 md:max-w-[720px]">
         {banks.length === 0 ? (
-          <>
-            <p className="text-sm text-muted">
-              Connect a bank and Budgts imports its transactions for you — categories filled in, ready to
-              check. Manual entry still works for cash and anything your bank can&apos;t reach.
+          <div className="px-card-ink flex flex-col items-start gap-4 p-3 md:p-6">
+            <IconTile name="bank" />
+            <p className="text-[15px] leading-6 text-ink">
+              Connect a bank and Budgts imports its transactions for you — categories filled in, ready to check.
+              Manual entry still works for cash and anything your bank can&apos;t reach.
             </p>
-            <p className="text-xs text-muted">
-              Your data is secure. Budgts can only read your account and transaction data to help you budget —
-              it cannot send money, make payments, make purchases, or transfer funds.
+            <p className="flex items-start gap-2 text-sm leading-5 text-muted">
+              <Icon name="shield" className="-my-0.5 text-graphite" />
+              Your data is secure. Budgts can only read your account and transaction data to help you budget — it
+              cannot send money, make payments, make purchases, or transfer funds.
             </p>
-          </>
+          </div>
         ) : (
           <ConnectedBanks banks={banks} budgtsAccounts={budgtsAccounts} />
         )}
-        {banks.length === 0 ? (
-          <ConnectBank accounts={budgtsAccounts} />
-        ) : (
-          <ConnectBank accounts={budgtsAccounts} tone="outline" label="Connect another bank" />
-        )}
+        {/* One ConnectBank at a fixed position in both states: saving the first
+            bank's mapping re-renders this page (server-action revalidation), and
+            a remount here would drop the mapping overlay before it can show a
+            "first sync didn't finish" warning. A phone shows it full width
+            under the cards; desktop lifts it into the header's action slot. */}
+        <div className="md:absolute md:right-[104px] md:top-[42px]">
+          <ConnectBank
+            accounts={budgtsAccounts}
+            label={banks.length === 0 ? "Connect a bank" : "Connect another bank"}
+            fullWidth
+            buttonClassName="md:w-auto"
+          />
+        </div>
       </div>
-    </section>
+    </>
   );
 }

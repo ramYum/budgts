@@ -1,21 +1,7 @@
 import { Fragment, type CSSProperties, type ReactNode } from "react";
-import {
-  Bank,
-  BookmarkSimple,
-  Check,
-  CreditCard,
-  DeviceMobile,
-  Flag,
-  Globe,
-  LockSimple,
-  ChartBar,
-  Plant,
-  Question,
-  Target,
-} from "@phosphor-icons/react/dist/ssr";
+import { Icon, type IconName } from "@/components/icon";
 import { RollingAmount } from "@/components/rolling-amount";
 import { Robin } from "@/components/mascot";
-import { NavIcon, type NavGlyph } from "@/components/nav-icons";
 import { CategoryIcon, ProgressBar } from "@/components/ui";
 import { formatMoney } from "@/lib/budget/money";
 import type { TourStepId } from "@/lib/tour/steps";
@@ -102,16 +88,16 @@ function CrystalScene() {
 
 // ─── What Budgts does: Track · Plan · Grow ──────────────────────────────────
 
-const PILLARS = [
-  { name: "Track", Icon: ChartBar, tile: "bg-surface-2 text-ink" },
-  { name: "Plan", Icon: Target, tile: "bg-surface-2 text-ink" },
-  { name: "Grow", Icon: Plant, tile: "bg-primary-btn text-white" },
+const PILLARS: { name: string; icon: IconName; tile: string }[] = [
+  { name: "Track", icon: "activity", tile: "bg-surface-2 text-ink" },
+  { name: "Plan", icon: "budgets", tile: "bg-surface-2 text-ink" },
+  { name: "Grow", icon: "leaf", tile: "bg-primary-btn text-white" },
 ];
 
 function WelcomeScene() {
   return (
     <div className="flex h-full items-start justify-center gap-3 pt-[76px]">
-      {PILLARS.map(({ name, Icon, tile }, p) => (
+      {PILLARS.map(({ name, icon, tile }, p) => (
         <Fragment key={name}>
           {p > 0 ? (
             <span className="mt-[26px] flex gap-1">
@@ -122,7 +108,7 @@ function WelcomeScene() {
           ) : null}
           <span className={`${s.pillar} flex flex-col items-center gap-3`} style={vars({ "--p": p })}>
             <span className={`flex h-14 w-14 items-center justify-center rounded-2xl ${tile}`}>
-              <Icon className="h-7 w-7" />
+              <Icon name={icon} />
             </span>
             <span className={label}>{name}</span>
           </span>
@@ -134,10 +120,10 @@ function WelcomeScene() {
 
 // ─── Every purchase, tracked ────────────────────────────────────────────────
 
-const FEED = [
-  { merchant: "Blue Bottle Coffee", category: "Food / Groceries", via: "Phone tap", Icon: DeviceMobile, minor: 540 },
-  { merchant: "Shell", category: "Transportation", via: "Card", Icon: CreditCard, minor: 4210 },
-  { merchant: "Netflix", category: "Entertainment", via: "Online", Icon: Globe, minor: 1549 },
+const FEED: { merchant: string; category: string; via: string; icon: IconName; minor: number }[] = [
+  { merchant: "Blue Bottle Coffee", category: "Food / Groceries", via: "Phone tap", icon: "smartphone", minor: 540 },
+  { merchant: "Shell", category: "Transportation", via: "Card", icon: "credit-card", minor: 4210 },
+  { merchant: "Netflix", category: "Entertainment", via: "Online", icon: "globe", minor: 1549 },
 ];
 const FEED_CLASS = [s.feed0, s.feed1, s.feed2];
 
@@ -152,7 +138,7 @@ function CaptureScene({ currency }: { currency: string }) {
         </span>
       </div>
       <ul className="space-y-2">
-        {FEED.map(({ merchant, category, via, Icon, minor }, i) => (
+        {FEED.map(({ merchant, category, via, icon, minor }, i) => (
           <li
             key={merchant}
             className={`${FEED_CLASS[i]} flex items-center gap-3 rounded-2xl border border-hairline bg-surface px-3 py-2.5`}
@@ -161,7 +147,7 @@ function CaptureScene({ currency }: { currency: string }) {
             <span className="min-w-0 flex-1 text-left">
               <span className="block truncate text-[13px] font-medium text-text">{merchant}</span>
               <span className="flex items-center gap-1 text-[11px] text-muted">
-                <Icon className="h-3 w-3" />
+                <Icon name={icon} size={12} />
                 {via}
               </span>
             </span>
@@ -205,14 +191,14 @@ function BankScene() {
     <div className="flex h-full flex-col items-center justify-center gap-6">
       <div className="flex items-start gap-4">
         <Tile name="Your bank" tone="bg-surface-2 text-ink">
-          <Bank className="h-7 w-7" />
+          <Icon name="bank" />
         </Tile>
         <span className={`${s.linkPath} mt-[26px]`}>
           {Array.from({ length: 8 }, (_, d) => (
             <span key={d} className={s.dot} style={vars({ "--d": d })} />
           ))}
           <span className={`${s.lock} pixel-corners flex h-5 w-5 items-center justify-center bg-primary-btn text-white`}>
-            <LockSimple weight="bold" className="h-3 w-3" />
+            <Icon name="security" size={12} />
           </span>
         </span>
         <Tile name="Budgts" tone="bg-signal-wash">
@@ -232,7 +218,7 @@ function SortScene({ currency }: { currency: string }) {
       <div className="relative flex items-center gap-3 rounded-2xl border border-hairline bg-surface px-3 py-3">
         <span className={`${s.stack} h-10 w-10 shrink-0`}>
           <span className="flex items-center justify-center rounded-xl border border-dashed border-silver text-muted">
-            <Question className="h-5 w-5" />
+            <Icon name="help" />
           </span>
           <span className={s.known}>
             <CategoryIcon name="Food / Groceries" size={40} />
@@ -247,7 +233,7 @@ function SortScene({ currency }: { currency: string }) {
         </span>
         <Amount minor={-4218} currency={currency} />
         <span className={`${s.check} pixel-corners absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center bg-pos text-white`}>
-          <Check weight="bold" className="h-3 w-3" />
+          <Icon name="check" size={12} />
         </span>
       </div>
       <div className="flex items-center gap-3 rounded-2xl border border-hairline bg-surface px-3 py-2.5 opacity-60">
@@ -260,7 +246,7 @@ function SortScene({ currency }: { currency: string }) {
       </div>
       <div className="flex items-end justify-between px-1">
         <span className={`${s.remember} ${chip} flex items-center gap-1.5 bg-ink`}>
-          <BookmarkSimple weight="fill" className="h-2.5 w-2.5" />
+          <Icon name="bookmark" size={12} />
           Remembered
         </span>
         <span className="flex items-end gap-1.5">
@@ -357,7 +343,7 @@ function PlanScene({ currency }: { currency: string }) {
       <PlanRow
         icon={
           <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-surface-2 text-ink">
-            <Flag className="h-4 w-4" />
+            <Icon name="goals" />
           </span>
         }
         kind="Goal"
@@ -374,7 +360,7 @@ function PlanScene({ currency }: { currency: string }) {
 
 // ─── You're all set: the four tabs ──────────────────────────────────────────
 
-const TABS: { glyph: NavGlyph; name: string; caption: string }[] = [
+const TABS: { glyph: IconName; name: string; caption: string }[] = [
   { glyph: "home", name: "Home", caption: "What's left this month" },
   { glyph: "budgets", name: "Budgets", caption: "Your plan, by category" },
   { glyph: "activity", name: "Activity", caption: "Every purchase, in one list" },
@@ -429,10 +415,10 @@ function DoneScene() {
         <div className="grid grid-cols-4">
           {TABS.map((t, k) => (
             <span key={t.name} className={`${s.tab} flex flex-col items-center gap-1 py-2.5`} style={vars({ "--k": k })}>
-              <span className="relative h-5 w-5">
-                <NavIcon glyph={t.glyph} className="absolute inset-0 h-5 w-5 text-muted" />
+              <span className="relative h-6 w-6">
+                <Icon name={t.glyph} className="absolute inset-0 text-muted" />
                 <span className={`${s.tabLit} absolute inset-0 text-signal`}>
-                  <NavIcon glyph={t.glyph} weight="fill" className="h-5 w-5" />
+                  <Icon name={t.glyph} />
                 </span>
               </span>
               <span className="text-[10px] text-muted">{t.name}</span>

@@ -6,16 +6,18 @@ import { categorizeBankTransaction, rescanUncategorized } from "@/server/plaid/a
 import { createCategory } from "@/server/categories";
 import { CategoryForm } from "@/components/category-form";
 import { Overlay } from "@/components/overlay";
+import { Icon } from "@/components/icon";
+import { Button, IconTile, TextButton, fieldClass } from "@/components/ui";
 import type { CategoryOption } from "@/components/transaction-form";
 import { groupUncategorized, type MerchantGroup, type UncategorizedTxn } from "@/lib/plaid/group-uncategorized";
 
 export type NeedsCategoryItem = UncategorizedTxn;
 
-const field =
-  "rounded-lg border border-hairline bg-surface px-2.5 py-2 text-sm outline-none transition-colors focus:border-ink";
-
 const STD_PREFIX = "std:";
 const NEW_CATEGORY_VALUE = "__new__";
+/** Merchants shown before "Show N more" on a single-column screen; the
+ * desktop side panel lists them all. */
+const FIRST = 3;
 
 /** Stored UTC calendar day — same as the Activity list, and identical on the server and in any browser time zone. */
 function formatDate(iso: string): string {
@@ -61,6 +63,7 @@ export function NeedsCategory({
   const [, startTransition] = useTransition();
   const [addingFor, setAddingFor] = useState<{ key: string; anchorId: string; label: string } | null>(null);
   const [resetKeys, setResetKeys] = useState<Record<string, number>>({});
+  const [expanded, setExpanded] = useState(false);
 
   const groups = useMemo(() => groupUncategorized(items), [items]);
   const visible = useMemo(() => groups.filter((g) => !done.has(g.key)), [groups, done]);
@@ -107,65 +110,85 @@ export function NeedsCategory({
     });
 
   const totalTxns = visible.reduce((n, g) => n + g.count, 0);
+  const hidden = expanded ? 0 : Math.max(0, visible.length - FIRST);
 
   return (
-    <section id="needs-category" className="scroll-mt-20 space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="flex items-center gap-2 text-sm font-semibold">
-          <span className="h-3.5 w-1 shrink-0 bg-accent" aria-hidden />
-          Needs a category
-          <span className="text-xs font-normal text-muted">
-            ({visible.length} {visible.length === 1 ? "merchant" : "merchants"}
-            {totalTxns > visible.length ? `, ${totalTxns} transactions` : ""})
+    <section id="needs-category" className="px-card-ink scroll-mt-20 p-3 md:p-4">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="px-tag-bold text-neg">
+          Needs a category <span aria-hidden>·</span> {totalTxns}
+          <span className="sr-only">
+            {" "}
+            {totalTxns === 1 ? "transaction" : "transactions"} from {visible.length}{" "}
+            {visible.length === 1 ? "merchant" : "merchants"}
           </span>
         </h2>
-        <button
-          type="button"
-          onClick={rescan}
-          disabled={rescanning}
-          className="shrink-0 whitespace-nowrap press rounded-lg border border-hairline bg-surface px-2.5 py-1.5 text-xs font-medium hover:bg-surface-2 disabled:opacity-50"
-        >
+        <TextButton iconAfter="sync" onClick={rescan} disabled={rescanning} className="-my-1.5 shrink-0 text-muted">
           {rescanning ? "Re-scanning…" : "Re-scan"}
-        </button>
+        </TextButton>
       </div>
 
-      <p className="text-xs text-muted">
-        Pick a category once and it applies to every transaction from that merchant. Don&apos;t see the category you
-        want? Choose <span className="font-medium">+ New category…</span> from the list.
+      <p className="mt-1 text-sm leading-5 text-muted">
+        Pick once and it applies to every purchase from that merchant. Missing one? Choose{" "}
+        <span className="font-medium text-graphite">+ New category</span>.
       </p>
 
-      <ul className="card divide-y divide-hairline rounded-2xl border border-hairline px-4">
-        {visible.map((group) => {
+      <ul className="px-rows mt-2">
+        {visible.map((group, i) => {
           const suggestedName = group.suggestedCategoryId ? categoryById.get(group.suggestedCategoryId) : null;
           const pfc = !suggestedName ? humanizePfc(group.plaidCategoryPrimary) : null;
+          // Plaid's guess fits inside the select when it is short ("Other");
+          // a longer one gets its own line rather than a cut-off label.
+          const hintInside = pfc !== null && pfc.length <= 12;
+          const first = group.transactions[0];
           return (
-            <li key={group.key} className="space-y-2.5 py-3">
-              <div className="flex items-start justify-between gap-3">
-                <p className="min-w-0 break-words text-sm font-medium">{group.label}</p>
-                <p className="shrink-0 text-xs tabular-nums text-muted">
-                  {group.count} {group.count === 1 ? "txn" : "txns"} · {formatNet(group.netAmount, currency)}
+            <li
+              key={group.key}
+              className={`space-y-3 py-4 last:pb-0 ${!expanded && i >= FIRST ? "hidden xl:block" : ""}`}
+            >
+              <div className="flex items-center gap-3">
+                <IconTile name="tag" />
+                <div className="min-w-0 flex-1">
+                  <p className="break-words text-[15px] font-medium leading-6 text-ink">{group.label}</p>
+                  <p className="truncate text-sm leading-5 text-muted">
+                    {group.count > 1
+                      ? `${group.count} purchases · latest ${formatDate(first.occurred_at)}`
+                      : `${formatDate(first.occurred_at)}${first.account_name ? ` · ${first.account_name}` : ""}${
+                          first.pending ? " · Pending" : ""
+                        }`}
+                  </p>
+                </div>
+                <p
+                  className={`tnum shrink-0 text-[15px] font-semibold leading-6 ${group.netAmount < 0 ? "text-pos" : "text-ink"}`}
+                >
+                  {formatNet(group.netAmount, currency)}
                 </p>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
-                {suggestedName ? (
+              {suggestedName ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm leading-5 text-muted">Looks like</span>
                   <button
                     type="button"
                     onClick={() => pick(group.key, group.anchorId, group.suggestedCategoryId!)}
-                    className="press rounded-lg border border-hairline bg-surface px-3 py-1.5 text-xs font-medium text-text hover:border-silver"
+                    className="px-chip press inline-flex h-8 items-center gap-1.5 px-2 text-[15px] font-medium leading-6 text-ink"
                   >
+                    <Icon name="check" />
                     {suggestedName}
                   </button>
-                ) : null}
+                </div>
+              ) : null}
+
+              <span className="relative block">
                 <select
                   key={resetKeys[group.key] ?? 0}
-                  className={field}
+                  className={`${fieldClass} appearance-none ${hintInside ? "pr-32" : "pr-10"}`}
                   defaultValue=""
                   aria-label={`Category for ${group.label}`}
                   onChange={(e) => choose(group, e.target.value)}
                 >
                   <option value="" disabled>
-                    {suggestedName ? "Choose another…" : "Choose a category…"}
+                    {suggestedName ? "Choose another" : "Choose a category"}
                   </option>
                   {categories.map((c) => (
                     <option key={c.id} value={c.id}>
@@ -183,19 +206,24 @@ export function NeedsCategory({
                   ) : null}
                   <option value={NEW_CATEGORY_VALUE}>+ New category…</option>
                 </select>
-                {pfc ? <span className="text-xs text-muted">Plaid suggests: {pfc}</span> : null}
-              </div>
+                <span className="pointer-events-none absolute right-2.5 top-1/2 flex -translate-y-1/2 items-center gap-2 text-graphite">
+                  {hintInside ? <span className="text-sm leading-5 text-muted">Plaid: {pfc}</span> : null}
+                  <Icon name="chevron-down" />
+                </span>
+              </span>
+
+              {pfc && !hintInside ? <p className="-mt-1 text-sm leading-5 text-muted">Plaid suggests: {pfc}</p> : null}
 
               {group.count > 1 ? (
-                <details className="text-xs text-muted">
-                  <summary className="cursor-pointer select-none hover:text-text">
+                <details className="text-sm leading-5 text-muted">
+                  <summary className="cursor-pointer select-none hover:text-ink">
                     Show {group.count} transactions
                   </summary>
-                  <ul className="mt-2 space-y-1.5 border-l border-hairline pl-3">
+                  <ul className="mt-2 space-y-1.5 border-l-2 border-hairline pl-3">
                     {group.transactions.map((t) => (
                       <li key={t.id} className="flex items-start justify-between gap-3">
                         <span className="min-w-0 break-words">{t.description || "Transaction"}</span>
-                        <span className="shrink-0 tabular-nums">
+                        <span className="tnum shrink-0">
                           {formatDate(t.occurred_at)} · {t.direction === "debit" ? "−" : "+"}
                           {formatMoney(t.amount, currency)}
                         </span>
@@ -203,19 +231,24 @@ export function NeedsCategory({
                     ))}
                   </ul>
                 </details>
-              ) : (
-                <p className="truncate text-xs text-muted">
-                  {formatDate(group.transactions[0].occurred_at)}
-                  {group.transactions[0].account_name ? ` · ${group.transactions[0].account_name}` : ""}
-                  {group.transactions[0].pending ? " · Pending" : ""}
-                </p>
-              )}
+              ) : null}
             </li>
           );
         })}
       </ul>
 
-      {error ? <p className="text-sm text-neg">{error}</p> : null}
+      {hidden > 0 ? (
+        <Button
+          variant="secondary"
+          className="mt-4 w-full xl:hidden"
+          iconAfter="chevron-down"
+          onClick={() => setExpanded(true)}
+        >
+          Show {hidden} more
+        </Button>
+      ) : null}
+
+      {error ? <p className="mt-3 text-sm text-neg">{error}</p> : null}
 
       {addingFor ? (
         <Overlay

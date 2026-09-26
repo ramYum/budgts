@@ -271,14 +271,17 @@ Spec: `docs/specs/2026-09-15-how-budgts-works-guide-design.md`.
 owner's mobile + desktop mockups applied to every in-app screen: stepped
 pixel frames, Pixelarticons replacing Phosphor.
 
-**Committed, not yet deployed:** **Soft-pixel pass (2026-09-26)** — the owner
+**Shipped:** **Soft-pixel pass (2026-09-26, `8f3bb8d`, live)** — the owner
 asked for cleaner, more modern and less overwhelming (especially on phones)
 while keeping the art style: borderless stepped surfaces on soft shadows,
 Geist figures (Dogica's zero read as an eight), sentence-case section heads,
 segmented thin progress, lighter charts, a compact phone scale, no em-dashes
 in UI copy; sign-in, onboarding, the welcome guide, Appearance, loading and
-the error boundary brought into the same system. Presentation only: no money
-math changed. See `docs/BRAND_GUIDELINES.md`.
+the error boundary brought into the same system. Then Crystal roaming the
+Money left card from its middle, with cheers (`249b9f0`, `7aeff66`), and
+square progress cells: as tall as the bar, as many as fit, one painted strip
+per bar. Presentation only: no money math changed. See
+`docs/BRAND_GUIDELINES.md`.
 
 **In progress:** **V1.5** — recurring-series detection (migration `0016`,
 `/api/plaid/recurring-scan`) and subscription / bill classification layers

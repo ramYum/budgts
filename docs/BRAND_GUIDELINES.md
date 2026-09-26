@@ -130,10 +130,15 @@ The frame generator's palette mirrors these tokens;
   = gray frame, muted text.
 - **Rules:** solid 1px `--divider` (`px-rule`, `px-rule-v`); rows in one card
   are divided by `px-rows`. Spacing groups first; a rule only where rows need it.
-- **Progress:** a segmented line of 16 cells snapped to whole pixels
-  (`px-cells`, CSS `round()` with container units), 8px tall in rows and
-  10–12px on lead cards; ink when on track, red when near/over, green for
-  savings. The figure is always printed beside it.
+- **Progress:** a segmented line of square cells, as tall as the bar (8px in
+  rows, 10px on goal cards, 12px on lead cards) with 2px+ gaps, as many as
+  fit, so a longer bar has more cells, never wider ones. The first and last
+  cells sit flush with the bar's ends. One painted strip per bar (`px-cells`
+  → `.px-bar`: two repeating gradients, the count from container units), not
+  a node per cell; lit cells = round(share × count), at least one once
+  anything counts. A step tracker (`cells={n}`) fixes the count and sizes the
+  bar to fit. Ink when on track, red when near/over, green for savings. The
+  figure is always printed beside it.
 - **Charts:** server-rendered cells, no chart library. Trend = one column of
   flat 24×4px segments per month, past months gray, current month red with a
   tagged value. Breakdown = a fine ring of 6px cells, largest share in red,
@@ -156,9 +161,11 @@ The frame generator's palette mirrors these tokens;
 ## Motion
 
 Every animation communicates something, uses transform/opacity only, and is
-off under `prefers-reduced-motion`. The one exception is the sign-in ticker's
-typing, which steps the width and caret color of an absolutely positioned
-line, so nothing around it reflows.
+off under `prefers-reduced-motion`. Two exceptions, neither of which reflows
+anything: the sign-in ticker's typing, which steps the width and caret color
+of an absolutely positioned line, and the progress bars' cells stepping in,
+which count up a registered `--sweep` number that only resizes the bar's own
+painted background.
 
 Entrance animations fill `backwards`, never `both`/`forwards`. A held end
 keyframe leaves an identity transform on the element, which traps every
@@ -170,7 +177,8 @@ enforces this.
 | --- | --- |
 | `page-enter` (screen rises in) | A new screen arrived |
 | `reveal` cascade (`--i`) | Reading order of the sections |
-| `cell` (stepped, sprite-like) | Magnitude being built, cell by cell |
+| `cell` (stepped, sprite-like) | Magnitude being built, cell by cell (charts) |
+| `cells-sweep` (`.px-bar`) | A progress bar's cells arrive left to right, one whole cell at a time, over the same 352ms whatever the bar's length; stacked rows start a step later each (`start`) |
 | Robin blink / chirp / hop | The brand is alive: a single then a double blink every 4.8s, a two-note chirp every 4s (`--robin-chirp`), a hop on hover. Runs wherever the robin shows, the header logo included |
 | Crystal on Home (`crystal-*`, `crystal-perch.tsx`, `src/lib/crystal/roam.ts`) | Your budget buddy walks the top edge of the Money left card: she flutters down onto its middle (the art's raised-wing frame, `wingUp`), lands with a squash and a dust puff, says hi, then one note on the month ("55% saved!"). Then she roams it end to end: 2-4 small hops at a time (36px on a phone, 48px wider), 4.5-8.5s rests between, the odd peck, turning back at each end, a "+$" rising from her chirp while the month is saving, and at most every 8s, while she rests, a line of encouragement to the month's mood (`crystalCheers`: getting started, regrouping, or keeping a saving month going), wrapping to two lines on a phone. Noticed, never distracting: she stays put while she talks, and pauses while the card is off screen or the tab is hidden. Tap her: she jumps, flaps, chirps back, hearts and sparkles fan out, and she says the next line, her bubble opening toward the middle of the card. Motion off: she sits in the middle with her note |
 | Rolling figures (`roll-*`, `rolling-amount.tsx`) | Money settles into place: each digit's reel spins in (ones and cents a full lap), left to right, then glides to each new value. Clipped to the digits' own ink band, so a rolling reel never shows stray fragments. Resting style is the final figure |

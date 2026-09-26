@@ -494,8 +494,6 @@ export function DashboardView({
                       <ProgressBar
                         pct={(stepsDone / steps.length) * 100}
                         cells={steps.length}
-                        cellHeight={8}
-                        className="w-8 [--gap:2px]"
                       />
                     </span>
                   }

@@ -149,18 +149,21 @@ export function Select({
 
 /* ─── Data marks ───────────────────────────────────────────────────────── */
 
-const CELLS = 16;
-
-/** Progress as a row of cells (the Budgts data mark): ink when on track, the
- * accent once near/over, green for money kept toward a goal. Cells step in
- * one by one, `start` steps after the page's first (so stacked rows cascade);
- * an over row flashes twice once it's full. `pct` only picks how many cells
- * light up; the figure itself is always printed as text beside it. */
+/** Progress as a row of square cells (the Budgts data mark): ink when on
+ * track, the accent once near/over, green for money kept toward a goal. Each
+ * cell is as wide as the bar is tall (`cellHeight`, 8px by default) and as
+ * many fit as the bar is long, so the bar keeps its size at any width;
+ * globals.css (.px-bar) counts them and lights round(share × count), at least
+ * one once anything counts. Cells step in left to right, `start` steps after
+ * the page's first (so stacked rows cascade); an over row flashes twice once
+ * it's full. `cells` fixes the count instead (a step tracker) and sizes the
+ * bar to fit them. `pct` only picks how many cells light up; the figure
+ * itself is always printed as text beside it. */
 export function ProgressBar({
   pct,
   tone = "under",
   className,
-  cells = CELLS,
+  cells,
   start = 0,
   cellHeight,
 }: {
@@ -169,31 +172,28 @@ export function ProgressBar({
   className?: string;
   cells?: number;
   start?: number;
-  /** tallest a cell grows, in px (default 20) */
+  /** cell size (and so bar thickness), in px (default 8) */
   cellHeight?: number;
 }) {
   const clamped = Math.min(100, Math.max(0, pct));
-  const lit = tone === "over" ? cells : clamped > 0 ? Math.max(1, Math.round((clamped / 100) * cells)) : 0;
-  const fill = tone === "under" ? "bg-fill-under" : tone === "growth" ? "bg-pos" : "bg-fill-over";
+  const over = tone === "over";
+  const fill = tone === "under" ? "var(--fill-under)" : tone === "growth" ? "var(--pos)" : "var(--fill-over)";
   return (
     <div
-      className={`px-cells ${tone === "over" ? "cells-over" : ""} ${className ?? ""}`}
+      className={`px-cells ${over ? "cells-over" : ""} ${className ?? ""}`}
       style={
         {
-          "--n": cells,
-          "--alarm": start + cells,
+          "--share": over ? 1 : clamped / 100,
+          "--min-lit": over || clamped > 0 ? 1 : 0,
+          "--fill": fill,
+          "--start": start,
           ...(cellHeight ? { "--cell-h": `${cellHeight}px` } : {}),
+          ...(cells ? { width: `calc(${cells} * var(--cell-h) + ${cells - 1} * var(--gap))` } : {}),
         } as CSSProperties
       }
       aria-hidden
     >
-      {Array.from({ length: cells }, (_, i) => (
-        <span
-          key={i}
-          className={`cell ${i < lit ? fill : "bg-track"}`}
-          style={{ ["--d" as string]: start + i }}
-        />
-      ))}
+      <span className="px-bar" />
     </div>
   );
 }

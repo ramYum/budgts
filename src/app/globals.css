@@ -342,25 +342,34 @@ body {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16'%3E%3Crect x='7' y='7' width='2' height='2' fill='%23dcdcdc'/%3E%3C/svg%3E");
   }
 
-  /* Progress cells: N square-cornered cells across the bar, a segmented line
-   * rather than a wall of blocks. Each cell's width snaps down to a whole
-   * pixel and the spare pixels go into the gaps (space-between), so no cell
-   * lands on a fraction and blurs; the height follows the width up to
-   * --cell-h. The calc() lines are the fallback where round() isn't supported. */
+  /* Progress cells: a row of square cells, each --cell-h a side with at least
+   * --gap between, as many as fit the bar. The first and last cells sit flush
+   * with the bar's ends and the spare pixels spread across the gaps, so the
+   * bar keeps its length at any width. One painted strip, not a node per
+   * cell: the track, then the lit cells over it, as two repeating gradients
+   * at the same pitch, each cut off halfway into a gap so no cell is ever
+   * split. Hard gradient stops land on whole device pixels, so the squares
+   * stay crisp. tan(atan2(a, b)) is a / b as a plain number: the bar's width
+   * in cells. --share (0-1) and --min-lit come from ProgressBar; --sweep
+   * counts the cells in as they arrive (1 at rest). */
   .px-cells {
-    --n: 16;
     --gap: 2px;
     --cell-h: 8px;
-    display: flex;
-    justify-content: space-between;
     container-type: inline-size;
   }
-  .px-cells > * {
-    flex: none;
-    width: calc((100cqw - (var(--n) - 1) * var(--gap)) / var(--n));
-    height: min(var(--cell-h), calc((100cqw - (var(--n) - 1) * var(--gap)) / var(--n)));
-    width: round(down, calc((100cqw - (var(--n) - 1) * var(--gap)) / var(--n)), 1px);
-    height: min(var(--cell-h), round(down, calc((100cqw - (var(--n) - 1) * var(--gap)) / var(--n)), 1px));
+  .px-bar {
+    --n: max(1, round(down, tan(atan2(100cqw + var(--gap), var(--cell-h) + var(--gap))) + 0.000001, 1));
+    --pitch: calc((100cqw - var(--cell-h)) / max(1, var(--n) - 1));
+    --lit: max(var(--min-lit), round(nearest, var(--share) * var(--n), 1));
+    --shown: round(up, var(--sweep) * var(--n), 1);
+    --cut: calc((var(--pitch) - var(--cell-h)) / 2);
+    display: block;
+    height: var(--cell-h);
+    background:
+      repeating-linear-gradient(90deg, var(--fill) 0 var(--cell-h), transparent 0 var(--pitch)) 0 0 /
+        max(0px, min(var(--lit), var(--shown)) * var(--pitch) - var(--cut)) 100% no-repeat,
+      repeating-linear-gradient(90deg, var(--track) 0 var(--cell-h), transparent 0 var(--pitch)) 0 0 /
+        max(0px, var(--shown) * var(--pitch) - var(--cut)) 100% no-repeat;
   }
 
   /* inputs inside a frame: the frame shows focus, not a square outline */
@@ -407,6 +416,20 @@ body {
   to {
     opacity: 1;
     transform: scale(1);
+  }
+}
+
+/* a progress bar's cells arriving left to right, one whole cell at a time
+ * (.px-bar rounds the count up); registered so it animates as a number */
+@property --sweep {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 1;
+}
+
+@keyframes cells-sweep {
+  from {
+    --sweep: 0;
   }
 }
 
@@ -1204,12 +1227,19 @@ body {
     transition: transform 900ms var(--ease-out);
   }
 
-  /* an over-budget row fills, then flashes twice once it's full */
-  .cells-over .cell {
+  /* progress cells step in left to right over the time 16 cells always took,
+   * whatever the bar's length; an over-budget row then flashes twice once
+   * it's full */
+  .px-bar {
+    animation: cells-sweep 352ms linear backwards;
+    animation-delay: calc(var(--start, 0) * 22ms + 300ms);
+  }
+
+  .cells-over .px-bar {
     animation:
-      cell-in 240ms steps(3, end) backwards,
+      cells-sweep 352ms linear backwards,
       cell-alarm 720ms steps(1, end);
-    animation-delay: calc(var(--d, 0) * 22ms + 220ms), calc(var(--alarm, 16) * 22ms + 520ms);
+    animation-delay: calc(var(--start, 0) * 22ms + 300ms), calc((var(--start, 0) + 16) * 22ms + 520ms);
   }
 
   .lamp {

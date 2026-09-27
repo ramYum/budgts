@@ -1100,18 +1100,31 @@ implementation goes to `budgts-architect`.
     `main`. Test new work on staging with the isolated local build against the staging
     database, not that alias.
 
-- **2026-09-27 — Builds no longer need `DATABASE_URL`; CI and Vercel Previews unblocked.**
+- **2026-09-27 — Builds no longer need secrets; CI and Vercel Previews unblocked.**
   Pushing `phase-m/mobile-launch` made a failing Vercel Preview build, and CI had been red
-  on every push to `main` (last green run 2026-09-22, on a pull request). Both had one
-  root cause: `src/lib/db/index.ts` created the Drizzle client at import and threw without
-  `DATABASE_URL`, and `next build` imports every route module to collect page data.
-  Neither CI nor Preview has that secret (Production does, which is why budgts.com kept
-  deploying). The client is now `db()`, created on first use and cached, like
-  `plaidClient()`; `plaidDb` callers call it. A missing `DATABASE_URL` still fails loudly
-  on the first request that needs it. Verified: the old code reproduced the exact failure
-  under CI's env (placeholder public keys, no secrets) and the fixed code builds under it;
-  3 new unit tests (import without the secret, loud first use, one cached handle), 937
-  total; typecheck, lint; Playwright on staging 14/14 incl. the Plaid sandbox flow; the
-  `sync-due` and `recurring-scan` cron routes ran against staging (200; wrong secret 401).
-  Rule added to `docs/conventions.md`; `docs/deploy.md` no longer calls `DATABASE_URL` a
-  build requirement.
+  on every push to `main` since at least 2026-09-14 (the last green push to `main` was
+  2026-09-10; the green runs of 2026-09-22 were pull requests whose `ci.yml` injected a
+  placeholder `DATABASE_URL`, a workaround still on the archive branch that must not be
+  ported). One root cause: `src/lib/db/index.ts` created the Drizzle client at import and
+  threw without `DATABASE_URL`, and `next build` imports every route module to collect page
+  data. Neither CI nor Preview has that secret; Production does, so budgts.com kept
+  deploying.
+  - The client is now `db()` (server-only), created on first use and cached, like
+    `plaidClient()`. The Plaid routes and actions call it directly; the `plaidDb` alias is
+    gone. `nudgeRefresh` and `drainItemInBackground` now truly never throw: any failure,
+    including a missing setting, is logged inside `after()`.
+  - What the import-time throw used to guarantee is now explicit: npm's `prebuild`
+    (`tools/check-production-env.ts` → `src/lib/env/production-env.ts`) refuses a Vercel
+    production build without `DATABASE_URL`, Plaid's settings or `CRON_SECRET`. It reads
+    the real process env only, because the local `.env.production` (a Vercel pull) says
+    `VERCEL_ENV=production` with masked secrets.
+  - Vercel Preview now uses the staging project's public Supabase values (they had been
+    shared with Production), so a branch preview can never touch production data.
+  - Verified: the old code reproduced the exact failure under CI's env and the new code
+    builds under it; builds simulated as CI, Preview, production-missing (refused, naming
+    all three problems) and production-complete (passed); 955 unit tests, incl. every Plaid
+    route importing with no secrets and the prebuild run as npm runs it; typecheck, lint;
+    Playwright on staging 14/14 incl. the Plaid sandbox flow (a saturated machine timed a
+    few specs out, and the pre-change build failed identically, so they were rerun with a
+    longer timeout); `sync-due` and `recurring-scan` ran against staging (200; wrong secret
+    401); the pushed Preview build turned Ready.

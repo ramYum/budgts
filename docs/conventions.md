@@ -131,8 +131,10 @@ updated if something surprised you.
 - Reading a required secret when a module loads (a top-level
   `if (!process.env.X) throw`, or a client built at import). `next build`
   imports every route module to collect page data, and CI and Vercel Preview
-  builds carry no secrets, so the build fails. Build such singletons on first
-  use: `db()` (`src/lib/db`), `plaidClient()`, `loadPlaidConfig()`.
+  builds carry no secrets, so the build fails. Create clients on first use
+  (`db()` in `src/lib/db`, `plaidClient()`) and read settings when called
+  (`loadPlaidConfig()`). What production must have is checked once, at its
+  build: add a new required secret to `src/lib/env/production-env.ts`.
 - Deciding "today" or "this month" from the server clock or a fixed zone.
   Pass the user's zone: `todayDateKey(await requireTimeZone(user.id))` /
   `currentMonthKey(...)` (`src/lib/budget/month.ts`). It follows their

@@ -1,9 +1,10 @@
 /**
- * Server-only wiring for the Plaid route handlers: the RLS-bypassed DB handle,
- * webhook-key fetch, the user's-own-item access token (reconnect), and the
- * one-item sync runner with the real singletons. `import "server-only"` keeps
- * this out of any client bundle and out of the Vitest unit layer (these paths
- * are covered by the Plaid-integration / E2E layers). Design §6, §20–22.
+ * Server-only wiring for the Plaid route handlers: webhook-key fetch, the
+ * user's-own-item access token (reconnect), the refresh nudge, and the one-item
+ * sync runner with the real singletons. The pipeline's DB handle is `db()` from
+ * `@/lib/db`. `import "server-only"` keeps this out of any client bundle and out
+ * of the Vitest unit layer (these paths are covered by the Plaid-integration /
+ * E2E layers). Design §6, §20–22.
  */
 import "server-only";
 import type { JWK } from "jose";
@@ -15,10 +16,6 @@ import { loadPlaidConfig } from "@/lib/plaid/config";
 import { decryptToken } from "@/lib/plaid/crypto";
 import { findUserItem } from "@/lib/plaid/item-store";
 import { drainItem, plaidSyncRunnerDeps, type SyncRunnerDeps } from "@/lib/plaid/sync-runner";
-
-/** The pipeline's DB handle for the Plaid route handlers (see `db()`: built on
- * first use, so importing this module never needs DATABASE_URL). */
-export const plaidDb = db;
 
 /** Throttle for {@link nudgeRefresh} — see its docstring. */
 export const REFRESH_THROTTLE_MS = 25 * 60 * 1000;
@@ -38,33 +35,37 @@ export const REFRESH_THROTTLE_MS = 25 * 60 * 1000;
  * The UPDATE...RETURNING is the throttle gate itself: it atomically claims
  * only the Items actually due, so concurrent page loads (multiple tabs, or
  * the dashboard and transactions pages both loading) can't double-fire.
- * Never throws — a failed refresh call is logged and otherwise ignored, since
- * it's best-effort by nature.
+ * Never throws — it's best-effort by nature, so any failure (a refresh call,
+ * the claim query, missing config) is logged and otherwise ignored.
  */
 export async function nudgeRefresh(userId: string): Promise<void> {
-  const cutoff = new Date(Date.now() - REFRESH_THROTTLE_MS);
-  const due = await db()
-    .update(plaidItems)
-    .set({ lastRefreshRequestedAt: sql`now()` })
-    .where(
-      and(
-        eq(plaidItems.userId, userId),
-        eq(plaidItems.status, "active"),
-        or(isNull(plaidItems.lastRefreshRequestedAt), lt(plaidItems.lastRefreshRequestedAt, cutoff)),
-      ),
-    )
-    .returning({ accessTokenEnc: plaidItems.accessTokenEnc, itemId: plaidItems.itemId });
+  try {
+    const cutoff = new Date(Date.now() - REFRESH_THROTTLE_MS);
+    const due = await db()
+      .update(plaidItems)
+      .set({ lastRefreshRequestedAt: sql`now()` })
+      .where(
+        and(
+          eq(plaidItems.userId, userId),
+          eq(plaidItems.status, "active"),
+          or(isNull(plaidItems.lastRefreshRequestedAt), lt(plaidItems.lastRefreshRequestedAt, cutoff)),
+        ),
+      )
+      .returning({ accessTokenEnc: plaidItems.accessTokenEnc, itemId: plaidItems.itemId });
 
-  if (due.length === 0) return;
+    if (due.length === 0) return;
 
-  const tokenEncKey = loadPlaidConfig().tokenEncKey;
-  const client = plaidClient();
-  const results = await Promise.allSettled(
-    due.map((item) => client.transactionsRefresh({ access_token: decryptToken(item.accessTokenEnc, tokenEncKey) })),
-  );
-  results.forEach((r, i) => {
-    if (r.status === "rejected") console.error("[plaid] refresh nudge failed", due[i].itemId, r.reason);
-  });
+    const tokenEncKey = loadPlaidConfig().tokenEncKey;
+    const client = plaidClient();
+    const results = await Promise.allSettled(
+      due.map((item) => client.transactionsRefresh({ access_token: decryptToken(item.accessTokenEnc, tokenEncKey) })),
+    );
+    results.forEach((r, i) => {
+      if (r.status === "rejected") console.error("[plaid] refresh nudge failed", due[i].itemId, r.reason);
+    });
+  } catch (e) {
+    console.error("[plaid] refresh nudge failed", { userId, message: e instanceof Error ? e.message : "non-Error" });
+  }
 }
 
 /** Fetch the JWK for a webhook JWT `kid` (cached per process). */
@@ -99,10 +100,14 @@ export function syncRunner(): SyncRunnerDeps {
 export const SYNC_BUDGET_MS = 200_000;
 
 /** Background drain of one Item's pending work (webhook, and follow-up pages
- * after a user-requested sync). Never throws — it runs inside `after()`. */
+ * after a user-requested sync). Never throws — it runs inside `after()`, so
+ * any failure, including building the runner (missing DB or Plaid config), is
+ * logged instead. */
 export async function drainItemInBackground(itemId: string): Promise<void> {
-  const deps = syncRunner();
-  await drainItem(deps, itemId, { kind: "due" }, deps.now() + SYNC_BUDGET_MS).catch((e) =>
-    console.error("[plaid] background drain failed", { itemId, message: e instanceof Error ? e.message : "non-Error" }),
-  );
+  try {
+    const deps = syncRunner();
+    await drainItem(deps, itemId, { kind: "due" }, deps.now() + SYNC_BUDGET_MS);
+  } catch (e) {
+    console.error("[plaid] background drain failed", { itemId, message: e instanceof Error ? e.message : "non-Error" });
+  }
 }

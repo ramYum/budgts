@@ -15,7 +15,7 @@ import { NextResponse } from "next/server";
 import { loadPlaidConfig } from "@/lib/plaid/config";
 import { runRecurringDetectionForUser } from "@/lib/plaid/recurring-engine";
 import { createRecurringStore, findUsersWithPlaidAccounts, loadRecurringWatermark } from "@/lib/plaid/recurring-store";
-import { plaidDb } from "@/server/plaid/service";
+import { db } from "@/lib/db";
 
 function authorized(request: Request): boolean {
   const secret = loadPlaidConfig().cronSecret;
@@ -32,14 +32,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const store = createRecurringStore(plaidDb());
-  const userIds = await findUsersWithPlaidAccounts(plaidDb());
+  const store = createRecurringStore(db());
+  const userIds = await findUsersWithPlaidAccounts(db());
 
   // Serial on purpose, same reasoning as sync-due: bounded work at the
   // current user scale, and it keeps the daily job simple to reason about.
   const results = [];
   for (const userId of userIds) {
-    const watermark = await loadRecurringWatermark(plaidDb(), userId);
+    const watermark = await loadRecurringWatermark(db(), userId);
     try {
       const outcome = await runRecurringDetectionForUser({ userId, watermark, store });
       results.push({ userId, ok: true, ...outcome });

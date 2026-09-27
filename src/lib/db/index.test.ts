@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+// The module is server-only; under Vitest that guard would throw on import.
+vi.mock("server-only", () => ({}));
+
 // `next build` loads every route module to collect page data, and CI and
 // Vercel Preview builds carry no database credentials. So importing the
 // module must never need DATABASE_URL; only the first real use may.
@@ -29,7 +32,9 @@ describe("db (the Plaid pipeline's DB handle)", () => {
     process.env.DATABASE_URL = "postgres://user:pass@127.0.0.1:6543/postgres";
     const { db } = await import("./index");
     const first = db();
-    expect(db()).toBe(first);
     expect(typeof first.select).toBe("function");
+    // Cached: later calls reuse the handle and never re-read the env.
+    delete process.env.DATABASE_URL;
+    expect(db()).toBe(first);
   });
 });

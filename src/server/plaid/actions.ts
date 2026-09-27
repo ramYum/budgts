@@ -28,7 +28,8 @@ import {
 } from "@/lib/validation/plaid";
 import { setAccountCalculationExclusion } from "./account-exclusion";
 import { disconnectPlaidItem } from "./disconnect";
-import { drainItemInBackground, plaidDb, syncRunner } from "./service";
+import { db } from "@/lib/db";
+import { drainItemInBackground, syncRunner } from "./service";
 
 export type PlaidActionState = {
   error?: string;
@@ -48,7 +49,7 @@ async function syncOwnedItem(
 ): Promise<{ kind: "synced" } | { kind: "failed" } | { kind: "not_started"; message: string }> {
   const out = await runClaimedSync(syncRunner(), itemId, { kind: "requested" });
   if (!out.claimed) {
-    return { kind: "not_started", message: claimMissMessage(await claimMissReason(plaidDb(), itemId)) };
+    return { kind: "not_started", message: claimMissMessage(await claimMissReason(db(), itemId)) };
   }
   if (out.result.ok && out.morePending) after(() => drainItemInBackground(itemId));
   return out.result.ok ? { kind: "synced" } : { kind: "failed" };
@@ -77,7 +78,7 @@ export async function syncConnection(itemId: string): Promise<PlaidActionState> 
     .maybeSingle();
   if (!owned) return { error: "That bank connection no longer exists." };
 
-  const record = await findItemByPlaidItemId(plaidDb(), itemId);
+  const record = await findItemByPlaidItemId(db(), itemId);
   if (!record || record.userId !== user.id) {
     return { error: "That bank connection no longer exists." };
   }
@@ -142,7 +143,7 @@ export async function mapAccounts(
   }
 
   // First sync — so transactions are on screen when the user lands back.
-  const record = await findItemByPlaidItemId(plaidDb(), item.item_id);
+  const record = await findItemByPlaidItemId(db(), item.item_id);
   if (record && record.userId === user.id) {
     const sync = await syncOwnedItem(record.itemId);
     revalidateUserData();
@@ -279,7 +280,7 @@ export async function setAccountImportingAction(
       .select("item_id")
       .eq("id", row.plaid_item_id)
       .maybeSingle();
-    const record = item ? await findItemByPlaidItemId(plaidDb(), item.item_id) : null;
+    const record = item ? await findItemByPlaidItemId(db(), item.item_id) : null;
     if (record && record.userId === user.id) {
       const sync = await syncOwnedItem(record.itemId);
       revalidateUserData();
@@ -381,7 +382,7 @@ export async function categorizeBankTransaction(
  */
 export async function rescanUncategorized(): Promise<PlaidActionState> {
   const { user } = await withUser();
-  const { updated } = await recategorizeUncategorizedBankTxns(plaidDb(), user.id);
+  const { updated } = await recategorizeUncategorizedBankTxns(db(), user.id);
   revalidateUserData();
   return { ok: true, warning: updated === 0 ? "Nothing new to categorise." : undefined };
 }

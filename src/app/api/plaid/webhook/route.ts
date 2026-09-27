@@ -14,7 +14,8 @@ import { plaidWebhookEvents } from "@/lib/db/schema";
 import { findItemByPlaidItemId, markItemNeedsSync, setItemStatus } from "@/lib/plaid/item-store";
 import { classifyWebhook, type PlaidWebhookEvent } from "@/lib/plaid/webhook-dispatch";
 import { verifyPlaidWebhook } from "@/lib/plaid/webhook-verify";
-import { drainItemInBackground, getWebhookVerificationKey, plaidDb } from "@/server/plaid/service";
+import { db } from "@/lib/db";
+import { drainItemInBackground, getWebhookVerificationKey } from "@/server/plaid/service";
 
 // The response is immediate; this bounds the after() sync that follows it.
 export const maxDuration = 300;
@@ -32,7 +33,7 @@ export async function POST(request: Request) {
     // still logged below
   }
 
-  const [logged] = await plaidDb()
+  const [logged] = await db()
     .insert(plaidWebhookEvents)
     .values({
       verified: verification.ok,
@@ -52,19 +53,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, note: "no item_id" });
   }
 
-  const item = await findItemByPlaidItemId(plaidDb(), event.item_id);
+  const item = await findItemByPlaidItemId(db(), event.item_id);
   if (!item) return NextResponse.json({ ok: true, note: "unknown item" });
 
   const action = classifyWebhook(event);
   if (action.kind === "needs_sync") {
-    await markItemNeedsSync(plaidDb(), event.item_id);
+    await markItemNeedsSync(db(), event.item_id);
     const itemId = event.item_id;
     after(() => drainItemInBackground(itemId));
   } else if (action.kind === "set_status") {
-    await setItemStatus(plaidDb(), event.item_id, action.status, action.errorCode);
+    await setItemStatus(db(), event.item_id, action.status, action.errorCode);
   }
 
-  await plaidDb()
+  await db()
     .update(plaidWebhookEvents)
     .set({ handled: true })
     .where(eq(plaidWebhookEvents.id, logged.id));

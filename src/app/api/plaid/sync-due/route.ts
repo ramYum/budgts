@@ -14,7 +14,8 @@ import { NextResponse } from "next/server";
 import { loadPlaidConfig } from "@/lib/plaid/config";
 import { findSyncCandidates } from "@/lib/plaid/item-store";
 import { sweepItems } from "@/lib/plaid/sync-runner";
-import { plaidDb, SYNC_BUDGET_MS, syncRunner } from "@/server/plaid/service";
+import { db } from "@/lib/db";
+import { SYNC_BUDGET_MS, syncRunner } from "@/server/plaid/service";
 
 // Serial per Item, bounded by SYNC_BUDGET_MS; this is the platform ceiling.
 export const maxDuration = 300;
@@ -41,7 +42,7 @@ export async function POST(request: Request) {
   const deps = syncRunner();
   const deadline = deps.now() + SYNC_BUDGET_MS;
 
-  const candidates = await findSyncCandidates(plaidDb(), staleBefore);
+  const candidates = await findSyncCandidates(db(), staleBefore);
   const results = await sweepItems(deps, candidates, staleBefore, deadline);
 
   return NextResponse.json({ candidates: candidates.length, ran: results.length, results });

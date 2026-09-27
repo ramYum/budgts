@@ -51,7 +51,8 @@ every push and PR.
 
 ## 3. Environment variables (Vercel → Project → Settings → Environment Variables)
 
-Set for **Production** (and Preview if you want preview deploys to work):
+Set for **Production**. Preview gets the staging project's public values
+instead, never production's (see "Preview deployments" below):
 
 | Var | Value |
 | --- | --- |
@@ -60,21 +61,39 @@ Set for **Production** (and Preview if you want preview deploys to work):
 | `NEXT_PUBLIC_SITE_URL` | `https://budgts.com` (Production only) |
 | `DATABASE_URL` | prod **transaction** pooler (port 6543): read at runtime by the Plaid pipeline (see below) |
 
-**No secret is needed to build.** The Drizzle client (`db()` in
-`src/lib/db/index.ts`) is created on first use, like `plaidClient()` and
-`loadPlaidConfig()`, so `next build` (whose "Collecting page data" step
-imports every route module) passes with no `DATABASE_URL` or Plaid secret.
-That is what lets CI and Vercel Preview builds, which carry none, succeed.
-Until 2026-09-27 the client was created at import and every build without
-`DATABASE_URL` failed: CI on every push to `main`, and every Preview. At
-runtime the Plaid routes still need `DATABASE_URL` and Plaid's secrets
-(`PLAID_CLIENT_ID`/`PLAID_SECRET`/`PLAID_TOKEN_ENC_KEY`/`CRON_SECRET`), and
-fail loudly on first use without them.
+**Only a production build needs secrets.** The Drizzle client (`db()` in
+`src/lib/db/index.ts`) is created on first use, like `plaidClient()`, and
+Plaid's settings are read on first use (`loadPlaidConfig()`). So `next build`,
+whose "Collecting page data" step imports every route module, passes with no
+`DATABASE_URL` or Plaid secret, which is what lets CI and Vercel Preview
+builds succeed. Until 2026-09-27 the client was created at import, and every
+build without `DATABASE_URL` failed: CI on every push to `main` (since at
+least 2026-09-14) and every Preview.
+
+The safety that used to come with that failure is now explicit: **a Vercel
+production build refuses to ship** without `DATABASE_URL` and, while
+`NEXT_PUBLIC_PLAID_ENABLED=1`, without Plaid's settings (as validated by
+`loadPlaidConfig()`) and `CRON_SECRET` (`next.config.ts` →
+`src/lib/env/production-env.ts`). Its build log prints "✓ Production env
+check passed"; other Vercel builds print "Production env check skipped".
+Without the check, a missing `DATABASE_URL` would ship and fail only at
+runtime (the webhook and cron routes answer 500, the background refresh and
+sync only log), and a missing `CRON_SECRET` would make the sync sweep and the
+recurring scan answer every call with a quiet 401.
 
 **Not needed on Vercel (current prod):** `SUPABASE_SECRET_KEY` (only the local
 e2e suite uses it), `DIRECT_URL` (only `db:migrate` uses it, run locally),
 `ANTHROPIC_API_KEY` (V2 — email / receipt ingestion). The app talks to Supabase
 entirely through the user session + the publishable key.
+
+**Preview deployments** (any pushed branch other than `main`) use the
+**staging** Supabase project: `NEXT_PUBLIC_SUPABASE_URL` and
+`NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` are set for Preview to staging's
+(`uvowywszaiojboaxdmoz`) public values. Preview has no server secrets, so bank
+sync is off there (`NEXT_PUBLIC_PLAID_ENABLED` unset). Previews sit behind
+Vercel's login (Deployment Protection) and show that a branch builds and
+renders; sign-in isn't wired for their changing URLs. Test signed-in flows
+against staging with the isolated local build instead.
 
 ### Plaid (V1 code live on prod since 2026-09-11; UI live in prod as of 2026-09-14 confirmation)
 

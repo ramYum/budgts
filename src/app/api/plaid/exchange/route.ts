@@ -77,7 +77,7 @@ export async function POST(request: Request) {
     .select("id")
     .single();
   if (itemErr || !item) {
-    console.error("[plaid] exchange: item insert", itemErr ? describePlaidError(itemErr) : { message: "no row returned" });
+    console.error("[plaid] exchange: item insert", describePlaidError(itemErr ?? new Error("no row returned")));
     return NextResponse.json({ error: "could not save the connection" }, { status: 500 });
   }
 

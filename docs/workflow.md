@@ -1141,3 +1141,11 @@ implementation goes to `budgts-architect`.
   on any raw error passed to a server log (on the old code it flags all 12 sites). The build
   test now finds every `route.ts` itself instead of a hand-written list. 960 unit tests,
   typecheck, lint. Owner: consider rotating `PLAID_SECRET` (`docs/security.md`).
+  - Second review round: Drizzle wraps every failed query in an error whose message is the
+    SQL plus its parameters (merchant names, amounts), and the sync, recurring-scan and
+    background paths logged that message. `describePlaidError` now logs any database error
+    (Drizzle, postgres.js, supabase-js) as "database query failed" plus its code, table and
+    constraint, with stack frames but no database text. Four tests with Drizzle's real
+    error class (all four fail on the previous version), and the log tripwire now splits
+    each call into its arguments, rejects interpolated template strings and raw errors
+    beside a safe call, and covers `console.log` / `info` across `src/lib`.

@@ -77,12 +77,17 @@ Each item needs a test or an explicit check before store submission.
   `PLAID-CLIENT-ID`, `PLAID-SECRET` and the access or public token could
   reach Vercel's runtime logs. The recurring scan and some DB paths logged
   raw errors too, and a DB error can quote the failing row.
-- **Fix:** on the server, every `console.error` / `console.warn` passes plain
-  text or `describePlaidError(e)` (`src/lib/plaid/error-policy.ts`): the
-  message and stack plus Plaid's own `error_code` / `error_type` /
-  `request_id`, never the request, headers or response body. Enforced by
-  `tests/unit/log-safety.test.ts`, which flags any raw error passed to a
-  server log.
+- **Fix:** on the server an error reaches a log only through
+  `describePlaidError(e)` (`src/lib/plaid/error-policy.ts`). For a Plaid or
+  app error it keeps the message and stack plus Plaid's own `error_code` /
+  `error_type` / `request_id`, never the request, headers or response body.
+  For a database error (Drizzle puts the failed SQL *and its parameters* in
+  its message; Postgres messages can quote input) it logs a fixed "database
+  query failed", the stack frames, and only the code, table and constraint.
+  `tests/unit/log-safety.test.ts` is the tripwire: it reads every server
+  `console.error` / `warn` / `log` / `info` call and fails on anything
+  error-shaped outside `describePlaidError`, including interpolated template
+  strings.
 - **Owner:** earlier failures may have left `PLAID_SECRET` in Vercel's
   runtime logs. Rotating it in the Plaid dashboard (then updating Vercel
   Production) closes that; also check that no log drain forwards Vercel logs

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { DrizzleQueryError } from "drizzle-orm/errors";
 import { classifyPlaidError, describePlaidError, readPlaidError } from "./error-policy";
 import { MUTATION_DURING_PAGINATION_CODE, SyncMutationDuringPagination } from "./sync-engine";
 
@@ -153,5 +154,61 @@ describe("describePlaidError never leaks the request", () => {
     const logged = JSON.stringify(describePlaidError(plaidSdkError()));
     expect(logged).not.toMatch(/LEAK/);
     expect(logged).not.toContain("account ending 1234");
+  });
+});
+
+describe("describePlaidError never logs database row data", () => {
+  // postgres.js puts Postgres's error on the cause; its message can quote input.
+  const postgresError = () =>
+    Object.assign(new Error('invalid input syntax for type uuid: "SYNTH_INPUT"'), {
+      name: "PostgresError",
+      severity: "ERROR",
+      code: "22P02",
+      table_name: "transactions",
+      constraint_name: "transactions_pkey",
+      detail: "Key (id)=(SYNTH_DETAIL) already exists.",
+    });
+
+  it("drops a Drizzle query error's SQL and parameters, keeping only stable identifiers", () => {
+    const e = new DrizzleQueryError(
+      'insert into "transactions" ("merchant_name", "amount") values ($1, $2)',
+      ["SYNTH_MERCHANT", 4299],
+      postgresError(),
+    );
+    const result = describePlaidError(e);
+    expect(result).toMatchObject({
+      message: "database query failed",
+      dbCode: "22P02",
+      dbTable: "transactions",
+      dbConstraint: "transactions_pkey",
+    });
+    expect(result.stack).toMatch(/^\s+at /); // frames kept for debugging
+    const logged = JSON.stringify(result);
+    for (const leak of ["SYNTH_MERCHANT", "4299", "SYNTH_INPUT", "SYNTH_DETAIL", "Failed query", "merchant_name"]) {
+      expect(logged, leak).not.toContain(leak);
+    }
+  });
+
+  it("drops a raw postgres.js error's message, which can quote input", () => {
+    const logged = describePlaidError(postgresError());
+    expect(logged).toMatchObject({ message: "database query failed", dbCode: "22P02" });
+    expect(JSON.stringify(logged)).not.toMatch(/SYNTH_/);
+  });
+
+  it("drops a supabase-js PostgrestError's message and details", () => {
+    const e = Object.assign(new Error('duplicate key value violates unique constraint "x" (SYNTH_ROW)'), {
+      name: "PostgrestError",
+      code: "23505",
+      details: "Key (item_id)=(SYNTH_ROW) already exists.",
+      hint: null,
+    });
+    const logged = describePlaidError(e);
+    expect(logged).toMatchObject({ message: "database query failed", dbCode: "23505" });
+    expect(JSON.stringify(logged)).not.toContain("SYNTH_ROW");
+  });
+
+  it("keeps the code of a query that never reached Postgres", () => {
+    const e = new DrizzleQueryError("select 1", [], Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" }));
+    expect(describePlaidError(e)).toMatchObject({ message: "database query failed", dbCode: "ECONNREFUSED" });
   });
 });

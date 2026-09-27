@@ -16,6 +16,8 @@ import { decryptToken } from "@/lib/plaid/crypto";
 import { findUserItem } from "@/lib/plaid/item-store";
 import { drainItem, plaidSyncRunnerDeps, type SyncRunnerDeps } from "@/lib/plaid/sync-runner";
 
+/** The pipeline's DB handle for the Plaid route handlers (see `db()`: built on
+ * first use, so importing this module never needs DATABASE_URL). */
 export const plaidDb = db;
 
 /** Throttle for {@link nudgeRefresh} — see its docstring. */
@@ -41,7 +43,7 @@ export const REFRESH_THROTTLE_MS = 25 * 60 * 1000;
  */
 export async function nudgeRefresh(userId: string): Promise<void> {
   const cutoff = new Date(Date.now() - REFRESH_THROTTLE_MS);
-  const due = await db
+  const due = await db()
     .update(plaidItems)
     .set({ lastRefreshRequestedAt: sql`now()` })
     .where(
@@ -78,14 +80,14 @@ export async function getWebhookVerificationKey(kid: string): Promise<JWK | null
 
 /** The signed-in user's own item access token, decrypted — for Link update mode. */
 export async function accessTokenForUserItem(userId: string, itemId: string): Promise<string | null> {
-  const item = await findUserItem(db, userId, itemId);
+  const item = await findUserItem(db(), userId, itemId);
   if (!item) return null;
   return decryptToken(item.accessTokenEnc, loadPlaidConfig().tokenEncKey);
 }
 
 /** The sync runner's deps over the real singletons. */
 export function syncRunner(): SyncRunnerDeps {
-  return plaidSyncRunnerDeps({ db, client: plaidClient(), tokenEncKey: loadPlaidConfig().tokenEncKey });
+  return plaidSyncRunnerDeps({ db: db(), client: plaidClient(), tokenEncKey: loadPlaidConfig().tokenEncKey });
 }
 
 /**

@@ -58,18 +58,18 @@ Set for **Production** (and Preview if you want preview deploys to work):
 | `NEXT_PUBLIC_SUPABASE_URL` | `https://wsmhstqpvbbcqpqhiqyp.supabase.co` |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | your `sb_publishable_…` key |
 | `NEXT_PUBLIC_SITE_URL` | `https://budgts.com` (Production only) |
-| `DATABASE_URL` | prod **transaction** pooler (port 6543) — **required since V1**, even with Plaid off (see below) |
+| `DATABASE_URL` | prod **transaction** pooler (port 6543): read at runtime by the Plaid pipeline (see below) |
 
-**As of V1 (Plaid code merged), `DATABASE_URL` is a hard build-time
-requirement**, not just a `db:migrate` convenience: the `/api/plaid/*` route
-handlers import the Drizzle client (`src/lib/db/index.ts`), which throws at
-module-load if `DATABASE_URL` is missing — `next build`'s "Collecting page
-data" step imports every route module, so a prod build **fails** without it,
-even though Plaid itself is feature-flagged off. Verified by building locally
-with it unset before this was caught. Plaid's own secrets
-(`PLAID_CLIENT_ID`/`PLAID_SECRET`/`PLAID_TOKEN_ENC_KEY`/`CRON_SECRET`) are all
-lazily loaded (only read when a Plaid route actually runs) and are **not**
-needed unless `NEXT_PUBLIC_PLAID_ENABLED` is turned on.
+**No secret is needed to build.** The Drizzle client (`db()` in
+`src/lib/db/index.ts`) is created on first use, like `plaidClient()` and
+`loadPlaidConfig()`, so `next build` (whose "Collecting page data" step
+imports every route module) passes with no `DATABASE_URL` or Plaid secret.
+That is what lets CI and Vercel Preview builds, which carry none, succeed.
+Until 2026-09-27 the client was created at import and every build without
+`DATABASE_URL` failed: CI on every push to `main`, and every Preview. At
+runtime the Plaid routes still need `DATABASE_URL` and Plaid's secrets
+(`PLAID_CLIENT_ID`/`PLAID_SECRET`/`PLAID_TOKEN_ENC_KEY`/`CRON_SECRET`), and
+fail loudly on first use without them.
 
 **Not needed on Vercel (current prod):** `SUPABASE_SECRET_KEY` (only the local
 e2e suite uses it), `DIRECT_URL` (only `db:migrate` uses it, run locally),

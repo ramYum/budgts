@@ -32,14 +32,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const store = createRecurringStore(plaidDb);
-  const userIds = await findUsersWithPlaidAccounts(plaidDb);
+  const store = createRecurringStore(plaidDb());
+  const userIds = await findUsersWithPlaidAccounts(plaidDb());
 
   // Serial on purpose, same reasoning as sync-due: bounded work at the
   // current user scale, and it keeps the daily job simple to reason about.
   const results = [];
   for (const userId of userIds) {
-    const watermark = await loadRecurringWatermark(plaidDb, userId);
+    const watermark = await loadRecurringWatermark(plaidDb(), userId);
     try {
       const outcome = await runRecurringDetectionForUser({ userId, watermark, store });
       results.push({ userId, ok: true, ...outcome });

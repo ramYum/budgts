@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     // still logged below
   }
 
-  const [logged] = await plaidDb
+  const [logged] = await plaidDb()
     .insert(plaidWebhookEvents)
     .values({
       verified: verification.ok,
@@ -52,19 +52,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, note: "no item_id" });
   }
 
-  const item = await findItemByPlaidItemId(plaidDb, event.item_id);
+  const item = await findItemByPlaidItemId(plaidDb(), event.item_id);
   if (!item) return NextResponse.json({ ok: true, note: "unknown item" });
 
   const action = classifyWebhook(event);
   if (action.kind === "needs_sync") {
-    await markItemNeedsSync(plaidDb, event.item_id);
+    await markItemNeedsSync(plaidDb(), event.item_id);
     const itemId = event.item_id;
     after(() => drainItemInBackground(itemId));
   } else if (action.kind === "set_status") {
-    await setItemStatus(plaidDb, event.item_id, action.status, action.errorCode);
+    await setItemStatus(plaidDb(), event.item_id, action.status, action.errorCode);
   }
 
-  await plaidDb
+  await plaidDb()
     .update(plaidWebhookEvents)
     .set({ handled: true })
     .where(eq(plaidWebhookEvents.id, logged.id));

@@ -128,6 +128,11 @@ updated if something surprised you.
   (`useSyncExternalStore` with a `false` server snapshot, see
   `connected-banks.tsx`). Test with `src/test-utils/hydration.tsx`: server
   render under one `process.env.TZ`, hydrate under another.
+- Reading a required secret when a module loads (a top-level
+  `if (!process.env.X) throw`, or a client built at import). `next build`
+  imports every route module to collect page data, and CI and Vercel Preview
+  builds carry no secrets, so the build fails. Build such singletons on first
+  use: `db()` (`src/lib/db`), `plaidClient()`, `loadPlaidConfig()`.
 - Deciding "today" or "this month" from the server clock or a fixed zone.
   Pass the user's zone: `todayDateKey(await requireTimeZone(user.id))` /
   `currentMonthKey(...)` (`src/lib/budget/month.ts`). It follows their

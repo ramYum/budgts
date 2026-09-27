@@ -1099,3 +1099,19 @@ implementation goes to `budgts-architect`.
   - `budgts-staging.vercel.app` serves an older branch (the old onboarding screen), not
     `main`. Test new work on staging with the isolated local build against the staging
     database, not that alias.
+
+- **2026-09-27 — Builds no longer need `DATABASE_URL`; CI and Vercel Previews unblocked.**
+  Pushing `phase-m/mobile-launch` made a failing Vercel Preview build, and CI had been red
+  on every push to `main` (last green run 2026-09-22, on a pull request). Both had one
+  root cause: `src/lib/db/index.ts` created the Drizzle client at import and threw without
+  `DATABASE_URL`, and `next build` imports every route module to collect page data.
+  Neither CI nor Preview has that secret (Production does, which is why budgts.com kept
+  deploying). The client is now `db()`, created on first use and cached, like
+  `plaidClient()`; `plaidDb` callers call it. A missing `DATABASE_URL` still fails loudly
+  on the first request that needs it. Verified: the old code reproduced the exact failure
+  under CI's env (placeholder public keys, no secrets) and the fixed code builds under it;
+  3 new unit tests (import without the secret, loud first use, one cached handle), 937
+  total; typecheck, lint; Playwright on staging 14/14 incl. the Plaid sandbox flow; the
+  `sync-due` and `recurring-scan` cron routes ran against staging (200; wrong secret 401).
+  Rule added to `docs/conventions.md`; `docs/deploy.md` no longer calls `DATABASE_URL` a
+  build requirement.

@@ -41,7 +41,7 @@ export async function POST(request: Request) {
   const deps = syncRunner();
   const deadline = deps.now() + SYNC_BUDGET_MS;
 
-  const candidates = await findSyncCandidates(plaidDb, staleBefore);
+  const candidates = await findSyncCandidates(plaidDb(), staleBefore);
   const results = await sweepItems(deps, candidates, staleBefore, deadline);
 
   return NextResponse.json({ candidates: candidates.length, ran: results.length, results });

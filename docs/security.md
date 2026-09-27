@@ -77,7 +77,7 @@ Each item needs a test or an explicit check before store submission.
   `PLAID-CLIENT-ID`, `PLAID-SECRET` and the access or public token could
   reach Vercel's runtime logs. The recurring scan and some DB paths logged
   raw errors too, and a DB error can quote the failing row.
-- **Fix:** on the server an error reaches a log only through
+- **Fix:** our own server log calls pass an error only through
   `describePlaidError(e)` (`src/lib/plaid/error-policy.ts`). For a Plaid or
   app error it keeps the message and stack plus Plaid's own `error_code` /
   `error_type` / `request_id`, never the request, headers or response body.
@@ -88,6 +88,17 @@ Each item needs a test or an explicit check before store submission.
   `console.error` / `warn` / `log` / `info` call and fails on anything
   error-shaped outside `describePlaidError`, including interpolated template
   strings.
+- **Still open (follow-up):** an error nothing catches is logged by Next.js
+  itself, message included. A few database calls in the Plaid routes and
+  actions sit outside a `try` (the webhook's insert/update, `sync-due`'s
+  candidate query, `recurring-scan`'s user and watermark queries, some server
+  actions), so a failure there would log Drizzle's SQL and parameters: ids,
+  dates and webhook fields, never tokens (transaction upserts sit inside
+  `sync-item.ts`'s catch). Fix by giving those handlers one catch that logs
+  `describePlaidError(e)` and returns a plain 500. Lower still: a few helpers
+  re-throw a PostgREST message as a plain `Error` (`account-exclusion.ts`,
+  `fetch-all-rows.ts`, `supabase-store.ts`, `transaction-update.ts`,
+  `current-profile.ts`); re-throw with a fixed message and `{ cause }`.
 - **Owner:** earlier failures may have left `PLAID_SECRET` in Vercel's
   runtime logs. Rotating it in the Plaid dashboard (then updating Vercel
   Production) closes that; also check that no log drain forwards Vercel logs

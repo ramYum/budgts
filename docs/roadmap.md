@@ -317,9 +317,10 @@ the data underneath (V1–V2) is trustworthy.
 Native iOS/Android apps (Expo) on the App Store and Google Play, sold by the
 owner's LLC (D-U-N-S, organization accounts, so no Google 12-tester closed
 test). Spec: `docs/specs/2026-09-17-mobile-app-launch-design.md`. Branch:
-`phase-m/mobile-launch`. The archived Expo app and account-deletion work
-(`archive/mobile-and-deletion-2026-09-24`) are ported selectively, never
-merged wholesale.
+`phase-m/mobile-launch`. The shelved Expo app and account-deletion work
+(`mobile/native-home`, `901ebfd`; the older `archive/mobile-and-deletion-2026-09-24`
+snapshot of it was deleted) is ported selectively, never merged wholesale.
+Stage 0 plan: `docs/superpowers/plans/2026-09-27-stage0-port.md`.
 
 **Owner decisions:** every native screen visually identical to the approved
 web app, zero known bugs, premium feel, each part scored to 9.5+/10;
@@ -329,7 +330,7 @@ is the paid feature); influencer program after launch.
 
 | Phase | Scope | Status |
 | --- | --- | --- |
-| 0 | Documents updated; selective port of `mobile/`, the mobile API, Bearer auth, account deletion, DB tooling and their tests | ⏳ documents done 2026-09-26; DB migration-safety tooling ported 2026-09-27; mobile app, mobile API, Bearer auth and deletion next |
+| 0 | Documents updated; selective port of `mobile/`, the mobile API, Bearer auth, account deletion, DB tooling and their tests | ⏳ documents done 2026-09-26; DB migration-safety tooling ported 2026-09-27; Stage 0 port of `mobile/native-home` in progress on `phase-m/stage0-port` (10 chunks) |
 | 1 | Store blockers on web: privacy + terms pages, account deletion (in-app + Google's web link), per-user time zones, archived migrations renumbered after `0018` | ⏳ per-user time zones built + verified on staging 2026-09-27 (migration `0018`); live on budgts.com 2026-09-27 (`ef4f2d1`); privacy/terms, deletion, renumbering next |
 | 2 | Native foundation: latest Expo SDK, shared brand tokens (`src/lib/brand/tokens.ts`, synced to `globals.css` by test), `<PixelFrame>`, fonts, auth (magic link, Google, Sign in with Apple), per-screen mobile API over the shared domain logic | ⏳ |
 | 3 | Every screen and state, visually identical to the web at phone width, passing the parity check | ⏳ |

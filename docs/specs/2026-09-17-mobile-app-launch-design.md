@@ -437,7 +437,9 @@ spec, and nothing in this document implements any of the items below.**
   `subscriptions` + `payments` subset) that the server checks before any
   Plaid link-token, exchange or sync, for the apps and budgts.com alike.
 - Partner, voucher, redemption, allocation, adjustment and payout tables
-  wait for the influencer phase.
+  are created by the ledger migration (all ten tables, renumbered `0023` in
+  the Stage 0 port) but stay empty: no code writes to them until the
+  influencer phase.
 - **The archived `0017_superb_iron_monger` must be renumbered.** `main`'s
   `0017` is now the Plaid sync lease (live in production and staging since
   2026-09-25). The status bullets below describe `budgts-staging-2`, which

@@ -9,7 +9,16 @@ loadEnv({ path: ".env.staging" });
 
 export default defineConfig({
   resolve: {
-    alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
+    alias: {
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
+      // `server-only` only no-ops under Next's `react-server` resolve
+      // condition; Vitest doesn't set it, so importing it here would
+      // otherwise throw for every server-only module this suite touches
+      // (account deletion imports src/lib/plaid/client.ts). `empty.js` is the
+      // exact no-op file Next's own bundler aliases to for the client graph,
+      // so every source file's guard stays intact.
+      "server-only": fileURLToPath(new URL("./node_modules/server-only/empty.js", import.meta.url)),
+    },
   },
   test: {
     environment: "node",

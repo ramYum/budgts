@@ -135,6 +135,11 @@ updated if something surprised you.
   (`db()` in `src/lib/db`, `plaidClient()`) and read settings when called
   (`loadPlaidConfig()`). What production must have is checked once, at its
   build: add a new required secret to `src/lib/env/production-env.ts`.
+- Logging a caught error object on the server (`console.error("…", e)`). A
+  Plaid SDK error carries its request, secret header and token included, and
+  a DB error can quote the failing row. Log `describePlaidError(e)`
+  (`src/lib/plaid/error-policy.ts`); `tests/unit/log-safety.test.ts` enforces
+  it.
 - Deciding "today" or "this month" from the server clock or a fixed zone.
   Pass the user's zone: `todayDateKey(await requireTimeZone(user.id))` /
   `currentMonthKey(...)` (`src/lib/budget/month.ts`). It follows their

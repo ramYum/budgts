@@ -8,6 +8,7 @@ import { MUTATION_DURING_PAGINATION_CODE } from "./sync-engine";
 export interface PlaidErrorShape {
   error_type?: string | null;
   error_code?: string | null;
+  request_id?: string | null;
 }
 
 export interface ErrorDecision {
@@ -37,18 +38,33 @@ export function readPlaidError(e: unknown): PlaidErrorShape | null {
   return null;
 }
 
+export interface ErrorLogFields {
+  message: string;
+  stack?: string;
+  errorCode?: string;
+  errorType?: string;
+  requestId?: string;
+}
+
 /**
- * Safely describe a caught sync error for logging — never the raw Plaid
- * error body (readPlaidError's `.response.data` can carry account/financial
- * detail) and never an unknown thrown value dumped verbatim. `Error#message`
- * / `#stack` never include `response.data`, so this stays safe even for a
- * Plaid SDK (Axios-style) error.
+ * The one safe way to log an error on a Plaid path: its message and stack,
+ * plus Plaid's own error_code / error_type / request_id when present. Never
+ * the error object itself: a Plaid SDK (axios) error carries the whole
+ * request (the PLAID-CLIENT-ID / PLAID-SECRET headers, and the access or
+ * public token in its body), its `.response.data` can carry account detail,
+ * and a DB error can carry its query's parameters. `Error#message` / `#stack`
+ * hold none of those, and an unknown thrown value is never dumped verbatim.
  */
-export function describeSyncError(e: unknown): { message: string; stack?: string } {
-  if (e instanceof Error) {
-    return e.stack ? { message: e.message, stack: e.stack } : { message: e.message };
-  }
-  return { message: "non-Error value thrown" };
+export function describePlaidError(e: unknown): ErrorLogFields {
+  const plaid = readPlaidError(e);
+  const fields: ErrorLogFields =
+    e instanceof Error
+      ? { message: e.message, ...(e.stack ? { stack: e.stack } : {}) }
+      : { message: "non-Error value thrown" };
+  if (plaid?.error_code) fields.errorCode = plaid.error_code;
+  if (plaid?.error_type) fields.errorType = plaid.error_type;
+  if (plaid?.request_id) fields.requestId = plaid.request_id;
+  return fields;
 }
 
 export function classifyPlaidError(e: unknown): ErrorDecision {

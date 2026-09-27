@@ -9,7 +9,7 @@ import type { PlaidApi } from "plaid";
 import { categories, plaidAccounts, profiles } from "@/lib/db/schema";
 import { buildCategoryLookup } from "./category-map";
 import { decryptToken } from "./crypto";
-import { classifyPlaidError, describeSyncError, readPlaidError } from "./error-policy";
+import { classifyPlaidError, describePlaidError, readPlaidError } from "./error-policy";
 import {
   type PlaidItemRecord,
   recordSyncFailure,
@@ -139,7 +139,9 @@ export async function syncItem(deps: {
         userId: item.userId,
         watermark,
         store: createRecurringStore(db),
-      }).catch((e) => console.error("[plaid] first-sync recurring detection failed", { itemId: item.itemId, e }));
+      }).catch((e) =>
+        console.error("[plaid] first-sync recurring detection failed", { itemId: item.itemId, ...describePlaidError(e) }),
+      );
     }
 
     return {
@@ -154,10 +156,10 @@ export async function syncItem(deps: {
     };
   } catch (e) {
     // Diagnostic only — never changes classifyPlaidError's decision or any
-    // downstream behavior. See describeSyncError for why this is safe to
+    // downstream behavior. See describePlaidError for why this is safe to
     // log (never the raw Plaid error body, never an unknown object dumped
     // verbatim).
-    console.error("[plaid] sync failed", { itemId: item.itemId, ...describeSyncError(e) });
+    console.error("[plaid] sync failed", { itemId: item.itemId, ...describePlaidError(e) });
 
     const decision = classifyPlaidError(e);
     if (decision.status) await setItemStatus(db, item.itemId, decision.status, decision.errorCode);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyPlaidError, describeSyncError, readPlaidError } from "./error-policy";
+import { classifyPlaidError, describePlaidError, readPlaidError } from "./error-policy";
 import { MUTATION_DURING_PAGINATION_CODE, SyncMutationDuringPagination } from "./sync-engine";
 
 const plaidErr = (data: object) => ({ response: { data } });
@@ -84,10 +84,10 @@ describe("classifyPlaidError", () => {
   });
 });
 
-describe("describeSyncError", () => {
+describe("describePlaidError", () => {
   it("extracts message and stack from a real Error", () => {
     const e = new Error("socket hang up");
-    const result = describeSyncError(e);
+    const result = describePlaidError(e);
     expect(result.message).toBe("socket hang up");
     expect(result.stack).toBe(e.stack);
   });
@@ -96,7 +96,7 @@ describe("describeSyncError", () => {
     const e = Object.assign(new Error("Request failed with status code 400"), {
       response: { data: { error_code: "INVALID_FIELD", error_type: "INVALID_REQUEST", account_id: "secret-acct" } },
     });
-    const result = describeSyncError(e);
+    const result = describePlaidError(e);
     expect(result.message).toBe("Request failed with status code 400");
     expect(result).not.toHaveProperty("response");
     expect(JSON.stringify(result)).not.toContain("secret-acct");
@@ -105,14 +105,53 @@ describe("describeSyncError", () => {
   it("omits stack when a real Error somehow has none", () => {
     const e = new Error("boom");
     e.stack = undefined;
-    expect(describeSyncError(e)).toEqual({ message: "boom" });
+    expect(describePlaidError(e)).toEqual({ message: "boom" });
   });
 
   it("never dumps a non-Error thrown value verbatim", () => {
-    expect(describeSyncError({ access_token: "secret-token", foo: "bar" })).toEqual({
+    expect(describePlaidError({ access_token: "secret-token", foo: "bar" })).toEqual({
       message: "non-Error value thrown",
     });
-    expect(describeSyncError("plain string throw")).toEqual({ message: "non-Error value thrown" });
-    expect(describeSyncError(undefined)).toEqual({ message: "non-Error value thrown" });
+    expect(describePlaidError("plain string throw")).toEqual({ message: "non-Error value thrown" });
+    expect(describePlaidError(undefined)).toEqual({ message: "non-Error value thrown" });
+  });
+});
+
+describe("describePlaidError never leaks the request", () => {
+  // The shape a Plaid SDK (axios) error really has: the whole request rides
+  // along, with the credentials in its headers and the token in its body.
+  const plaidSdkError = () =>
+    Object.assign(new Error("Request failed with status code 400"), {
+      config: {
+        headers: { "PLAID-CLIENT-ID": "client-id-LEAK", "PLAID-SECRET": "plaid-secret-LEAK" },
+        data: JSON.stringify({ access_token: "access-production-LEAK" }),
+      },
+      request: { _header: "POST /transactions/refresh\r\nPLAID-SECRET: plaid-secret-LEAK" },
+      response: {
+        status: 400,
+        data: {
+          error_code: "ITEM_LOGIN_REQUIRED",
+          error_type: "ITEM_ERROR",
+          request_id: "req-42",
+          display_message: "account ending 1234",
+        },
+      },
+    });
+
+  it("keeps only the message, stack and Plaid's own error fields", () => {
+    const e = plaidSdkError();
+    expect(describePlaidError(e)).toEqual({
+      message: "Request failed with status code 400",
+      stack: e.stack,
+      errorCode: "ITEM_LOGIN_REQUIRED",
+      errorType: "ITEM_ERROR",
+      requestId: "req-42",
+    });
+  });
+
+  it("puts no credential, token or account detail in the logged output", () => {
+    const logged = JSON.stringify(describePlaidError(plaidSdkError()));
+    expect(logged).not.toMatch(/LEAK/);
+    expect(logged).not.toContain("account ending 1234");
   });
 });

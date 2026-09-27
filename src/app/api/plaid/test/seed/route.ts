@@ -10,6 +10,7 @@
 import { NextResponse } from "next/server";
 import { Products } from "plaid";
 import { plaidClient } from "@/lib/plaid/client";
+import { describePlaidError } from "@/lib/plaid/error-policy";
 import { getSessionUser } from "@/lib/supabase/server";
 
 function seedEnabled(): boolean {
@@ -38,7 +39,7 @@ export async function POST(request: Request) {
       institution: { institution_id: institutionId, name: "First Platypus Bank (Sandbox)" },
     });
   } catch (e) {
-    console.error("[plaid] test/seed", e);
+    console.error("[plaid] test/seed", describePlaidError(e));
     return NextResponse.json({ error: "seed failed" }, { status: 502 });
   }
 }

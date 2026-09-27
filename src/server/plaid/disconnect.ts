@@ -17,7 +17,7 @@
 import { plaidClient } from "@/lib/plaid/client";
 import { loadPlaidConfig } from "@/lib/plaid/config";
 import { decryptToken } from "@/lib/plaid/crypto";
-import { readPlaidError } from "@/lib/plaid/error-policy";
+import { describePlaidError } from "@/lib/plaid/error-policy";
 import type { createClient } from "@/lib/supabase/server";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
@@ -46,7 +46,7 @@ export async function disconnectPlaidItem(
     const token = decryptToken(item.access_token_enc, loadPlaidConfig().tokenEncKey);
     await plaidClient().itemRemove({ access_token: token });
   } catch (e) {
-    console.warn("[plaid] item/remove", readPlaidError(e)?.error_code ?? (e as Error).message);
+    console.warn("[plaid] item/remove", describePlaidError(e));
   }
 
   if (purge) {
@@ -67,7 +67,7 @@ export async function disconnectPlaidItem(
 
   const { error: delErr } = await supabase.from("plaid_items").delete().eq("id", item.id);
   if (delErr) {
-    console.error("[plaid] item delete", delErr);
+    console.error("[plaid] item delete", describePlaidError(delErr));
     return { ok: false, status: 500, error: "could not disconnect" };
   }
 

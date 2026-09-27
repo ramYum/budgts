@@ -69,6 +69,25 @@ Each item needs a test or an explicit check before store submission.
   Supabase DB password and the Google client secret was declined by the
   owner, 2026-09-26.)
 
+## Server logs carry no credentials (fixed 2026-09-27)
+
+- **Finding** (review of the build fix): when a Plaid call failed, the
+  exchange, link-token and test-seed routes and the refresh nudge logged the
+  raw error. A Plaid SDK (axios) error carries its whole request, so
+  `PLAID-CLIENT-ID`, `PLAID-SECRET` and the access or public token could
+  reach Vercel's runtime logs. The recurring scan and some DB paths logged
+  raw errors too, and a DB error can quote the failing row.
+- **Fix:** on the server, every `console.error` / `console.warn` passes plain
+  text or `describePlaidError(e)` (`src/lib/plaid/error-policy.ts`): the
+  message and stack plus Plaid's own `error_code` / `error_type` /
+  `request_id`, never the request, headers or response body. Enforced by
+  `tests/unit/log-safety.test.ts`, which flags any raw error passed to a
+  server log.
+- **Owner:** earlier failures may have left `PLAID_SECRET` in Vercel's
+  runtime logs. Rotating it in the Plaid dashboard (then updating Vercel
+  Production) closes that; also check that no log drain forwards Vercel logs
+  elsewhere.
+
 ## Deferred (not blocking deploy)
 
 - **Content-Security-Policy** — none set. Add a `headers()` block in

@@ -1128,3 +1128,16 @@ implementation goes to `budgts-architect`.
     few specs out, and the pre-change build failed identically, so they were rerun with a
     longer timeout); `sync-due` and `recurring-scan` ran against staging (200; wrong secret
     401); the pushed Preview build turned Ready.
+
+- **2026-09-27 — Server logs no longer carry Plaid credentials or tokens.** Found by the
+  subagent review of the build fix: when a Plaid call failed, the exchange, link-token and
+  test-seed routes and the refresh nudge logged the raw error, and a Plaid SDK (axios)
+  error carries its whole request (the `PLAID-SECRET` header, the access or public token).
+  The recurring scan and three DB paths logged raw errors too. Every server
+  `console.error` / `console.warn` now logs `describePlaidError(e)` (the old
+  `describeSyncError`, widened to every Plaid path and given Plaid's `error_code` /
+  `error_type` / `request_id`). Two new tests: a Plaid-shaped error with a fake secret,
+  client id and access token logs none of them, and `tests/unit/log-safety.test.ts` fails
+  on any raw error passed to a server log (on the old code it flags all 12 sites). The build
+  test now finds every `route.ts` itself instead of a hand-written list. 960 unit tests,
+  typecheck, lint. Owner: consider rotating `PLAID_SECRET` (`docs/security.md`).

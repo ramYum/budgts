@@ -10,6 +10,7 @@ import { z } from "zod";
 import { plaidClient } from "@/lib/plaid/client";
 import { loadPlaidConfig } from "@/lib/plaid/config";
 import { encryptToken } from "@/lib/plaid/crypto";
+import { describePlaidError } from "@/lib/plaid/error-policy";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 
 const Body = z.object({
@@ -39,7 +40,7 @@ export async function POST(request: Request) {
     itemId = ex.data.item_id;
     accounts = (await client.accountsGet({ access_token: accessToken })).data.accounts;
   } catch (e) {
-    console.error("[plaid] exchange", e);
+    console.error("[plaid] exchange", describePlaidError(e));
     return NextResponse.json({ error: "could not connect the bank" }, { status: 502 });
   }
 
@@ -76,7 +77,7 @@ export async function POST(request: Request) {
     .select("id")
     .single();
   if (itemErr || !item) {
-    console.error("[plaid] exchange: item insert", itemErr);
+    console.error("[plaid] exchange: item insert", itemErr ? describePlaidError(itemErr) : { message: "no row returned" });
     return NextResponse.json({ error: "could not save the connection" }, { status: 500 });
   }
 
@@ -100,7 +101,7 @@ export async function POST(request: Request) {
   }));
   const { error: acctErr } = await supabase.from("plaid_accounts").insert(accountRows);
   if (acctErr) {
-    console.error("[plaid] exchange: accounts insert", acctErr);
+    console.error("[plaid] exchange: accounts insert", describePlaidError(acctErr));
     return NextResponse.json({ error: "could not save the accounts" }, { status: 500 });
   }
 

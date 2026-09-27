@@ -6,6 +6,7 @@
 import { NextResponse } from "next/server";
 import { loadPlaidConfig } from "@/lib/plaid/config";
 import { plaidClient } from "@/lib/plaid/client";
+import { describePlaidError } from "@/lib/plaid/error-policy";
 import { getSessionUser } from "@/lib/supabase/server";
 import { accessTokenForUserItem } from "@/server/plaid/service";
 
@@ -56,7 +57,7 @@ export async function POST(request: Request) {
     const res = await plaidClient().linkTokenCreate(params);
     return NextResponse.json({ link_token: res.data.link_token, expiration: res.data.expiration });
   } catch (e) {
-    console.error("[plaid] link-token", e);
+    console.error("[plaid] link-token", describePlaidError(e));
     return NextResponse.json({ error: "could not start the bank link" }, { status: 502 });
   }
 }

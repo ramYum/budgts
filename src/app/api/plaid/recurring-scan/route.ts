@@ -16,6 +16,7 @@ import { loadPlaidConfig } from "@/lib/plaid/config";
 import { runRecurringDetectionForUser } from "@/lib/plaid/recurring-engine";
 import { createRecurringStore, findUsersWithPlaidAccounts, loadRecurringWatermark } from "@/lib/plaid/recurring-store";
 import { db } from "@/lib/db";
+import { describePlaidError } from "@/lib/plaid/error-policy";
 
 function authorized(request: Request): boolean {
   const secret = loadPlaidConfig().cronSecret;
@@ -44,7 +45,7 @@ export async function POST(request: Request) {
       const outcome = await runRecurringDetectionForUser({ userId, watermark, store });
       results.push({ userId, ok: true, ...outcome });
     } catch (e) {
-      console.error("[plaid] recurring-scan failed for user", { userId, e });
+      console.error("[plaid] recurring-scan failed for user", { userId, ...describePlaidError(e) });
       results.push({ userId, ok: false });
     }
   }

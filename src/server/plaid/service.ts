@@ -14,6 +14,7 @@ import { plaidItems } from "@/lib/db/schema";
 import { plaidClient } from "@/lib/plaid/client";
 import { loadPlaidConfig } from "@/lib/plaid/config";
 import { decryptToken } from "@/lib/plaid/crypto";
+import { describePlaidError } from "@/lib/plaid/error-policy";
 import { findUserItem } from "@/lib/plaid/item-store";
 import { drainItem, plaidSyncRunnerDeps, type SyncRunnerDeps } from "@/lib/plaid/sync-runner";
 
@@ -61,10 +62,12 @@ export async function nudgeRefresh(userId: string): Promise<void> {
       due.map((item) => client.transactionsRefresh({ access_token: decryptToken(item.accessTokenEnc, tokenEncKey) })),
     );
     results.forEach((r, i) => {
-      if (r.status === "rejected") console.error("[plaid] refresh nudge failed", due[i].itemId, r.reason);
+      if (r.status === "rejected") {
+        console.error("[plaid] refresh nudge failed", { itemId: due[i].itemId, ...describePlaidError(r.reason) });
+      }
     });
   } catch (e) {
-    console.error("[plaid] refresh nudge failed", { userId, message: e instanceof Error ? e.message : "non-Error" });
+    console.error("[plaid] refresh nudge failed", { userId, ...describePlaidError(e) });
   }
 }
 
@@ -108,6 +111,6 @@ export async function drainItemInBackground(itemId: string): Promise<void> {
     const deps = syncRunner();
     await drainItem(deps, itemId, { kind: "due" }, deps.now() + SYNC_BUDGET_MS);
   } catch (e) {
-    console.error("[plaid] background drain failed", { itemId, message: e instanceof Error ? e.message : "non-Error" });
+    console.error("[plaid] background drain failed", { itemId, ...describePlaidError(e) });
   }
 }

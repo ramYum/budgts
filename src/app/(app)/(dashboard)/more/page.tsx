@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
+import { requireTimeZone } from "@/lib/current-profile";
 import { hubCounts, plural } from "@/lib/hub-counts";
 import { Icon } from "@/components/icon";
 import { InstallApp } from "@/components/install-app";
@@ -18,7 +19,7 @@ export const metadata: Metadata = { title: "More" };
 export default async function MorePage() {
   const user = await getSessionUser();
   if (!user) redirect("/sign-in");
-  const counts = await hubCounts(await createClient());
+  const counts = await hubCounts(await createClient(), await requireTimeZone(user.id));
 
   return (
     <>

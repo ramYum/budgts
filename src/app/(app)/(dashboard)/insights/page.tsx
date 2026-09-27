@@ -6,6 +6,7 @@ import { currentMonthKey, monthKey } from "@/lib/budget/month";
 import { priorMonths, spendTrend } from "@/lib/budget/spend-trend";
 import type { BudgetTxn } from "@/lib/budget/types";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
+import { requireTimeZone } from "@/lib/current-profile";
 import type { Database } from "@/lib/supabase/database.types";
 import { fetchAllRows } from "@/lib/supabase/fetch-all-rows";
 import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
@@ -96,11 +97,12 @@ async function loadRange(
  * that Money Left must never stand in for it. */
 export default async function InsightsPage({ searchParams }: PageProps<"/insights">) {
   const sp = await searchParams;
-  const month = typeof sp.m === "string" && /^\d{4}-\d{2}$/.test(sp.m) ? sp.m : currentMonthKey();
-  const prev = prevMonthKey(month);
-
   const user = await getSessionUser();
   if (!user) redirect("/sign-in");
+  const timeZone = await requireTimeZone(user.id);
+  const month = typeof sp.m === "string" && /^\d{4}-\d{2}$/.test(sp.m) ? sp.m : currentMonthKey(timeZone);
+  const prev = prevMonthKey(month);
+
   const supabase = await createClient();
 
   const excludedPlaidAccountIds = (async () => {

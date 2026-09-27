@@ -2,7 +2,6 @@
 
 import { useActionState, useEffect } from "react";
 import type { TxnActionState } from "@/server/transactions";
-import { resolveDefaultDate } from "@/lib/local-date";
 import { Button, Select, fieldClass as field, labelClass as label } from "./ui";
 
 export type AccountOption = { id: string; name: string };
@@ -131,7 +130,7 @@ export function TransactionForm({
           className={field}
           type="date"
           name="occurredAt"
-          defaultValue={initial ? toDateInput(initial.occurredAt) : resolveDefaultDate(defaultDate)}
+          defaultValue={initial ? toDateInput(initial.occurredAt) : defaultDate}
           required
         />
       </label>

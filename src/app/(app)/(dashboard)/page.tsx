@@ -6,6 +6,7 @@ import { priorMonths, spendTrend } from "@/lib/budget/spend-trend";
 import { goalsSummary, type SavingsContribution, type SavingsGoal } from "@/lib/budget/savings";
 import type { BudgetTxn } from "@/lib/budget/types";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
+import { requireTimeZone } from "@/lib/current-profile";
 import type { Database } from "@/lib/supabase/database.types";
 import { fetchAllRows, type RowCount } from "@/lib/supabase/fetch-all-rows";
 import { selectableAccounts, type SelectableAccountRow } from "@/lib/accounts/selectable-accounts";
@@ -33,11 +34,12 @@ function prevMonthKey(m: string): string {
 
 export default async function DashboardPage({ searchParams }: PageProps<"/">) {
   const sp = await searchParams;
-  const month = typeof sp.m === "string" && MONTH_RE.test(sp.m) ? sp.m : currentMonthKey();
-  const { start, end } = monthRange(month);
-
   const user = await getSessionUser();
   if (!user) redirect("/sign-in");
+  const timeZone = await requireTimeZone(user.id);
+  const thisMonth = currentMonthKey(timeZone);
+  const month = typeof sp.m === "string" && MONTH_RE.test(sp.m) ? sp.m : thisMonth;
+  const { start, end } = monthRange(month);
   const supabase = await createClient();
 
   // Nudge Plaid to check for new data now that the user is looking, without
@@ -186,7 +188,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
     (accountRows ?? []) as SelectableAccountRow[],
     liveLinkedAccountIds,
   );
-  const defaultDate = currentMonthKey() === month ? todayDateKey() : `${month}-15`;
+  const defaultDate = thisMonth === month ? todayDateKey(timeZone) : `${month}-15`;
 
   const view = buildDashboard(txns, cats, budgets, month);
   const prevView = buildDashboard(prevTxns, cats, [], prevMonth);

@@ -38,8 +38,11 @@ inline notes.
 - **Price unchanged:** $9.99/month, $69/year, 7-day trial. Confirm it once
   Plaid shows its per-Item Production price; above ~$1/Item, cap the base
   plan at 3 banks or raise annual to $79.
-- **Per-user time zones are a launch blocker**: "this month" is currently
-  pinned to `America/New_York`.
+- **Per-user time zones** (owner, 2026-09-26: they depend on where the
+  user is): "this month" follows the zone the user's device reports
+  (`profiles.time_zone`, migration `0018`, kept current by
+  `<TimeZoneSync>`). Built and verified on staging 2026-09-27. The native
+  app reports its device zone the same way.
 - **Sequencing** is now the six phases in `docs/roadmap.md` → "Delivery
   track — Mobile App + App-Store Launch" (supersedes §13's ordering where
   they differ).
@@ -841,8 +844,9 @@ Objective, checkable criteria — not a subjective quality bar:
 - [ ] Every screen passes the §15a visual-parity check, every journey has
       a passing Maestro flow, and every part's scorecard is 9.5+.
 - [ ] A private beta runs crash-free (Sentry) with no known bugs open.
-- [ ] Per-user time zones: "this month" follows each user's zone, not
-      `America/New_York`.
+- [ ] Per-user time zones: "this month" follows the zone the user's
+      device reports (built and verified on staging 2026-09-27; live once
+      migration `0018` and the build reach production).
 - [ ] Security checks pass: no service-role credential reachable from the
       client, no Plaid access token reachable from the client, RLS verified
       on every new/mobile-touched table.
@@ -957,7 +961,7 @@ Restated here so nothing downstream infers permission to start on it:
   - Sign in with Apple included on iOS;
   - every web screen ships, visually identical, under §15a's parity and
     9.5+ scoring bar;
-  - per-user time zones required before launch.
+  - per-user time zones, taken from the device (built 2026-09-27).
 - ~~Web stays free; paid functionality is mobile-only.~~ Purchase is
   mobile-only; the entitlement covers web too.
 - $9.99/mo, $69/yr, 7-day trial (confirm against Plaid's per-Item price).

@@ -127,6 +127,13 @@
       "when": 1790340176686,
       "tag": "0017_thin_goblin_queen",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1790475955515,
+      "tag": "0018_profiles_time_zone",
+      "breakpoints": true
     }
   ]
 }

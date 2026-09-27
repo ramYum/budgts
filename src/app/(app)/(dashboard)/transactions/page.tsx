@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
+import { requireTimeZone } from "@/lib/current-profile";
 import { currentMonthKey, todayDateKey } from "@/lib/budget/month";
 import { AddTransaction } from "@/components/add-transaction";
 import { MonthNav } from "@/components/month-nav";
@@ -39,14 +40,15 @@ function monthBounds(m: string) {
 
 export default async function TransactionsPage({ searchParams }: PageProps<"/transactions">) {
   const sp = await searchParams;
-  const m = typeof sp.m === "string" && MONTH_RE.test(sp.m) ? sp.m : currentMonthKey();
-  const { start, end } = monthBounds(m);
-  const defaultDate = currentMonthKey() === m ? todayDateKey() : `${m}-15`;
-  const categoryFilter =
-    typeof sp.category === "string" && /^[0-9a-f-]{36}$/i.test(sp.category) ? sp.category : null;
-
   const user = await getSessionUser();
   if (!user) redirect("/sign-in");
+  const timeZone = await requireTimeZone(user.id);
+  const thisMonth = currentMonthKey(timeZone);
+  const m = typeof sp.m === "string" && MONTH_RE.test(sp.m) ? sp.m : thisMonth;
+  const { start, end } = monthBounds(m);
+  const defaultDate = thisMonth === m ? todayDateKey(timeZone) : `${m}-15`;
+  const categoryFilter =
+    typeof sp.category === "string" && /^[0-9a-f-]{36}$/i.test(sp.category) ? sp.category : null;
 
   const supabase = await createClient();
 

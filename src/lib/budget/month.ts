@@ -1,24 +1,26 @@
 /**
- * The owner's time zone (Pennsylvania). Servers run in UTC, so "this month" and
- * "today" must be decided here rather than from the server clock, or they roll
- * over hours early every evening. Personal-use app: one fixed zone.
+ * "Today" and "this month" belong to the user, not the server: servers run in
+ * UTC, so deciding them from the server clock rolls the month over hours early
+ * (or late) for anyone not in London. Every caller passes the user's own IANA
+ * time zone (`profiles.time_zone`, taken from their device and kept in step
+ * with it by <TimeZoneSync>), so a user in Tokyo and a user in Los Angeles each
+ * see their own month boundaries.
  */
-export const APP_TIME_ZONE = "America/New_York";
 
-/** Today's calendar date (`YYYY-MM-DD`) in {@link APP_TIME_ZONE}. */
-export function todayDateKey(now: Date = new Date()): string {
+/** Today's calendar date (`YYYY-MM-DD`) in `timeZone`. */
+export function todayDateKey(timeZone: string, now: Date = new Date()): string {
   // en-CA formats as YYYY-MM-DD.
   return new Intl.DateTimeFormat("en-CA", {
-    timeZone: APP_TIME_ZONE,
+    timeZone,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
   }).format(now);
 }
 
-/** The current month as `YYYY-MM` in {@link APP_TIME_ZONE}. */
-export function currentMonthKey(now: Date = new Date()): MonthKey {
-  return todayDateKey(now).slice(0, 7);
+/** The current month as `YYYY-MM` in `timeZone`. */
+export function currentMonthKey(timeZone: string, now: Date = new Date()): MonthKey {
+  return todayDateKey(timeZone, now).slice(0, 7);
 }
 
 /** A calendar month as `YYYY-MM`, always in UTC. */

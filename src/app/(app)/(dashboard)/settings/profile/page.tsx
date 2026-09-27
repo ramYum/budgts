@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
+import { requireTimeZone } from "@/lib/current-profile";
+import { timeZoneLabel } from "@/lib/time-zone-label";
 import { displayName } from "@/lib/user/display-name";
 import { PageHeader } from "@/components/page-header";
 import { CopyButton } from "@/components/copy-button";
@@ -13,7 +15,9 @@ const PROVIDER_LABEL: Record<string, string> = { email: "Email link", google: "G
 /** Basic account information — no internal identifiers exposed (design spec
  * §37). Currency is set once at onboarding; there is no currency-change flow
  * today, so this stays informational rather than offering an edit action
- * that would need to touch financial semantics. */
+ * that would need to touch financial semantics. The time zone is shown so the
+ * month boundaries it decides are never a hidden setting; it follows the
+ * device (<TimeZoneSync>), so there is nothing to edit. */
 export default async function ProfilePage() {
   const user = await getSessionUser();
   if (!user) redirect("/sign-in");
@@ -21,9 +25,10 @@ export default async function ProfilePage() {
 
   // The sign-in methods come from the session's own verified claims
   // (app_metadata.providers); read only, for display.
-  const [{ data: profile }, { data: claims }] = await Promise.all([
+  const [{ data: profile }, { data: claims }, timeZone] = await Promise.all([
     supabase.from("profiles").select("currency").eq("id", user.id).single(),
     supabase.auth.getClaims(),
+    requireTimeZone(user.id),
   ]);
   const providers = (
     (claims?.claims?.app_metadata as { providers?: string[] } | undefined)?.providers ?? ["email"]
@@ -66,6 +71,10 @@ export default async function ProfilePage() {
                 {currency} · {currencyName}
               </dd>
             </div>
+            <div className="py-3">
+              <dt className="text-[13px] leading-5 text-muted">Time zone</dt>
+              <dd className="text-[15px] font-medium leading-6 text-ink">{timeZoneLabel(timeZone)}</dd>
+            </div>
             <div className="flex items-center gap-3 pt-3">
               <div className="min-w-0 flex-1">
                 <dt className="text-[13px] leading-5 text-muted">Sign-in methods</dt>
@@ -79,6 +88,9 @@ export default async function ProfilePage() {
           <p className="text-[13px] leading-5 text-muted">
             Amounts everywhere use your currency. It&apos;s set once, when you start, so every amount keeps its
             meaning.
+          </p>
+          <p className="text-[13px] leading-5 text-muted">
+            Your time zone follows your device, so each month starts at your own midnight.
           </p>
         </section>
       </div>

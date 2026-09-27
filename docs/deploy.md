@@ -256,8 +256,13 @@ guessed here).
 ## Notes
 
 - The Supabase database password and the Google client secret were shown in
-  chat during setup. Rotating them was skipped while Budgts was a personal
-  project; **rotate both before selling** (launch track).
+  chat during setup. The owner decided not to rotate them (2026-09-09, and
+  again 2026-09-26 for the launch). Don't re-raise it.
+- **Migration `0018` (per-user time zone) must reach production before the
+  build that reads it.** The dashboard layout selects `profiles.time_zone`,
+  so deploying first would fail every signed-in page. Order: apply `0018`
+  (`MIGRATE_CONFIRM_REF=wsmhstqpvbbcqpqhiqyp`, owner approval), confirm the
+  column and the backfill, then deploy.
 - The free Supabase project **pauses after 7 idle days** and has no
   backups; **Supabase Pro is required before selling**.
 - Vercel Hobby is personal / non-commercial only; **Vercel Pro is required

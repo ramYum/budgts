@@ -3,17 +3,24 @@
 import { revalidateUserData } from "@/server/revalidate";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { currencySchema } from "@/lib/validation/profile";
+import { currencySchema, timeZoneSchema } from "@/lib/validation/profile";
 
 export type OnboardingState = { error?: string };
 
-/** Persist the first-run currency choice and mark onboarding complete. */
+/** Persist the first-run currency choice and the device's time zone, and
+ * mark onboarding complete. */
 export async function completeOnboarding(
   _prev: OnboardingState,
   formData: FormData,
 ): Promise<OnboardingState> {
   const parsed = currencySchema.safeParse({ currency: formData.get("currency") });
   if (!parsed.success) return { error: "Please choose a currency." };
+  const zone = timeZoneSchema.safeParse(formData.get("time_zone"));
+  if (!zone.success) {
+    return {
+      error: "Your device didn't report a time zone we recognise. Check its date and time settings, then try again.",
+    };
+  }
 
   const supabase = await createClient();
   const {
@@ -23,7 +30,7 @@ export async function completeOnboarding(
 
   const { data, error } = await supabase
     .from("profiles")
-    .update({ currency: parsed.data.currency, onboarded_at: new Date().toISOString() })
+    .update({ currency: parsed.data.currency, time_zone: zone.data, onboarded_at: new Date().toISOString() })
     .eq("id", user.id)
     .select("id");
 

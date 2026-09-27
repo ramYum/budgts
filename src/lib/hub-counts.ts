@@ -16,14 +16,17 @@ export type HubCounts = {
 /** The small counts the More and Settings hubs show beside each row ("2
  * goals", "1 bank"). Head-only counts under the user's own RLS, all at once:
  * no rows come back, just the numbers. */
-export async function hubCounts(supabase: Awaited<ReturnType<typeof createClient>>): Promise<HubCounts> {
+export async function hubCounts(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  timeZone: string,
+): Promise<HubCounts> {
   const head = { count: "exact" as const, head: true };
   const [goals, accounts, banks, categories, budgets] = await Promise.all([
     supabase.from("savings_goals").select("id", head).eq("is_archived", false),
     supabase.from("accounts").select("id", head).eq("is_archived", false),
     plaidUiEnabled() ? supabase.from("plaid_items").select("id", head) : Promise.resolve({ count: null }),
     supabase.from("categories").select("id", head).eq("is_archived", false),
-    supabase.from("budgets").select("id", head).eq("month", `${currentMonthKey()}-01`).gt("amount", 0),
+    supabase.from("budgets").select("id", head).eq("month", `${currentMonthKey(timeZone)}-01`).gt("amount", 0),
   ]);
   return {
     goals: goals.count ?? 0,

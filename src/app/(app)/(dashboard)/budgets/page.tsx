@@ -5,6 +5,7 @@ import { monthlyActuals } from "@/lib/budget/actuals";
 import { currentMonthKey, monthKey } from "@/lib/budget/month";
 import type { BudgetTxn } from "@/lib/budget/types";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
+import { requireTimeZone } from "@/lib/current-profile";
 import type { Database } from "@/lib/supabase/database.types";
 import { fetchAllRows, type RowCount } from "@/lib/supabase/fetch-all-rows";
 import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
@@ -45,13 +46,14 @@ type TxnRow = Pick<
 
 export default async function BudgetsPage({ searchParams }: PageProps<"/budgets">) {
   const sp = await searchParams;
-  const month = typeof sp.m === "string" && MONTH_RE.test(sp.m) ? sp.m : currentMonthKey();
+  const user = await getSessionUser();
+  if (!user) redirect("/sign-in");
+  const timeZone = await requireTimeZone(user.id);
+  const month = typeof sp.m === "string" && MONTH_RE.test(sp.m) ? sp.m : currentMonthKey(timeZone);
   const range = sp.range === "all" ? "all" : "month";
   // Home's "Set budget" links here with the category to open (a uuid).
   const edit = typeof sp.edit === "string" && /^[0-9a-f-]{36}$/i.test(sp.edit) ? sp.edit : null;
 
-  const user = await getSessionUser();
-  if (!user) redirect("/sign-in");
   const supabase = await createClient();
   const plaidOn = plaidUiEnabled();
 

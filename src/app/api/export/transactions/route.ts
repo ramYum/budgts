@@ -1,6 +1,8 @@
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { fetchAllRows } from "@/lib/supabase/fetch-all-rows";
 import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
+import { requireTimeZone } from "@/lib/current-profile";
+import { todayDateKey } from "@/lib/budget/month";
 
 type ExportRow = {
   occurred_at: string;
@@ -76,7 +78,8 @@ export async function GET() {
 
   const csv =
     [header, ...rows].map((r) => r.map(csvCell).join(",")).join("\r\n") + "\r\n";
-  const today = new Date().toISOString().slice(0, 10);
+  // The user's own today, so a late-evening export isn't dated tomorrow.
+  const today = todayDateKey(await requireTimeZone(user.id));
 
   return new Response(csv, {
     headers: {

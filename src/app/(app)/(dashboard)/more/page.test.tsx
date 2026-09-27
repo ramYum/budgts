@@ -7,6 +7,7 @@ vi.mock("@/lib/supabase/server", () => ({
   getSessionUser: async () => ({ id: "user-1", email: "alex@example.com" }),
   createClient: async () => ({}),
 }));
+vi.mock("@/lib/current-profile", () => ({ requireTimeZone: async () => "America/New_York" }));
 vi.mock("@/lib/hub-counts", () => ({
   hubCounts: async () => ({ goals: 2, accounts: 4, banks: 1, categories: 8, budgets: 4 }),
   plural: (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`,

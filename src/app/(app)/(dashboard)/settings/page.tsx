@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
+import { requireTimeZone } from "@/lib/current-profile";
 import { hubCounts, plural } from "@/lib/hub-counts";
 import { signOut } from "@/server/auth";
 import { Icon } from "@/components/icon";
@@ -17,7 +18,7 @@ export const metadata: Metadata = { title: "Settings" };
 export default async function SettingsPage() {
   const user = await getSessionUser();
   if (!user) redirect("/sign-in");
-  const counts = await hubCounts(await createClient());
+  const counts = await hubCounts(await createClient(), await requireTimeZone(user.id));
 
   return (
     <>

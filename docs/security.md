@@ -65,8 +65,9 @@ Each item needs a test or an explicit check before store submission.
   amounts, merchant names, account names and emails.
 - **Account deletion** revokes sessions, removes Plaid Items and deletes
   personal data per `docs/specs/2026-09-19-account-deletion-design.md`.
-- **Before selling:** rotate the Supabase DB password and the Google client
-  secret (see `docs/deploy.md`), and add the Content-Security-Policy below.
+- **Before selling:** add the Content-Security-Policy below. (Rotating the
+  Supabase DB password and the Google client secret was declined by the
+  owner, 2026-09-26.)
 
 ## Deferred (not blocking deploy)
 
@@ -75,5 +76,3 @@ Each item needs a test or an explicit check before store submission.
   realtime; fonts are self-hosted by `next/font`). Do in a hardening pass.
 - **PNG PWA icons** — manifest uses SVG (fine for Android/Chrome; iOS prefers
   PNG `apple-touch-icon`).
-- **Rotate** the Supabase DB password and Google client secret (shown in chat
-  during setup) — see `docs/deploy.md`.

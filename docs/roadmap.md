@@ -329,8 +329,8 @@ is the paid feature); influencer program after launch.
 
 | Phase | Scope | Status |
 | --- | --- | --- |
-| 0 | Documents updated; selective port of `mobile/`, the mobile API, Bearer auth, account deletion, DB tooling and their tests | ⏳ documents done 2026-09-26; port next |
-| 1 | Store blockers on web: privacy + terms pages, account deletion (in-app + Google's web link), per-user time zones, archived migrations renumbered after `0016` | ⏳ |
+| 0 | Documents updated; selective port of `mobile/`, the mobile API, Bearer auth, account deletion, DB tooling and their tests | ⏳ documents done 2026-09-26; DB migration-safety tooling ported 2026-09-27; mobile app, mobile API, Bearer auth and deletion next |
+| 1 | Store blockers on web: privacy + terms pages, account deletion (in-app + Google's web link), per-user time zones, archived migrations renumbered after `0018` | ⏳ per-user time zones built + verified on staging 2026-09-27 (migration `0018`; production awaits the owner's go-ahead); privacy/terms, deletion, renumbering next |
 | 2 | Native foundation: latest Expo SDK, shared brand tokens (`src/lib/brand/tokens.ts`, synced to `globals.css` by test), `<PixelFrame>`, fonts, auth (magic link, Google, Sign in with Apple), per-screen mobile API over the shared domain logic | ⏳ |
 | 3 | Every screen and state, visually identical to the web at phone width, passing the parity check | ⏳ |
 | 4 | Subscription: RevenueCat paywall/trial/restore, entitlement mirror, server-side gate on Plaid for app + web, Plaid connections removed after a lapse | ⏳ |

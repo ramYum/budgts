@@ -2,6 +2,7 @@ import { Suspense, cache } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/current-profile";
 import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
 import { firstRunRedirect } from "@/lib/tour/gate";
 import { applyNeedsCategoryFilter } from "@/lib/plaid/needs-category-window";
@@ -11,6 +12,7 @@ import { DesktopSidebar } from "@/components/desktop-sidebar";
 import { NeedsCategoryBell } from "@/components/needs-category-bell";
 import { RealtimeRefresh } from "@/components/realtime-refresh";
 import { ReviewBanner } from "@/components/plaid/review-banner";
+import { TimeZoneSync } from "@/components/time-zone-sync";
 
 /** Bank rows awaiting a category. Cached so the mobile header and the desktop
  * bar (both render the bell) share one query per request. */
@@ -32,16 +34,11 @@ export default async function DashboardLayout({ children }: LayoutProps<"/">) {
   const user = await getSessionUser();
   if (!user) redirect("/sign-in");
 
-  const supabase = await createClient();
-  // One query for everything the gate needs. The welcome guide plays for every
-  // new user, so a failed read must not guess "already seen" and wave them
-  // past it: it surfaces (error boundary, with a retry) instead.
-  const { data: profile, error } = await supabase
-    .from("profiles")
-    .select("onboarded_at, created_at, tour_seen_at")
-    .eq("id", user.id)
-    .maybeSingle();
-  if (error) throw new Error(`Couldn't load your profile: ${error.message}`);
+  // One query for everything the gate needs, shared with the page below (its
+  // time zone). The welcome guide plays for every new user, so a failed read
+  // must not guess "already seen" and wave them past it: getCurrentProfile
+  // throws to the error boundary (with a retry) instead.
+  const profile = await getCurrentProfile(user.id);
   const firstRun = firstRunRedirect(profile);
   if (firstRun || !profile) redirect(firstRun ?? "/onboarding");
 
@@ -60,6 +57,8 @@ export default async function DashboardLayout({ children }: LayoutProps<"/">) {
     <div className="flex min-h-dvh w-full flex-col md:pl-[248px]">
       {/* Keeps the bell count fresh after a sync lands, on every dashboard route. */}
       {plaidOn ? <RealtimeRefresh tables={["transactions"]} /> : null}
+      {/* "Today" and "this month" follow the device's time zone. */}
+      <TimeZoneSync stored={profile.time_zone} />
 
       <DesktopSidebar email={user.email ?? ""} />
 

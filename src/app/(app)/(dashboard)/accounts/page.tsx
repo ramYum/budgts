@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
+import { requireTimeZone } from "@/lib/current-profile";
 import { currentMonthKey } from "@/lib/budget/month";
 import { fetchAllRows } from "@/lib/supabase/fetch-all-rows";
 import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
@@ -33,7 +34,7 @@ export default async function AccountsPage() {
   const supabase = await createClient();
   const plaidOn = plaidUiEnabled();
 
-  const month = currentMonthKey();
+  const month = currentMonthKey(await requireTimeZone(user.id));
   const [y, m] = month.split("-").map(Number);
   const start = new Date(Date.UTC(y!, m! - 1, 1)).toISOString();
   const end = new Date(Date.UTC(y!, m!, 1)).toISOString();

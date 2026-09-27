@@ -69,7 +69,14 @@ export const profiles = pgTable("profiles", {
   // re-scans the same window next time (idempotent, not lossy).
   recurringLastScanAt: timestamp("recurring_last_scan_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+  // The user's IANA time zone, as their device reports it: decides their
+  // "today" and "this month" (src/lib/budget/month.ts). Set at onboarding and
+  // kept in step with the device by <TimeZoneSync>; null only before then.
+  timeZone: text("time_zone"),
+}, (t) => [
+  // Every onboarded user has a time zone, so no page ever has to guess one.
+  check("profiles_time_zone_when_onboarded", sql`${t.onboardedAt} is null or ${t.timeZone} is not null`),
+]);
 
 export const accounts = pgTable(
   "accounts",

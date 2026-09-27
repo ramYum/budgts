@@ -76,6 +76,8 @@ describe("OnboardingWizardContent", () => {
     expect(action).toHaveBeenCalled();
     const submittedFormData = action.mock.calls[0][1] as FormData;
     expect(submittedFormData.get("currency")).toBe("EUR");
+    // The device's zone rides along: it decides the user's "this month".
+    expect(submittedFormData.get("time_zone")).toBe(Intl.DateTimeFormat().resolvedOptions().timeZone);
   });
 
   it("shows an error returned by the action without losing the form", async () => {

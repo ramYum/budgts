@@ -128,6 +128,10 @@ updated if something surprised you.
   (`useSyncExternalStore` with a `false` server snapshot, see
   `connected-banks.tsx`). Test with `src/test-utils/hydration.tsx`: server
   render under one `process.env.TZ`, hydrate under another.
+- Deciding "today" or "this month" from the server clock or a fixed zone.
+  Pass the user's zone: `todayDateKey(await requireTimeZone(user.id))` /
+  `currentMonthKey(...)` (`src/lib/budget/month.ts`). It follows their
+  device (`<TimeZoneSync>`), so a user in Tokyo gets Tokyo's month.
 
 ---
 

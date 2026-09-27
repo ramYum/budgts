@@ -37,10 +37,13 @@ All Expo / React Native implementation goes to `budgts-architect`
 `archive/mobile-and-deletion-2026-09-24` is ported selectively onto
 `phase-m/mobile-launch`, never merged wholesale.
 
-"This month" and "today" are currently decided in `America/New_York`
-(`src/lib/budget/month.ts`), never from the server's UTC clock. That fits
-one owner in Pennsylvania; **per-user time zones are a launch blocker** —
-customers elsewhere need their own month boundaries.
+"This month" and "today" follow **each user's own time zone**, the one their
+device reports (owner, 2026-09-26: "time zones must depend where the user is
+located"). Onboarding stores it in `profiles.time_zone` (migration `0018`),
+`<TimeZoneSync>` updates it whenever the device's zone changes, and every
+page passes it to `src/lib/budget/month.ts` through `requireTimeZone()`
+(`src/lib/current-profile.ts`). Nothing is decided from the server's UTC
+clock or a fixed zone.
 
 - **Every account matters.** A fix must work for every user, bank, account
   type, time zone and locale. The owner's data is only the first test set,
@@ -143,7 +146,7 @@ src/
   server/                 # server actions + server-only Plaid service
   proxy.ts                # session refresh + auth gate (Next 16's middleware)
 supabase/
-  migrations/             # 0000–0017 SQL migrations: tables, RLS policies, handle_new_user() seed trigger (0017 = Plaid sync lease)
+  migrations/             # 0000–0018 SQL migrations: tables, RLS policies, handle_new_user() seed trigger (0018 = per-user time zone)
   staging-plaid-cron.sql  # pg_cron → /api/plaid/sync-due wiring (not a migration)
 tests/
   unit/                   # Vitest specs that don't sit next to source (incl. performance guardrails)
@@ -225,7 +228,12 @@ staging (`uvowywszaiojboaxdmoz`). Tests that write data use staging only.
   never count; a refund is a `credit` in an expense category and nets against
   that category's spend.
 - **Dates:** store timestamps in UTC; `budgets.month` is the first day of the
-  month as a `date`.
+  month as a `date`. "Today" and "this month" come from the user's
+  `profiles.time_zone` (`requireTimeZone()` → `todayDateKey` /
+  `currentMonthKey`), never the server clock.
+- **Migrations** go through the `predb:migrate` gate: set
+  `MIGRATE_CONFIRM_REF` to the target's project ref, staging first
+  (`docs/operations/database-migrations.md`).
 - **Branches:** `phase-N/<short-topic>`. Conventional-ish commit subjects.
   Commit locally after a completed, validated task (never with unrelated
   changes, secrets, `.env` files or build artifacts); never push, merge, tag,

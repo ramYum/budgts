@@ -331,7 +331,7 @@ implementation goes to `budgts-architect`.
 | **Security review before deploy** | Claude | Run `/security-review` in 1e — RLS policies, the service-key path, OAuth redirect allowlist. |
 | ~~1c.2 vs fold into 1d~~ | done | Built as a standalone `/settings` screen after 1d. |
 | ~~Git branch cleanup~~ | done | `main` fast-forwarded to `dbeea74`. Work continues on `phase-1/core-slice`; `main` is ff-merged at each checkpoint. |
-| Rotate the DB password / Google client secret | owner + Claude | **Reopened 2026-09-26.** Skipped while Budgts was a personal project (owner's call, 2026-09-09); both were shown in chat during setup, so rotate them before selling. |
+| ~~Rotate the DB password / Google client secret~~ | owner | **Declined 2026-09-26.** Both were shown in chat during setup; the owner decided not to rotate them ("it's fine, disregard this"). Don't re-raise it. |
 | ~~Vercel project + deploy~~ | done | **2026-09-09** — `main` pushed, Vercel project live at `https://budgts.com` (custom domain via Cloudflare DNS), env vars + Supabase auth URLs set. See `docs/deploy.md` "Current deployment" + memory `deployment.md`. |
 | Verify on real devices | owner | `deploy.md` step 5 — install the PWA on a phone, sign in via magic link + Google, add a transaction, confirm it syncs to a second device. **2026-09-15: everything automatable is verified on `https://budgts.com`** (Chromium, Pixel 7 emulation): installable with zero installability errors (checked in a normal profile — Playwright's default incognito context always reports `in-incognito`), SW registers + controls the page, manifest "Budgts" / standalone / scope `/`, both 512×512 PNG icons (any + maskable), `apple-touch-icon` + iOS web-app meta + theme-color present, offline navigation falls back to `/offline`, no console errors. **Still owner-only:** the physical install on an Android phone (Chrome → Install app) and an iPhone (Safari → Add to Home Screen), sign-in inside the installed app, and cross-device Realtime sync. |
 | ~~Prod rollout: Plaid sync lease + 10-min sweep~~ | done | **Live 2026-09-25** (`533537e` on budgts.com, `0017` applied on production + staging, prod `plaid-sync-due` every 10 min). The follow-up claim-time `needs_sync` + 360s lease change needs no migration — it ships with a normal deploy. Original order: (1) apply migration `0017` to production (additive nullable columns; the running build ignores them); (2) deploy the build — webhooks start syncing immediately, the 30s job keeps running harmlessly (every run now takes the lease); (3) `cron.alter_job(... schedule := '*/10 * * * *')` per `supabase/staging-plaid-cron.sql`. Confirm the Vercel project uses Fluid compute (`maxDuration = 300`). Rollback: re-schedule `'30 seconds'`, redeploy the previous build, then drop the two columns. |
@@ -1067,3 +1067,28 @@ implementation goes to `budgts-architect`.
   Work continues on `phase-m/mobile-launch`; the archive branch is ported selectively (its
   web files predate the redesign). Also recorded as a launch blocker: "this month" is pinned
   to America/New_York, and customers elsewhere need per-user time zones.
+
+- **2026-09-27 — Per-user time zones; migration-safety tooling ported.** Owner
+  decisions 2026-09-26: "time zones must depend where the user is located", and the DB
+  password / Google client secret stay as they are ("it's fine, disregard this").
+  - "Today" and "this month" follow the zone the user's device reports. Onboarding
+    stores it in `profiles.time_zone` (migration `0018`: backfilled `America/New_York`
+    for users onboarded before it, plus the check `profiles_time_zone_when_onboarded`).
+    `<TimeZoneSync>` in the dashboard layout updates it when the device's zone changes,
+    on open and on return to the foreground (no timers). Every page passes it to
+    `src/lib/budget/month.ts` through `requireTimeZone()`, one cached profile read per
+    request shared with the layout's first-run gate. Settings → Profile shows it. The
+    NY-only client date swap (`resolveDefaultDate`) is gone; the CSV export is dated in
+    the user's zone.
+  - `tools/db/*` ported from the archive: `predb:migrate` refuses to run unless
+    `MIGRATE_CONFIRM_REF` names the target's project ref; `db:verify-history` reports
+    ledger drift read-only. Staging's ledger has two known differences, neither harmful:
+    `0000`–`0002` and `0007` were recorded from CRLF checkouts (same SQL), and six
+    archived migrations (2026-09-21) were applied when this staging was built from the
+    archive branch. Renumbering those must allow for their tables already existing there.
+  - Verified: 934 unit/component tests, typecheck, lint, build. `0018` applied to staging
+    only (9 onboarded profiles backfilled, 0 violations; production still at `0017`).
+    Playwright on staging 14/14, including a new Tokyo → Los Angeles travel test and the
+    Plaid sandbox flow.
+  - **Production:** apply `0018` first, then deploy (see `docs/deploy.md` → Notes).
+    Awaiting the owner's go-ahead.

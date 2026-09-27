@@ -8,6 +8,7 @@ import { TourCard } from "@/components/tour/tour-card";
 import { GuideScene } from "@/components/tour/scenes";
 import { GUIDE_COPY } from "@/components/tour/guide-copy";
 import { PrimaryButton, Select, labelClass } from "@/components/ui";
+import { deviceTimeZone } from "@/components/time-zone-sync";
 import type { TourStepId } from "@/lib/tour/steps";
 
 /**
@@ -32,6 +33,13 @@ export function OnboardingWizardContent({
   const [state, formAction, pending] = useActionState<OnboardingState, FormData>(action, {});
   // Drives the currency scene's live preview; the form still submits the select.
   const [currency, setCurrency] = useState(defaultCurrency);
+  // The device's time zone rides along with the currency: from the first
+  // budget on, it decides the user's "today" and "this month". Read at submit,
+  // so it is always the device's current zone.
+  const submit = (formData: FormData) => {
+    formData.set("time_zone", deviceTimeZone());
+    formAction(formData);
+  };
 
   const steps: WizardStep[] = stepIds.map((id, i) => ({
     id,
@@ -63,7 +71,7 @@ export function OnboardingWizardContent({
             <TourCard
               {...shared}
               media={
-                <form action={formAction} className="space-y-3 text-left">
+                <form action={submit} className="space-y-3 text-left">
                   <label className={labelClass}>
                     <span>Currency</span>
                     <Select

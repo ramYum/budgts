@@ -42,6 +42,32 @@ the service worker, CI.
 | Low | CSV formula injection: a transaction description like `=HYPERLINK(...)` would execute in Excel | `csvCell` prefixes `'` when a cell starts with `= + - @` / tab / CR |
 | Low | `proxy.ts` `isPublic` used a loose `startsWith(prefix)` — `/sign-inX` would be treated as public | tightened to `startsWith(prefix + "/")` |
 
+## Mobile apps — requirements (launch track, 2026-09-26)
+
+Design authority: `docs/specs/2026-09-17-mobile-app-launch-design.md` §4, §8.
+Each item needs a test or an explicit check before store submission.
+
+- **Only public credentials in the app bundle:** the Supabase publishable
+  key, the RevenueCat public SDK keys, the API base URL. Never the service
+  key, a Plaid secret or access token, or the RevenueCat webhook secret.
+  Checked by scanning the built bundle.
+- **Sessions:** the Supabase session lives in secure storage (the archive's
+  `large-secure-store`, which chunks SecureStore). PKCE for OAuth. The auth
+  callback deep link is allowlisted and validated.
+- **API:** Bearer tokens are verified server-side, and data access runs
+  under the user's JWT so RLS stays the isolation guard. Tests cover
+  missing, invalid, expired and cross-user tokens.
+- **Entitlement is server truth:** bank sync (link-token, exchange, sync) is
+  gated on the server's entitlement mirror, never on a client "purchase
+  succeeded" signal. The RevenueCat webhook is authenticated, idempotent
+  and logged.
+- **Crash and analytics data carry no financial data:** Sentry scrubs
+  amounts, merchant names, account names and emails.
+- **Account deletion** revokes sessions, removes Plaid Items and deletes
+  personal data per `docs/specs/2026-09-19-account-deletion-design.md`.
+- **Before selling:** rotate the Supabase DB password and the Google client
+  secret (see `docs/deploy.md`), and add the Content-Security-Policy below.
+
 ## Deferred (not blocking deploy)
 
 - **Content-Security-Policy** — none set. Add a `headers()` block in

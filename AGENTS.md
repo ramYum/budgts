@@ -10,7 +10,7 @@ The routing principle is:
 
 Do not sacrifice correctness, test coverage, architecture, financial integrity, security, or maintainability to save tokens.
 
-**Mobile exception (owner decision):** all Expo / React Native mobile implementation belongs to `budgts-architect` (Opus 5.5 Medium), even when the task is straightforward. This covers anything that creates, modifies, debugs, reviews, or materially affects the native mobile app, Expo Router, React Native UI, native authentication/deep links, native Plaid Link, RevenueCat/mobile billing integration, native configuration, EAS configuration that changes app behavior, device-specific behavior, mobile API integration, secure storage, Android/iOS native wiring, and mobile tests that exercise runtime behavior. The least-expensive-agent principle still applies to non-mobile work. Native mobile is currently **on hiatus** (paused, not abandoned — see `CLAUDE.md`); its code is archived on branches, not on `main`, so the mobile rules here apply when that work resumes.
+**Mobile exception (owner decision):** all Expo / React Native mobile implementation belongs to `budgts-architect` (Opus 5.5 Medium), even when the task is straightforward. This covers anything that creates, modifies, debugs, reviews, or materially affects the native mobile app, Expo Router, React Native UI, native authentication/deep links, native Plaid Link, RevenueCat/mobile billing integration, native configuration, EAS configuration that changes app behavior, device-specific behavior, mobile API integration, secure storage, Android/iOS native wiring, and mobile tests that exercise runtime behavior. The least-expensive-agent principle still applies to non-mobile work. Native mobile is **active again** (owner decision 2026-09-26 — see `CLAUDE.md` and `docs/specs/2026-09-17-mobile-app-launch-design.md`): the archived code on `archive/mobile-and-deletion-2026-09-24` is ported selectively onto `phase-m/mobile-launch`, never merged wholesale (its web files predate the 2026-09-25/26 redesign).
 
 ---
 
@@ -473,12 +473,17 @@ All Expo / React Native implementation belongs to `budgts-architect`.
 - Native Plaid, RevenueCat, and similar integrations must stay behind clear boundaries.
 - Demo/tour data must never contaminate or mutate real user financial data.
 - Device-specific behavior must be tested with the most realistic available environment; do not treat browser-only verification as proof of native behavior.
+- **Visual parity (owner bar, 2026-09-26):** every native screen is visually identical to the approved web app at phone width, in every state (empty, full, over budget, loading, error, offline). The look comes from the same sources as the web (`src/lib/brand/*` tokens, pixel frames, robin art, the icon set), never a re-drawn copy. A screen is not done until the automated parity check passes: web Playwright captures vs native Maestro captures at the same device size, geometry within 1pt, exact token colors, and the per-screen pixel-diff budget.
+- **Zero known bugs:** every user journey has a Maestro E2E flow; mobile figures come from the server and match the web for the same account (number-parity test). Nothing ships with a known bug.
+- **Scoring gate:** each part (every screen, the design-system port, auth, Plaid, subscription, store assets) is scored /10 on visual parity, functional correctness, motion fidelity, performance, accessibility and premium polish, and iterated until every criterion is 9.5+. Record the first and final scores and the trade-offs in the commit/PR notes.
 
 ## Monetization
 
 - Web customer subscription checkout remains out of scope unless the owner explicitly changes that decision.
-- Paid mobile functionality uses Apple/Google store billing with RevenueCat/approved entitlement architecture.
+- Paid functionality is bought in the mobile apps only, through Apple/Google store billing with RevenueCat/approved entitlement architecture ($9.99/month, $69/year, 7-day trial).
+- **One subscription entitles the account everywhere (owner decision 2026-09-26):** the server-side entitlement gates bank sync (Plaid link-token, exchange, sync) on both the apps and budgts.com. The web shows plan status and points to the app to subscribe.
 - Backend owns entitlement truth/mirror; client UI is not authoritative.
+- **The influencer program is deferred until after launch (owner decision 2026-09-26).** The rules below apply when it is built; v1 ships plain subscriptions only.
 - Historical attribution and commercial terms are immutable once earned under the established ledger design.
 - Refunds/reversals use explicit adjustment mechanisms rather than rewriting historical allocation records.
 - Influencer commission logic must use actual commissionable proceeds under the approved terms, not guessed list-price math.

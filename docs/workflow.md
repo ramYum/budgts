@@ -57,7 +57,7 @@ assistant). Full ladder: `docs/roadmap.md`; working detail: §4 below.
 | Area | Decision |
 | --- | --- |
 | Shape now | Installable **PWA** (Next.js). One codebase, phone + desktop. |
-| Shape later | Native iOS/Android (Expo) + store monetization: **on hiatus** since 2026-09-25 (personal-use PWA for now). Archived on branch `archive/mobile-and-deletion-2026-09-24`. |
+| Shape next | Native iOS/Android (Expo) on the App Store + Google Play, sold by the owner's LLC: **active since 2026-09-26** (branch `phase-m/mobile-launch`; spec `docs/specs/2026-09-17-mobile-app-launch-design.md`). $9.99/month, $69/year, 7-day trial; one subscription unlocks the apps and budgts.com; influencer program after launch. |
 | Users | Single user per account. "Add another income source" = another income transaction/category, not multi-user. Household sharing: deferred, not planned. |
 | Persistence | Supabase (Postgres + Auth + Realtime + Storage). Cloud, multi-device. |
 | Data access | `supabase-js` with the user's session for **all** reads/writes — RLS is the isolation guard. Drizzle = migrations only. |
@@ -286,9 +286,15 @@ language); purchase affordability ("can I afford this?" vs safe-to-spend +
 forecast + goals); financial recommendations (overspend, unused subscriptions,
 goal pace); advanced automation (proactive nudges, categorization learning).
 
-### Delivery track (parallel) — Native apps (App Store + Play Store)
+### Delivery track — Mobile App + App-Store Launch (active, 2026-09-26)
 
-On hiatus as of 2026-09-25 (paused, not abandoned): Budgts is currently a personal-use PWA at budgts.com, so the native iOS/Android track, RevenueCat monetization and App Store / Play Store distribution are not being worked. The Expo app and account-deletion work are archived on branch `archive/mobile-and-deletion-2026-09-24`; when it resumes, the mobile rules in `AGENTS.md` apply.
+The current priority. Phases 0–5, owner steps and decisions: `docs/roadmap.md`
+→ "Delivery track — Mobile App + App-Store Launch"; design authority:
+`docs/specs/2026-09-17-mobile-app-launch-design.md`. Quality bar (owner):
+every native screen visually identical to the approved web app, zero known
+bugs, premium feel, each part scored to 9.5+/10 — enforced by the parity
+check and scoring gate in `AGENTS.md` → Mobile. All Expo / React Native
+implementation goes to `budgts-architect`.
 
 ---
 
@@ -325,11 +331,14 @@ On hiatus as of 2026-09-25 (paused, not abandoned): Budgts is currently a person
 | **Security review before deploy** | Claude | Run `/security-review` in 1e — RLS policies, the service-key path, OAuth redirect allowlist. |
 | ~~1c.2 vs fold into 1d~~ | done | Built as a standalone `/settings` screen after 1d. |
 | ~~Git branch cleanup~~ | done | `main` fast-forwarded to `dbeea74`. Work continues on `phase-1/core-slice`; `main` is ff-merged at each checkpoint. |
-| ~~Rotate the DB password / Google client secret~~ | done | Intentionally skipped for this personal project (owner's call, 2026-09-09). Not a pending task. |
+| Rotate the DB password / Google client secret | owner + Claude | **Reopened 2026-09-26.** Skipped while Budgts was a personal project (owner's call, 2026-09-09); both were shown in chat during setup, so rotate them before selling. |
 | ~~Vercel project + deploy~~ | done | **2026-09-09** — `main` pushed, Vercel project live at `https://budgts.com` (custom domain via Cloudflare DNS), env vars + Supabase auth URLs set. See `docs/deploy.md` "Current deployment" + memory `deployment.md`. |
 | Verify on real devices | owner | `deploy.md` step 5 — install the PWA on a phone, sign in via magic link + Google, add a transaction, confirm it syncs to a second device. **2026-09-15: everything automatable is verified on `https://budgts.com`** (Chromium, Pixel 7 emulation): installable with zero installability errors (checked in a normal profile — Playwright's default incognito context always reports `in-incognito`), SW registers + controls the page, manifest "Budgts" / standalone / scope `/`, both 512×512 PNG icons (any + maskable), `apple-touch-icon` + iOS web-app meta + theme-color present, offline navigation falls back to `/offline`, no console errors. **Still owner-only:** the physical install on an Android phone (Chrome → Install app) and an iPhone (Safari → Add to Home Screen), sign-in inside the installed app, and cross-device Realtime sync. |
 | ~~Prod rollout: Plaid sync lease + 10-min sweep~~ | done | **Live 2026-09-25** (`533537e` on budgts.com, `0017` applied on production + staging, prod `plaid-sync-due` every 10 min). The follow-up claim-time `needs_sync` + 360s lease change needs no migration — it ships with a normal deploy. Original order: (1) apply migration `0017` to production (additive nullable columns; the running build ignores them); (2) deploy the build — webhooks start syncing immediately, the 30s job keeps running harmlessly (every run now takes the lease); (3) `cron.alter_job(... schedule := '*/10 * * * *')` per `supabase/staging-plaid-cron.sql`. Confirm the Vercel project uses Fluid compute (`maxDuration = 300`). Rollback: re-schedule `'30 seconds'`, redeploy the previous build, then drop the two columns. |
-| Apple Developer + Google Play accounts | on hold | Native-apps track on hiatus since 2026-09-25; enroll only when it resumes. |
+| Apple Developer + Google Play accounts | owner | **In progress (2026-09-26).** LLC + D-U-N-S first (in progress), then Apple Developer as an organization ($99/yr, then the Small Business Program for the 15% rate) and Google Play Console as an organization ($25; organization accounts are exempt from the 12-tester / 14-day closed test). |
+| Plaid plan for paying users | owner | Production access exists (2026-09-11), but the free Trial caps at 10 Items (5 in use). Move to Pay-as-you-go/Growth and read the per-Item Transactions price; it confirms or adjusts $9.99/$69 (above ~$1/Item: cap the base plan at 3 banks or raise annual to $79). |
+| Vercel Pro + Supabase Pro | owner | Required before selling: Vercel Hobby is non-commercial; Supabase Free pauses after 7 idle days and has no backups. |
+| Privacy policy + terms | owner | Name the LLC; cover Plaid, what account deletion removes and what is retained. Store submission blocker; also unblocks Google OAuth's production publish. |
 | ~~Plaid account + Production application~~ | done | Milestone 10 happened — Plaid Production access obtained, `NEXT_PUBLIC_PLAID_ENABLED` on in Vercel prod, 3 real bank connections live (Capital One, SoFi, Advancial) since 2026-09-11. Not captured in a commit/doc at the time; retroactively documented 2026-09-14. |
 | ~~Owner's authenticated smoke-test pass on budgts.com~~ | done | **2026-09-15**, run by Claude against production with owner authorization (scripted Playwright, magic-link `token_hash` sign-in). **Throwaway user: 22/22** — callback → onboarding → Home, all 15 app routes load clean, add a transaction, Home reflects it, CSV export includes it, user deleted. **All 3 Plaid-connected accounts** (owner-confirmed as theirs: one with Capital One + SoFi + Advancial, one SoFi-only, one Advancial-only), **read-only** (navigation only; any non-GET / server-action request aborted — none attempted): Money Left + savings rate on Home, Activity lists transactions, Budgets category cards, Insights, every institution on Connected Banks, and the "Exclude from totals" control shown for the two flagged Advancial accounts. Result in the real browser zone (America/New_York): passed apart from **React #418 hydration errors** on `/connected-banks` and `/transactions` (see next row); the same pass with the browser forced to UTC: **74/74**. Categorization correctness was not separately checked (only that transactions render). Also fixed the stale `tests/e2e/smoke.spec.ts` manifest assertion (`Budgt` → `Budgts`; 5/5 against prod). |
 | ~~Hydration mismatch (React #418) for any non-UTC user~~ | done | **Fixed 2026-09-15 in `2b4f3c7`**, see the status-board row. Original report: client components render date text from the viewer's time zone / the current clock, which differs from the server's UTC render: `src/components/plaid/connected-banks.tsx` `whenLabel()` (`Date.now()`-relative "N min ago", then `toLocaleDateString` with no `timeZone`) and `src/components/plaid/needs-category.tsx:22` (`toLocaleDateString` with no `timeZone`, rendered on `/transactions`). Confirmed by probe: errors appear in America/New_York, disappear with the browser in UTC. Fix candidates: pin `timeZone: "UTC"` like `transaction-list.tsx` does, or render relative time client-only after mount. Needs a failing test first. |
@@ -1038,3 +1047,23 @@ On hiatus as of 2026-09-25 (paused, not abandoned): Budgts is currently a person
   stalls every in-flight request to staging for ~10 s (both builds, identical
   pattern), so compare builds side by side, and don't share `.next` with another
   session's preview server (a concurrent build there replaced it mid-run).
+- **2026-09-26 — Mobile + App-Store launch resumed; Budgts is commercial again.** The
+  owner ended the 2026-09-24/25 personal-use hiatus. Decisions:
+  - Budgts is sold by the owner's LLC (D-U-N-S → Apple/Google organization accounts, so no
+    Google 12-tester / 14-day closed test).
+  - Native **Expo** apps, every screen visually identical to the approved web app, zero
+    known bugs, premium feel, each part scored /10 and iterated to 9.5+.
+  - $9.99/month, $69/year, 7-day trial (unchanged from 2026-09-18; confirm once Plaid shows
+    its per-Item price).
+  - **One subscription unlocks the apps and budgts.com** (supersedes "web stays free"; still
+    no web checkout).
+  - The influencer program moves after launch.
+
+  Owner research (2026): YNAB $14.99/mo or $109/yr, Monarch $99.99/yr (Plus $199), Copilot
+  $95/yr; Apple Small Business Program and Google subscriptions both take 15%. US
+  external-purchase links currently carry no Apple commission; Apple has proposed 15%
+  (5% for small developers), pending in court.
+
+  Work continues on `phase-m/mobile-launch`; the archive branch is ported selectively (its
+  web files predate the redesign). Also recorded as a launch blocker: "this month" is pinned
+  to America/New_York, and customers elsewhere need per-user time zones.

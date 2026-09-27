@@ -197,6 +197,32 @@ enforces this.
 | `.skeleton` sweep | Content is loading, shaped like what's coming |
 | `rise` / `pop` (`--at`) | One-off entrances placed on the beat: the greeting word by word, a hero's detail lines, a tag snapping on after its chart column builds |
 
+## Native apps (iOS + Android)
+
+The Expo apps are **visually identical to this web system at phone width**
+(owner bar, 2026-09-26). Everything in this document applies unchanged. The
+native side reads the **same sources**, so the two can't drift.
+
+| Web | Native |
+| --- | --- |
+| Color / spacing / type tokens in `globals.css` | One `src/lib/brand/tokens.ts`, imported by the app; a unit test keeps `globals.css` equal to it |
+| Stepped frames (`pixel-frames.css`, generated from `src/lib/brand/pixel-frame.ts`) | `<PixelFrame>`: the same `FRAMES` drawn with react-native-svg at the view's measured size |
+| `--shadow-card` / `--shadow-raised` | React Native `boxShadow` with the same values (New Architecture, both platforms) |
+| Geist + Dogica via `next/font`, the `.t-*` roles | The same font files via expo-font; each `.t-*` role becomes a text style with the same size, line height and weight, phone values |
+| Pixelarticons through `<Icon>` at 12/24/36/48 | The same glyph data as SVG at the same sizes, `crispEdges` |
+| The robin (`robin-art.ts`) and Crystal (`crystal-perch.tsx`, `src/lib/crystal/roam.ts`) | The same art data and roam logic; motion in Reanimated |
+| Motion table above (durations, `steps()`, delays) | Reanimated with the same timings and stepped easing; off under Reduce Motion |
+| Progress cells (`.px-bar`: square cells, count = fit) | The same geometry and lit math, drawn once per bar with react-native-svg |
+| 24px phone gutter, 16px card padding | Identical, inside the safe areas |
+
+- **Native additions must not change the look:** haptics on key actions,
+  iOS swipe-back, pull-to-refresh, the system keyboard and share sheet,
+  native Plaid Link.
+- **Proof, not eyeballing:** a screen ships only after the parity check in
+  `docs/specs/2026-09-17-mobile-app-launch-design.md` §15a passes. That
+  means web and native captures at the same device size, geometry within
+  1pt, exact token colors, and the per-screen pixel-diff budget.
+
 ## What not to do
 
 - No second accent color, gradients, glows or drop shadows doing layout work.

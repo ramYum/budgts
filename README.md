@@ -1,10 +1,12 @@
 # Budgts
 
-A personal budget tracking app — an installable PWA at https://budgts.com,
-backed by Supabase and Plaid, syncing across phone and desktop. Bank
-transactions arrive automatically via Plaid (manual entry is the fallback);
-categories, budgets vs actual, Money Left, savings goals. Email/receipt
-ingestion is planned for V2. Native mobile apps are on hiatus.
+A budget tracking app — an installable PWA at https://budgts.com, backed by
+Supabase and Plaid, syncing across phone and desktop. Bank transactions
+arrive automatically via Plaid (manual entry is the fallback); categories,
+budgets vs actual, Money Left, savings goals. Native iOS and Android apps
+(Expo) for the App Store and Google Play are in progress
+(`docs/specs/2026-09-17-mobile-app-launch-design.md`). Email/receipt
+ingestion is planned for V2.
 
 ## Docs
 

@@ -1,9 +1,10 @@
 # Roadmap
 
-> **Goal:** Budgts is a **personal-use** budgeting PWA at budgts.com (decided
-> 2026-09-24; the App Store / Play Store plan is on hiatus as of 2026-09-25). Each tier below is
-> only done when it works for every connected account, with no silent failure
-> states. See `CLAUDE.md` → "The goal".
+> **Goal:** Budgts is a **commercial** budgeting product sold by the owner's
+> LLC: the PWA at budgts.com plus native iOS/Android apps on the App Store
+> and Google Play (decided 2026-09-26, ending the 2026-09-24/25 personal-use
+> hiatus). Each tier below is only done when it works for every connected
+> account, with no silent failure states. See `CLAUDE.md` → "The goal".
 
 Build order for Budgts. **Phase 1** (manual core) and **Phase 2a** (savings
 goals) are shipped. Everything after is organised as capability tiers —
@@ -64,8 +65,8 @@ BUDGTS
     └── Advanced automation
 ```
 
-Native mobile apps are on hiatus (2026-09-25) — see the paused track at the end
-of this file. **Scale & Infrastructure** is a second parallel track
+The **Mobile App + App-Store Launch** track is active (2026-09-26) and is the
+current priority — see the track at the end of this file. **Scale & Infrastructure** is a second parallel track
 (capacity observability, no plan upgrades yet) — same section. Working
 detail for every tier: `docs/workflow.md §4`.
 
@@ -311,9 +312,37 @@ the data underneath (V1–V2) is trustworthy.
 - Household / shared budgets (needs a sharing + roles model).
 - Multi-currency transactions with conversion.
 
-## Delivery track — Native apps (on hiatus)
+## Delivery track — Mobile App + App-Store Launch (active, 2026-09-26)
 
-On hiatus as of 2026-09-25 (paused, not abandoned): Budgts is currently a personal-use PWA at budgts.com, so the native iOS/Android track, RevenueCat monetization and App Store / Play Store distribution are not being worked. The Expo app and account-deletion work are archived on branch `archive/mobile-and-deletion-2026-09-24`; when it resumes, the mobile rules in `AGENTS.md` apply.
+Native iOS/Android apps (Expo) on the App Store and Google Play, sold by the
+owner's LLC (D-U-N-S, organization accounts, so no Google 12-tester closed
+test). Spec: `docs/specs/2026-09-17-mobile-app-launch-design.md`. Branch:
+`phase-m/mobile-launch`. The archived Expo app and account-deletion work
+(`archive/mobile-and-deletion-2026-09-24`) are ported selectively, never
+merged wholesale.
+
+**Owner decisions:** every native screen visually identical to the approved
+web app, zero known bugs, premium feel, each part scored to 9.5+/10;
+$9.99/month, $69/year, 7-day trial through Apple/Google billing
+(RevenueCat); one subscription unlocks the apps and budgts.com (bank sync
+is the paid feature); influencer program after launch.
+
+| Phase | Scope | Status |
+| --- | --- | --- |
+| 0 | Documents updated; selective port of `mobile/`, the mobile API, Bearer auth, account deletion, DB tooling and their tests | ⏳ documents done 2026-09-26; port next |
+| 1 | Store blockers on web: privacy + terms pages, account deletion (in-app + Google's web link), per-user time zones, archived migrations renumbered after `0016` | ⏳ |
+| 2 | Native foundation: latest Expo SDK, shared brand tokens (`src/lib/brand/tokens.ts`, synced to `globals.css` by test), `<PixelFrame>`, fonts, auth (magic link, Google, Sign in with Apple), per-screen mobile API over the shared domain logic | ⏳ |
+| 3 | Every screen and state, visually identical to the web at phone width, passing the parity check | ⏳ |
+| 4 | Subscription: RevenueCat paywall/trial/restore, entitlement mirror, server-side gate on Plaid for app + web, Plaid connections removed after a lapse | ⏳ |
+| 5 | Release: EAS Build/Submit, TestFlight + Play internal track, crash-free Sentry beta, App Review, staged rollout | ⏳ |
+
+**Owner steps (parallel):** LLC + D-U-N-S (in progress), EIN + business bank
+account; Apple Developer (organization, $99/yr) + Small Business Program;
+Google Play Console (organization, $25); Plaid plan check (Production access
+exists since 2026-09-11 — move off the 10-item Trial to Pay-as-you-go/Growth
+and read the per-bank price, then confirm pricing); Vercel Pro + Supabase
+Pro; privacy policy + terms naming the LLC; retention decision; RevenueCat +
+store products; store listing assets and a reviewer demo login.
 
 ## Delivery track (parallel) — Scale & Infrastructure
 

@@ -222,14 +222,46 @@ migration `0017` are live there.
 login → Connect a bank → Plaid Sandbox → map account → transactions imported →
 displayed → categorize → merchant rule remembered → disconnect → history remains.
 
+## Mobile apps (App Store + Google Play) — launch track, 2026-09-26
+
+Design authority: `docs/specs/2026-09-17-mobile-app-launch-design.md`.
+Steps get their exact, verified commands as they are first run (none are
+guessed here).
+
+- **Accounts** (owner): Apple Developer and Google Play Console, both as
+  **organizations** under the owner's LLC (D-U-N-S). Apple's Small Business
+  Program gives the 15% rate. Organization Play accounts skip the 12-tester
+  closed test.
+- **Builds:** EAS Build from `mobile/` (the owner is on Windows, so iOS is
+  built in the cloud). Profiles:
+  - `development`: dev client, staging API;
+  - `preview`: internal installs, staging;
+  - `production`: store builds, `https://budgts.com`.
+- **The app holds only public values:** the Supabase URL and publishable
+  key, the API base URL, and the RevenueCat public SDK keys. Server secrets
+  (Plaid, `SUPABASE_SECRET_KEY`, RevenueCat webhook auth) stay in Vercel.
+- **Release train:**
+  - EAS Submit → TestFlight and the Play **internal** track (owner device
+    QA) → a private beta until crash-free (Sentry) → App Review / Play
+    review → a **staged rollout**.
+  - Rollback: halt the rollout and ship the previous build number.
+- **Deep links:** `budgts://` plus universal/app links on `budgts.com`,
+  needed for the auth callback and Plaid OAuth returns. The site serves
+  `/.well-known/apple-app-site-association` and
+  `/.well-known/assetlinks.json`.
+- **Server side ships first:** mobile API routes, the entitlement gate and
+  the RevenueCat webhook deploy with the web app, through staging then
+  production, before any store build depends on them.
+
 ## Notes
 
 - The Supabase database password and the Google client secret were shown in
-  chat during setup. Rotating them is **intentionally skipped** for this
-  personal project — not a pending task.
-- The free Supabase project **pauses after 7 idle days**; the dashboard has a
-  one-click restore. Use the CSV export as a backup.
-- Vercel Hobby is personal / non-commercial only.
+  chat during setup. Rotating them was skipped while Budgts was a personal
+  project; **rotate both before selling** (launch track).
+- The free Supabase project **pauses after 7 idle days** and has no
+  backups; **Supabase Pro is required before selling**.
+- Vercel Hobby is personal / non-commercial only; **Vercel Pro is required
+  before selling**.
 - Icons: the manifest uses PNG icons (192/512, `any` + `maskable`) plus
   `src/app/icon.png` / `apple-icon.png`, all generated from the pixel robin
   by `node tools/generate-app-icons.mjs` (see `docs/BRAND_GUIDELINES.md`).

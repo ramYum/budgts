@@ -6,25 +6,41 @@ WAT framework" below).
 
 ## What this project is
 
-A **personal budget tracking app** ("Budgts"). It is an installable **PWA**
-(one codebase for phone + desktop) served at https://budgts.com and backed by
-the cloud, so data syncs across the owner's devices. Per-user accounts; no
+A **budget tracking app** ("Budgts"), sold as a subscription. It runs as an
+installable **PWA** at https://budgts.com (phone + desktop) and, in
+progress, as **native iOS and Android apps** (Expo) on the App Store and
+Google Play, all backed by the same cloud data. Per-user accounts; no
 household/shared budgets in v1.
 
 ### The goal — read this before every decision
 
-Budgts is for the owner's **personal use**, as a browser PWA (decided
-2026-09-24). **Native mobile (Expo / React Native) and mobile monetization
-(App Store / Play Store, RevenueCat, 500+ paying users) are on hiatus** as of
-2026-09-25 — paused, not abandoned. That work is archived on the git branch
-`archive/mobile-and-deletion-2026-09-24`. It is still built to a
-production standard — correct money math, no silent failures — but nothing
-currently targets app-store compliance or paying-user scale. When mobile
-resumes, the mobile rules in `AGENTS.md` apply (all Expo / React Native
-implementation goes to `budgts-architect`).
+Budgts is a **commercial product** published by the **owner's LLC** (with
+a D-U-N-S number, so Apple and Google organization accounts) — decided
+2026-09-26, ending the 2026-09-24/25 personal-use hiatus. The launch plan is
+`docs/specs/2026-09-17-mobile-app-launch-design.md`; owner decisions:
 
-The owner is in Pennsylvania: "this month" and "today" are decided in
-`America/New_York` (`src/lib/budget/month.ts`), never from the server's UTC clock.
+- **Native Expo apps**, every screen **visually identical to the approved
+  web app** at phone width, **zero known bugs**, premium feel. Each part is
+  scored /10 and iterated to **9.5+** before it counts as done (the parity
+  check and scoring gate are in `AGENTS.md` → Mobile).
+- **$9.99/month, $69/year, 7-day free trial**, bought in the apps through
+  Apple/Google billing (RevenueCat). Confirm once Plaid quotes its per-bank
+  Production price; if it is above ~$1/bank, cap the base plan at 3 banks
+  or raise annual to $79.
+- **One subscription unlocks the apps and budgts.com**: bank sync is the
+  paid feature, gated by a server-side entitlement on both. No web
+  checkout.
+- **Influencer program deferred** until after launch.
+
+All Expo / React Native implementation goes to `budgts-architect`
+(`AGENTS.md`). The archived mobile and account-deletion work on
+`archive/mobile-and-deletion-2026-09-24` is ported selectively onto
+`phase-m/mobile-launch`, never merged wholesale.
+
+"This month" and "today" are currently decided in `America/New_York`
+(`src/lib/budget/month.ts`), never from the server's UTC clock. That fits
+one owner in Pennsylvania; **per-user time zones are a launch blocker** —
+customers elsewhere need their own month boundaries.
 
 - **Every account matters.** A fix must work for every user, bank, account
   type, time zone and locale. The owner's data is only the first test set,
@@ -86,7 +102,8 @@ What carries over is the **spirit**:
 | Concern | Choice |
 | --- | --- |
 | App framework | Next.js (App Router) + TypeScript + React |
-| Hosting | Vercel. Supabase is currently on the Free/Nano tier (500MB DB, pauses after 7 idle days) and Vercel is on Hobby — both deliberately deferred to a launch-readiness milestone, not an oversight. Upgrade trigger: Supabase DB size approaching its 500MB cap, or a concrete dev/prod limitation, whichever comes first. |
+| Hosting | Vercel. Supabase is currently on the Free/Nano tier (500MB DB, pauses after 7 idle days, no backups) and Vercel is on Hobby. **Both must move to paid plans before selling** (Vercel Hobby is non-commercial; Supabase Free pauses and has no backups): Vercel Pro and Supabase Pro are owner launch steps. |
+| Mobile | Expo (latest stable SDK, New Architecture) + Expo Router + EAS Build/Submit, in `mobile/`; Reanimated, react-native-svg, `react-native-plaid-link-sdk`, RevenueCat (`react-native-purchases`); Maestro for device E2E and parity captures |
 | PWA | web app manifest + service worker (app-shell caching) |
 | Data / auth / storage / realtime | Supabase (Postgres, Auth, Storage, Realtime) |
 | DB access | `supabase-js` with the user's session for all user-facing reads/writes; Drizzle for migrations **and** the server-only Plaid pipeline (`src/server/plaid/*`, webhook / cron routes, the page-view refresh nudge), which connects as the DB owner — bypassing RLS — so every such query must scope by `user_id`/`item_id` explicitly |
@@ -126,7 +143,7 @@ src/
   server/                 # server actions + server-only Plaid service
   proxy.ts                # session refresh + auth gate (Next 16's middleware)
 supabase/
-  migrations/             # 0000–0016 SQL migrations: tables, RLS policies, handle_new_user() seed trigger
+  migrations/             # 0000–0017 SQL migrations: tables, RLS policies, handle_new_user() seed trigger (0017 = Plaid sync lease)
   staging-plaid-cron.sql  # pg_cron → /api/plaid/sync-due wiring (not a migration)
 tests/
   unit/                   # Vitest specs that don't sit next to source (incl. performance guardrails)
@@ -134,6 +151,7 @@ tests/
   plaid-integration/      # real Plaid Sandbox tests
   e2e/                    # Playwright
 tools/                    # dev-only scripts (screenshot, one-off dry runs)
+mobile/                   # Expo app (iOS + Android), ported from the archive branch in Phase 0
 ```
 
 ## Next.js 16 — read the bundled docs before writing app code
@@ -283,10 +301,21 @@ square progress cells: as tall as the bar, as many as fit, one painted strip
 per bar. Presentation only: no money math changed. See
 `docs/BRAND_GUIDELINES.md`.
 
-**In progress:** **V1.5** — recurring-series detection (migration `0016`,
+**Active (2026-09-26):** **Mobile App + App-Store Launch** — native Expo
+apps on the App Store and Google Play, sold by the owner's LLC.
+Branch `phase-m/mobile-launch`; spec
+`docs/specs/2026-09-17-mobile-app-launch-design.md`. Phases:
+0 documents + selective port from the archive branch → 1 store blockers on
+web (privacy, terms, account deletion, per-user time zones) → 2 native
+foundation (shared brand tokens, auth incl. Sign in with Apple, per-screen
+mobile API) → 3 every screen, visually identical to the web → 4
+subscription (RevenueCat, server-side entitlement for app + web) → 5
+release (EAS, TestFlight, Play internal track, crash-free beta, review).
+
+**Paused:** **V1.5** — recurring-series detection (migration `0016`,
 `/api/plaid/recurring-scan`) and subscription / bill classification layers
 are merged but not yet surfaced in the UI.
 
-**Next:** finish **V1.5** → **V2** (email / receipt ingestion + spending
-intelligence) → **V2+** (AI financial assistant).
-Native apps and mobile monetization are on hiatus (2026-09-25), not a numbered phase.
+**After launch:** the influencer program, finishing **V1.5**, **V2** (email
+/ receipt ingestion + spending intelligence) → **V2+** (AI financial
+assistant).

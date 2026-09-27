@@ -1090,5 +1090,11 @@ implementation goes to `budgts-architect`.
     only (9 onboarded profiles backfilled, 0 violations; production still at `0017`).
     Playwright on staging 14/14, including a new Tokyo → Los Angeles travel test and the
     Plaid sandbox flow.
-  - **Production:** apply `0018` first, then deploy (see `docs/deploy.md` → Notes).
-    Awaiting the owner's go-ahead.
+  - **Live 2026-09-27** (`ef4f2d1`, deployment `dpl_8eSe7JR4tu66yVR34MUiWFZYRfdg`).
+    `0018` was applied to production first, through the gate: 10 profiles and 32,752
+    transactions unchanged, 9 onboarded profiles backfilled, 0 violations, constraint
+    validated. Then `main` was fast-forwarded and deployed. Smoke checks and production
+    error logs were clean.
+  - `budgts-staging.vercel.app` serves an older branch (the old onboarding screen), not
+    `main`. Test new work on staging with the isolated local build against the staging
+    database, not that alias.

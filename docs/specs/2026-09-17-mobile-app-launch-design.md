@@ -844,9 +844,9 @@ Objective, checkable criteria — not a subjective quality bar:
 - [ ] Every screen passes the §15a visual-parity check, every journey has
       a passing Maestro flow, and every part's scorecard is 9.5+.
 - [ ] A private beta runs crash-free (Sentry) with no known bugs open.
-- [ ] Per-user time zones: "this month" follows the zone the user's
-      device reports (built and verified on staging 2026-09-27; live once
-      migration `0018` and the build reach production).
+- [x] Per-user time zones: "this month" follows the zone the user's
+      device reports (web live 2026-09-27, `ef4f2d1`; the native app
+      reports its device zone the same way in Phase 2).
 - [ ] Security checks pass: no service-role credential reachable from the
       client, no Plaid access token reachable from the client, RLS verified
       on every new/mobile-touched table.

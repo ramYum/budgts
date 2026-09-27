@@ -309,6 +309,11 @@ square progress cells: as tall as the bar, as many as fit, one painted strip
 per bar. Presentation only: no money math changed. See
 `docs/BRAND_GUIDELINES.md`.
 
+**Shipped:** **Per-user time zones (2026-09-27, `ef4f2d1`, live)**: "today"
+and "this month" follow the zone the user's device reports
+(`profiles.time_zone`, migration `0018`, `<TimeZoneSync>`); Settings →
+Profile shows it.
+
 **Active (2026-09-26):** **Mobile App + App-Store Launch** — native Expo
 apps on the App Store and Google Play, sold by the owner's LLC.
 Branch `phase-m/mobile-launch`; spec

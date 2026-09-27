@@ -134,6 +134,48 @@
       "when": 1790475955515,
       "tag": "0018_profiles_time_zone",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1790551734726,
+      "tag": "0019_deletion_fk_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1790551735726,
+      "tag": "0020_transactions_account_fk_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1790551736726,
+      "tag": "0021_account_deletion_write_guard",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1790551737726,
+      "tag": "0022_deletion_guard_allow_bank_disconnect",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1790551738726,
+      "tag": "0023_monetization_ledger",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1790551739726,
+      "tag": "0024_entitlements_and_billing_events",
+      "breakpoints": true
     }
   ]
 }

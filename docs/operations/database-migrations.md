@@ -1,11 +1,15 @@
 # Database migration policy — permanent rules
 
-> **Status (2026-09-26):** ported from `archive/mobile-and-deletion-2026-09-24`.
-> The retired staging project below was replaced twice: `budgts-staging-2`
-> (deleted 2026-09-21), then **Budgets-Staging-3 (`uvowywszaiojboaxdmoz`)**,
-> today's only staging. The `0017` validated below was the archived
-> monetization migration. Main's `0017` is the Plaid sync lease, so the
-> monetization migration gets a new number when it is ported.
+> **Status (2026-09-27):** the Stage 0 port (`phase-m/stage0-port`) brought
+> the shelved migrations over from `mobile/native-home`, renumbered after
+> main's `0017` (Plaid sync lease) and `0018` (per-user time zone):
+> `0019` deletion FK indexes, `0020` transactions account index, `0021`
+> deletion write guard, `0022` guard allows bank disconnect, `0023`
+> monetization ledger (all ten tables; the influencer ones stay empty),
+> `0024` entitlements + billing events (without the dropped trial-reminder
+> columns). Today's only staging is **Budgets-Staging-3
+> (`uvowywszaiojboaxdmoz`)**; its history does not match this chain yet, see
+> "Pending: staging rebuild" below.
 
 Why this file exists: `budgts-staging`'s migration ledger (`drizzle.__drizzle_migrations`)
 drifted from the repository's actual migration files — several migrations'
@@ -115,6 +119,43 @@ only after staging verification passes. No environment is ever skipped.
   Supabase project, migrated the normal way from empty. This is the
   intended, sanctioned way to resolve migration-history drift when
   forensic repair would require breaking one of the rules above.
+
+## Pending: staging rebuild (owner decision, not done)
+
+Budgets-Staging-3 was migrated from `mobile/native-home`'s chain, then got
+main's `0017` and `0018`. It therefore already has every table and column the
+ported code reads (tests run against it as is), but its ledger records the
+shelved numbering (`0017_deletion_fk_indexes` … `0022_entitlements_and_billing_events`,
+stamped 1789986745169 … 1790010119571) plus main's `0017`/`0018`, and
+`entitlements` still carries the three `reminder_*` columns and
+`entitlements_trial_reminder_idx`. Consequences until it is rebuilt:
+
+- `npm run db:verify-history` against staging will report drift (six ledger
+  rows with no matching file, six files with no ledger row). That is expected
+  and is the reason for the rebuild, not something to "fix" by stamping.
+- `npm run db:migrate` against staging would try to apply `0019`–`0024`
+  (their `when` is newer than `0018`'s) on top of tables that already exist.
+  **Do not run it** until the rebuild.
+- Nothing in the ported code reads or writes the `reminder_*` columns; they
+  are nullable, so inserts that omit them work.
+
+Procedure when the owner approves (the `docs/operations/staging-replacement.md`
+runbook on `mobile/native-home` has the full project-replacement variant):
+
+1. **Back up first**: a `pg_dump` of the staging database (schema + data) to
+   a git-ignored local file, and a list of `auth.users` ids and emails.
+2. Rebuild the `public` schema and `drizzle.__drizzle_migrations` from empty
+   with `npm run db:migrate` (target confirmed through `MIGRATE_CONFIRM_REF`),
+   never by hand-stamping ledger rows.
+3. **Keep the auth users.** For every kept user, re-create the `profiles` row
+   and default categories the way `handle_new_user()` does (the trigger only
+   fires on a new `auth.users` insert), so existing e2e/integration users can
+   sign in and onboard.
+4. **Unschedule the trial-reminder cron job** the shelved branch scheduled
+   (`cron.unschedule(...)`); keep `plaid-sync-due`, and schedule
+   `supabase/billing-cron.sql` only once billing is switched on.
+5. `npm run db:verify-history` must come back **clean** (every file has its
+   ledger row, nothing extra), then the integration suite, then e2e.
 
 ## Tooling
 

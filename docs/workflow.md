@@ -1094,7 +1094,8 @@ implementation goes to `budgts-architect`.
     `0018` was applied to production first, through the gate: 10 profiles and 32,752
     transactions unchanged, 9 onboarded profiles backfilled, 0 violations, constraint
     validated. Then `main` was fast-forwarded and deployed. Smoke checks and production
-    error logs were clean.
+    error logs were clean. The owner confirmed on their own account that the time zone
+    change works (2026-09-27).
   - `budgts-staging.vercel.app` serves an older branch (the old onboarding screen), not
     `main`. Test new work on staging with the isolated local build against the staging
     database, not that alias.

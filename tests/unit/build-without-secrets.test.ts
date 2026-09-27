@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import { spawnSync } from "node:child_process";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -39,20 +40,23 @@ describe("building without secrets", () => {
     }
   });
 
-  it.each([
-    "@/app/api/plaid/exchange/route",
-    "@/app/api/plaid/item/route",
-    "@/app/api/plaid/link-token/route",
-    "@/app/api/plaid/recurring-scan/route",
-    "@/app/api/plaid/sync-due/route",
-    "@/app/api/plaid/test/seed/route",
-    "@/app/api/plaid/webhook/route",
-    "@/app/api/export/transactions/route",
-    "@/server/plaid/service",
-    "@/server/plaid/actions",
-  ])("imports %s", async (path) => {
-    await expect(import(path)).resolves.toBeDefined();
+  // Every route module, found rather than listed, so a new route that reads a
+  // secret at import fails here too; plus the Plaid server modules.
+  const modules: Record<string, () => Promise<unknown>> = {
+    ...import.meta.glob("/src/app/**/route.ts"),
+    "/src/server/plaid/service.ts": () => import("@/server/plaid/service"),
+    "/src/server/plaid/actions.ts": () => import("@/server/plaid/actions"),
+  };
+
+  it("finds the route modules", () => {
+    expect(Object.keys(modules)).toContain("/src/app/api/plaid/webhook/route.ts");
   });
+
+  // A cold import of a route's whole module graph (Plaid SDK, Drizzle) can take
+  // seconds on a busy machine; it is not a hang to fail on.
+  it.each(Object.keys(modules))("imports %s", async (path) => {
+    await expect(modules[path]!()).resolves.toBeDefined();
+  }, 30_000);
 
   // The prebuild itself, run as npm runs it, against the real process env.
   const prebuild = (env: Record<string, string>) =>
@@ -66,11 +70,11 @@ describe("building without secrets", () => {
     const preview = prebuild({ VERCEL: "1", VERCEL_ENV: "preview" });
     expect(preview.status).toBe(0);
     expect(preview.stdout).toContain("Production env check skipped: preview build");
-  });
+  }, 30_000); // each run starts a Node + tsx process
 
   it("refuses a Vercel production build that is missing them", () => {
     const result = prebuild({ VERCEL: "1", VERCEL_ENV: "production", NEXT_PUBLIC_PLAID_ENABLED: "1" });
     expect(result.status).toBe(1);
     expect(result.stderr).toMatch(/Refusing to build for production[\s\S]*DATABASE_URL[\s\S]*CRON_SECRET/);
-  });
+  }, 30_000);
 });

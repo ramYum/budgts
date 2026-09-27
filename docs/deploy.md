@@ -73,9 +73,14 @@ least 2026-09-14) and every Preview.
 The safety that used to come with that failure is now explicit: **a Vercel
 production build refuses to ship** without `DATABASE_URL` and, while
 `NEXT_PUBLIC_PLAID_ENABLED=1`, without Plaid's settings (as validated by
-`loadPlaidConfig()`) and `CRON_SECRET` (`next.config.ts` →
-`src/lib/env/production-env.ts`). Its build log prints "✓ Production env
-check passed"; other Vercel builds print "Production env check skipped".
+`loadPlaidConfig()`) and `CRON_SECRET`: npm's `prebuild` runs
+`tools/check-production-env.ts` → `src/lib/env/production-env.ts` before
+`next build`. Its build log prints "✓ Production env check passed"; other
+Vercel builds print "Production env check skipped". It needs Vercel's Build
+Command to stay `npm run build` (an override that calls `next build`
+directly would skip it). It reads the real process env only, not `.env*`
+files: the local `.env.production` is a Vercel pull that says
+`VERCEL_ENV=production` with masked secrets.
 Without the check, a missing `DATABASE_URL` would ship and fail only at
 runtime (the webhook and cron routes answer 500, the background refresh and
 sync only log), and a missing `CRON_SECRET` would make the sync sweep and the

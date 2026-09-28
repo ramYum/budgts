@@ -73,10 +73,15 @@ describe("performance guardrails", () => {
 
   // Rule 4: Home fetched the same transactions three times. One paginated
   // window fetch (sliced in memory per month) plus the bounded "recent 5".
+  // Home's reads moved (unchanged) into src/lib/home/load-home.ts, shared by
+  // the web page and the native API; the page itself must not query.
   it("Home makes one paginated transactions fetch", () => {
-    const home = read(join(DASHBOARD, "page.tsx"));
+    const home = read(join(SRC, "lib", "home", "load-home.ts"));
     expect(home.match(/fetchAllRows\(/g) ?? []).toHaveLength(1);
     expect((home.match(/\.from\("transactions"\)/g) ?? []).length).toBeLessThanOrEqual(2);
+    const page = read(join(DASHBOARD, "page.tsx"));
+    expect(page).toMatch(/loadHome\(/);
+    expect(page).not.toMatch(/fetchAllRows\(|\.from\(/);
   });
 
   // Rule 5: every server-side transactions read is bounded — paginated via

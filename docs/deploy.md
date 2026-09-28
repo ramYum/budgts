@@ -279,6 +279,14 @@ guessed here).
 
 ## Legal pages (Phase 1, built 2026-09-28): owner facts turn them on
 
+> **Live since 2026-09-28 20:47 ET** (owner: "Deploy stage 1"). The six values below were set
+> in Vercel Production, then `main` was fast-forwarded to `151323f` and deployed as
+> `dpl_ACWKBpnLLAvXEHVFrrTE4BGLLkQx`: production env check passed, CI green (check + mobile).
+> Live checks: all four pages 200 with the entity name, support email and "Last updated
+> September 28, 2026" and no placeholder text (Pennsylvania on `/terms`); `/api/legal`
+> `{"live":true}`; the sign-in agreement line shows; `/settings/delete-account` sends a
+> signed-out visitor to `/sign-in?next=…`; `/account-deleted` 200; no errors or 5xx in the logs.
+
 `/privacy`, `/terms`, `/support` and `/account-deletion` (Google Play's web deletion link) are built and public in
 `src/proxy.ts`, but each answers **404** and nothing links to them (sign-in, About, the apps' Settings via
 `GET /api/legal`) until all six facts in `src/lib/legal/config.ts` are set. No code change turns them on:

@@ -13,6 +13,12 @@ const PUBLIC_PREFIXES = [
   "/api/plaid/webhook",
   "/api/plaid/sync-due",
   "/api/plaid/recurring-scan",
+  // The native app's API authenticates itself: every /api/mobile/* handler
+  // goes through mobileRoute(), which verifies the caller's Bearer token and
+  // answers 401 without one. The proxy can't see that token, so without this
+  // a cookie-less native request would be 307-redirected to the HTML
+  // /sign-in page before the handler's own check ever ran.
+  "/api/mobile/",
 ];
 
 export function isPublic(pathname: string) {

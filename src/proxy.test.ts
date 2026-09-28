@@ -20,6 +20,13 @@ describe("isPublic", () => {
     expect(isPublic("/api/plaid/test/seed")).toBe(false);
   });
 
+  it("lets the native app's Bearer-authenticated API through to its own 401", () => {
+    expect(isPublic("/api/mobile/session")).toBe(true);
+    expect(isPublic("/api/mobile/profile")).toBe(true);
+    // a lookalike path is not the native API
+    expect(isPublic("/api/mobileish")).toBe(false);
+  });
+
   it("still requires a session for ordinary app pages", () => {
     expect(isPublic("/")).toBe(false);
     expect(isPublic("/transactions")).toBe(false);

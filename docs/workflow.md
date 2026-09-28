@@ -1255,3 +1255,15 @@ implementation goes to `budgts-architect`.
     mobile-bearer-auth 4/4 (11/11); switch off, legal-pages 2/2 (+1 skipped: needs the pages on), delete-account
     4/4, smoke 5/5, settings.
   - **Owner:** the six legal facts (`docs/deploy.md` → "Legal pages"), after reviewing the drafted wording.
+  - **Review fixes (2026-09-28, independent review 8.7).** Paid wording now follows billing, not the calendar:
+    `billingLive()` (`src/lib/billing/config.ts`, from `BILLING_ENVIRONMENT=production` + the webhook secret, the
+    configuration the billing routes already use) decides whether Terms, Privacy, Support, `/account-deletion` and the
+    delete intro mention plans, trials, RevenueCat or store cancellation; until then the Terms say "Budgts is free
+    today. Before any paid plan starts, we'll update these terms." Prices and trial length come from
+    `src/lib/billing/plans.ts`. The trial key fact matches the 24-hour rule. Unreadable deletion answers (504, HTML,
+    unknown codes) are "uncertain" (retry is safe), never "wasn't deleted", on the web and in the app; the app now
+    names `plaid_removal_failed` and links Connected Banks. Retention copy says "in line with our retention
+    schedule" (the purge job is a Phase 4 obligation, `docs/security.md`); "Apple" sign-in wording removed until
+    Phase 2. Scores after the fixes: terms 9.5 → 9.6, privacy 9.5 → 9.6, support 9.5, account-deletion 9.5 → 9.6,
+    intro 9.6 (balanced wrap), errors 9.5 → 9.6. Web vitest 1605/1605, mobile 221/221, e2e per switch state:
+    on 7/7, off 6/6 + 1 skipped.

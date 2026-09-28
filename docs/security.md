@@ -140,6 +140,24 @@ Each item needs a test or an explicit check before store submission.
   `/account-deleted`. None reads user data; while the switch is off the pages are 404s.
 - **The read-only banner**: while the lock is held, every dashboard screen says so (writes refused by the guard
   otherwise fail silently for UPDATE/DELETE, which match no rows).
+- **Unreadable answers are "uncertain", never "not deleted"** (web `src/lib/account/screen.ts`, native
+  `mobile/lib/account/delete-account.ts`): only the route's own JSON `could not delete account` says the account
+  wasn't deleted; a gateway 504, an HTML page or an unknown code says it may or may not have run and that retrying is
+  safe (deletion is idempotent).
+- **Obligation, not yet built: the retained-billing-record purge.** Privacy and `/account-deletion` say Path B's
+  billing records are kept for `LEGAL_RECORD_RETENTION_YEARS` after deletion, "then deleted in line with our retention
+  schedule". No job does that yet. It must exist before billing goes live (roadmap Phase 4), and it must use the
+  ledger's explicit mechanisms, never weaken the RESTRICT keys or immutability triggers.
+- **`billing_events.payload` keeps the raw RevenueCat event on Path B.** The "email and sign-in details removed" claim
+  holds only while the app never sets a RevenueCat `$email` (or any other personal) subscriber attribute. Rule: don't
+  set one; if that ever changes, the payload needs scrubbing on deletion first.
+- **Step-up uses the user-level `last_sign_in_at`**, so a fresh sign-in on any device lets every live session of that
+  user delete for 10 minutes. Acceptable for V1 (each session is already that user); later, check the session's own
+  `iat` / AAL instead.
+- **`POST /api/account/delete` has no Origin check.** The cookie is `SameSite=Lax`, so a cross-site POST carries no
+  session; an Origin/Referer check would be defense in depth for later.
+- **"Our servers and database are in the United States"** (Privacy): production Supabase is in AWS `us-east-2` and
+  Vercel functions run in `cle1` (`vercel.json`, `docs/deploy.md`). Re-check the sentence if either region moves.
 
 ## Deferred (not blocking deploy)
 

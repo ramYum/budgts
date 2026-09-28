@@ -11,9 +11,11 @@ import { OutlineButton, PrimaryButton, TextLink } from "../../components/ui";
 const MESSAGES: Partial<Record<DeleteOutcome["status"], string>> = {
   reauth_required: "For your security, please sign in again to confirm. Sign out, sign back in, then return here.",
   unavailable: "Account deletion is temporarily unavailable. Please try again later.",
-  incomplete:
-    "We couldn't finish deleting your account. It is read-only until the deletion completes — please try again.",
-  failed: "We couldn't delete your account. Please try again.",
+  incomplete: "We couldn't finish deleting your account. It's read-only until the deletion completes. Try again to finish it.",
+  plaid: "We couldn't disconnect one of your banks, so your account wasn't deleted. Disconnect it in Connected Banks, then try again.",
+  failed: "Your account wasn't deleted. Please try again.",
+  uncertain:
+    "We didn't get a clear answer, so your account may or may not be deleted. Try again: if deletion had already started, trying again finishes it.",
   network: "Couldn't reach Budgts. Check your connection and try again.",
   auth: "Your session has expired. Please sign in again.",
 };
@@ -95,6 +97,12 @@ export default function DeleteAccountScreen() {
           <Text style={styles.error} accessibilityRole="alert" testID="delete-error">
             {message}
           </Text>
+        ) : null}
+
+        {outcome?.status === "plaid" ? (
+          <OutlineButton testID="delete-connected-banks" onPress={() => router.push("/connected-banks")}>
+            Connected Banks
+          </OutlineButton>
         ) : null}
 
         {outcome?.status === "reauth_required" || outcome?.status === "auth" ? (

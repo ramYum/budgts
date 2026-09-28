@@ -45,7 +45,21 @@ describe("requestAccountDeletion", () => {
     });
   });
 
-  it("maps any other failure to a generic failed state, a lost session to auth, and no network to network", async () => {
+  it("names a bank Plaid won't remove (502 plaid_removal_failed), so the screen can send the user to Connected Banks", async () => {
+    expect(await requestAccountDeletion("apple", async () => json(502, { error: "plaid_removal_failed", retryable: true }))).toEqual({
+      status: "plaid",
+    });
+  });
+
+  it("never says 'not deleted' for an answer it can't read: a gateway timeout, an HTML page, an unknown code or body", async () => {
+    const html = (status: number) => new Response("<html>Gateway Timeout</html>", { status, headers: { "content-type": "text/html" } });
+    expect(await requestAccountDeletion("apple", async () => html(504))).toEqual({ status: "uncertain" });
+    expect(await requestAccountDeletion("apple", async () => html(502))).toEqual({ status: "uncertain" });
+    expect(await requestAccountDeletion("apple", async () => json(500, { error: "something new" }))).toEqual({ status: "uncertain" });
+    expect(await requestAccountDeletion("apple", async () => json(200, { unexpected: true }))).toEqual({ status: "uncertain" });
+  });
+
+  it("maps the route's own failure to failed, a lost session to auth, and no network to network", async () => {
     expect(await requestAccountDeletion("apple", async () => json(500, { error: "could not delete account" }))).toEqual({ status: "failed" });
     expect(await requestAccountDeletion("apple", async () => json(401, { error: "unauthorized" }))).toEqual({ status: "auth" });
     expect(

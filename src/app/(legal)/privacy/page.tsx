@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Bullets, KeyFacts, LegalDoc, P, textLink } from "@/components/legal/legal-doc";
 import { yearsLabel } from "@/lib/legal/config";
+import { billingLive } from "@/lib/billing/config";
 import { effectiveLine, requireLegalFacts } from "../require-facts";
 
 export const metadata: Metadata = { title: "Privacy policy" };
@@ -15,6 +16,8 @@ export const metadata: Metadata = { title: "Privacy policy" };
  */
 export default function PrivacyPage() {
   const f = requireLegalFacts();
+  // Subscription wording only once this deployment sells subscriptions (src/lib/billing/config.ts).
+  const paid = billingLive();
   const mail = (
     <a href={`mailto:${f.contactEmail}`} className={textLink}>
       {f.contactEmail}
@@ -59,8 +62,8 @@ export default function PrivacyPage() {
             <Bullets
               items={[
                 <>
-                  <strong className="font-semibold text-ink">Your account.</strong> Your email address. If you sign in with Google
-                  or Apple, the name and email address they share with us.
+                  <strong className="font-semibold text-ink">Your account.</strong> Your email address. If you sign in with Google,
+                  the name and email address Google shares with us.
                 </>,
                 <>
                   <strong className="font-semibold text-ink">Your settings.</strong> The currency you chose and your device&apos;s
@@ -76,10 +79,15 @@ export default function PrivacyPage() {
                   <strong className="font-semibold text-ink">What you enter.</strong> Transactions you add yourself, categories,
                   budgets, savings goals, notes, and the category choices Budgts remembers for a merchant.
                 </>,
-                <>
-                  <strong className="font-semibold text-ink">Your subscription.</strong> If you subscribe in the app: the plan,
-                  its status and dates, and the purchase records Apple or Google report. We never receive your card details.
-                </>,
+                ...(paid
+                  ? [
+                      <>
+                        <strong className="font-semibold text-ink">Your subscription.</strong> If you subscribe in the app: the
+                        plan, its status and dates, and the purchase records Apple or Google report. We never receive your card
+                        details.
+                      </>,
+                    ]
+                  : []),
                 <>
                   <strong className="font-semibold text-ink">Technical records.</strong> Our hosting provider logs requests (such
                   as the time, the page and the IP address) to keep the service secure and working.
@@ -97,7 +105,7 @@ export default function PrivacyPage() {
                 items={[
                   "To run your budget: sort transactions into categories, recognize transfers between your own accounts and recurring payments, and show what you have left to spend.",
                   "To sign you in, keep your account secure and answer you when you contact us.",
-                  "To manage your subscription and what it unlocks.",
+                  ...(paid ? ["To manage your subscription and what it unlocks."] : []),
                 ]}
               />
               <P>
@@ -131,15 +139,25 @@ export default function PrivacyPage() {
                     .
                   </>,
                   <>
-                    <strong className="font-semibold text-ink">Apple and Google</strong>: optional sign-in, and billing for
-                    subscriptions bought in the apps.
+                    <strong className="font-semibold text-ink">Google</strong>: optional sign-in
+                    {paid ? ", and billing for subscriptions bought in the Android app" : ""}.
                   </>,
-                  <>
-                    <strong className="font-semibold text-ink">RevenueCat</strong>: keeps track of subscriptions bought through
-                    Apple and Google.
-                  </>,
+                  ...(paid
+                    ? [
+                        <>
+                          <strong className="font-semibold text-ink">Apple</strong>: billing for subscriptions bought in the
+                          iPhone app.
+                        </>,
+                        <>
+                          <strong className="font-semibold text-ink">RevenueCat</strong>: keeps track of subscriptions bought
+                          through Apple and Google.
+                        </>,
+                      ]
+                    : []),
                 ]}
               />
+              {/* Source: production Supabase in AWS us-east-2, Vercel functions in cle1 (vercel.json, docs/deploy.md).
+                  Re-check this line if either region ever moves. */}
               <P>Our servers and database are in the United States.</P>
             </>
           ),
@@ -175,13 +193,15 @@ export default function PrivacyPage() {
                   <>
                     If you ever paid for a subscription, we keep the billing records of those payments, with your email and
                     sign-in details removed, for {yearsLabel(f.retentionYears)} after deletion for accounting, tax and store
-                    reconciliation, then delete them.
+                    reconciliation, then delete them in line with our retention schedule.
                   </>,
                   "Operational logs that don't name you, such as our record of Plaid's messages about a connection, are kept to run the service.",
                   "Copies in our database provider's backups disappear as those backups expire.",
                 ]}
               />
-              <P>Deleting your account doesn&apos;t cancel an App Store or Google Play subscription. Cancel it in your store account.</P>
+              {paid ? (
+                <P>Deleting your account doesn&apos;t cancel an App Store or Google Play subscription. Cancel it in your store account.</P>
+              ) : null}
             </>
           ),
         },

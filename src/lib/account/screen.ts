@@ -34,8 +34,11 @@ export type DeleteOutcome =
   | { kind: "incomplete" }
   /** 502 + plaid_removal_failed: a bank Plaid would not remove. Not deleted; disconnect it, then retry. */
   | { kind: "plaid" }
-  /** Any other failure. The account was not deleted. */
+  /** The route's own "could not delete account": it ran, and stopped before the lock. The account was not deleted. */
   | { kind: "failed" }
+  /** An answer we can't read (a gateway 504, an HTML error page, an unknown code): the deletion may or may not have
+   *  run. Trying again is safe, since it finishes a started deletion or confirms a finished one. */
+  | { kind: "uncertain" }
   /** The request never got an answer. Deletion is idempotent: trying again finishes or confirms it. */
   | { kind: "network" };
 
@@ -50,7 +53,8 @@ export function outcomeFromResponse(status: number, body: unknown): DeleteOutcom
   if (status === 503) return { kind: "unavailable" };
   if (b.error === "account_deletion_incomplete") return { kind: "incomplete" };
   if (b.error === "plaid_removal_failed") return { kind: "plaid" };
-  return { kind: "failed" };
+  if (status === 500 && b.error === "could not delete account") return { kind: "failed" };
+  return { kind: "uncertain" };
 }
 
 /** Where to go once the account is gone. */

@@ -24,6 +24,7 @@ function flow(props: Partial<Parameters<typeof DeleteAccountFlow>[0]> = {}) {
       inProgress={false}
       initial="intro"
       supportEmail={null}
+      billing
       go={go}
       {...props}
     />,
@@ -59,6 +60,12 @@ describe("DeleteAccountFlow: before anything runs", () => {
     expect(screen.getByText(/does not automatically cancel your App Store or Google Play subscription/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Keep my account" })).toHaveAttribute("href", "/settings");
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("leaves the store notice out while this deployment sells no subscriptions", () => {
+    flow({ billing: false });
+    expect(screen.queryByText(/does not automatically cancel/)).not.toBeInTheDocument();
+    expect(screen.getByText("What's kept")).toBeInTheDocument();
   });
 
   it("goes straight to the confirm step after a recent sign-in", async () => {
@@ -182,6 +189,7 @@ describe("DeleteAccountFlow: running the deletion", () => {
     ["plaid", 502, { error: "plaid_removal_failed", retryable: true }, /Disconnect it in Connected banks/],
     ["unavailable", 503, { error: "account_deletion_unavailable" }, /nothing was changed/],
     ["failed", 500, { error: "could not delete account" }, /Your account wasn't deleted/],
+    ["uncertain (gateway timeout)", 504, "<html>Gateway Timeout</html>", /may or may not be deleted. Try again: if deletion had already started, trying again finishes it/],
   ])("shows the %s failure with a retry", async (_kind, status, body, text) => {
     answer(status, body);
     const user = userEvent.setup();

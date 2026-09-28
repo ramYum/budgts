@@ -40,6 +40,7 @@ export function DeleteAccountFlow({
   inProgress,
   initial,
   supportEmail,
+  billing,
   go = fullLoad,
 }: {
   email: string;
@@ -52,6 +53,8 @@ export function DeleteAccountFlow({
   initial: "intro" | "confirm" | "signed_out";
   /** shown on the errors only while the legal pages are live (the contact is an owner fact) */
   supportEmail: string | null;
+  /** this deployment sells subscriptions: say that deleting doesn't cancel one */
+  billing: boolean;
   /** leaves with a full page load (a seam for tests) */
   go?: (url: string) => void;
 }) {
@@ -142,6 +145,7 @@ export function DeleteAccountFlow({
       {stage === "intro" ? (
         <Intro
           inProgress={inProgress}
+          billing={billing}
           onContinue={() => setStage(recent ? "confirm" : "reauth")}
         />
       ) : null}
@@ -161,7 +165,7 @@ function Email({ email }: { email: string }) {
 
 /* ─── Stages ───────────────────────────────────────────────────────────── */
 
-function Intro({ inProgress, onContinue }: { inProgress: boolean; onContinue: () => void }) {
+function Intro({ inProgress, billing, onContinue }: { inProgress: boolean; billing: boolean; onContinue: () => void }) {
   return (
     <>
       {inProgress ? (
@@ -192,7 +196,7 @@ function Intro({ inProgress, onContinue }: { inProgress: boolean; onContinue: ()
         </div>
       </section>
 
-      <StoreNotice />
+      {billing ? <StoreNotice /> : null}
 
       <div className="flex flex-col gap-3 sm:flex-row">
         <Button size="lg" arrow onClick={onContinue} className="w-full sm:w-auto">
@@ -210,7 +214,7 @@ function Fact({ icon, children }: { icon: "receipt" | "bank" | "sign-out"; child
   return (
     <li className="flex items-start gap-3">
       <IconTile name={icon} />
-      <p className="text-pretty pt-1 text-[15px] leading-6 text-graphite md:pt-2">{children}</p>
+      <p className="text-balance pt-1 text-[15px] leading-6 text-graphite md:pt-2">{children}</p>
     </li>
   );
 }
@@ -385,6 +389,10 @@ const ERROR_COPY: Record<ErrorKind, { title: string; body: string }> = {
   unavailable: {
     title: "Deletion is unavailable",
     body: "Account deletion is temporarily unavailable, and nothing was changed. Try again in a few minutes.",
+  },
+  uncertain: {
+    title: "We couldn't confirm it",
+    body: "We didn't get a clear answer from Budgts, so your account may or may not be deleted. Try again: if deletion had already started, trying again finishes it.",
   },
   network: {
     title: "Couldn't reach Budgts",

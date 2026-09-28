@@ -11,7 +11,13 @@ export type DeleteOutcome =
   | { status: "reauth_required" }
   | { status: "unavailable" }
   | { status: "incomplete" }
+  /** 502 plaid_removal_failed: a bank Plaid won't remove. Not deleted; disconnect it in Connected Banks, then retry. */
+  | { status: "plaid" }
+  /** The route's own "could not delete account": it stopped before anything irreversible. Not deleted. */
   | { status: "failed" }
+  /** An answer we can't read (a gateway timeout, an HTML page, an unknown code): it may or may not have run. Retrying
+   *  is safe: it finishes a started deletion or confirms a finished one. */
+  | { status: "uncertain" }
   | { status: "auth" }
   | { status: "network" };
 
@@ -34,8 +40,11 @@ export async function requestAccountDeletion(
   if (r.ok) return { status: "deleted", ...r.data };
   if (r.kind === "auth") return { status: "auth" };
   if (r.kind === "network") return { status: "network" };
+  if (r.kind === "contract") return { status: "uncertain" };
   if (r.code === "reauth_required") return { status: "reauth_required" };
   if (r.code === "account_deletion_unavailable") return { status: "unavailable" };
   if (r.code === "account_deletion_incomplete") return { status: "incomplete" };
-  return { status: "failed" };
+  if (r.code === "plaid_removal_failed") return { status: "plaid" };
+  if (r.status === 500 && r.code === "could not delete account") return { status: "failed" };
+  return { status: "uncertain" };
 }

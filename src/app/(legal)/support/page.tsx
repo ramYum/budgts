@@ -4,6 +4,7 @@ import { ExternalRow, P, textLink } from "@/components/legal/legal-doc";
 import { Icon } from "@/components/icon";
 import { IconTile, SectionHead, buttonClass } from "@/components/ui";
 import { APPLE_MANAGE_URL, GOOGLE_MANAGE_URL } from "@/lib/billing/manage";
+import { billingLive } from "@/lib/billing/config";
 import { requireLegalFacts } from "../require-facts";
 
 export const metadata: Metadata = { title: "Support" };
@@ -86,6 +87,8 @@ export default function SupportPage() {
         </ul>
       </section>
 
+      {/* Only once this deployment sells subscriptions (src/lib/billing/config.ts). */}
+      {billingLive() ? (
       <section className="space-y-3">
         <SectionHead title="Manage or cancel a subscription" />
         <p className="text-pretty text-[15px] leading-6 text-graphite">
@@ -96,6 +99,7 @@ export default function SupportPage() {
           <ExternalRow href={GOOGLE_MANAGE_URL} label="Manage in Google Play" icon="smartphone" />
         </ul>
       </section>
+      ) : null}
 
       <p className="text-[13px] leading-5 text-muted">
         Budgts is published by {f.entityName}, {f.address}.

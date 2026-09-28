@@ -4,6 +4,7 @@ import { DeleteAccountFlow } from "@/components/account/delete-account-flow";
 import { createClient } from "@/lib/supabase/server";
 import { isRecentlyAuthenticated } from "@/lib/account/reauth";
 import { legalFacts } from "@/lib/legal/config";
+import { billingLive } from "@/lib/billing/config";
 import { getPrivilegedCookieUser } from "@/server/privileged-user";
 
 export const metadata: Metadata = { title: "Delete account" };
@@ -23,11 +24,12 @@ export default async function DeleteAccountPage({ searchParams }: PageProps<"/se
   const [user, sp] = await Promise.all([getPrivilegedCookieUser(), searchParams]);
   const facts = legalFacts();
   const supportEmail = facts?.contactEmail ?? null;
+  const billing = billingLive();
 
   if (!user) {
     return (
       <StandaloneShell align="top">
-        <DeleteAccountFlow email="" recent={false} google={false} inProgress={false} initial="signed_out" supportEmail={supportEmail} />
+        <DeleteAccountFlow email="" recent={false} google={false} inProgress={false} initial="signed_out" supportEmail={supportEmail} billing={billing} />
       </StandaloneShell>
     );
   }
@@ -46,6 +48,7 @@ export default async function DeleteAccountPage({ searchParams }: PageProps<"/se
         inProgress={acceptsWrites === false}
         initial={sp.step === "confirm" ? "confirm" : "intro"}
         supportEmail={supportEmail}
+        billing={billing}
       />
     </StandaloneShell>
   );

@@ -41,7 +41,7 @@ test("Settings → Delete account explains first, and keeping the account change
     await page.getByRole("link", { name: /^Delete account/ }).click();
     await expect(page).toHaveURL(/\/settings\/delete-account$/);
     await expect(page.getByText("What's deleted")).toBeVisible();
-    await expect(page.getByText(/does not automatically cancel/)).toBeVisible();
+    await expect(page.getByText("What's kept")).toBeVisible();
 
     await page.getByRole("link", { name: "Keep my account" }).click();
     await expect(page).toHaveURL(/\/settings$/);

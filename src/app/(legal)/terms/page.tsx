@@ -1,18 +1,36 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Bullets, KeyFacts, LegalDoc, P, textLink } from "@/components/legal/legal-doc";
+import { Bullets, KeyFacts, LegalDoc, P, textLink, type KeyFact } from "@/components/legal/legal-doc";
+import { billingLive } from "@/lib/billing/config";
+import { FREE_TODAY, SUBSCRIPTION_TERMS, formatPlanPrice } from "@/lib/billing/plans";
 import { effectiveLine, requireLegalFacts } from "../require-facts";
 
 export const metadata: Metadata = { title: "Terms of service" };
 
 /**
- * The terms of service. The subscription terms are the launch plan's (docs/specs/2026-09-17-mobile-app-launch-design.md
- * §9: $9.99/month or $69/year, a 7-day free trial the user starts, sold only in the apps through Apple and Google, one
- * subscription for the apps and budgts.com, no web checkout). The owner facts come from src/lib/legal/config.ts; without
- * them this page is a 404.
+ * The terms of service. The subscription terms appear only while billing is live on this deployment
+ * (`billingLive()`, from the billing configuration the routes already use): until then Budgts is free, and the page says
+ * so in one line. Prices and the trial length come from src/lib/billing/plans.ts (launch plan, spec §9: sold only in the
+ * apps through Apple and Google, one subscription for the apps and budgts.com, no web checkout). The owner facts come
+ * from src/lib/legal/config.ts; without them this page is a 404.
  */
 export default function TermsPage() {
   const f = requireLegalFacts();
+  const paid = billingLive();
+  const trial = `${SUBSCRIPTION_TERMS.trialDays}-day free trial`;
+  const facts: KeyFact[] = paid
+    ? [
+        { icon: "budgets", title: "A budgeting tool", body: "Not financial, tax or legal advice. Check key figures with your bank." },
+        { icon: "smartphone", title: "Bought in the app", body: "Subscriptions are billed by Apple or Google, never on the website." },
+        { icon: "pending", title: trial.charAt(0).toUpperCase() + trial.slice(1), body: "You start it yourself. Cancel at least 24 hours before it ends and you pay nothing." },
+        { icon: "trash", title: "Leave any time", body: "Delete your account whenever you like, in the app or on the web." },
+      ]
+    : [
+        { icon: "budgets", title: "A budgeting tool", body: "Not financial, tax or legal advice. Check key figures with your bank." },
+        { icon: "coins", title: "Free today", body: "Before any paid plan starts, we'll update these terms." },
+        { icon: "eye", title: "Read-only bank access", body: "Budgts can read your accounts. It can't move money." },
+        { icon: "trash", title: "Leave any time", body: "Delete your account whenever you like, in the app or on the web." },
+      ];
   const mail = (
     <a href={`mailto:${f.contactEmail}`} className={textLink}>
       {f.contactEmail}
@@ -32,12 +50,7 @@ export default function TermsPage() {
       lead={
         <KeyFacts
           title="The short version"
-          facts={[
-            { icon: "budgets", title: "A budgeting tool", body: "Not financial, tax or legal advice. Check key figures with your bank." },
-            { icon: "smartphone", title: "Bought in the app", body: "Subscriptions are billed by Apple or Google, never on the website." },
-            { icon: "pending", title: "7-day free trial", body: "You start it yourself. Cancel before it ends and you pay nothing." },
-            { icon: "trash", title: "Leave any time", body: "Delete your account whenever you like, in the app or on the web." },
-          ]}
+          facts={facts}
         />
       }
       sections={[
@@ -47,27 +60,29 @@ export default function TermsPage() {
           body: (
             <P>
               You must be at least 18 to use Budgts. Keep your email account and devices secure, because a sign-in link or a
-              Google or Apple sign-in is how you get into Budgts. You are responsible for what happens in your account and for
+              Google sign-in is how you get into Budgts. You are responsible for what happens in your account and for
               the accuracy of what you enter.
             </P>
           ),
         },
-        {
+        paid
+          ? {
           id: "subscriptions",
           title: "Subscriptions and the free trial",
           body: (
             <Bullets
               items={[
                 "Budgts' subscription is sold only in the Budgts apps for iPhone and Android, and billed by Apple or Google. budgts.com has no checkout. One subscription covers the apps and budgts.com.",
-                "The plans are $9.99 a month or $69 a year in the United States. Your store shows the price in your currency before you buy.",
-                "The 7-day free trial starts only when you choose to start it. When it ends, the plan you picked begins and renews automatically each month or year until you cancel.",
+                `The plans are ${formatPlanPrice(SUBSCRIPTION_TERMS.monthlyMinor)} a month or ${formatPlanPrice(SUBSCRIPTION_TERMS.annualMinor)} a year in the United States. Your store shows the price in your currency before you buy.`,
+                `The ${trial} starts only when you choose to start it. When it ends, the plan you picked begins and renews automatically each month or year until you cancel.`,
                 "To avoid the next charge, cancel at least 24 hours before the trial or the current period ends, in your App Store or Google Play account settings. Budgts can't cancel it for you.",
                 "Apple and Google handle refunds under their own policies.",
                 "Deleting your Budgts account doesn't cancel a store subscription.",
               ]}
             />
           ),
-        },
+        }
+          : { id: "price", title: "Price", body: <P>{FREE_TODAY}</P> },
         {
           id: "your-information",
           title: "Your financial information",

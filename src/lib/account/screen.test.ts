@@ -16,19 +16,23 @@ describe("outcomeFromResponse: every answer of POST /api/account/delete has one 
     [500, { error: "account_deletion_incomplete", retryable: true }, { kind: "incomplete" }],
     [502, { error: "plaid_removal_failed", retryable: true }, { kind: "plaid" }],
     [500, { error: "could not delete account" }, { kind: "failed" }],
-    [500, null, { kind: "failed" }],
-    [404, "<html>", { kind: "failed" }],
+    [500, null, { kind: "uncertain" }],
+    [504, null, { kind: "uncertain" }],
+    [502, "<html>Bad gateway</html>", { kind: "uncertain" }],
+    [500, { error: "something new" }, { kind: "uncertain" }],
+    [404, "<html>", { kind: "uncertain" }],
   ])("%i %j", (status, body, expected) => {
     expect(outcomeFromResponse(status, body)).toEqual(expected);
   });
 
-  it("never reads a 2xx without ok:true as deleted", () => {
-    expect(outcomeFromResponse(200, {}).kind).toBe("failed");
-    expect(outcomeFromResponse(200, null).kind).toBe("failed");
+  it("never reads a 2xx without ok:true as deleted, nor as not deleted", () => {
+    expect(outcomeFromResponse(200, {}).kind).toBe("uncertain");
+    expect(outcomeFromResponse(200, null).kind).toBe("uncertain");
   });
 
-  it("does not take an unrelated 403 for a stale sign-in", () => {
-    expect(outcomeFromResponse(403, { error: "forbidden" }).kind).toBe("failed");
+  it("says 'wasn't deleted' only for the route's own answer", () => {
+    expect(outcomeFromResponse(500, { error: "could not delete account" }).kind).toBe("failed");
+    expect(outcomeFromResponse(403, { error: "forbidden" }).kind).toBe("uncertain");
   });
 });
 

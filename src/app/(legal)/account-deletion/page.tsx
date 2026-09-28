@@ -5,6 +5,7 @@ import { Icon } from "@/components/icon";
 import { IconTile, LinkButton, SectionHead } from "@/components/ui";
 import { APPLE_MANAGE_URL, DELETION_SUBSCRIPTION_NOTICE, GOOGLE_MANAGE_URL } from "@/lib/billing/manage";
 import { yearsLabel } from "@/lib/legal/config";
+import { billingLive } from "@/lib/billing/config";
 import { requireLegalFacts } from "../require-facts";
 
 export const metadata: Metadata = { title: "Delete your account" };
@@ -75,7 +76,7 @@ export default function AccountDeletionPage() {
           <P>
             Only if you ever paid for a subscription: the billing records of those payments, with your email and sign-in
             details removed, for {yearsLabel(f.retentionYears)} after deletion for accounting, tax and store reconciliation.
-            Then they&apos;re deleted too.
+            Then they&apos;re deleted in line with our retention schedule.
           </P>
           <P>
             Deletion starts as soon as you confirm and can&apos;t be undone. Copies in our database provider&apos;s backups
@@ -88,6 +89,8 @@ export default function AccountDeletionPage() {
         </div>
       </section>
 
+      {/* Only once this deployment sells subscriptions (src/lib/billing/config.ts). */}
+      {billingLive() ? (
       <section className="space-y-3">
         <SectionHead title="Your subscription" />
         <div className="px-warn flex items-start gap-3 p-3 md:p-4">
@@ -101,6 +104,7 @@ export default function AccountDeletionPage() {
           <ExternalRow href={GOOGLE_MANAGE_URL} label="Manage in Google Play" icon="smartphone" />
         </ul>
       </section>
+      ) : null}
 
       <section className="space-y-2">
         <SectionHead title="Can't sign in?" />

@@ -42,3 +42,14 @@ export function loadBillingConfig(env: Record<string, string | undefined> = proc
     siteUrl: (clean(env.NEXT_PUBLIC_SITE_URL) ?? "https://budgts.com").replace(/\/+$/, ""),
   };
 }
+
+/**
+ * Whether THIS deployment sells subscriptions for real: it accepts production store events
+ * (`BILLING_ENVIRONMENT=production`) and can verify them (the webhook signing secret is set). Derived from the same
+ * configuration the billing routes already refuse on, never a separate flag. Public pages (Terms, Support, the deletion
+ * screens) describe paid plans and store cancellation only while this is true; a sandbox or unconfigured deployment
+ * says Budgts is free today.
+ */
+export function billingLive(config: BillingConfig = loadBillingConfig()): boolean {
+  return config.environment === "production" && config.webhookSigningSecret !== null;
+}

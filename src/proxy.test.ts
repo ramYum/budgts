@@ -23,6 +23,8 @@ describe("isPublic", () => {
   it("lets the native app's Bearer-authenticated API through to its own 401", () => {
     expect(isPublic("/api/mobile/session")).toBe(true);
     expect(isPublic("/api/mobile/profile")).toBe(true);
+    expect(isPublic("/api/billing/entitlement")).toBe(true);
+    expect(isPublic("/api/billing/webhook/revenuecat")).toBe(true);
     // a lookalike path is not the native API
     expect(isPublic("/api/mobileish")).toBe(false);
   });

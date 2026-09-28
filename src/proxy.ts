@@ -19,6 +19,11 @@ const PUBLIC_PREFIXES = [
   // a cookie-less native request would be 307-redirected to the HTML
   // /sign-in page before the handler's own check ever ran.
   "/api/mobile/",
+  // Billing routes authenticate themselves: the entitlement endpoints through
+  // getRequestUser() (cookie or Bearer), the RevenueCat webhook by the
+  // provider's signature, the reconcile cron by CRON_SECRET. Each answers its
+  // own 401; the proxy must not 307 a cookie-less caller to /sign-in first.
+  "/api/billing/",
 ];
 
 export function isPublic(pathname: string) {

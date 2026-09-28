@@ -305,8 +305,13 @@ guessed here).
      "Production ledger: known pre-existing drift" in the migrations doc.
   3. ✅ Read-only probe: all 9 rows `true` (checked twice, by the migrating
      agent and independently).
-  4. Deploy: **not done, needs the owner's go-ahead.** Production's schema
-     is now ready for the Stage 0 build.
+  4. ✅ Deployed 2026-09-28 12:24Z (owner: "deploy."): `main` fast-forwarded
+     `e5cfbda` → `a72380a`, `dpl_zqRjsbGWrShTYar6vJqKhpGjnmPR` Ready, build log
+     "✓ Production env check passed", CI on `main` green (check + mobile).
+     Live checks: `/` 307, `/sign-in` 200, `/app/plaid-oauth` 200, the mobile
+     API, link-token and account delete 401 without a token, `.well-known` 404
+     (env unset), billing webhook 503 and the other billing routes 401
+     (switched off); no errors in the deployment's logs.
 
   The probe is `supabase/probes/0019-0024-preflight.sql` (also run by
   `tests/unit/db-migration-chain.test.ts` against the migrated chain, so it

@@ -1150,21 +1150,50 @@ implementation goes to `budgts-architect`.
     each call into its arguments, rejects interpolated template strings and raw errors
     beside a safe call, and covers `console.log` / `info` across `src/lib`.
 
-- **2026-09-27 — Stage 0: the shelved mobile work ported onto `main` (local, not pushed).** Branch
-  `phase-m/stage0-port` from `e5cfbda`, ten commits (`7ba8a09` … this one), plan in
+- **2026-09-27 to 28 — Stage 0: the shelved mobile work ported (finished 2026-09-28; local, not pushed).** Branch
+  `phase-m/stage0-port` from `e5cfbda` (`main`, live budgts.com): 13 commits (`7ba8a09` … this one: ten port chunks,
+  a CLAUDE.md/AGENTS.md docs commit, and two after an independent review scored the port 8.8/10). The branch is to
+  be fast-forwarded into `phase-m/mobile-launch` after the review; that has not happened yet. Plan:
   `docs/superpowers/plans/2026-09-27-stage0-port.md`. Source: `mobile/native-home` (`901ebfd`); the older archive
   branch was a superseded snapshot.
   - Migrations `0019`–`0024` (deletion indexes, write guard + disconnect exception, the ten-table ledger, entitlements
     and billing events without the reminder columns), proven from empty on embedded Postgres. Staging is not migrated
-    (it holds the shelved numbering); the rebuild procedure is recorded, pending the owner.
-  - Bearer auth verified locally with `getClaims`; `/api/mobile/*` (session, profile with the time zone, onboarding,
-    home, budgets, transactions, accounts, categories, Plaid banks / sync / mapping / exclude / importing). Shared
-    commands rebuilt from `main`'s actions; Home's reads moved into `src/lib/home/load-home.ts` for the web and the API
-    (no money-math change), and an e2e checks the web Home shows the API's numbers.
+    (it holds the shelved numbering); the rebuild procedure is recorded, pending the owner. They must reach
+    production before the build (`docs/deploy.md` → Notes, with a read-only probe).
+  - Bearer auth verified locally with `getClaims`; `/api/mobile/*` (session, profile with the time zone and the
+    user's `month` / `today`, onboarding, home, budgets, transactions, accounts, categories, Plaid banks / sync /
+    mapping / exclude / importing). Shared commands rebuilt from `main`'s actions; Home's reads moved into
+    `src/lib/home/load-home.ts` for the web and the API (no money-math change), and an e2e checks the web Home shows
+    the API's numbers.
+  - `/api/plaid/link-token` and `/api/plaid/exchange` accept cookie or Bearer and **refuse a deleting account** (409).
+    `/api/plaid/item` and the sandbox test seed accept cookie or Bearer too, but do **not** refuse: disconnecting a
+    bank stays allowed during deletion (migration `0022`), and the seed only mints a sandbox token.
   - Account deletion (Path A / Path B, strict Plaid removal, deadlock retry), proven on staging including against a
     leased sync. Billing ported switched off ($9.99 / $69, 7-day trial, no reminder).
   - `mobile/` with "today" / "this month" from the server in the user's zone, and the device zone synced on
-    foreground.
-  - Also fixed: `src/app/pixel-frames.css` is pinned to LF, because a fresh autocrlf checkout failed its byte-for-byte test.
-  - Left for later: legal pages + deletion screens (Phase 1), shared tokens + restyle (Phases 2–3), `requirePremium`
-    wiring + Manage Subscription (Phase 4), staging rebuild (owner decision).
+    foreground. Settings' legal links are hidden until Phase 1 builds the pages.
+  - Also fixed: `src/app/pixel-frames.css` is pinned to LF, because a fresh autocrlf checkout failed its byte-for-byte
+    test. CI gains a `mobile/` job (tests + typecheck); running it standalone showed vitest's `vite` peer only
+    resolved from the web app's `node_modules`, so `mobile/` now declares it.
+  - **Review fixes (2026-09-28):** the mobile Today/Yesterday label used a UTC "today" (a Los Angeles user saw today's
+    entries as "Yesterday" after 5 pm); it now uses the server's `today`. Direct tests for the Plaid commands and the
+    connected-banks read. Deploy order + probe. An exit link on `/app/plaid-oauth`. A pre-existing same-owner gap on
+    account ids recorded in `docs/security.md`.
+  - **Verification.** Clean worktree of `6575c83` (the last code commit; the final commit changes docs only):
+    `npm ci`, lint, typecheck, build pass; web vitest 1496/1496 (141 files); `mobile/` `npm ci`, vitest 216/216,
+    typecheck. Before the review: web vitest 1469/1469 (139 files), mobile 212/212, staging integration 155/172 (the 17 failures
+    below), e2e on isolated staging builds (mobile-bearer-auth 4/4, mobile-data-api 3/3, mobile-plaid-api 2/2,
+    plaid.spec 1/1, smoke 5/5, settings, goals, tour, time-zone, router-cache 2/2, budgets).
+  - **`transactions.spec` A/B (2026-09-28).** Isolated staging builds of the port (`6575c83`) and of `e5cfbda`, run
+    alternately A, B, A, B, A, B on the same machine at the same load: port 3/3 passed (12.0 s, 6.4 s, 7.4 s),
+    `e5cfbda` 3/3 passed (8.8 s, 19.9 s, 6.1 s). No regression: the earlier failures were load (both builds had failed
+    it under heavier load earlier the same session: port 2 of 8 runs passed, `e5cfbda` 2 of 6).
+  - **Pre-existing follow-ups found while verifying (not caused by the port):**
+    - 16 recurring / bill / subscription detection integration tests fail on staging, identically on clean
+      `e5cfbda`. Root cause: the scan cutoff comes from this machine's clock while `transactions.created_at` comes
+      from the staging database's `now()` (about 0.32 s ahead), so fresh rows fall after the cutoff. Fix in the test
+      harness, or take the scan time from the database.
+    - The Path B concurrency test's "a deadlock must actually happen" condition does not trigger on current staging
+      data; the deletion itself succeeds and anonymizes fully.
+  - Left for later: legal pages + deletion screens + restoring the mobile legal links (Phase 1), shared tokens +
+    restyle (Phases 2–3), `requirePremium` wiring + Manage Subscription (Phase 4), staging rebuild (owner decision).

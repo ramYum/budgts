@@ -45,11 +45,12 @@ export function loadBillingConfig(env: Record<string, string | undefined> = proc
 
 /**
  * Whether THIS deployment sells subscriptions for real: it accepts production store events
- * (`BILLING_ENVIRONMENT=production`) and can verify them (the webhook signing secret is set). Derived from the same
+ * (`BILLING_ENVIRONMENT=production`), can verify them (the webhook signing secret is set) and can ask RevenueCat
+ * directly (`REVENUECAT_SECRET_API_KEY`, which refresh, reconcile and the deletion billing check need). Derived from the same
  * configuration the billing routes already refuse on, never a separate flag. Public pages (Terms, Support, the deletion
  * screens) describe paid plans and store cancellation only while this is true; a sandbox or unconfigured deployment
  * says Budgts is free today.
  */
 export function billingLive(config: BillingConfig = loadBillingConfig()): boolean {
-  return config.environment === "production" && config.webhookSigningSecret !== null;
+  return config.environment === "production" && config.webhookSigningSecret !== null && config.secretApiKey !== null;
 }

@@ -30,6 +30,7 @@ function switchOn() {
 function billingOn() {
   vi.stubEnv("BILLING_ENVIRONMENT", "production");
   vi.stubEnv("REVENUECAT_WEBHOOK_SIGNING_SECRET", "test-secret");
+  vi.stubEnv("REVENUECAT_SECRET_API_KEY", "test-key");
 }
 function billingOff() {
   vi.stubEnv("BILLING_ENVIRONMENT", "");

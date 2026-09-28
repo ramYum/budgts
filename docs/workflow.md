@@ -1256,7 +1256,7 @@ implementation goes to `budgts-architect`.
     4/4, smoke 5/5, settings.
   - **Owner:** the six legal facts (`docs/deploy.md` → "Legal pages"), after reviewing the drafted wording.
   - **Review fixes (2026-09-28, independent review 8.7).** Paid wording now follows billing, not the calendar:
-    `billingLive()` (`src/lib/billing/config.ts`, from `BILLING_ENVIRONMENT=production` + the webhook secret, the
+    `billingLive()` (`src/lib/billing/config.ts`, from `BILLING_ENVIRONMENT=production` + the webhook secret + the RevenueCat secret API key (added after re-review), the
     configuration the billing routes already use) decides whether Terms, Privacy, Support, `/account-deletion` and the
     delete intro mention plans, trials, RevenueCat or store cancellation; until then the Terms say "Budgts is free
     today. Before any paid plan starts, we'll update these terms." Prices and trial length come from

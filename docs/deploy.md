@@ -297,10 +297,11 @@ Before setting the date, the owner (or counsel) reviews the drafted wording, inc
 derive: minimum age 18 in the Terms, "not directed to children under 13", the liability cap (fees paid in the last 12
 months), and the store links. Then give Google's OAuth consent screen and both store listings the URLs.
 
-Paid wording is separate from this switch: until billing is live (`BILLING_ENVIRONMENT=production` and
-`REVENUECAT_WEBHOOK_SIGNING_SECRET` set, `billingLive()` in `src/lib/billing/config.ts`) the Terms say "Budgts is free
+Paid wording is separate from this switch: until billing is live (`BILLING_ENVIRONMENT=production`,
+`REVENUECAT_WEBHOOK_SIGNING_SECRET` and `REVENUECAT_SECRET_API_KEY` set, `billingLive()` in `src/lib/billing/config.ts`) the Terms say "Budgts is free
 today" and no page mentions plans, trials or store cancellation. Prices and the trial length live in
-`src/lib/billing/plans.ts` (change the annual price there if it moves to $79).
+`src/lib/billing/plans.ts` (change the annual price there if it moves to $79). Terms, Support and `/account-deletion`
+are prerendered at build time, so switching billing on (or off) also needs a redeploy, like the legal facts.
 
 ## Notes
 

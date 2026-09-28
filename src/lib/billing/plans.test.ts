@@ -20,7 +20,14 @@ describe("billingLive", () => {
     expect(billingLive(loadBillingConfig({ REVENUECAT_WEBHOOK_SIGNING_SECRET: "s", BILLING_ENVIRONMENT: "sandbox" }))).toBe(false);
     expect(billingLive(loadBillingConfig({ BILLING_ENVIRONMENT: "production" }))).toBe(false);
   });
+  it("is off in production with the signing secret but no RevenueCat secret API key (refresh and reconcile would be unavailable)", () => {
+    expect(billingLive(loadBillingConfig({ REVENUECAT_WEBHOOK_SIGNING_SECRET: "s", BILLING_ENVIRONMENT: "production" }))).toBe(false);
+  });
   it("is on for a production deployment that can verify store events", () => {
-    expect(billingLive(loadBillingConfig({ REVENUECAT_WEBHOOK_SIGNING_SECRET: "s", BILLING_ENVIRONMENT: "production" }))).toBe(true);
+    expect(
+      billingLive(
+        loadBillingConfig({ REVENUECAT_WEBHOOK_SIGNING_SECRET: "s", REVENUECAT_SECRET_API_KEY: "k", BILLING_ENVIRONMENT: "production" }),
+      ),
+    ).toBe(true);
   });
 });

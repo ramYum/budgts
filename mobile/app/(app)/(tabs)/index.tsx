@@ -147,7 +147,7 @@ function HomeContent({ home }: { home: MobileHome }) {
         ) : (
           <View style={styles.card}>
             {home.recent.map((a, i) => (
-              <ActivityRow key={a.id} item={a} money={money} last={i === home.recent.length - 1} />
+              <ActivityRow key={a.id} item={a} today={home.today} money={money} last={i === home.recent.length - 1} />
             ))}
           </View>
         )}
@@ -226,10 +226,13 @@ function CategoryRow({
 
 function ActivityRow({
   item,
+  today,
   money,
   last,
 }: {
   item: HomeActivity;
+  /** The user's today from the server (their stored time zone). */
+  today: string;
   money: (n: number) => string;
   last: boolean;
 }) {
@@ -241,7 +244,7 @@ function ActivityRow({
           {item.description || "Transaction"}
         </Text>
         <Text style={styles.muted} numberOfLines={1}>
-          {formatActivityDay(item.occurredAt)}
+          {formatActivityDay(item.occurredAt, today)}
           {item.isTransfer ? " · Transfer" : item.category ? ` · ${item.category.name}` : ""}
         </Text>
       </View>

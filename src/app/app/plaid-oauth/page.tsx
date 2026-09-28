@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Robin } from "@/components/mascot";
 import { StandaloneShell } from "@/components/standalone-shell";
-import { Badge, Stage } from "@/components/ui";
+import Link from "next/link";
+import { Icon } from "@/components/icon";
+import { Badge, Stage, buttonClass } from "@/components/ui";
 
 export const metadata: Metadata = { title: "Return to Budgts" };
 
@@ -29,6 +31,11 @@ export default function NativePlaidReturnPage() {
             installed, install Budgts from the App Store or Google Play, sign in, and connect your bank again.
           </p>
         </div>
+        {/* The exit when this opened on a computer or the app isn't to hand: the web app (sign-in if needed). */}
+        <Link href="/" className={buttonClass("primary", "", "lg")}>
+          <Icon name="back" />
+          Go to budgts.com
+        </Link>
       </div>
     </StandaloneShell>
   );

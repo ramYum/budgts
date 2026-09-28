@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { legalUrl } from "./legal";
+import { LEGAL_PAGES_LIVE, legalUrl, settingsLegalLinks } from "./legal";
 
 describe("legalUrl", () => {
   it("builds the hosted page URL from the API base", () => {
@@ -16,5 +16,21 @@ describe("legalUrl", () => {
   it("is null when the base URL is not configured, never a broken link", () => {
     expect(legalUrl(undefined, "privacy")).toBeNull();
     expect(legalUrl("", "privacy")).toBeNull();
+  });
+});
+
+describe("settingsLegalLinks", () => {
+  it("shows no legal links until Phase 1 builds the pages (a tap would dead-end on a 404 or sign-in)", () => {
+    expect(LEGAL_PAGES_LIVE).toBe(false);
+    expect(settingsLegalLinks("https://budgts.com")).toEqual([]);
+  });
+
+  it("once live, lists each page with its URL, and none without a base URL", () => {
+    expect(settingsLegalLinks("https://budgts.com", true).map((l) => l.url)).toEqual([
+      "https://budgts.com/privacy",
+      "https://budgts.com/terms",
+      "https://budgts.com/support",
+    ]);
+    expect(settingsLegalLinks(undefined, true)).toEqual([]);
   });
 });

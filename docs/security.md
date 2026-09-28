@@ -106,6 +106,18 @@ Each item needs a test or an explicit check before store submission.
   re-throw a PostgREST message as a plain `Error` (`account-exclusion.ts`,
   `fetch-all-rows.ts`, `supabase-store.ts`, `transaction-update.ts`,
   `current-profile.ts`); re-throw with a fixed message and `{ cause }`.
+- **Still open (follow-up, pre-existing; found in the Stage 0 review):** a
+  write that names an account by id does not check the account belongs to the
+  same user. Manual transactions (`landTransaction`, web and native) and
+  account mapping's "existing" mode (`mapAccountsFor`) accept any account
+  UUID; RLS checks the row's own `user_id`, and the foreign key only checks
+  that the account exists. With a leaked account UUID, another user could
+  point their own row at it, and the `ON DELETE RESTRICT` foreign key on
+  `transactions.account_id` would then block the victim's account deletion
+  (and leave the attacker's row referencing it). No data is exposed (RLS
+  still hides the victim's rows). Fix in a future migration with a same-owner
+  guarantee: a composite foreign key (`(account_id, user_id)` →
+  `accounts(id, user_id)`) or a trigger. Not changed in the Stage 0 port.
 - **Owner:** earlier failures may have left `PLAID_SECRET` in Vercel's
   runtime logs. Rotating it in the Plaid dashboard (then updating Vercel
   Production) closes that; also check that no log drain forwards Vercel logs

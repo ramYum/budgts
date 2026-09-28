@@ -287,6 +287,24 @@ guessed here).
   layout selects `profiles.time_zone`, so deploying first would have failed
   every signed-in page. Order: apply it (`MIGRATE_CONFIRM_REF=<prod ref>`,
   owner approval), confirm the schema and row counts, then deploy.
+- **`0019`–`0024` (Stage 0 port) also go before the build that reads them.**
+  Once that build is live, `/api/plaid/link-token` and `/api/plaid/exchange`
+  read `account_deletions` on every call, the billing routes read
+  `entitlements` / `billing_events`, and account deletion reads the ledger
+  tables. Deploying first would break **bank connection for every web user**
+  (and deletion). Order, with owner approval at each production step:
+  1. Staging first: it holds these tables under the shelved numbering, so it
+     needs the rebuild in `docs/operations/database-migrations.md` (pending)
+     before `db:migrate` can run there.
+  2. Production: `npm run db:migrate` with `MIGRATE_CONFIRM_REF=<prod ref>`,
+     then `npm run db:verify-history`.
+  3. Run the read-only probe in the production SQL editor. Every row
+     must say `true`; if any says `false`, do not deploy.
+  4. Deploy.
+
+  The probe is `supabase/probes/0019-0024-preflight.sql` (also run by
+  `tests/unit/db-migration-chain.test.ts` against the migrated chain, so it
+  cannot drift from the migrations).
 - The free Supabase project **pauses after 7 idle days** and has no
   backups; **Supabase Pro is required before selling**.
 - Vercel Hobby is personal / non-commercial only; **Vercel Pro is required

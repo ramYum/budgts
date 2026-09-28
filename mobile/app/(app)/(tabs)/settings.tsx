@@ -5,16 +5,10 @@ import { useRouter } from "expo-router";
 import { useAuth } from "../../../lib/auth/auth-context";
 import { describeFlow, describeSubscription } from "../../../lib/billing/describe";
 import { useMonetization } from "../../../lib/billing/use-monetization";
-import { legalUrl, type LegalPage } from "../../../lib/legal";
+import { settingsLegalLinks } from "../../../lib/legal";
 import { useProfile } from "../../../lib/profile/profile-context";
 import { colors, fonts, radii } from "../../../lib/theme";
 import { OutlineButton, PrimaryButton, TextLink } from "../../../components/ui";
-
-const LINKS: { page: LegalPage; label: string; testID: string }[] = [
-  { page: "privacy", label: "Privacy Policy", testID: "settings-privacy" },
-  { page: "terms", label: "Terms of Service", testID: "settings-terms" },
-  { page: "support", label: "Help & support", testID: "settings-support" },
-];
 
 /**
  * Settings: account, subscription (status from the server-authoritative entitlement, paywall, Restore Purchases, Manage
@@ -32,11 +26,8 @@ export default function SettingsScreen() {
   const flow = describeFlow(m.state);
   const base = process.env.EXPO_PUBLIC_API_BASE_URL;
 
-  const open = (page: LegalPage) => {
-    const url = legalUrl(base, page);
-    if (url) void Linking.openURL(url);
-  };
-  const links = LINKS.filter((l) => legalUrl(base, l.page) !== null);
+  // Hidden until Phase 1 builds the pages (LEGAL_PAGES_LIVE in lib/legal.ts); the About card then renders on its own.
+  const links = settingsLegalLinks(base);
   const subscribed = m.entitlement !== null && m.entitlement.status !== "none";
 
   return (
@@ -92,7 +83,7 @@ export default function SettingsScreen() {
           <Card label="About">
             <View style={styles.links}>
               {links.map((l) => (
-                <TextLink key={l.page} testID={l.testID} onPress={() => open(l.page)}>
+                <TextLink key={l.page} testID={l.testID} onPress={() => void Linking.openURL(l.url)}>
                   {l.label}
                 </TextLink>
               ))}

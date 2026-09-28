@@ -35,15 +35,24 @@ describe("formatMonthLabel", () => {
   });
 });
 
-describe("formatActivityDay (stored UTC calendar day, like the web)", () => {
-  const now = new Date("2026-09-19T15:00:00Z");
+describe("formatActivityDay (stored UTC calendar day against the user's own today, like the web)", () => {
+  it("says Today and Yesterday relative to the server's today", () => {
+    expect(formatActivityDay("2026-09-19T12:00:00.000Z", "2026-09-19", "en-US")).toBe("Today");
+    expect(formatActivityDay("2026-09-18T12:00:00.000Z", "2026-09-19", "en-US")).toBe("Yesterday");
+  });
 
-  it("says Today and Yesterday", () => {
-    expect(formatActivityDay("2026-09-19T01:00:00.000Z", now, "en-US")).toBe("Today");
-    expect(formatActivityDay("2026-09-18T23:00:00.000Z", now, "en-US")).toBe("Yesterday");
+  it("a Los Angeles user at 6 pm sees today's entry as Today, though UTC has already moved on", () => {
+    // 2026-09-19 18:00 in Los Angeles is 2026-09-20 01:00 UTC. The server says the user's today is 2026-09-19; an entry
+    // made today is stored at noon UTC on the 19th. A UTC "today" (the 20th) would have mislabelled it "Yesterday".
+    expect(formatActivityDay("2026-09-19T12:00:00.000Z", "2026-09-19", "en-US")).toBe("Today");
+    expect(formatActivityDay("2026-09-18T12:00:00.000Z", "2026-09-19", "en-US")).toBe("Yesterday");
+  });
+
+  it("crosses month and year ends", () => {
+    expect(formatActivityDay("2025-12-31T12:00:00.000Z", "2026-01-01", "en-US")).toBe("Yesterday");
   });
 
   it("otherwise shows a short date", () => {
-    expect(formatActivityDay("2026-09-16T12:00:00.000Z", now, "en-US")).toBe("Sep 16");
+    expect(formatActivityDay("2026-09-16T12:00:00.000Z", "2026-09-19", "en-US")).toBe("Sep 16");
   });
 });

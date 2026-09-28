@@ -8,7 +8,9 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { PGlite } from "@electric-sql/pglite";
-import { createAuthUser, migrate, newMigratedDb, newSupabaseStub, readJournal } from "./helpers/pglite-db";
+import fs from "node:fs";
+import path from "node:path";
+import { createAuthUser, MIGRATIONS_DIR, migrate, newMigratedDb, newSupabaseStub, readJournal } from "./helpers/pglite-db";
 
 const journal = readJournal();
 
@@ -177,6 +179,32 @@ describe("migration chain from an empty database", () => {
       await expect(pg.query(`delete from payments where external_transaction_id = 'txn-1'`)).rejects.toThrow(/immutable financial fact/);
     });
   });
+});
+
+describe("the pre-deploy production probe (supabase/probes/0019-0024-preflight.sql)", () => {
+  const probe = fs.readFileSync(path.join(MIGRATIONS_DIR, "..", "probes", "0019-0024-preflight.sql"), "utf8");
+
+  it("passes on a database that has every migration", async () => {
+    const pg = await newMigratedDb();
+    try {
+      const rows = (await pg.query<{ check: string; ok: boolean }>(probe)).rows;
+      expect(rows.length).toBeGreaterThanOrEqual(9);
+      expect(rows.filter((r) => !r.ok).map((r) => r.check)).toEqual([]);
+    } finally {
+      await pg.close();
+    }
+  }, 120_000);
+
+  it("fails on production as it is today (0000-0018), so it would stop a deploy that came first", async () => {
+    const pg = await newSupabaseStub();
+    try {
+      await migrate(pg, { upTo: 19 });
+      const rows = (await pg.query<{ check: string; ok: boolean }>(probe)).rows;
+      expect(rows.every((r) => !r.ok)).toBe(true);
+    } finally {
+      await pg.close();
+    }
+  }, 120_000);
 });
 
 describe("production-like release: an existing database receives the pending migrations in ONE run", () => {

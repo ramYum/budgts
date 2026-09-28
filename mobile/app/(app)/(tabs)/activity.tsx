@@ -26,7 +26,7 @@ export default function ActivityScreen() {
   const { state: profile } = useProfile();
   const currency = profile.status === "ready" ? profile.profile.currency : "USD";
 
-  const { month: thisMonth } = useUserDates();
+  const { month: thisMonth, today } = useUserDates();
   const [month, setMonth] = useState(thisMonth);
   const [category, setCategory] = useState<string | null>(null);
   const [searchText, setSearchText] = useState("");
@@ -86,7 +86,7 @@ export default function ActivityScreen() {
         <FlatList
           data={list.state.page.items}
           keyExtractor={(t) => t.id}
-          renderItem={({ item }) => <Row t={item} currency={currency} onPress={() => openEditor(item)} />}
+          renderItem={({ item }) => <Row t={item} today={today} currency={currency} onPress={() => openEditor(item)} />}
           contentContainerStyle={styles.listContent}
           refreshControl={<RefreshControl refreshing={list.refreshing} onRefresh={() => void list.refresh()} tintColor={colors.accent} />}
           onEndReachedThreshold={0.5}
@@ -120,9 +120,9 @@ export default function ActivityScreen() {
   );
 }
 
-function Row({ t, currency, onPress }: { t: MobileTransaction; currency: string; onPress: () => void }) {
+function Row({ t, today, currency, onPress }: { t: MobileTransaction; today: string; currency: string; onPress: () => void }) {
   const credit = t.direction === "credit";
-  const sub = [t.category?.name ?? (t.isTransfer ? "Transfer" : null), t.account.name, formatActivityDay(t.occurredAt)].filter(Boolean).join(" · ");
+  const sub = [t.category?.name ?? (t.isTransfer ? "Transfer" : null), t.account.name, formatActivityDay(t.occurredAt, today)].filter(Boolean).join(" · ");
   return (
     <Pressable testID={`txn-${t.id}`} accessibilityRole="button" onPress={onPress} style={styles.row}>
       <View style={styles.rowMain}>

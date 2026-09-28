@@ -1,3 +1,5 @@
+import { shiftDate } from "../dates";
+
 /**
  * Display-only formatting for the Home screen. Mirrors the web app's
  * `src/lib/budget/money.ts` presentation (integer minor units, 2 decimals —
@@ -27,12 +29,14 @@ export function formatMonthLabel(month: string, locale?: string): string {
   );
 }
 
-/** The stored UTC calendar day, like the web's Activity list: Today / Yesterday / "Sep 16". */
-export function formatActivityDay(iso: string, now: Date = new Date(), locale?: string): string {
+/**
+ * Today / Yesterday / "Sep 16" for a transaction, like the web's `relativeDayLabel` (`src/lib/local-date.ts`). The
+ * transaction's day is its stored UTC calendar day (dates are stored at noon UTC); `todayKey` is the user's own today
+ * (`YYYY-MM-DD`) from the server, in their stored time zone, never the device's or UTC's clock.
+ */
+export function formatActivityDay(iso: string, todayKey: string, locale?: string): string {
   const day = new Date(iso).toISOString().slice(0, 10);
-  const today = now.toISOString().slice(0, 10);
-  const yesterday = new Date(now.getTime() - 86400000).toISOString().slice(0, 10);
-  if (day === today) return "Today";
-  if (day === yesterday) return "Yesterday";
+  if (day === todayKey) return "Today";
+  if (day === shiftDate(todayKey, -1)) return "Yesterday";
   return new Date(iso).toLocaleDateString(locale, { month: "short", day: "numeric", timeZone: "UTC" });
 }

@@ -11,12 +11,16 @@ purchase flow is unit-tested but has not run against a real store.
 it differs, checked each time the app returns to the foreground: the rule the web's `<TimeZoneSync>` follows.
 
 **Built (typechecked and unit-tested; not yet run on a device):** the signed-in shell (profile gate, tabs), Get Started (currency,
-then an optional bank-connect step), Settings (subscription status, restore, manage, legal links, delete account, sign-out), the
+then an optional bank-connect step), Settings (subscription status, restore, manage, delete account, sign-out; the privacy / terms / support links are built but hidden until Phase 1 creates those pages, see below), the
 paywall, Sign in with Apple, **Activity, add/edit transaction, Budgets and Accounts** screens over the native data API, and
 **native Plaid Link, Connected Banks (reconnect / disconnect / exclude) and account mapping** — all verified live on staging over
 Bearer auth (`tests/e2e/mobile-data-api.spec.ts`, `tests/e2e/mobile-plaid-api.spec.ts`), but **not yet opened on a real device** —
 Plaid Link itself, the native OAuth-bank redirect, and the Associated Domains / App Links config all need an EAS dev build to
 verify, which this environment cannot produce.
+
+**Phase 1 (restore the legal links):** the privacy, terms, support and account-deletion pages do not exist on the web yet,
+so Settings hides its links (`LEGAL_PAGES_LIVE = false` in `lib/legal.ts`). Build the pages, make them public in
+`src/proxy.ts`, then set the flag to true.
 
 **Still required before launch:** the Get Started trial step (blocked on RevenueCat/store products); running the prepared Maestro
 suite (needs a device/emulator or CI runner); real-device verification of everything above. (Goals, category management and

@@ -1214,3 +1214,44 @@ implementation goes to `budgts-architect`.
     `docs/operations/database-migrations.md` → "Production ledger: known pre-existing drift".
   - Left for later: legal pages + deletion screens + restoring the mobile legal links (Phase 1), shared tokens +
     restyle (Phases 2–3), `requirePremium` wiring + Manage Subscription (Phase 4).
+- **2026-09-28 — Stage 1: the store blockers on the web (local, not pushed or deployed).** Branch
+  `phase-m/stage1-web` (worktree `budgts-stage1`, from `6bb7d52`). Owner: "start this too after deployment";
+  standing rules: no calculation changes, no questions. No migrations.
+  - **Legal pages behind one switch.** `/privacy`, `/terms`, `/support`, `/account-deletion` (Google Play's web
+    deletion link) in the current design (`src/components/legal/legal-doc.tsx`: pixel title, a "short version"
+    lead card, one sheet of sections, a sticky section list from lg, a footer naming the publisher). Every fact
+    only the owner can give lives in `src/lib/legal/config.ts` (six env vars: entity, address, `SUPPORT_EMAIL`,
+    retention years, governing law, effective date). Until all are set and valid each page is a 404 and nothing
+    links to it: sign-in's "By continuing you agree to the Terms and Privacy policy", About's Legal rows, and
+    the apps' Settings links, which now ask `GET /api/legal` (so `LEGAL_PAGES_LIVE` is gone and the web's
+    switch is the only one). Public in `src/proxy.ts` either way. Owner facts and the drafted defaults to
+    review: `docs/deploy.md` → "Legal pages".
+  - **Settings → Delete account** (`/settings/delete-account`, `src/components/account/delete-account-flow.tsx`):
+    what's deleted and kept, the store-subscription notice, a fresh sign-in (magic link to the session's own
+    address, or Google) when the last is over 10 minutes old that returns to the confirm step, type DELETE,
+    progress, and a state with a way out for every answer: stale sign-in, lost session, unavailable, deletion
+    incomplete (read-only, retry finishes it), a bank Plaid won't remove (new `plaid_removal_failed` 502, points
+    to Connected banks), network. Success signs out locally and lands on the public `/account-deleted`. It sits
+    outside the dashboard shell so a user who never onboarded can still delete. While a deletion holds the
+    lock, every dashboard screen shows a read-only banner with "Finish deleting" (guarded UPDATE/DELETE fail
+    silently otherwise).
+  - **Design scoring** (ramsys-ui-ux rubric, 390 and 1440, light and dark preference, motion on; shots in the
+    session scratchpad). First → final: privacy 8.9 → 9.5, terms 8.9 → 9.5, support 8.6 → 9.5, account-deletion
+    9.0 → 9.5, sign-in link 9.0 → 9.5, intro 9.2 → 9.6, confirm 8.8 → 9.5, fresh sign-in 8.7 → 9.5, deleting
+    8.8 → 9.5, errors 8.9 → 9.5, signed out 8.9 → 9.5, done 9.4 → 9.6, read-only banner 9.4 → 9.5. Fixes: one
+    16/24px card inset everywhere (lead cards too, so stacked cards share one left edge), the section list
+    aligned with the title, the flow pinned to the top (`StandaloneShell align="top"`) so its title never jumps
+    between steps, icon tiles beside their text, the Plaid error leading with Connected banks, a centered legal
+    line under the sign-in card. Trade-offs: the app is light-only (brand rule), so the dark-preference captures
+    are identical by design; deletion has no real progress events, so "deleting" shows a skeleton sweep, not a
+    percentage; the legal footer doesn't mark the current page.
+  - **Verification.** Commits `84c921a` (legal pages + switch) and `6a9b1d5` (deletion flow), each lint /
+    typecheck / test / build green before committing. Web vitest 1590/1590 (150 files); `mobile/` vitest 219/219 +
+    typecheck. Staging integration 167/172 in one full run, the 5 failures being Supabase Auth's rate limit (3,
+    after a morning of e2e and captures creating users) and the two timing-dependent "must really deadlock"
+    conditions noted under Stage 0 (the deletions themselves were correct); those three files then passed 15/15
+    on a rerun, and the deletion files 40/40 earlier. E2E on isolated staging builds: switch on, delete-account
+    4/4, legal-pages 3/3, plus budgets, goals, tour, time-zone, router-cache 2/2, transactions and
+    mobile-bearer-auth 4/4 (11/11); switch off, legal-pages 2/2 (+1 skipped: needs the pages on), delete-account
+    4/4, smoke 5/5, settings.
+  - **Owner:** the six legal facts (`docs/deploy.md` → "Legal pages"), after reviewing the drafted wording.

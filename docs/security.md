@@ -123,6 +123,24 @@ Each item needs a test or an explicit check before store submission.
   Production) closes that; also check that no log drain forwards Vercel logs
   elsewhere.
 
+## Account deletion screens and legal pages (Phase 1, 2026-09-28)
+
+- **The web deletion screen** (`/settings/delete-account`) decides nothing: `POST /api/account/delete` stays the only
+  authority and re-checks the session, the 10-minute step-up and the lock itself. The page asks Supabase Auth over the
+  network (`getPrivilegedCookieUser`, in the already allow-listed `src/server/privileged-user.ts`) only to pick its
+  first state, and reads the write guard through the user's own `account_accepts_writes()` (no new grant).
+- **Fresh sign-in** (`requestReauthLink`, `src/server/account.ts`): the link goes to the session's own verified email,
+  never a form field, with `shouldCreateUser: false`; the return path is fixed (`/settings/delete-account?step=confirm`)
+  and still passes `safeNextPath`. A switched Google account lands on the screen showing the address it would delete.
+- **After success** the browser drops its copy of the (server-revoked) session with a local `signOut` and leaves with a
+  full load to the public `/account-deleted`, which reads no account data.
+- **Plaid failure** (`plaid_removal_failed`, 502): a new error code from the route, named only, with no Item id or
+  Plaid text; the operator log is unchanged.
+- **Newly public paths** (`src/proxy.ts`): the four legal pages, `/api/legal` (a boolean and four paths) and
+  `/account-deleted`. None reads user data; while the switch is off the pages are 404s.
+- **The read-only banner**: while the lock is held, every dashboard screen says so (writes refused by the guard
+  otherwise fail silently for UPDATE/DELETE, which match no rows).
+
 ## Deferred (not blocking deploy)
 
 - **Content-Security-Policy** — none set. Add a `headers()` block in

@@ -277,6 +277,26 @@ guessed here).
   the RevenueCat webhook deploy with the web app, through staging then
   production, before any store build depends on them.
 
+## Legal pages (Phase 1, built 2026-09-28): owner facts turn them on
+
+`/privacy`, `/terms`, `/support` and `/account-deletion` (Google Play's web deletion link) are built and public in
+`src/proxy.ts`, but each answers **404** and nothing links to them (sign-in, About, the apps' Settings via
+`GET /api/legal`) until all six facts in `src/lib/legal/config.ts` are set. No code change turns them on:
+
+| Variable | What the owner supplies |
+| --- | --- |
+| `LEGAL_ENTITY_NAME` | The LLC's legal name |
+| `LEGAL_ENTITY_ADDRESS` | Its postal address, one line |
+| `SUPPORT_EMAIL` | The public privacy / support / deletion contact |
+| `LEGAL_RECORD_RETENTION_YEARS` | Years retained billing records (Path B) are kept after deletion, spec §12.4. Setting it also confirms nothing else is retained; if other data must be, the copy needs a change first |
+| `LEGAL_GOVERNING_LAW` | Whose law governs the Terms, read after "the laws of" |
+| `LEGAL_EFFECTIVE_DATE` | `YYYY-MM-DD`, the day the owner approved the wording (printed as "Effective") |
+
+Set them in Vercel for Production (and staging to preview), then redeploy: the pages are prerendered at build time.
+Before setting the date, the owner (or counsel) reviews the drafted wording, including the defaults the code could not
+derive: minimum age 18 in the Terms, "not directed to children under 13", the liability cap (fees paid in the last 12
+months), and the store links. Then give Google's OAuth consent screen and both store listings the URLs.
+
 ## Notes
 
 - The Supabase database password and the Google client secret were shown in

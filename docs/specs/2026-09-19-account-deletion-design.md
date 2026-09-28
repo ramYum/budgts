@@ -10,10 +10,15 @@
 > write guard, `0022` the guard's bank-disconnect exception. Wherever the text
 > below says `0017`–`0020` for these, read `0019`–`0022`; "migration `0017`"
 > for the ledger means `0023`.
-> - Still to build (Phase 1): the in-app deletion screen in the current
->   design (`docs/BRAND_GUIDELINES.md`), the web deletion page and Google's
->   web deletion link, privacy and terms pages. The shelved old-design pages
->   were not ported.
+> - Built in Stage 1 (2026-09-28, `phase-m/stage1-web`): the web deletion
+>   screen `/settings/delete-account` in the current design (explain, a fresh
+>   sign-in by magic link or Google when the last is over 10 minutes old, type
+>   DELETE, progress, every failure with a way out incl. a named
+>   `plaid_removal_failed`, signed out onto `/account-deleted`), Google's web
+>   link `/account-deletion`, privacy / terms / support. §8's open choices were
+>   settled as: re-auth = the step-up window, a typed confirmation phrase,
+>   immediate (no undo window). §9's web path is self-service through sign-in.
+>   The public pages stay off until the owner facts are set.
 > - Open: Path A's occasional slow run (addendum below), and the retention
 >   decision (§12.4 of the launch spec).
 

@@ -48,10 +48,23 @@ describe("GET /api/mobile/profile", () => {
       currency: "CAD",
       onboarded: false,
       timeZone: null,
+      month: null,
+      today: null,
       supportedCurrencies: [...SUPPORTED_CURRENCIES],
     });
     expect(loadProfile).toHaveBeenCalledWith(supabase, "user-a"); // the verified user, via the caller's own client
     expect(res.headers.get("cache-control")).toBe("private, no-store");
+  });
+
+  it("gives the user's own month and today from their stored zone, not the server clock", async () => {
+    // 2026-09-30T20:00Z is already October 1st in Kiritimati (UTC+14).
+    vi.useFakeTimers({ now: new Date("2026-09-30T20:00:00Z"), toFake: ["Date"] });
+    try {
+      loadProfile.mockResolvedValue({ currency: "USD", onboarded: true, timeZone: "Pacific/Kiritimati" });
+      expect(await (await GET(req())).json()).toMatchObject({ month: "2026-10", today: "2026-10-01" });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("answers profile_missing (404) when the seed trigger never created a profile", async () => {

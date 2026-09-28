@@ -10,6 +10,7 @@ import { createClient } from "@supabase/supabase-js";
 import { afterEach, describe, expect, it } from "vitest";
 import { getBearerContext } from "@/lib/auth/bearer-context";
 import { getRequestUser } from "@/lib/auth/get-request-user";
+import { currentMonthKey, todayDateKey } from "@/lib/budget/month";
 import { POST as onboard } from "@/app/api/mobile/onboarding/route";
 import { GET as getProfile, PATCH as patchProfile } from "@/app/api/mobile/profile/route";
 import { GET as getSession } from "@/app/api/mobile/session/route";
@@ -119,7 +120,14 @@ describe("first-run profile over the native API", () => {
     expect(moved.status).toBe(200);
 
     const after = await getProfile(bearer(accessToken, {}, path));
-    expect(await after.json()).toMatchObject({ onboarded: true, currency: "EUR", timeZone: "Asia/Tokyo" });
+    expect(await after.json()).toMatchObject({
+      onboarded: true,
+      currency: "EUR",
+      timeZone: "Asia/Tokyo",
+      // the user's own month and today, from the stored zone
+      month: currentMonthKey("Asia/Tokyo"),
+      today: todayDateKey("Asia/Tokyo"),
+    });
 
     const { data } = await admin.from("profiles").select("currency, time_zone, onboarded_at").eq("id", userId).single();
     expect(data).toMatchObject({ currency: "EUR", time_zone: "Asia/Tokyo" });

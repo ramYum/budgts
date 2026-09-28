@@ -1,0 +1,20 @@
+# Delete account: Settings -> Delete account -> confirm -> submit -> signed out. DESTRUCTIVE AND IRREVERSIBLE — run
+# only against a disposable, seed-only test account created for this purpose, never a real or shared one (same rule
+# the web e2e suite's account-deletion spec follows). Unexecuted — see .maestro/README.md.
+appId: com.budgts.app
+---
+- launchApp
+- tapOn:
+    id: "tab-settings"
+- tapOn:
+    id: "settings-delete-account"
+- tapOn:
+    id: "delete-confirm"
+- tapOn:
+    id: "delete-submit"
+- assertVisible:
+    id: "delete-done"
+- tapOn:
+    id: "delete-done"
+- assertVisible:
+    id: "sign-in-google"

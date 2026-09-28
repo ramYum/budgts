@@ -5,10 +5,13 @@
  *
  * The native app calls GET after sign-in: `onboarded: false` sends the user to Get Started (`POST /api/mobile/onboarding`).
  * `supportedCurrencies` is the server's list, so the app never carries a second copy that could drift. `timeZone` is the
- * stored zone the app compares its device's against. Bearer only; the profile is read and written through the caller's
+ * stored zone the app compares its device's against; `month` and `today` are the user's own "this month" and "today" in
+ * that zone (null before onboarding), so the app never decides them from the device clock. The app re-reads this on
+ * every return to the foreground, so they roll over at the user's midnight. Bearer only; the profile is read and written through the caller's
  * own JWT (RLS), and the id is always the verified user's.
  */
 import { SUPPORTED_CURRENCIES } from "@/lib/budget/currencies";
+import { currentMonthKey, todayDateKey } from "@/lib/budget/month";
 import { mobileError, mobileJson, mobileRoute, readJson } from "@/lib/mobile/route";
 import { loadProfile, saveTimeZone } from "@/lib/profile/onboarding";
 
@@ -20,6 +23,8 @@ export const GET = mobileRoute(async ({ user, supabase }) => {
     currency: profile.currency,
     onboarded: profile.onboarded,
     timeZone: profile.timeZone,
+    month: profile.timeZone ? currentMonthKey(profile.timeZone) : null,
+    today: profile.timeZone ? todayDateKey(profile.timeZone) : null,
     supportedCurrencies: [...SUPPORTED_CURRENCIES],
   });
 });

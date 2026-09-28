@@ -1,0 +1,17 @@
+# Budgets: set an amount on a default seeded category, see it reflected. Assumes a signed-in, onboarded session — every
+# new account gets the standard category set (src/lib/categories/standard.ts), so "Food / Groceries" is stable across
+# accounts without needing a fixture. Unexecuted — see .maestro/README.md.
+appId: com.budgts.app
+---
+- launchApp
+- tapOn:
+    id: "tab-budgets"
+- tapOn:
+    text: "Food / Groceries"
+- tapOn:
+    id: "budget-amount"
+- inputText: "250"
+- tapOn:
+    id: "budget-save"
+- assertVisible:
+    text: "250"

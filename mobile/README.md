@@ -34,12 +34,17 @@ Android Studio needed to verify them on a physical device. Store billing (`react
 paywall reports that subscriptions are unavailable, and the Connected Banks "Connect a bank" action reports Plaid Link as
 unavailable, rather than faking anything.
 
-1. Copy `.env.example` to `.env.local` and fill in:
+1. Copy `.env.local.example` to `.env.local` and fill in:
    - `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` —
      same values as the web app's `.env.local` (same Supabase project).
-   - `EXPO_PUBLIC_API_BASE_URL` — a deployed backend the phone can reach,
-     e.g. `https://budgts-staging.vercel.app`. `http://localhost:3000` does
-     **not** work from a physical device.
+   - `EXPO_PUBLIC_API_BASE_URL` — a deployed backend the phone can reach
+     that includes the `/api/mobile/*` routes. `http://localhost:3000` does
+     **not** work from a physical device, and Vercel previews sit behind SSO.
+     As of 2026-09-28 the `budgts-staging.vercel.app` alias still serves an
+     old build without the mobile API, so point it at a current deployment
+     first (Phase 2).
+   - `EXPO_PUBLIC_REVENUECAT_IOS_API_KEY` / `..._ANDROID_API_KEY` — leave
+     empty until Phase 4 switches billing on.
 2. `npm install`
 3. `npm start`, scan the QR code with **Expo Go** (iOS App Store / Google
    Play) on a real device.
@@ -215,7 +220,8 @@ performable from this repo:
 6. `EXPO_PUBLIC_*` values for a cloud EAS build come from `eas env:create`
    (now possible — the account is linked) rather than a committed file;
    not set up this session since it wasn't needed to validate `eas.json`.
-   `.env.example` still documents which three are needed.
+   `.env.local.example` documents which five exist (the two RevenueCat keys
+   stay empty until Phase 4).
 
 ## Native auth test matrix — not run
 

@@ -10,7 +10,10 @@
 > columns). Today's only staging is **Budgets-Staging-3
 > (`uvowywszaiojboaxdmoz`)**. It was rebuilt on 2026-09-28 and its history now
 > matches `0000`–`0024` exactly (`db:verify-history`: CLEAN); see "Staging
-> rebuild (done 2026-09-28)" below. Production has `0000`–`0018` only.
+> rebuild (done 2026-09-28)" below. Production got `0019`–`0024` the same day
+> (owner-approved, 2026-09-28 11:53Z) and now has `0000`–`0024`; its ledger
+> carries old line-ending and ordering history, see "Production ledger: known
+> pre-existing drift" below.
 
 Why this file exists: `budgts-staging`'s migration ledger (`drizzle.__drizzle_migrations`)
 drifted from the repository's actual migration files — several migrations'
@@ -185,6 +188,38 @@ The owner approved the rebuild on 2026-09-28 ("Rebuild staging").
   purpose.
 - e2e against staging (the procedure's last step) was not re-run after the
   rebuild; the next isolated e2e run covers it.
+
+## Production ledger: known pre-existing drift (found 2026-09-28)
+
+`0019`–`0024` were applied to production on 2026-09-28 (ledger 19 → 25 rows;
+the six new rows are LF hashes and match). Before and after, `npm run
+db:verify-history -- --ref wsmhstqpvbbcqpqhiqyp` reports drift that predates
+that migration and is **not** an unrecorded or missing migration:
+
+- **Line endings, not content.** Every one of `0000`–`0018` has exactly one
+  ledger row whose `created_at` equals its journal `when`, and whose hash is
+  the SHA of that file with either LF or CRLF line endings. Production's rows
+  were stamped from Windows working copies over time, so they mix the two:
+  `0004`, `0006`, `0015` and `0016` hold CRLF hashes, while the rest hold LF
+  (or are identical either way). The verifier hashes the raw bytes on disk,
+  and this checkout still has seven migration files with CRLF working copies
+  (`git ls-files --eol`: `0003`, `0004`, `0006`, `0008`, `0013`, `0015` and
+  `0016` are `i/lf w/crlf`, predating the LF pin). So it currently flags
+  `0003`, `0008` and `0013`. Renormalizing the working copy would flag `0004`,
+  `0006`, `0015` and `0016` instead. The staging rebuild ran from this
+  checkout, so staging's ledger holds the same on-disk hashes and reports
+  CLEAN today.
+- **Ordering.** Ledger id 15 is `0015` and id 16 is `0014`: production
+  applied them in that order, because `0015`'s journal `when` is 1 ms earlier
+  than `0014`'s (a known journal anomaly).
+
+Drizzle never re-checks the hashes of applied migrations (it applies by
+`created_at`), so none of this affects `db:migrate`. **Do not restamp ledger
+rows** (rules 6, 7 and 15). The root-cause fix is in the tool: make
+`db:verify-history` compare line-ending-normalized content (accept a
+file's LF or CRLF hash), and record the `0014`/`0015` order as a documented,
+known production anomaly instead of drift. Until then, read a production
+drift report against this list: anything beyond these items is real.
 
 ## Tooling
 

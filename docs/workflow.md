@@ -1202,8 +1202,15 @@ implementation goes to `budgts-architect`.
     `.gitignore` hides `.env*`; saved as `mobile/.env.local.example` with all five `EXPO_PUBLIC_*` names). Vercel
     preview builds of the push: Ready on both `budgts` and `budgts-staging`. GitHub CI runs only on `main` and PRs,
     so it did not run for the branch push. Staging rebuilt: see `docs/operations/database-migrations.md`.
-  - Deleting the shelf (`mobile/native-home` locally and on origin, the `Budgts-mobile-archive` folder, the
-    `budgts-stage0` worktree) waits for the owner's explicit go-ahead; the auto-mode classifier refused it as a
-    destructive git action under "push".
+  - **Shelf deleted 2026-09-28** (owner: "Im permitting you to delete the shelf"): `mobile/native-home` on origin
+    and locally (tip `901ebfd`), the `Budgts-mobile-archive` folder (only `.expo`, `node_modules` and the env
+    template, which is now `mobile/.env.local.example`), and the `budgts-stage0` worktree with its merged branch.
+    The auto-mode classifier had refused the deletion under a plain "push"; it went through once the owner named it.
+  - **Production migrated 2026-09-28 11:53Z** (owner: "im giving you the authorization and approval of these two
+    tasks"): `0019`–`0024` applied, ledger 19 → 25, probe 9/9 `true` (checked by the migrating agent and again
+    independently), row counts unchanged (transactions 32771), `account_deletions` empty, RLS on every table,
+    budgts.com unaffected (still `dpl_HsPuJzYRjkhLbZU8ruCto9UMw6kN`). Not deployed: the Stage 0 build waits for
+    the owner. `db:verify-history` on production reports old line-ending and ordering history, documented in
+    `docs/operations/database-migrations.md` → "Production ledger: known pre-existing drift".
   - Left for later: legal pages + deletion screens + restoring the mobile legal links (Phase 1), shared tokens +
     restyle (Phases 2–3), `requirePremium` wiring + Manage Subscription (Phase 4).

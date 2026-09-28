@@ -293,14 +293,20 @@ guessed here).
   `entitlements` / `billing_events`, and account deletion reads the ledger
   tables. Deploying first would break **bank connection for every web user**
   (and deletion). Order, with owner approval at each production step:
-  1. Staging first: it holds these tables under the shelved numbering, so it
-     needs the rebuild in `docs/operations/database-migrations.md` (pending)
-     before `db:migrate` can run there.
-  2. Production: `npm run db:migrate` with `MIGRATE_CONFIRM_REF=<prod ref>`,
-     then `npm run db:verify-history`.
-  3. Run the read-only probe in the production SQL editor. Every row
-     must say `true`; if any says `false`, do not deploy.
-  4. Deploy.
+  1. ✅ Staging first: rebuilt 2026-09-28, history clean, integration 172/172
+     (`docs/operations/database-migrations.md`).
+  2. ✅ Production: applied 2026-09-28 11:53Z with owner approval ("im giving
+     you the authorization and approval"): `MIGRATE_CONFIRM_REF=<prod ref>
+     npm run db:migrate`, ledger 19 → 25 rows. Pre-existing tables kept
+     identical row counts (transactions 32771), no existing object changed
+     (schema diff), `account_deletions` empty, so the write guard lets every
+     user write. `db:verify-history` still reports drift on production, but it
+     is old line-ending and ordering history, not this migration: see
+     "Production ledger: known pre-existing drift" in the migrations doc.
+  3. ✅ Read-only probe: all 9 rows `true` (checked twice, by the migrating
+     agent and independently).
+  4. Deploy: **not done, needs the owner's go-ahead.** Production's schema
+     is now ready for the Stage 0 build.
 
   The probe is `supabase/probes/0019-0024-preflight.sql` (also run by
   `tests/unit/db-migration-chain.test.ts` against the migrated chain, so it

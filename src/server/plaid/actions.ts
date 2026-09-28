@@ -8,14 +8,13 @@
  *  - revalidates the pages that show synced data.
  *
  * The service-role sync engine is reached only after an ownership check, and
- * only with an `item_id` that RLS confirmed belongs to the caller.
+ * only with an `item_id` that RLS confirmed belongs to the caller. Sync, account
+ * mapping and the import toggle live in `./commands.ts`, shared with the
+ * native `/api/mobile/plaid/*` routes; these actions adapt them to forms.
  */
 import { revalidateUserData } from "@/server/revalidate";
 import { redirect } from "next/navigation";
 import { standardCategory } from "@/lib/categories/standard";
-import { after } from "next/server";
-import { claimMissReason, findItemByPlaidItemId } from "@/lib/plaid/item-store";
-import { claimMissMessage, runClaimedSync } from "@/lib/plaid/sync-runner";
 import { recategorizeUncategorizedBankTxns } from "@/lib/plaid/recategorize";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import {
@@ -29,7 +28,7 @@ import {
 import { setAccountCalculationExclusion } from "./account-exclusion";
 import { disconnectPlaidItem } from "./disconnect";
 import { db } from "@/lib/db";
-import { drainItemInBackground, syncRunner } from "./service";
+import { mapAccountsFor, setAccountImportingFor, syncConnectionFor } from "./commands";
 
 export type PlaidActionState = {
   error?: string;
@@ -38,22 +37,6 @@ export type PlaidActionState = {
   ok?: boolean;
 };
 
-
-/**
- * A user-requested sync of an Item the caller was already confirmed to own,
- * through the same per-Item lease as the webhook and the sweep. Any pages
- * left over (page cap) keep draining after the response.
- */
-async function syncOwnedItem(
-  itemId: string,
-): Promise<{ kind: "synced" } | { kind: "failed" } | { kind: "not_started"; message: string }> {
-  const out = await runClaimedSync(syncRunner(), itemId, { kind: "requested" });
-  if (!out.claimed) {
-    return { kind: "not_started", message: claimMissMessage(await claimMissReason(db(), itemId)) };
-  }
-  if (out.result.ok && out.morePending) after(() => drainItemInBackground(itemId));
-  return out.result.ok ? { kind: "synced" } : { kind: "failed" };
-}
 
 async function withUser() {
   const user = await getSessionUser();
@@ -68,28 +51,10 @@ async function withUser() {
  */
 export async function syncConnection(itemId: string): Promise<PlaidActionState> {
   const { user, supabase } = await withUser();
-
-  // Ownership gate: RLS confirms this Item is the caller's before the
-  // service-role engine ever sees the id.
-  const { data: owned } = await supabase
-    .from("plaid_items")
-    .select("item_id")
-    .eq("item_id", itemId)
-    .maybeSingle();
-  if (!owned) return { error: "That bank connection no longer exists." };
-
-  const record = await findItemByPlaidItemId(db(), itemId);
-  if (!record || record.userId !== user.id) {
-    return { error: "That bank connection no longer exists." };
-  }
-
-  const sync = await syncOwnedItem(record.itemId);
+  const result = await syncConnectionFor(supabase, user.id, itemId);
+  if (!result.ok) return { error: result.message };
   revalidateUserData();
-  if (sync.kind === "not_started") return { ok: true, warning: sync.message };
-  if (sync.kind === "failed") {
-    return { ok: true, warning: "Connected, but the first sync didn't finish. It'll retry shortly." };
-  }
-  return { ok: true };
+  return result.warning ? { ok: true, warning: result.warning } : { ok: true };
 }
 
 export async function mapAccounts(
@@ -107,55 +72,10 @@ export async function mapAccounts(
   const { plaidItemId, entries } = parsed.data;
 
   const { user, supabase } = await withUser();
-
-  // Confirm the Item is the caller's and grab its Plaid `item_id` for the sync.
-  const { data: item } = await supabase
-    .from("plaid_items")
-    .select("item_id")
-    .eq("id", plaidItemId)
-    .maybeSingle();
-  if (!item) return { error: "That bank connection no longer exists. Try connecting again." };
-
-  for (const entry of entries) {
-    let accountId: string | null = null;
-    let linkState: "mapped" | "ignored" = "ignored";
-
-    if (entry.mode === "new") {
-      const { data: created, error } = await supabase
-        .from("accounts")
-        .insert({ user_id: user.id, name: entry.name, type: entry.type ?? "checking", source: "plaid" })
-        .select("id")
-        .single();
-      if (error || !created) return { error: "Could not create the account. Try again." };
-      accountId = created.id;
-      linkState = "mapped";
-    } else if (entry.mode === "existing") {
-      accountId = entry.existingAccountId ?? null;
-      linkState = "mapped";
-    }
-
-    const { error: linkErr } = await supabase
-      .from("plaid_accounts")
-      .update({ account_id: accountId, link_state: linkState })
-      .eq("plaid_item_id", plaidItemId)
-      .eq("plaid_account_id", entry.plaidAccountId);
-    if (linkErr) return { error: "Could not save the account mapping. Try again." };
-  }
-
-  // First sync — so transactions are on screen when the user lands back.
-  const record = await findItemByPlaidItemId(db(), item.item_id);
-  if (record && record.userId === user.id) {
-    const sync = await syncOwnedItem(record.itemId);
-    revalidateUserData();
-    if (sync.kind === "not_started") return { ok: true, warning: `Accounts saved. ${sync.message}` };
-    if (sync.kind === "failed") {
-      return { ok: true, warning: "Accounts saved. The first sync didn't finish — it'll retry shortly." };
-    }
-    return { ok: true };
-  }
-
+  const result = await mapAccountsFor(supabase, user.id, plaidItemId, entries);
+  if (!result.ok) return { error: result.message };
   revalidateUserData();
-  return { ok: true };
+  return result.warning ? { ok: true, warning: result.warning } : { ok: true };
 }
 
 /**
@@ -252,47 +172,10 @@ export async function setAccountImportingAction(
   if (!parsed.success) return { error: "Something went wrong. Refresh and try again." };
 
   const { user, supabase } = await withUser();
-
-  // RLS scopes this to the caller.
-  const { data: row } = await supabase
-    .from("plaid_accounts")
-    .select("account_id, plaid_item_id")
-    .eq("id", parsed.data.plaidAccountRowId)
-    .maybeSingle();
-  if (!row) return { error: "That account no longer exists." };
-  if (parsed.data.importing && !row.account_id) {
-    return { error: "Choose which Budgts account to import into first." };
-  }
-
-  const { error } = await supabase
-    .from("plaid_accounts")
-    .update({ link_state: parsed.data.importing ? "mapped" : "ignored" })
-    .eq("id", parsed.data.plaidAccountRowId);
-  if (error) return { error: "Could not update the import setting. Try again." };
-
-  if (parsed.data.importing) {
-    // Picks up new activity from now on — NOT a replay of what happened
-    // while paused (see the doc comment above; Plaid's cursor already moved
-    // past it if any sync ran meanwhile). Same first-sync-on-save pattern as
-    // account mapping (design §11).
-    const { data: item } = await supabase
-      .from("plaid_items")
-      .select("item_id")
-      .eq("id", row.plaid_item_id)
-      .maybeSingle();
-    const record = item ? await findItemByPlaidItemId(db(), item.item_id) : null;
-    if (record && record.userId === user.id) {
-      const sync = await syncOwnedItem(record.itemId);
-      revalidateUserData();
-      if (sync.kind === "not_started") return { ok: true, warning: `Importing resumed. ${sync.message}` };
-      if (sync.kind === "failed") {
-        return { ok: true, warning: "Importing resumed. The first sync didn't finish — it'll retry shortly." };
-      }
-    }
-  }
-
+  const result = await setAccountImportingFor(supabase, user.id, parsed.data.plaidAccountRowId, parsed.data.importing);
+  if (!result.ok) return { error: result.message };
   revalidateUserData();
-  return { ok: true };
+  return result.warning ? { ok: true, warning: result.warning } : { ok: true };
 }
 
 export async function categorizeBankTransaction(

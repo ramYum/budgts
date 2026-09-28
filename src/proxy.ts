@@ -28,6 +28,20 @@ const PUBLIC_PREFIXES = [
   // Bearer, re-checked with Supabase Auth) so the native app can call it; an
   // unauthenticated caller still gets the handler's own 401.
   "/api/account/delete",
+  // link-token, exchange and item authenticate through getRequestContext
+  // (cookie or Bearer) so the native app can call them; without these a
+  // cookie-less native request 307s to the HTML sign-in page.
+  "/api/plaid/link-token",
+  "/api/plaid/exchange",
+  "/api/plaid/item",
+  // Sandbox-only (404 unless PLAID_ENV=sandbox and PLAID_TEST_SEED_ENABLED=1),
+  // and it authenticates itself (cookie or Bearer).
+  "/api/plaid/test/seed",
+  // Universal-link / app-link association files (fetched by Apple and Google,
+  // never signed in; 404 until configured) and the native Plaid OAuth return,
+  // whose web fallback page must load when the app is not installed.
+  "/.well-known/",
+  "/app/plaid-oauth",
 ];
 
 export function isPublic(pathname: string) {

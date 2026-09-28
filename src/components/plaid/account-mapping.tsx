@@ -5,16 +5,9 @@ import { ACCOUNT_TYPES, type AccountType } from "@/lib/accounts/account-types";
 import { mapAccounts, type PlaidActionState } from "@/server/plaid/actions";
 import { buttonClass, fieldClass as field, labelClass } from "@/components/ui";
 
-export type MappableAccount = {
-  plaidAccountId: string;
-  name: string | null;
-  officialName: string | null;
-  mask: string | null;
-  type: string | null;
-  subtype: string | null;
-  currentBalance: number | null;
-  isoCurrencyCode: string | null;
-};
+// Defined beside the shared read (connected-banks-read.ts), used by the web and the native API.
+export type { MappableAccount } from "@/lib/plaid/connected-banks-read";
+import type { MappableAccount } from "@/lib/plaid/connected-banks-read";
 
 type BudgtsAccount = { id: string; name: string };
 type Mode = "new" | "existing" | "ignore";

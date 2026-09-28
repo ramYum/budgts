@@ -13,40 +13,12 @@ import {
   syncConnection,
   type PlaidActionState,
 } from "@/server/plaid/actions";
-import { AccountMapping, accountLabel, guessType, type MappableAccount } from "./account-mapping";
+import { AccountMapping, accountLabel, guessType } from "./account-mapping";
 import { ReconnectButton } from "./reconnect-button";
 
-export type ConnectedBankAccount = {
-  rowId: string;
-  plaidAccountId: string;
-  name: string | null;
-  officialName: string | null;
-  mask: string | null;
-  /** Plaid's own account type/subtype — only used to guess a default name/type
-   * when quick-connecting a never-mapped account (see ConnectToggle). */
-  type: string | null;
-  subtype: string | null;
-  linkState: "mapped" | "ignored" | "unmapped";
-  mappedAccountName: string | null;
-  needsReview: boolean;
-  reviewReason: string | null;
-  excludedFromCalculations: boolean;
-  /** Rows still held pending sign-convention verification (design 2026-09-12
-   *  North Star §2) — never confirmed, so never counted anywhere, until this
-   *  is 0. Drives the "We're checking this account's transaction format"
-   *  notice; must never be silently omitted. */
-  pendingSignCheckCount: number;
-};
-
-export type ConnectedBank = {
-  id: string;
-  itemId: string;
-  institutionName: string | null;
-  status: "active" | "login_required" | "pending_expiration" | "revoked" | "error";
-  lastSyncedAt: string | null;
-  accounts: ConnectedBankAccount[];
-  unmappedAccounts: MappableAccount[];
-};
+// The shapes are defined beside the shared read (connected-banks-read.ts), used by the web and the native API.
+export type { ConnectedBank, ConnectedBankAccount } from "@/lib/plaid/connected-banks-read";
+import type { ConnectedBank, ConnectedBankAccount } from "@/lib/plaid/connected-banks-read";
 
 const NEEDS_ATTENTION: ConnectedBank["status"][] = ["login_required", "pending_expiration", "revoked", "error"];
 

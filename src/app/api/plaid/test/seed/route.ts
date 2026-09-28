@@ -11,7 +11,7 @@ import { NextResponse } from "next/server";
 import { Products } from "plaid";
 import { plaidClient } from "@/lib/plaid/client";
 import { describePlaidError } from "@/lib/plaid/error-policy";
-import { getSessionUser } from "@/lib/supabase/server";
+import { getRequestUser } from "@/lib/auth/get-request-user";
 
 function seedEnabled(): boolean {
   return process.env.PLAID_ENV === "sandbox" && process.env.PLAID_TEST_SEED_ENABLED === "1";
@@ -20,7 +20,8 @@ function seedEnabled(): boolean {
 export async function POST(request: Request) {
   if (!seedEnabled()) return NextResponse.json({ error: "not found" }, { status: 404 });
 
-  const user = await getSessionUser();
+  // Cookie or Bearer: the native Plaid contract test seeds a token over Bearer, as there is no native Link UI in CI.
+  const user = await getRequestUser(request);
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const body = (await request.json().catch(() => ({}))) as { institutionId?: string };

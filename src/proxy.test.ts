@@ -14,10 +14,12 @@ describe("isPublic", () => {
     expect(isPublic("/api/plaid/recurring-scan")).toBe(true);
   });
 
-  it("still requires a session for the user-facing Plaid API routes", () => {
-    expect(isPublic("/api/plaid/link-token")).toBe(false);
-    expect(isPublic("/api/plaid/exchange")).toBe(false);
-    expect(isPublic("/api/plaid/test/seed")).toBe(false);
+  it("lets the dual-auth Plaid routes and the sandbox-only seed reach their own 401", () => {
+    // link-token / exchange / item authenticate a cookie OR a Bearer token themselves (getRequestContext).
+    expect(isPublic("/api/plaid/link-token")).toBe(true);
+    expect(isPublic("/api/plaid/exchange")).toBe(true);
+    expect(isPublic("/api/plaid/item")).toBe(true);
+    expect(isPublic("/api/plaid/test/seed")).toBe(true);
   });
 
   it("lets the native app's Bearer-authenticated API through to its own 401", () => {
@@ -29,6 +31,13 @@ describe("isPublic", () => {
     expect(isPublic("/api/billing/webhook/revenuecat")).toBe(true);
     // a lookalike path is not the native API
     expect(isPublic("/api/mobileish")).toBe(false);
+  });
+
+  it("serves the native link association files and the native OAuth fallback signed out", () => {
+    expect(isPublic("/.well-known/apple-app-site-association")).toBe(true);
+    expect(isPublic("/.well-known/assetlinks.json")).toBe(true);
+    expect(isPublic("/app/plaid-oauth")).toBe(true);
+    expect(isPublic("/app/anything-else")).toBe(false);
   });
 
   it("still requires a session for ordinary app pages", () => {

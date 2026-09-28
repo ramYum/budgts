@@ -33,9 +33,11 @@ a D-U-N-S number, so Apple and Google organization accounts) — decided
 - **Influencer program deferred** until after launch.
 
 All Expo / React Native implementation goes to `budgts-architect`
-(`AGENTS.md`). The archived mobile and account-deletion work on
-`archive/mobile-and-deletion-2026-09-24` is ported selectively onto
-`phase-m/mobile-launch`, never merged wholesale.
+(`AGENTS.md`). Stage 0 (done 2026-09-28) carried the shelved mobile,
+account-deletion and billing work from `mobile/native-home` onto
+`phase-m/mobile-launch` piece by piece, never merged wholesale; main's web
+design and code won every conflict. What came over, what was adapted and
+what was left behind: `docs/superpowers/plans/2026-09-27-stage0-port.md`.
 
 "This month" and "today" follow **each user's own time zone**, the one their
 device reports (owner, 2026-09-26: "time zones must depend where the user is
@@ -146,7 +148,7 @@ src/
   server/                 # server actions + server-only Plaid service
   proxy.ts                # session refresh + auth gate (Next 16's middleware)
 supabase/
-  migrations/             # 0000–0018 SQL migrations: tables, RLS policies, handle_new_user() seed trigger (0018 = per-user time zone)
+  migrations/             # 0000–0024 SQL migrations: tables, RLS policies, handle_new_user() seed trigger (0018 = per-user time zone; 0019–0022 account deletion; 0023 ledger; 0024 entitlements)
   staging-plaid-cron.sql  # pg_cron → /api/plaid/sync-due wiring (not a migration)
 tests/
   unit/                   # Vitest specs that don't sit next to source (incl. performance guardrails)
@@ -154,7 +156,7 @@ tests/
   plaid-integration/      # real Plaid Sandbox tests
   e2e/                    # Playwright
 tools/                    # dev-only scripts (screenshot, one-off dry runs)
-mobile/                   # Expo app (iOS + Android), ported from the archive branch in Phase 0
+mobile/                   # Expo app (iOS + Android), ported from mobile/native-home in Stage 0; screens keep the pre-redesign look until Phase 3
 ```
 
 ## Next.js 16 — read the bundled docs before writing app code
@@ -197,6 +199,9 @@ project settings. Never commit secrets. Keep `.env.local.example` in sync.
 - `CRON_SECRET` (bearer secret for `/api/plaid/sync-due`, called by `pg_cron`, and `/api/plaid/recurring-scan`)
 - `PLAID_TEST_SEED_ENABLED` (sandbox-only e2e seed route; never set in production)
 - `ANTHROPIC_API_KEY` (V2 — email / receipt ingestion only)
+- `REVENUECAT_WEBHOOK_SIGNING_SECRET`, `REVENUECAT_WEBHOOK_AUTH`, `REVENUECAT_SECRET_API_KEY`, `BILLING_ENVIRONMENT` (server only; billing is ported but switched off until Phase 4, and its routes refuse without these)
+- `PLAID_NATIVE_OAUTH_REDIRECT_URI` (native Plaid Link's OAuth return link)
+- `APPLE_APP_ID`, `ANDROID_PACKAGE_NAME`, `ANDROID_CERT_SHA256` (app-link association files under `/.well-known`; they 404 while unset)
 
 `.env.local` points at the **production** Supabase project; `.env.staging` is
 staging (`uvowywszaiojboaxdmoz`). Tests that write data use staging only.
@@ -318,8 +323,9 @@ Profile shows it.
 apps on the App Store and Google Play, sold by the owner's LLC.
 Branch `phase-m/mobile-launch`; spec
 `docs/specs/2026-09-17-mobile-app-launch-design.md`. Phases:
-0 documents + selective port from the archive branch → 1 store blockers on
-web (privacy, terms, account deletion, per-user time zones) → 2 native
+0 documents + selective port of the shelved work (done 2026-09-28) → 1 store
+blockers on web (privacy, terms, account-deletion screens; per-user time
+zones done) → 2 native
 foundation (shared brand tokens, auth incl. Sign in with Apple, per-screen
 mobile API) → 3 every screen, visually identical to the web → 4
 subscription (RevenueCat, server-side entitlement for app + web) → 5

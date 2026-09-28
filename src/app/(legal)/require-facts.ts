@@ -8,7 +8,7 @@ export function requireLegalFacts(): LegalFacts {
   return facts;
 }
 
-/** "Effective October 1, 2026" */
-export function effectiveLine(facts: LegalFacts): string {
-  return `Effective ${effectiveDateLabel(facts.effectiveDate)}`;
+/** "Last updated October 1, 2026": the date the owner approved this wording. */
+export function lastUpdatedLine(facts: LegalFacts): string {
+  return `Last updated ${effectiveDateLabel(facts.effectiveDate)}`;
 }

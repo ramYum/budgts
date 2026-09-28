@@ -40,4 +40,29 @@ describe("productionEnvProblems", () => {
     // No DB, no Plaid config (the first missing name), no cron secret.
     expect(productionEnvProblems({ NEXT_PUBLIC_PLAID_ENABLED: "1" })).toHaveLength(3);
   });
+
+  describe("billing vs the 'deleted right away' retention promise", () => {
+    const BILLING_LIVE = {
+      BILLING_ENVIRONMENT: "production",
+      REVENUECAT_WEBHOOK_SIGNING_SECRET: "whsec",
+      REVENUECAT_SECRET_API_KEY: "sk",
+    };
+
+    it("refuses a production build with billing live and retention 0", () => {
+      expect(productionEnvProblems({ ...PLAID_ON, ...BILLING_LIVE, LEGAL_RECORD_RETENTION_YEARS: "0" })).toEqual([
+        expect.stringContaining("Decide how long payment records are kept"),
+      ]);
+    });
+
+    it("allows retention 0 while billing is off (nobody can pay, so nothing is kept)", () => {
+      expect(productionEnvProblems({ ...PLAID_ON, LEGAL_RECORD_RETENTION_YEARS: "0" })).toEqual([]);
+      expect(
+        productionEnvProblems({ ...PLAID_ON, ...BILLING_LIVE, BILLING_ENVIRONMENT: "sandbox", LEGAL_RECORD_RETENTION_YEARS: "0" }),
+      ).toEqual([]);
+    });
+
+    it("allows billing live once a retention period is set", () => {
+      expect(productionEnvProblems({ ...PLAID_ON, ...BILLING_LIVE, LEGAL_RECORD_RETENTION_YEARS: "7" })).toEqual([]);
+    });
+  });
 });

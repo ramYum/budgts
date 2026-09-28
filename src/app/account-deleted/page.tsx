@@ -5,7 +5,7 @@ import { Robin } from "@/components/mascot";
 import { StandaloneShell } from "@/components/standalone-shell";
 import { LinkButton, Stage } from "@/components/ui";
 import { APPLE_MANAGE_URL, DELETION_SUBSCRIPTION_NOTICE, GOOGLE_MANAGE_URL } from "@/lib/billing/manage";
-import { legalPagesLive } from "@/lib/legal/config";
+import { keepsRecordsAfterDeletion, legalFacts } from "@/lib/legal/config";
 
 export const metadata: Metadata = { title: "Account deleted" };
 
@@ -17,7 +17,9 @@ export const metadata: Metadata = { title: "Account deleted" };
 export default async function AccountDeletedPage({ searchParams }: PageProps<"/account-deleted">) {
   const sp = await searchParams;
   const store = sp.store === "1";
-  const legal = legalPagesLive();
+  const facts = legalFacts();
+  const legal = facts !== null;
+  const keeps = keepsRecordsAfterDeletion(facts);
 
   return (
     <StandaloneShell>
@@ -51,18 +53,21 @@ export default async function AccountDeletedPage({ searchParams }: PageProps<"/a
           </div>
         ) : null}
 
-        <p className="text-pretty text-[13px] leading-5 text-muted">
-          If you ever paid for a subscription, we keep those billing records without your email or sign-in details.
-          {legal ? (
-            <>
-              {" "}
-              <Link href="/privacy#deleting-your-data" className="font-medium text-ink underline underline-offset-2">
-                What we keep and why
-              </Link>
-              .
-            </>
-          ) : null}
-        </p>
+        {/* Retention 0 (owner, 2026-09-28): nothing is kept, so there is nothing to say here. */}
+        {keeps ? (
+          <p className="text-pretty text-[13px] leading-5 text-muted">
+            If you ever paid for a subscription, we keep those billing records without your email or sign-in details.
+            {legal ? (
+              <>
+                {" "}
+                <Link href="/privacy#deleting-your-data" className="font-medium text-ink underline underline-offset-2">
+                  What we keep and why
+                </Link>
+                .
+              </>
+            ) : null}
+          </p>
+        ) : null}
 
         <LinkButton href="/sign-in" size="lg" className="w-full sm:w-auto">
           Done

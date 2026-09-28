@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { FULL_LEGAL_ENV } from "@/test-utils/legal-env";
+import { FULL_LEGAL_ENV, OWNER_LEGAL_ENV } from "@/test-utils/legal-env";
 import AccountDeletedPage from "./page";
 
 const page = async (store?: string) =>
@@ -30,5 +30,13 @@ describe("AccountDeletedPage", () => {
     for (const [name, value] of Object.entries(FULL_LEGAL_ENV)) vi.stubEnv(name, value);
     await page();
     expect(screen.getByRole("link", { name: /What we keep and why/ })).toHaveAttribute("href", "/privacy#deleting-your-data");
+  });
+});
+
+describe("AccountDeletedPage with retention 0", () => {
+  it("says nothing about kept billing records", async () => {
+    for (const [name, value] of Object.entries(OWNER_LEGAL_ENV)) vi.stubEnv(name, value);
+    await page();
+    expect(screen.queryByText(/billing records/)).not.toBeInTheDocument();
   });
 });

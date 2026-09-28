@@ -10,6 +10,8 @@
  * One line per problem; empty means ready.
  */
 import { loadPlaidConfig, type EnvLike } from "../plaid/config";
+import { billingLive, loadBillingConfig } from "../billing/config";
+import { legalRetentionYears } from "../legal/config";
 
 export function productionEnvProblems(env: EnvLike): string[] {
   const problems: string[] = [];
@@ -23,6 +25,15 @@ export function productionEnvProblems(env: EnvLike): string[] {
     if (!env.CRON_SECRET) {
       problems.push("CRON_SECRET is not set (the sync sweep and recurring scan would answer every call with 401)");
     }
+  }
+  // The legal pages promise "deleted right away" when retention is 0. That holds only while nobody can pay: once
+  // billing is live, a paying user's deletion keeps anonymized ledger rows (Path B). Refuse that combination.
+  if (billingLive(loadBillingConfig(env)) && legalRetentionYears(env) === 0) {
+    problems.push(
+      "billing is live but LEGAL_RECORD_RETENTION_YEARS is 0, and the legal pages promise every record is deleted right " +
+        "away, which Path B contradicts. Decide how long payment records are kept (and whether Path B anonymizes or " +
+        "deletes them) before switching billing on",
+    );
   }
   return problems;
 }

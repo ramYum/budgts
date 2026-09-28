@@ -4,7 +4,7 @@
  *
  * The pages state things only the owner can answer: who the seller is, where it is, how to reach it, how long billing
  * records are kept after an account is deleted, which law governs the terms, and the date the owner approved the
- * wording. Until EVERY fact is set and valid, the pages answer 404 and nothing links to them, so no visitor ever sees a
+ * wording (shown as "Last updated"). Until EVERY fact is set and valid, the pages answer 404 and nothing links to them, so no visitor ever sees a
  * placeholder. Turning them on is configuration, not a code change: set the six variables below in the deployment
  * (Vercel project settings, per environment), then redeploy. The pages are prerendered at build time.
  *
@@ -29,11 +29,14 @@ export type LegalFacts = {
   address: string;
   /** Where privacy, support and deletion requests go. */
   contactEmail: string;
-  /** Whole years that retained billing records are kept after an account is deleted (spec §12.4). */
+  /** Whole years that retained billing records are kept after an account is deleted (spec §12.4). 0 = nothing is
+   *  kept: deleting an account deletes its data right away. True only while billing is off, so the production build
+   *  refuses billing on with 0 (src/lib/env/production-env.ts). */
   retentionYears: number;
-  /** The jurisdiction whose law governs the Terms, e.g. "the State of Delaware, United States". */
+  /** Whose law governs the Terms, read after "the laws of", e.g. "the Commonwealth of Pennsylvania". */
   governingLaw: string;
-  /** The day the owner approved the wording (YYYY-MM-DD): shown as "Effective". */
+  /** The date the owner approved this wording (YYYY-MM-DD), shown as "Last updated". The documents apply to each user
+   *  from when they first sign in, and the pages say so. */
   effectiveDate: string;
 };
 
@@ -63,7 +66,7 @@ function parse(env: Env): Parsed {
     entityName: text(LEGAL_ENV.entityName),
     address: text(LEGAL_ENV.address),
     contactEmail: email && EMAIL.test(email) ? email : null,
-    retentionYears: years && /^\d{1,2}$/.test(years) && Number(years) >= 1 ? Number(years) : null,
+    retentionYears: years && /^\d{1,2}$/.test(years) ? Number(years) : null,
     governingLaw: text(LEGAL_ENV.governingLaw),
     effectiveDate: date && isRealDate(date) ? date : null,
   };
@@ -93,6 +96,17 @@ export const LEGAL_PAGES = [
   { path: "/support", label: "Support" },
   { path: "/account-deletion", label: "Delete your account" },
 ] as const;
+
+/** The retention period as configured, or null when unset or invalid (for the production build guard). */
+export function legalRetentionYears(env: Env = process.env): number | null {
+  return parse(env).retentionYears;
+}
+
+/** Whether any record outlives a deleted account (Path B billing records): false once the owner set 0. Facts not
+ *  set yet read as true, the conservative wording. */
+export function keepsRecordsAfterDeletion(facts: LegalFacts | null): boolean {
+  return facts === null || facts.retentionYears > 0;
+}
 
 /** "1 year" / "7 years". */
 export function yearsLabel(n: number): string {

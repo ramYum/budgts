@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { LEGAL_ENV, effectiveDateLabel, legalFacts, legalPagesLive, missingLegalFacts, yearsLabel } from "./config";
-import { FULL_LEGAL_ENV } from "@/test-utils/legal-env";
+import {
+  LEGAL_ENV,
+  effectiveDateLabel,
+  keepsRecordsAfterDeletion,
+  legalFacts,
+  legalPagesLive,
+  legalRetentionYears,
+  missingLegalFacts,
+  yearsLabel,
+} from "./config";
+import { FULL_LEGAL_ENV, OWNER_LEGAL_ENV } from "@/test-utils/legal-env";
 
 describe("legal switch", () => {
   it("is off with nothing set, and names every missing fact", () => {
@@ -30,13 +39,28 @@ describe("legal switch", () => {
 
   it.each([
     ["SUPPORT_EMAIL", "not-an-email"],
-    ["LEGAL_RECORD_RETENTION_YEARS", "0"],
+    ["LEGAL_RECORD_RETENTION_YEARS", "-1"],
+    ["LEGAL_RECORD_RETENTION_YEARS", "100"],
     ["LEGAL_RECORD_RETENTION_YEARS", "seven"],
     ["LEGAL_RECORD_RETENTION_YEARS", "2.5"],
     ["LEGAL_EFFECTIVE_DATE", "2026-02-30"],
     ["LEGAL_EFFECTIVE_DATE", "October 1"],
   ])("treats %s=%s as not set", (name, value) => {
     expect(missingLegalFacts({ ...FULL_LEGAL_ENV, [name]: value })).toEqual([name]);
+  });
+
+  it("accepts the owner's facts, with retention 0 meaning nothing outlives a deleted account", () => {
+    const facts = legalFacts(OWNER_LEGAL_ENV);
+    expect(facts).toMatchObject({ entityName: "Budgts, LLC", retentionYears: 0, effectiveDate: "2026-09-28" });
+    expect(keepsRecordsAfterDeletion(facts)).toBe(false);
+    expect(legalRetentionYears(OWNER_LEGAL_ENV)).toBe(0);
+  });
+
+  it("keeps records for a period of one year or more, and assumes it does before the facts are set", () => {
+    expect(keepsRecordsAfterDeletion(legalFacts(FULL_LEGAL_ENV))).toBe(true);
+    expect(keepsRecordsAfterDeletion(legalFacts({ ...FULL_LEGAL_ENV, LEGAL_RECORD_RETENTION_YEARS: "1" }))).toBe(true);
+    expect(keepsRecordsAfterDeletion(null)).toBe(true);
+    expect(legalRetentionYears({})).toBeNull();
   });
 
   it("trims what it reads", () => {

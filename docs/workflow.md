@@ -1224,8 +1224,8 @@ implementation goes to `budgts-architect`.
     retention years, governing law, effective date). Until all are set and valid each page is a 404 and nothing
     links to it: sign-in's "By continuing you agree to the Terms and Privacy policy", About's Legal rows, and
     the apps' Settings links, which now ask `GET /api/legal` (so `LEGAL_PAGES_LIVE` is gone and the web's
-    switch is the only one). Public in `src/proxy.ts` either way. Owner facts and the drafted defaults to
-    review: `docs/deploy.md` → "Legal pages".
+    switch is the only one). Public in `src/proxy.ts` either way. Owner facts: `docs/deploy.md` → "Legal
+    pages".
   - **Settings → Delete account** (`/settings/delete-account`, `src/components/account/delete-account-flow.tsx`):
     what's deleted and kept, the store-subscription notice, a fresh sign-in (magic link to the session's own
     address, or Google) when the last is over 10 minutes old that returns to the confirm step, type DELETE,
@@ -1254,7 +1254,12 @@ implementation goes to `budgts-architect`.
     4/4, legal-pages 3/3, plus budgets, goals, tour, time-zone, router-cache 2/2, transactions and
     mobile-bearer-auth 4/4 (11/11); switch off, legal-pages 2/2 (+1 skipped: needs the pages on), delete-account
     4/4, smoke 5/5, settings.
-  - **Owner:** the six legal facts (`docs/deploy.md` → "Legal pages"), after reviewing the drafted wording.
+  - **Owner facts supplied 2026-09-28:** `Budgts, LLC`, 619 Springhouse Rd, Apt I, Allentown, PA 18104,
+    support@budgts.com, retention "deleted right away" (`0`), Pennsylvania law, and the terms apply "once they sign
+    in" (pages show "Last updated September 28, 2026" and say they apply from first sign-in). Owner-confirmed the same
+    day: 18+, not directed at under-13s, liability capped at 12 months' fees, immediate deletion with no undo window.
+    Advised to have counsel read the terms. Retention 0 is enforced: the production build refuses billing live with
+    it (`src/lib/env/production-env.ts`). The main session sets the six values in Vercel.
   - **Review fixes (2026-09-28, independent review 8.7).** Paid wording now follows billing, not the calendar:
     `billingLive()` (`src/lib/billing/config.ts`, from `BILLING_ENVIRONMENT=production` + the webhook secret + the RevenueCat secret API key (added after re-review), the
     configuration the billing routes already use) decides whether Terms, Privacy, Support, `/account-deletion` and the

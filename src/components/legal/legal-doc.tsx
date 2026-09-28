@@ -56,20 +56,20 @@ export function KeyFacts({ title, facts }: { title: string; facts: KeyFact[] }) 
 export type LegalSection = { id: string; title: string; body: ReactNode };
 
 /**
- * A legal document in the app's reading system: the pixel title and its effective date, an optional lead card, then
+ * A legal document in the app's reading system: the pixel title and its "Last updated" date, an optional lead card, then
  * the sections on one white sheet divided by hairlines. From lg the section list stays beside the text, so a long
  * policy can be navigated without scrolling back up.
  */
 export function LegalDoc({
   title,
-  effective,
+  updated,
   intro,
   lead,
   sections,
 }: {
   title: string;
-  /** "Effective October 1, 2026" */
-  effective?: string;
+  /** "Last updated October 1, 2026" */
+  updated?: string;
   intro?: ReactNode;
   lead?: ReactNode;
   sections: LegalSection[];
@@ -94,7 +94,7 @@ export function LegalDoc({
       <article className="min-w-0 space-y-6 md:space-y-8">
         <header className="space-y-2">
           <h1 className="px-title text-ink">{title}</h1>
-          {effective ? <p className="text-[13px] leading-5 text-muted">{effective}</p> : null}
+          {updated ? <p className="text-[13px] leading-5 text-muted">{updated}</p> : null}
           {intro ? <div className="pt-2">{intro}</div> : null}
         </header>
 

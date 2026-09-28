@@ -62,6 +62,12 @@ describe("DeleteAccountFlow: before anything runs", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("says nothing is kept when the owner set retention to 0", () => {
+    flow({ keepsRecords: false });
+    expect(screen.getByText("Nothing. Your data is deleted right away.")).toBeInTheDocument();
+    expect(screen.queryByText(/billing records/)).not.toBeInTheDocument();
+  });
+
   it("leaves the store notice out while this deployment sells no subscriptions", () => {
     flow({ billing: false });
     expect(screen.queryByText(/does not automatically cancel/)).not.toBeInTheDocument();

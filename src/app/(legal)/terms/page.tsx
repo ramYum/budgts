@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Bullets, KeyFacts, LegalDoc, P, textLink, type KeyFact } from "@/components/legal/legal-doc";
 import { billingLive } from "@/lib/billing/config";
 import { FREE_TODAY, SUBSCRIPTION_TERMS, formatPlanPrice } from "@/lib/billing/plans";
-import { effectiveLine, requireLegalFacts } from "../require-facts";
+import { lastUpdatedLine, requireLegalFacts } from "../require-facts";
 
 export const metadata: Metadata = { title: "Terms of service" };
 
@@ -40,11 +40,11 @@ export default function TermsPage() {
   return (
     <LegalDoc
       title="Terms of service"
-      effective={effectiveLine(f)}
+      updated={lastUpdatedLine(f)}
       intro={
         <P>
-          These terms are an agreement between you and {f.entityName} for using Budgts in its apps and at budgts.com. By
-          creating an account you accept them.
+          These terms are an agreement between you and {f.entityName} for using Budgts in its apps and at budgts.com.
+          They apply to you from when you first sign in to Budgts, and by signing in you agree to them.
         </P>
       }
       lead={
@@ -152,8 +152,8 @@ export default function TermsPage() {
           title: "Changes and contact",
           body: (
             <P>
-              We may update these terms and will change the effective date above. Continuing to use Budgts after a change means
-              you accept it. Questions: {mail}, or {f.entityName}, {f.address}.
+              We may update these terms and will change the &ldquo;Last updated&rdquo; date above. Continuing to use Budgts
+              after a change means you accept it. Questions: email {mail}, or write to {f.entityName} at {f.address}.
             </P>
           ),
         },

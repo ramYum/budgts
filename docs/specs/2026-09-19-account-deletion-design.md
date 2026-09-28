@@ -18,7 +18,12 @@
 >   link `/account-deletion`, privacy / terms / support. §8's open choices were
 >   settled as: re-auth = the step-up window, a typed confirmation phrase,
 >   immediate (no undo window). §9's web path is self-service through sign-in.
->   The public pages stay off until the owner facts are set.
+>   **Owner-confirmed 2026-09-28** ("Confirmed"): immediate deletion with no
+>   undo window, plus the legal wording (18+, not directed at under-13s,
+>   liability capped at 12 months' fees). Retention (§10 / launch spec §12.4):
+>   the owner answered "deleted right away" (`LEGAL_RECORD_RETENTION_YEARS=0`),
+>   true while billing is off; the production build refuses billing live with
+>   0, so Path B's retention must be decided before billing ships (Phase 4).
 > - Open: Path A's occasional slow run (addendum below), and the retention
 >   decision (§12.4 of the launch spec).
 

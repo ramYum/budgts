@@ -5,7 +5,7 @@ import { Icon } from "@/components/icon";
 import { IconTile, SectionHead, buttonClass } from "@/components/ui";
 import { APPLE_MANAGE_URL, GOOGLE_MANAGE_URL } from "@/lib/billing/manage";
 import { billingLive } from "@/lib/billing/config";
-import { requireLegalFacts } from "../require-facts";
+import { lastUpdatedLine, requireLegalFacts } from "../require-facts";
 
 export const metadata: Metadata = { title: "Support" };
 
@@ -54,6 +54,7 @@ export default function SupportPage() {
     <div className="space-y-6 md:max-w-[720px] md:space-y-8">
       <header className="space-y-2">
         <h1 className="px-title text-ink">Support</h1>
+        <p className="text-[13px] leading-5 text-muted">{lastUpdatedLine(f)}</p>
         <P>Stuck on something? Here&apos;s how to get help.</P>
       </header>
 
@@ -102,7 +103,7 @@ export default function SupportPage() {
       ) : null}
 
       <p className="text-[13px] leading-5 text-muted">
-        Budgts is published by {f.entityName}, {f.address}.
+        Budgts is published by {f.entityName}. Mailing address: {f.address}.
       </p>
     </div>
   );

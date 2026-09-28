@@ -41,6 +41,7 @@ export function DeleteAccountFlow({
   initial,
   supportEmail,
   billing,
+  keepsRecords = true,
   go = fullLoad,
 }: {
   email: string;
@@ -55,6 +56,8 @@ export function DeleteAccountFlow({
   supportEmail: string | null;
   /** this deployment sells subscriptions: say that deleting doesn't cancel one */
   billing: boolean;
+  /** any record outlives the account (Path B billing records); false when the owner set retention to 0 */
+  keepsRecords?: boolean;
   /** leaves with a full page load (a seam for tests) */
   go?: (url: string) => void;
 }) {
@@ -146,6 +149,7 @@ export function DeleteAccountFlow({
         <Intro
           inProgress={inProgress}
           billing={billing}
+          keepsRecords={keepsRecords}
           onContinue={() => setStage(recent ? "confirm" : "reauth")}
         />
       ) : null}
@@ -165,7 +169,17 @@ function Email({ email }: { email: string }) {
 
 /* ─── Stages ───────────────────────────────────────────────────────────── */
 
-function Intro({ inProgress, billing, onContinue }: { inProgress: boolean; billing: boolean; onContinue: () => void }) {
+function Intro({
+  inProgress,
+  billing,
+  keepsRecords,
+  onContinue,
+}: {
+  inProgress: boolean;
+  billing: boolean;
+  keepsRecords: boolean;
+  onContinue: () => void;
+}) {
   return (
     <>
       {inProgress ? (
@@ -191,7 +205,9 @@ function Intro({ inProgress, billing, onContinue }: { inProgress: boolean; billi
         <div className="space-y-1">
           <h3 className="t-head text-ink">What&apos;s kept</h3>
           <p className="text-pretty text-[15px] leading-6 text-graphite">
-            Only if you ever paid for a subscription: those billing records, with your email and sign-in details removed.
+            {keepsRecords
+              ? "Only if you ever paid for a subscription: those billing records, with your email and sign-in details removed."
+              : "Nothing. Your data is deleted right away."}
           </p>
         </div>
       </section>

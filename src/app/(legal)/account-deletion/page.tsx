@@ -4,9 +4,9 @@ import { Bullets, ExternalRow, P, textLink } from "@/components/legal/legal-doc"
 import { Icon } from "@/components/icon";
 import { IconTile, LinkButton, SectionHead } from "@/components/ui";
 import { APPLE_MANAGE_URL, DELETION_SUBSCRIPTION_NOTICE, GOOGLE_MANAGE_URL } from "@/lib/billing/manage";
-import { yearsLabel } from "@/lib/legal/config";
+import { keepsRecordsAfterDeletion, yearsLabel } from "@/lib/legal/config";
 import { billingLive } from "@/lib/billing/config";
-import { requireLegalFacts } from "../require-facts";
+import { lastUpdatedLine, requireLegalFacts } from "../require-facts";
 
 export const metadata: Metadata = { title: "Delete your account" };
 
@@ -22,11 +22,14 @@ const DELETE_SCREEN = "/settings/delete-account";
  */
 export default function AccountDeletionPage() {
   const f = requireLegalFacts();
+  // Retention 0 (owner, 2026-09-28): nothing outlives a deleted account.
+  const keeps = keepsRecordsAfterDeletion(f);
 
   return (
     <div className="space-y-6 md:max-w-[720px] md:space-y-8">
       <header className="space-y-2">
         <h1 className="px-title text-ink">Delete your account</h1>
+        <p className="text-[13px] leading-5 text-muted">{lastUpdatedLine(f)}</p>
         <P>You can delete your Budgts account and its data at any time. Here&apos;s how, and exactly what happens.</P>
       </header>
 
@@ -73,13 +76,17 @@ export default function AccountDeletionPage() {
       <section className="space-y-3">
         <SectionHead title="What's kept" />
         <div className="px-card space-y-3 p-2 md:p-4">
+          {keeps ? (
+            <P>
+              Only if you ever paid for a subscription: the billing records of those payments, with your email and sign-in
+              details removed, for {yearsLabel(f.retentionYears)} after deletion for accounting, tax and store
+              reconciliation. Then they&apos;re deleted in line with our retention schedule.
+            </P>
+          ) : (
+            <P>Nothing. Deleting your account deletes your data right away, as soon as you confirm.</P>
+          )}
           <P>
-            Only if you ever paid for a subscription: the billing records of those payments, with your email and sign-in
-            details removed, for {yearsLabel(f.retentionYears)} after deletion for accounting, tax and store reconciliation.
-            Then they&apos;re deleted in line with our retention schedule.
-          </P>
-          <P>
-            Deletion starts as soon as you confirm and can&apos;t be undone. Copies in our database provider&apos;s backups
+            {keeps ? "Deletion starts as soon as you confirm and can't be undone. " : "It can't be undone. "}Copies in our database provider&apos;s backups
             disappear as those backups expire. The{" "}
             <Link href="/privacy#deleting-your-data" className={textLink}>
               privacy policy

@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Bullets, KeyFacts, LegalDoc, P, textLink } from "@/components/legal/legal-doc";
-import { yearsLabel } from "@/lib/legal/config";
+import { keepsRecordsAfterDeletion, yearsLabel } from "@/lib/legal/config";
 import { billingLive } from "@/lib/billing/config";
-import { effectiveLine, requireLegalFacts } from "../require-facts";
+import { lastUpdatedLine, requireLegalFacts } from "../require-facts";
 
 export const metadata: Metadata = { title: "Privacy policy" };
 
@@ -18,6 +18,8 @@ export default function PrivacyPage() {
   const f = requireLegalFacts();
   // Subscription wording only once this deployment sells subscriptions (src/lib/billing/config.ts).
   const paid = billingLive();
+  // Retention 0 (owner, 2026-09-28): nothing outlives a deleted account, so no retention sentence at all.
+  const keeps = keepsRecordsAfterDeletion(f);
   const mail = (
     <a href={`mailto:${f.contactEmail}`} className={textLink}>
       {f.contactEmail}
@@ -27,10 +29,11 @@ export default function PrivacyPage() {
   return (
     <LegalDoc
       title="Privacy policy"
-      effective={effectiveLine(f)}
+      updated={lastUpdatedLine(f)}
       intro={
         <P>
           How Budgts handles your information: what we collect, why, who helps us run the service, and how to delete it.
+          This policy applies from when you first sign in to Budgts.
         </P>
       }
       lead={
@@ -40,7 +43,13 @@ export default function PrivacyPage() {
             { icon: "key", title: "We never see your bank login", body: "You sign in to your bank inside Plaid's window, not ours." },
             { icon: "eye", title: "Read-only", body: "Budgts can read balances and transactions. It can't move money." },
             { icon: "shield", title: "Not sold, no ads", body: "We don't sell your information, show ads or use trackers." },
-            { icon: "trash", title: "Delete it any time", body: "Deleting your account removes your data and bank connections." },
+            {
+              icon: "trash",
+              title: "Delete it any time",
+              body: keeps
+                ? "Deleting your account removes your data and bank connections."
+                : "Deleting your account deletes your data right away, and disconnects your banks.",
+            },
           ]}
         />
       }
@@ -50,8 +59,8 @@ export default function PrivacyPage() {
           title: "Who we are",
           body: (
             <P>
-              Budgts is published by {f.entityName}, {f.address}. We are responsible for the information you give Budgts in its
-              iPhone and Android apps and at budgts.com. Questions about privacy go to {mail}.
+              Budgts is published by {f.entityName}, which is responsible for the information you give Budgts in its iPhone
+              and Android apps and at budgts.com. Our mailing address is {f.address}. Questions about privacy go to {mail}.
             </P>
           ),
         },
@@ -184,17 +193,24 @@ export default function PrivacyPage() {
                 <Link href="/account-deletion" className={textLink}>
                   account deletion page
                 </Link>
-                . Deletion starts as soon as you confirm:
+                .{" "}
+                {keeps
+                  ? "Deletion starts as soon as you confirm:"
+                  : "Deleting your account deletes your data right away, as soon as you confirm:"}
               </P>
               <Bullets
                 items={[
                   "Your profile, accounts, transactions, categories, budgets and savings goals are deleted, and every connected bank is disconnected at Plaid.",
                   "You're signed out everywhere and can no longer sign in to that account.",
-                  <>
-                    If you ever paid for a subscription, we keep the billing records of those payments, with your email and
-                    sign-in details removed, for {yearsLabel(f.retentionYears)} after deletion for accounting, tax and store
-                    reconciliation, then delete them in line with our retention schedule.
-                  </>,
+                  ...(keeps
+                    ? [
+                        <>
+                          If you ever paid for a subscription, we keep the billing records of those payments, with your email
+                          and sign-in details removed, for {yearsLabel(f.retentionYears)} after deletion for accounting, tax and
+                          store reconciliation, then delete them in line with our retention schedule.
+                        </>,
+                      ]
+                    : []),
                   "Operational logs that don't name you, such as our record of Plaid's messages about a connection, are kept to run the service.",
                   "Copies in our database provider's backups disappear as those backups expire.",
                 ]}
@@ -226,7 +242,7 @@ export default function PrivacyPage() {
           title: "Changes to this policy",
           body: (
             <P>
-              When our practices change we update this page and its effective date.
+              When our practices change we update this page and its &ldquo;Last updated&rdquo; date.
             </P>
           ),
         },

@@ -19,7 +19,7 @@ export default function AuthLayout({ children }: LayoutProps<"/">) {
         </div>
         {legalPagesLive() ? (
           <p className="reveal mt-4 text-balance text-center text-[13px] leading-5 text-muted" style={{ ["--i" as string]: 3 }}>
-            By continuing you agree to the{" "}
+            By signing in you agree to the{" "}
             <Link href="/terms" className="font-medium text-ink underline decoration-silver underline-offset-4 hover:decoration-ink">
               Terms
             </Link>{" "}

@@ -3,7 +3,7 @@ import { StandaloneShell } from "@/components/standalone-shell";
 import { DeleteAccountFlow } from "@/components/account/delete-account-flow";
 import { createClient } from "@/lib/supabase/server";
 import { isRecentlyAuthenticated } from "@/lib/account/reauth";
-import { legalFacts } from "@/lib/legal/config";
+import { keepsRecordsAfterDeletion, legalFacts } from "@/lib/legal/config";
 import { billingLive } from "@/lib/billing/config";
 import { getPrivilegedCookieUser } from "@/server/privileged-user";
 
@@ -25,11 +25,12 @@ export default async function DeleteAccountPage({ searchParams }: PageProps<"/se
   const facts = legalFacts();
   const supportEmail = facts?.contactEmail ?? null;
   const billing = billingLive();
+  const keepsRecords = keepsRecordsAfterDeletion(facts);
 
   if (!user) {
     return (
       <StandaloneShell align="top">
-        <DeleteAccountFlow email="" recent={false} google={false} inProgress={false} initial="signed_out" supportEmail={supportEmail} billing={billing} />
+        <DeleteAccountFlow email="" recent={false} google={false} inProgress={false} initial="signed_out" supportEmail={supportEmail} billing={billing} keepsRecords={keepsRecords} />
       </StandaloneShell>
     );
   }
@@ -49,6 +50,7 @@ export default async function DeleteAccountPage({ searchParams }: PageProps<"/se
         initial={sp.step === "confirm" ? "confirm" : "intro"}
         supportEmail={supportEmail}
         billing={billing}
+        keepsRecords={keepsRecords}
       />
     </StandaloneShell>
   );

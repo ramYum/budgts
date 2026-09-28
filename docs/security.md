@@ -148,6 +148,10 @@ Each item needs a test or an explicit check before store submission.
   billing records are kept for `LEGAL_RECORD_RETENTION_YEARS` after deletion, "then deleted in line with our retention
   schedule". No job does that yet. It must exist before billing goes live (roadmap Phase 4), and it must use the
   ledger's explicit mechanisms, never weaken the RESTRICT keys or immutability triggers.
+- **Retention 0 is a structural promise.** The owner set `LEGAL_RECORD_RETENTION_YEARS=0` (2026-09-28): the legal
+  pages say deleting an account deletes its data right away. True today (billing off, production's ledger tables
+  empty, so Path B cannot happen). The production build (`productionEnvProblems`, npm `prebuild`) refuses
+  `billingLive()` with retention 0, so billing cannot ship until Path B's retention is decided (Phase 4).
 - **`billing_events.payload` keeps the raw RevenueCat event on Path B.** The "email and sign-in details removed" claim
   holds only while the app never sets a RevenueCat `$email` (or any other personal) subscriber attribute. Rule: don't
   set one; if that ever changes, the payload needs scrubbing on deletion first.

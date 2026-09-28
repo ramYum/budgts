@@ -283,19 +283,27 @@ guessed here).
 `src/proxy.ts`, but each answers **404** and nothing links to them (sign-in, About, the apps' Settings via
 `GET /api/legal`) until all six facts in `src/lib/legal/config.ts` are set. No code change turns them on:
 
-| Variable | What the owner supplies |
-| --- | --- |
-| `LEGAL_ENTITY_NAME` | The LLC's legal name |
-| `LEGAL_ENTITY_ADDRESS` | Its postal address, one line |
-| `SUPPORT_EMAIL` | The public privacy / support / deletion contact |
-| `LEGAL_RECORD_RETENTION_YEARS` | Years retained billing records (Path B) are kept after deletion, spec §12.4. Setting it also confirms nothing else is retained; if other data must be, the copy needs a change first |
-| `LEGAL_GOVERNING_LAW` | Whose law governs the Terms, read after "the laws of" |
-| `LEGAL_EFFECTIVE_DATE` | `YYYY-MM-DD`, the day the owner approved the wording (printed as "Effective") |
+| Variable | What it is | Owner's value (supplied 2026-09-28) |
+| --- | --- | --- |
+| `LEGAL_ENTITY_NAME` | The LLC's legal name | `Budgts, LLC` |
+| `LEGAL_ENTITY_ADDRESS` | Its postal address, one line | `619 Springhouse Rd, Apt I, Allentown, PA 18104` |
+| `SUPPORT_EMAIL` | The public privacy / support / deletion contact | `support@budgts.com` |
+| `LEGAL_RECORD_RETENTION_YEARS` | Years retained billing records (Path B) are kept after deletion, spec §12.4. `0` = nothing is kept: the pages say deletion deletes your data right away. Setting it also confirms nothing else is retained | `0` ("deleted right away") |
+| `LEGAL_GOVERNING_LAW` | Whose law governs the Terms, read after "the laws of" | `the Commonwealth of Pennsylvania` |
+| `LEGAL_EFFECTIVE_DATE` | `YYYY-MM-DD`, the date the owner approved this wording, shown as "Last updated". The documents apply to each user from when they first sign in (the pages say so) | `2026-09-28` |
 
 Set them in Vercel for Production (and staging to preview), then redeploy: the pages are prerendered at build time.
-Before setting the date, the owner (or counsel) reviews the drafted wording, including the defaults the code could not
-derive: minimum age 18 in the Terms, "not directed to children under 13", the liability cap (fees paid in the last 12
-months), and the store links. Then give Google's OAuth consent screen and both store listings the URLs.
+Then give Google's OAuth consent screen and both store listings the URLs.
+
+**Owner-confirmed wording (2026-09-28, "Confirmed"):** minimum age 18 in the Terms; the privacy policy is not directed
+at children under 13; liability capped at what the user paid in the last 12 months; deletion is immediate, with no undo
+window. The terms apply from a user's first sign-in ("once they sign in"). The owner was advised to have counsel read the
+terms.
+
+**Retention 0 holds only while billing is off.** With billing live, a paying user's deletion keeps anonymized ledger
+rows (Path B), so the production build (`src/lib/env/production-env.ts`, npm `prebuild`) refuses billing live with
+`LEGAL_RECORD_RETENTION_YEARS=0`: decide how long payment records are kept (and whether Path B anonymizes or deletes
+them) before switching billing on.
 
 Paid wording is separate from this switch: until billing is live (`BILLING_ENVIRONMENT=production`,
 `REVENUECAT_WEBHOOK_SIGNING_SECRET` and `REVENUECAT_SECRET_API_KEY` set, `billingLive()` in `src/lib/billing/config.ts`) the Terms say "Budgts is free

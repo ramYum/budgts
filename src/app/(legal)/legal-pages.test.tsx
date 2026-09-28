@@ -1,6 +1,6 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { FULL_LEGAL_ENV } from "@/test-utils/legal-env";
+import { FULL_LEGAL_ENV, OWNER_LEGAL_ENV } from "@/test-utils/legal-env";
 
 const NOT_FOUND = new Error("NEXT_NOT_FOUND");
 vi.mock("next/navigation", () => ({
@@ -101,8 +101,8 @@ describe("legal pages: switched on", () => {
     switchOn();
     render(PrivacyPage());
     expect(screen.getByRole("heading", { level: 1, name: "Privacy policy" })).toBeInTheDocument();
-    expect(screen.getByText("Effective October 1, 2026")).toBeInTheDocument();
-    expect(screen.getByText(/published by Example Labs LLC, 1 Main Street/)).toBeInTheDocument();
+    expect(screen.getByText("Last updated October 1, 2026")).toBeInTheDocument();
+    expect(screen.getByText(/published by Example Labs LLC, which is responsible/)).toHaveTextContent("Our mailing address is 1 Main Street");
     expect(screen.getAllByRole("link", { name: "help@example.com" })[0]).toHaveAttribute("href", "mailto:help@example.com");
     for (const processor of ["Supabase", "Vercel", "Plaid", "Google"]) {
       expect(screen.getByText(processor)).toBeInTheDocument();
@@ -180,5 +180,54 @@ describe("legal pages: switched on", () => {
     render(<AuthLayout params={Promise.resolve({})}>form</AuthLayout>);
     expect(screen.getByRole("link", { name: "Terms" })).toHaveAttribute("href", "/terms");
     expect(screen.getByRole("link", { name: "Privacy policy" })).toHaveAttribute("href", "/privacy");
+  });
+});
+
+describe("legal pages with the owner's facts (2026-09-28): retention 0, signed-in acceptance", () => {
+  function ownerFacts() {
+    for (const [name, value] of Object.entries(OWNER_LEGAL_ENV)) vi.stubEnv(name, value);
+  }
+
+  it.each(PAGES)("/%s shows Last updated September 28, 2026, never 'Effective', and no retention years", (_path, Page) => {
+    ownerFacts();
+    const { container } = render(Page());
+    const text = container.textContent ?? "";
+    expect(screen.getByText("Last updated September 28, 2026")).toBeInTheDocument();
+    expect(text).not.toMatch(/Effective/);
+    expect(text).not.toMatch(/\d+ years? after deletion|0 years/);
+  });
+
+  it("privacy: the publisher and address read naturally, it applies from first sign-in, and data is deleted right away", () => {
+    ownerFacts();
+    render(PrivacyPage());
+    expect(screen.getByText(/Budgts is published by Budgts, LLC, which is responsible/)).toHaveTextContent(
+      "Our mailing address is 619 Springhouse Rd, Apt I, Allentown, PA 18104.",
+    );
+    expect(screen.getByText(/This policy applies from when you first sign in to Budgts\./)).toBeInTheDocument();
+    expect(screen.getByText(/Deleting your account deletes your data right away, as soon as you confirm/)).toBeInTheDocument();
+    expect(screen.queryByText(/we keep the billing records/)).not.toBeInTheDocument();
+  });
+
+  it("terms: apply from first sign-in, signing in is agreeing, and Pennsylvania law governs", () => {
+    ownerFacts();
+    render(TermsPage());
+    expect(
+      screen.getByText(/They apply to you from when you first sign in to Budgts, and by signing in you agree to them\./),
+    ).toBeInTheDocument();
+    expect(screen.getByText("These terms are governed by the laws of the Commonwealth of Pennsylvania.")).toBeInTheDocument();
+    expect(screen.getByText(/write to Budgts, LLC at 619 Springhouse Rd, Apt I, Allentown, PA 18104\./)).toBeInTheDocument();
+  });
+
+  it("account deletion: nothing is kept", () => {
+    ownerFacts();
+    render(AccountDeletionPage());
+    expect(screen.getByText("Nothing. Deleting your account deletes your data right away, as soon as you confirm.")).toBeInTheDocument();
+    expect(screen.queryByText(/billing records/)).not.toBeInTheDocument();
+  });
+
+  it("sign-in says signing in is agreeing, matching the Terms", () => {
+    ownerFacts();
+    render(<AuthLayout params={Promise.resolve({})}>form</AuthLayout>);
+    expect(screen.getByText(/By signing in you agree to the/)).toBeInTheDocument();
   });
 });

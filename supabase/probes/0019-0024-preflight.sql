@@ -1,6 +1,7 @@
 -- Read-only production probe for migrations 0019-0024 (docs/deploy.md -> Notes). Changes nothing.
 -- Run by the owner in the production SQL editor BEFORE deploying the Stage 0 build; every row must be ok = true.
 -- tests/unit/db-migration-chain.test.ts runs this same file against the migrated chain (embedded Postgres).
+-- Single-release probe: the ledger check expects exactly 25 rows (0000-0024). Retire or update it once 0025 exists.
 select 'account_deletions table' as check, to_regclass('public.account_deletions') is not null as ok
 union all select 'account_accepts_writes()', exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
   where n.nspname = 'public' and p.proname = 'account_accepts_writes')

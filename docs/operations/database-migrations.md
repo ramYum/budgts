@@ -8,8 +8,9 @@
 > monetization ledger (all ten tables; the influencer ones stay empty),
 > `0024` entitlements + billing events (without the dropped trial-reminder
 > columns). Today's only staging is **Budgets-Staging-3
-> (`uvowywszaiojboaxdmoz`)**; its history does not match this chain yet, see
-> "Pending: staging rebuild" below.
+> (`uvowywszaiojboaxdmoz`)**. It was rebuilt on 2026-09-28 and its history now
+> matches `0000`–`0024` exactly (`db:verify-history`: CLEAN); see "Staging
+> rebuild (done 2026-09-28)" below. Production has `0000`–`0018` only.
 
 Why this file exists: `budgts-staging`'s migration ledger (`drizzle.__drizzle_migrations`)
 drifted from the repository's actual migration files — several migrations'
@@ -120,42 +121,70 @@ only after staging verification passes. No environment is ever skipped.
   intended, sanctioned way to resolve migration-history drift when
   forensic repair would require breaking one of the rules above.
 
-## Pending: staging rebuild (owner decision, not done)
+## Staging rebuild (done 2026-09-28)
 
-Budgets-Staging-3 was migrated from `mobile/native-home`'s chain, then got
-main's `0017` and `0018`. It therefore already has every table and column the
-ported code reads (tests run against it as is), but its ledger records the
-shelved numbering (`0017_deletion_fk_indexes` … `0022_entitlements_and_billing_events`,
-stamped 1789986745169 … 1790010119571) plus main's `0017`/`0018`, and
-`entitlements` still carries the three `reminder_*` columns and
-`entitlements_trial_reminder_idx`. Consequences until it is rebuilt:
+**Why.** Budgets-Staging-3 had been migrated from `mobile/native-home`'s
+chain, then got main's `0017` and `0018`. Its ledger recorded the shelved
+numbering (`0017_deletion_fk_indexes` … `0022_entitlements_and_billing_events`)
+plus main's `0017`/`0018`, so `db:verify-history` reported drift and
+`db:migrate` would have re-applied `0019`–`0024` on top of existing tables.
+The owner approved the rebuild on 2026-09-28 ("Rebuild staging").
 
-- `npm run db:verify-history` against staging will report drift (six ledger
-  rows with no matching file, six files with no ledger row). That is expected
-  and is the reason for the rebuild, not something to "fix" by stamping.
-- `npm run db:migrate` against staging would try to apply `0019`–`0024`
-  (their `when` is newer than `0018`'s) on top of tables that already exist.
-  **Do not run it** until the rebuild.
-- Nothing in the ported code reads or writes the `reminder_*` columns; they
-  are nullable, so inserts that omit them work.
+**What was done** (scripts and logs stayed in that session's scratchpad):
 
-Procedure when the owner approves (the `docs/operations/staging-replacement.md`
-runbook on `mobile/native-home` has the full project-replacement variant):
+1. **Looked first:** 25 `public` tables, 747 rows, 48 `auth.users`, 25 ledger
+   rows, two cron jobs (`plaid-sync-due`, `billing-reconcile`).
+2. **Backed up:** a data-only export of every `public` table (NDJSON per
+   table), the old ledger and the `auth.users` id/email/created_at list, taken
+   in one read-only transaction (`pg_dump` is not installed on this machine).
+   The counts matched step 1 (747 rows, 25 ledger rows, 48 users). The
+   backup is disposable test data and is not kept in the repo.
+3. **Emptied `public` object by object, never `drop schema public cascade`.**
+   On this project the `pg_net` extension is registered in schema `public`
+   (it cannot be relocated), so dropping the schema would also drop `pg_net`
+   and its `net` schema, which breaks `plaid-sync-due`. It would also lose the
+   `supabase_admin` default privileges on `public`, which `postgres` cannot
+   recreate. Instead, in one checked transaction: every `public` table (25),
+   function (6) and enum (9) dropped with `CASCADE`, then
+   `drop schema drizzle cascade`. The cascade removed the `auth.users` trigger,
+   and `0000` recreated it. The script checked afterwards that `pg_net` and
+   the schema grants were still there, that all six default-privilege entries
+   were unchanged, and that the 48 auth users and both cron jobs survived.
+   **Do the same on any future rebuild of this project.**
+4. **Migrated from empty:** `MIGRATE_CONFIRM_REF=uvowywszaiojboaxdmoz npm run
+   db:migrate` applied `0000`–`0024`.
+5. **Kept the auth users** and ran the migrated `handle_new_user()` body once
+   per user. Every one of the 48 has one profile, one `Main` checking account
+   and the eight default categories, with `onboarded_at` and `time_zone` null,
+   so they land in onboarding.
+6. **Cron:** `billing-reconcile` unscheduled, because billing is off and the
+   deployed `budgts-staging` build is stale. Re-schedule it from
+   `supabase/billing-cron.sql` when Phase 4 switches billing on.
+   `billing-reminders` was never scheduled on this project. `plaid-sync-due`
+   was kept.
+7. **Verified:** `db:verify-history -- --ref uvowywszaiojboaxdmoz` reports
+   `✅ CLEAN` (25 of 25); RLS is on for all 25 tables; the `reminder_*`
+   columns and `entitlements_trial_reminder_idx` are gone. Integration suite:
+   28 of 28 files, 172 of 172 tests.
 
-1. **Back up first**: a `pg_dump` of the staging database (schema + data) to
-   a git-ignored local file, and a list of `auth.users` ids and emails.
-2. Rebuild the `public` schema and `drizzle.__drizzle_migrations` from empty
-   with `npm run db:migrate` (target confirmed through `MIGRATE_CONFIRM_REF`),
-   never by hand-stamping ledger rows.
-3. **Keep the auth users.** For every kept user, re-create the `profiles` row
-   and default categories the way `handle_new_user()` does (the trigger only
-   fires on a new `auth.users` insert), so existing e2e/integration users can
-   sign in and onboard.
-4. **Unschedule the trial-reminder cron job** the shelved branch scheduled
-   (`cron.unschedule(...)`); keep `plaid-sync-due`, and schedule
-   `supabase/billing-cron.sql` only once billing is switched on.
-5. `npm run db:verify-history` must come back **clean** (every file has its
-   ledger row, nothing extra), then the integration suite, then e2e.
+**Found while rebuilding (follow-ups):**
+
+- **`db:migrate` loads `.env.local` (PRODUCTION).** `drizzle.config.ts` and
+  the migrate gate load `.env.local` ("injected env (8) from .env.local").
+  The rebuild passed staging's `DIRECT_URL` / `DATABASE_URL` explicitly
+  (dotenv never overrides a variable that is already set), and the gate
+  confirmed the staging ref before `drizzle-kit` connected. The gate would
+  also refuse a production URL while `MIGRATE_CONFIRM_REF` names staging.
+  Still, a staging migration should never read the production file: make the
+  config take its env file from the confirmed target instead.
+- **`plaid-sync-due` on staging runs every 30 seconds** with a 20-second
+  timeout, while `supabase/staging-plaid-cron.sql` says `*/10 * * * *` and
+  290000 ms. It was left as found. It calls the stale `budgts-staging`
+  deployment, which returned three 500s during the rebuild window and 200s
+  otherwise. Reconcile the job with the file (or the file with the job) on
+  purpose.
+- e2e against staging (the procedure's last step) was not re-run after the
+  rebuild; the next isolated e2e run covers it.
 
 ## Tooling
 

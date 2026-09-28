@@ -1189,11 +1189,21 @@ implementation goes to `budgts-architect`.
     `e5cfbda` 3/3 passed (8.8 s, 19.9 s, 6.1 s). No regression: the earlier failures were load (both builds had failed
     it under heavier load earlier the same session: port 2 of 8 runs passed, `e5cfbda` 2 of 6).
   - **Pre-existing follow-ups found while verifying (not caused by the port):**
-    - 16 recurring / bill / subscription detection integration tests fail on staging, identically on clean
-      `e5cfbda`. Root cause: the scan cutoff comes from this machine's clock while `transactions.created_at` comes
-      from the staging database's `now()` (about 0.32 s ahead), so fresh rows fall after the cutoff. Fix in the test
-      harness, or take the scan time from the database.
-    - The Path B concurrency test's "a deadlock must actually happen" condition does not trigger on current staging
-      data; the deletion itself succeeds and anonymizes fully.
+    - 16 recurring / bill / subscription detection integration tests failed on the drifted staging, identically on
+      clean `e5cfbda`. The reviewer attributed it to the scan cutoff coming from this machine's clock while
+      `transactions.created_at` comes from the database's `now()` (about 0.32 s ahead). **After the staging rebuild
+      all 16 passed** (172/172), so the drifted schema is the likelier cause. One run: watch the next runs, and if
+      they fail again, take the scan time from the database.
+    - The Path B concurrency test's "a deadlock must actually happen" condition did not trigger on the drifted
+      staging; it passed once after the rebuild. It is timing-dependent, so not yet called fixed.
+  - **Landed 2026-09-28.** Owner: "1. Move it into launch branch 2. Push 3. Rebuild staging".
+    `phase-m/mobile-launch` fast-forwarded to `e26fcfe` and pushed, then `e8b4ed3` (the Expo env template: the
+    README's `.env.example` only ever lived in the untracked `Budgts-mobile-archive` folder, because the root
+    `.gitignore` hides `.env*`; saved as `mobile/.env.local.example` with all five `EXPO_PUBLIC_*` names). Vercel
+    preview builds of the push: Ready on both `budgts` and `budgts-staging`. GitHub CI runs only on `main` and PRs,
+    so it did not run for the branch push. Staging rebuilt: see `docs/operations/database-migrations.md`.
+  - Deleting the shelf (`mobile/native-home` locally and on origin, the `Budgts-mobile-archive` folder, the
+    `budgts-stage0` worktree) waits for the owner's explicit go-ahead; the auto-mode classifier refused it as a
+    destructive git action under "push".
   - Left for later: legal pages + deletion screens + restoring the mobile legal links (Phase 1), shared tokens +
-    restyle (Phases 2–3), `requirePremium` wiring + Manage Subscription (Phase 4), staging rebuild (owner decision).
+    restyle (Phases 2–3), `requirePremium` wiring + Manage Subscription (Phase 4).

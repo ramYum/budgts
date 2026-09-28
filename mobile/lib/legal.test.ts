@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { LEGAL_PAGES_LIVE, legalUrl, settingsLegalLinks } from "./legal";
+import { describe, expect, it, vi } from "vitest";
+import { fetchLegalLive, legalUrl, settingsLegalLinks } from "./legal";
 
 describe("legalUrl", () => {
   it("builds the hosted page URL from the API base", () => {
@@ -19,10 +19,36 @@ describe("legalUrl", () => {
   });
 });
 
+describe("fetchLegalLive: the web's switch is the app's switch", () => {
+  const answering = (status: number, body: unknown) =>
+    vi.fn(async () => new Response(JSON.stringify(body), { status })) as unknown as typeof fetch;
+
+  it("asks the web's /api/legal", async () => {
+    const f = answering(200, { live: true, pages: [] });
+    expect(await fetchLegalLive("https://budgts.com/", f)).toBe(true);
+    expect(f).toHaveBeenCalledWith("https://budgts.com/api/legal");
+  });
+
+  it("is off unless the answer is exactly live: true", async () => {
+    expect(await fetchLegalLive("https://budgts.com", answering(200, { live: false, pages: [] }))).toBe(false);
+    expect(await fetchLegalLive("https://budgts.com", answering(200, { live: "yes" }))).toBe(false);
+    expect(await fetchLegalLive("https://budgts.com", answering(404, { live: true }))).toBe(false);
+  });
+
+  it("is off when the web can't be reached or the base URL is missing", async () => {
+    const failing = vi.fn(async () => {
+      throw new TypeError("Network request failed");
+    }) as unknown as typeof fetch;
+    expect(await fetchLegalLive("https://budgts.com", failing)).toBe(false);
+    const unused = vi.fn() as unknown as typeof fetch;
+    expect(await fetchLegalLive(undefined, unused)).toBe(false);
+    expect(unused).not.toHaveBeenCalled();
+  });
+});
+
 describe("settingsLegalLinks", () => {
-  it("shows no legal links until Phase 1 builds the pages (a tap would dead-end on a 404 or sign-in)", () => {
-    expect(LEGAL_PAGES_LIVE).toBe(false);
-    expect(settingsLegalLinks("https://budgts.com")).toEqual([]);
+  it("shows no legal links while the web's pages are off (a tap would dead-end on a 404)", () => {
+    expect(settingsLegalLinks("https://budgts.com", false)).toEqual([]);
   });
 
   it("once live, lists each page with its URL, and none without a base URL", () => {

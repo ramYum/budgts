@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/page-header";
 import { Robin } from "@/components/mascot";
+import { HubRow, HubSection } from "@/components/hub-list";
+import { legalPagesLive } from "@/lib/legal/config";
 
 export const metadata: Metadata = { title: "About Budgts" };
 
@@ -46,6 +48,15 @@ export default function AboutPage() {
             </div>
           ))}
         </dl>
+
+        {/* The public pages, once the owner facts behind them are set (src/lib/legal/config.ts). */}
+        {legalPagesLive() ? (
+          <HubSection title="Legal">
+            <HubRow href="/privacy" label="Privacy policy" icon="document" />
+            <HubRow href="/terms" label="Terms of service" icon="document" />
+            <HubRow href="/support" label="Support" icon="mail" />
+          </HubSection>
+        ) : null}
       </div>
     </>
   );

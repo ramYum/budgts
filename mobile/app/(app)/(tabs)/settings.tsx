@@ -5,8 +5,8 @@ import { useRouter } from "expo-router";
 import { useAuth } from "../../../lib/auth/auth-context";
 import { describeFlow, describeSubscription } from "../../../lib/billing/describe";
 import { useMonetization } from "../../../lib/billing/use-monetization";
-import { settingsLegalLinks } from "../../../lib/legal";
 import { useProfile } from "../../../lib/profile/profile-context";
+import { useLegalLinks } from "../../../lib/use-legal-links";
 import { colors, fonts, radii } from "../../../lib/theme";
 import { OutlineButton, PrimaryButton, TextLink } from "../../../components/ui";
 
@@ -26,8 +26,8 @@ export default function SettingsScreen() {
   const flow = describeFlow(m.state);
   const base = process.env.EXPO_PUBLIC_API_BASE_URL;
 
-  // Hidden until Phase 1 builds the pages (LEGAL_PAGES_LIVE in lib/legal.ts); the About card then renders on its own.
-  const links = settingsLegalLinks(base);
+  // Hidden until the web says its legal pages are live (GET /api/legal, lib/legal.ts); the About card then renders on its own.
+  const links = useLegalLinks(base);
   const subscribed = m.entitlement !== null && m.entitlement.status !== "none";
 
   return (

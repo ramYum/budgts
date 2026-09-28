@@ -52,6 +52,16 @@ describe("isPublic", () => {
     expect(isPublic("/offline")).toBe(true);
   });
 
+  it("serves the legal pages, their switch and the deletion confirmation signed out", () => {
+    for (const path of ["/privacy", "/terms", "/support", "/account-deletion", "/api/legal", "/account-deleted"]) {
+      expect(isPublic(path)).toBe(true);
+    }
+    // the deletion screen itself needs a session: signed out, the proxy sends it through sign-in
+    expect(isPublic("/settings/delete-account")).toBe(false);
+    expect(isPublic("/privacy-settings")).toBe(false);
+    expect(isPublic("/account-deletion-admin")).toBe(false);
+  });
+
   it("does not treat an unrelated path with the same prefix as public", () => {
     // e.g. a route that merely starts with "/api/plaid/webhooks" (plural) is a
     // different path and must not slip through on a loose prefix match.

@@ -42,6 +42,18 @@ const PUBLIC_PREFIXES = [
   // whose web fallback page must load when the app is not installed.
   "/.well-known/",
   "/app/plaid-oauth",
+  // The legal and support pages the stores, Google's OAuth consent screen and
+  // the apps link to, and the switch the apps read (src/lib/legal/config.ts).
+  // Public whether or not the switch is on: while it is off each page is a
+  // 404, which a signed-out visitor should see as such, not be sent to sign in
+  // first and then land on the 404. None of them reads user data.
+  "/privacy",
+  "/terms",
+  "/support",
+  "/account-deletion",
+  "/api/legal",
+  // Where a completed deletion lands: the user was just signed out.
+  "/account-deleted",
 ];
 
 export function isPublic(pathname: string) {

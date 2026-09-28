@@ -22,7 +22,9 @@ import { ColorsSwatch } from "pixelarticons/react/ColorsSwatch";
 import { Copy } from "pixelarticons/react/Copy";
 import { CreditCard } from "pixelarticons/react/CreditCard";
 import { Download } from "pixelarticons/react/Download";
+import { ExternalLink } from "pixelarticons/react/ExternalLink";
 import { Eye } from "pixelarticons/react/Eye";
+import { FileText } from "pixelarticons/react/FileText";
 import { Flag } from "pixelarticons/react/Flag";
 import { Gamepad } from "pixelarticons/react/Gamepad";
 import { Globe } from "pixelarticons/react/Globe";
@@ -50,10 +52,12 @@ import { Shield } from "pixelarticons/react/Shield";
 import { ShoppingCart } from "pixelarticons/react/ShoppingCart";
 import { Smartphone } from "pixelarticons/react/Smartphone";
 import { Target } from "pixelarticons/react/Target";
+import { Trash } from "pixelarticons/react/Trash";
 import { TrendingUp } from "pixelarticons/react/TrendingUp";
 import { University } from "pixelarticons/react/University";
 import { Unlink } from "pixelarticons/react/Unlink";
 import { User } from "pixelarticons/react/User";
+import { UserX } from "pixelarticons/react/UserX";
 import { Wallet } from "pixelarticons/react/Wallet";
 import { WarningDiamond } from "pixelarticons/react/WarningDiamond";
 
@@ -139,6 +143,11 @@ const GLYPHS = {
   menu: MoreKebab,
   mail: Mail,
   google: Google,
+  // the legal pages and account deletion
+  document: FileText,
+  external: ExternalLink,
+  trash: Trash,
+  "user-x": UserX,
   // welcome-guide scenes
   leaf: Leaf,
   smartphone: Smartphone,

@@ -1149,3 +1149,22 @@ implementation goes to `budgts-architect`.
     error class (all four fail on the previous version), and the log tripwire now splits
     each call into its arguments, rejects interpolated template strings and raw errors
     beside a safe call, and covers `console.log` / `info` across `src/lib`.
+
+- **2026-09-27 — Stage 0: the shelved mobile work ported onto `main` (local, not pushed).** Branch
+  `phase-m/stage0-port` from `e5cfbda`, ten commits (`7ba8a09` … this one), plan in
+  `docs/superpowers/plans/2026-09-27-stage0-port.md`. Source: `mobile/native-home` (`901ebfd`); the older archive
+  branch was a superseded snapshot.
+  - Migrations `0019`–`0024` (deletion indexes, write guard + disconnect exception, the ten-table ledger, entitlements
+    and billing events without the reminder columns), proven from empty on embedded Postgres. Staging is not migrated
+    (it holds the shelved numbering); the rebuild procedure is recorded, pending the owner.
+  - Bearer auth verified locally with `getClaims`; `/api/mobile/*` (session, profile with the time zone, onboarding,
+    home, budgets, transactions, accounts, categories, Plaid banks / sync / mapping / exclude / importing). Shared
+    commands rebuilt from `main`'s actions; Home's reads moved into `src/lib/home/load-home.ts` for the web and the API
+    (no money-math change), and an e2e checks the web Home shows the API's numbers.
+  - Account deletion (Path A / Path B, strict Plaid removal, deadlock retry), proven on staging including against a
+    leased sync. Billing ported switched off ($9.99 / $69, 7-day trial, no reminder).
+  - `mobile/` with "today" / "this month" from the server in the user's zone, and the device zone synced on
+    foreground.
+  - Also fixed: `src/app/pixel-frames.css` is pinned to LF, because a fresh autocrlf checkout failed its byte-for-byte test.
+  - Left for later: legal pages + deletion screens (Phase 1), shared tokens + restyle (Phases 2–3), `requirePremium`
+    wiring + Manage Subscription (Phase 4), staging rebuild (owner decision).

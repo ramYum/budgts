@@ -431,50 +431,57 @@ Full design authority: `docs/specs/2026-09-18-monetization-ledger-design.md`.
 This section states status only — **it does not re-derive or modify that
 spec, and nothing in this document implements any of the items below.**
 
-**v1 scope and migration status (2026-09-26):**
-- v1 builds only the subscription side: RevenueCat webhook → verified,
-  logged, idempotent processing → an **entitlement mirror** (the
-  `subscriptions` + `payments` subset) that the server checks before any
-  Plaid link-token, exchange or sync, for the apps and budgts.com alike.
-- Partner, voucher, redemption, allocation, adjustment and payout tables
-  are created by the ledger migration (all ten tables, renumbered `0023` in
-  the Stage 0 port) but stay empty: no code writes to them until the
-  influencer phase.
-- **The archived `0017_superb_iron_monger` must be renumbered.** `main`'s
-  `0017` is now the Plaid sync lease (live in production and staging since
-  2026-09-25). The status bullets below describe `budgts-staging-2`, which
-  was since deleted; nothing from this ledger exists on the current staging
-  (`uvowywszaiojboaxdmoz`) or production.
-- A lapsed or unpaid trial pauses sync, then removes the user's Plaid Items
-  after a grace period (Plaid bills every calendar month an Item exists).
-- The owner's existing accounts are grandfathered by a manual entitlement
-  grant, recorded as such.
+**v1 scope and status (Stage 0, 2026-09-27).** Folded in from the shelved
+`2026-09-21-v1-monetization-design.md` (not ported as a separate document), with
+the current commercial terms: **$9.99/month, $69/year, 7-day free trial**, and
+**no Budgts trial-end reminder** (owner decision 2026-09-22; Apple/Google send
+their own store notices).
 
-- **Schema + migration `0017`** (`partners`, `vouchers`, `redemptions`,
-  `subscriptions`, `payments`, `revenue_allocations`,
-  `revenue_allocation_adjustments`, `payouts`, `payout_allocations`,
-  `platform_commission_rates`): **implemented and applied**, verified this
-  session against a clean migration chain (`0000`→`0017`) on
-  `budgts-staging-2`.
-- **Everything above the schema is not yet built.** Outstanding layers,
-  all `⏳ not started` per `docs/roadmap.md`'s monetization delivery track:
-  - Zod validation for the seven entities
-  - Domain calculations (commissionable-proceeds math, §1.3/§2.5 of the
-    monetization spec)
-  - Commission-window logic (12-calendar-month anchor, §1.4/§2.6)
-  - Boundary proration (§1.5)
-  - Voucher redemption (server action + rate-limiting/enumeration
-    protection, monetization spec §4.9)
-  - RevenueCat webhook processing (verify → log → process → mark handled)
-  - Entitlement mirror (however mobile learns "is this user currently
-    entitled" — not yet designed)
-  - Payment/RevenueAllocation processing (the write path that turns a
-    verified webhook event into ledger rows)
-  - Admin authorization boundary (§9 below repeats this — it blocks the
-    admin surface specifically, not the schema or the client-facing
-    redemption flow)
-  - Payout workflow (manual/ledger-only in this phase — no automated
-    payout processing is in scope, monetization spec §5)
+- **The model.** The user explicitly starts the store-managed trial; it never
+  starts silently (not at sign-up, onboarding, first Home or bank connect). It
+  converts to paid and renews unless cancelled. Apple on iOS, Google Play on
+  Android, RevenueCat as the normalization layer, Plaid only for bank data. No
+  web checkout.
+- **Built and switched off** (`src/lib/billing/*`, `/api/billing/*`, commit
+  `8184ba2`): the provider-neutral entitlement (`hasPremium(entitlement, now)`
+  is the one access decision; a live state is never trusted past
+  `access_until`), the reducer, the RevenueCat adapter (webhook
+  `X-RevenueCat-Webhook-Signature` HMAC with a 5-minute tolerance, mapper,
+  reconciliation), the idempotent `billing_events` log, and the ledger write
+  path. One transaction per webhook event: log + ledger + entitlement.
+  Unconfigured deployments refuse: no signing secret -> 503
+  `not_configured`; `BILLING_ENVIRONMENT` unset -> `sandbox`, so real-money
+  events are quarantined. `requirePremium` exists but gates nothing yet
+  (Phase 4 wires it to the Plaid routes for the apps and budgts.com).
+- **Schema** (migrations `0023` ledger, `0024` entitlements + billing events).
+  All ten ledger tables exist; only `subscriptions` and `payments` are ever
+  written. Partner, voucher, redemption, allocation, adjustment and payout
+  tables stay empty until the influencer phase (no code writes them).
+- **Trial vs paid, and deletion.** A free trial writes no ledger row (the
+  ledger refuses any amount <= 0); it lives only in `entitlements`, which
+  cascades with the user, so a trial-only account still gets Path A hard
+  deletion. The first real charge creates `subscriptions` + `payments`, whose
+  RESTRICT foreign keys force Path B. Deletion also asks RevenueCat before
+  choosing a path, so a charge whose webhook is still in flight still forces
+  Path B.
+- **Money.** Provider amounts are converted with
+  `Math.round(amount * 10^exponent)` using Intl's ISO 4217 exponent (USD 2,
+  JPY 0, KWD 3); everything stored is integer minor units.
+- **Mobile** (`mobile/lib/billing/*`): a store success is not entitlement;
+  after purchase, restore, launch or foreground the app asks the server and
+  believes only its answer. Manage/cancel opens the store's own page.
+- **Still blocked on the owner / external:** Apple enrollment; the Play and
+  App Store subscription products ($9.99 monthly, $69 annual, each with a
+  7-day introductory trial); RevenueCat webhook URL, secrets and keys per
+  environment (staging and production separate); `supabase/billing-cron.sql`
+  scheduled per environment once billing is on. RevenueCat's subscriber-object
+  fields used by reconciliation follow the documented v1 shape but have not
+  been checked against a live sandbox response.
+- A lapsed or unpaid trial pauses sync, then removes the user's Plaid Items
+  after a grace period (Plaid bills every calendar month an Item exists):
+  Phase 4.
+- The owner's existing accounts are grandfathered by a manual entitlement
+  grant, recorded as such: Phase 4.
 
 **OPEN ENGINEERING DECISION (repeated from the monetization spec's own
 §6, not re-litigated here):** rounding mode, calendar-month clamp rule,

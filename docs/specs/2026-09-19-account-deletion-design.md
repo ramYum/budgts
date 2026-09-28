@@ -1,26 +1,21 @@
 # Account Deletion — Implementation Design
 
-> **Revision 2026-09-26 — ported from `archive/mobile-and-deletion-2026-09-24`
-> for the resumed launch.** Account deletion is a Phase 1 store blocker:
-> in-app, plus the web-accessible link Google requires.
-> - **Re-audit before building.** This design was checked against the
->   schema as of 2026-09-19, including the influencer ledger's
->   `ON DELETE RESTRICT` tables. Since then:
->   - `main` gained its own `0017` (Plaid sync lease);
->   - the influencer ledger is deferred, so v1 has only the entitlement
->     mirror (`subscriptions` + `payments`);
->   - Plaid Items must be removed at deletion (they are billed per month).
-> - Re-verify the table-by-table plan (§2, §6–§7) against the current
->   `schema.ts` and migrations, and renumber the archived deletion
->   migrations after `main`'s latest.
-> - The archive's deletion page and confirm dialog predate the 2026-09-25/26
->   redesign. Rebuild them in the current design (`docs/BRAND_GUIDELINES.md`)
->   rather than copying the JSX.
-> - Open items recorded on 2026-09-21 still stand until re-checked:
->   - Path A's occasional slow run (see the addendum);
->   - the retention decision (§12.4 of the launch spec) — the owner's call,
->     now smaller because only subscription/payment records can need
->     keeping.
+> **Revision 2026-09-27 — implemented (Stage 0 port from `mobile/native-home`).**
+> The deletion core is on `phase-m/stage0-port` (commit `57ee152`):
+> `POST /api/account/delete` (cookie or Bearer), `deleteAccount` (Path A hard
+> delete / Path B de-identify, provider-aware billing check, resumable and
+> idempotent), the write-guard lock, strict Plaid Item removal, and the
+> disconnect deadlock retry. Migrations are renumbered after `main`'s `0018`:
+> `0019` deletion FK indexes, `0020` transactions account index, `0021` the
+> write guard, `0022` the guard's bank-disconnect exception. Wherever the text
+> below says `0017`–`0020` for these, read `0019`–`0022`; "migration `0017`"
+> for the ledger means `0023`.
+> - Still to build (Phase 1): the in-app deletion screen in the current
+>   design (`docs/BRAND_GUIDELINES.md`), the web deletion page and Google's
+>   web deletion link, privacy and terms pages. The shelved old-design pages
+>   were not ported.
+> - Open: Path A's occasional slow run (addendum below), and the retention
+>   decision (§12.4 of the launch spec).
 
 **Status:** design/audit only. No code, migration, or schema change is made
 by this document. It designs the account-deletion lifecycle locked in
@@ -789,3 +784,103 @@ Reviewed against `docs/specs/2026-09-17-mobile-app-launch-design.md` and
 - V2/V2+ — untouched, not referenced.
 - Migration `0017` — not modified; every finding in §7 explicitly works
   within its existing constraints.
+
+## Addendum (2026-09-21) — deletion hardening: what measurement changed
+
+**Migration numbering (updated 2026-09-27).** This addendum was written on the shelved branch, where these were
+`0017`–`0020`. After the Stage 0 port they are `0019`–`0022` (after `main`'s `0017` sync lease and `0018` time zone),
+and the ledger is `0023`; every journal `when` is newer than the one before it (tests/unit/db-migration-chain.test.ts).
+
+| Migration | What | Why |
+| --- | --- | --- |
+| `0019_deletion_fk_indexes` | partial indexes on `transactions.transfer_pair_id`, `duplicate_of_id`, `recurring_stream_id`, `plaid_account_id` | Postgres does not index FK columns; deleting a parent row runs a lookup on every FK pointing at it. Measured: a 25,000-transaction user spent ~50 s in **each** of the two self-referencing triggers (the DELETE itself: ~50 ms). PostgREST cancelled it at 8 s (57014); GoTrue's hard delete (Path A) returned 504 after ~36 s with nothing committed. |
+| `0020_transactions_account_fk_index` | index on `transactions.account_id` | the RESTRICT lookup on account delete cannot use the existing partial (fingerprint) index; 25–100 ms/account warm, 1.6–10 s cold at 250k rows |
+| `0021_account_deletion_write_guard` | `account_deletions` table, `account_accepts_writes()`, RESTRICTIVE policies on the 11 user-owned tables | see below |
+
+Not indexed, on evidence: `plaid_accounts.account_id`, `recurring_series.account_id`, `budgets.category_id`,
+`plaid_merchant_rules.category_id` (1–17 ms at 250k rows, small tables). Revisit `transactions` once it holds
+several million rows. Known residual: `DELETE FROM plaid_items` nulls `transactions.plaid_account_id` on every row
+of that account (~100 µs/row, 2.6 s at 25k rows — inherent update work, not a missing index).
+
+**The deletion lock (the stale-JWT write window).** Revoking sessions does not stop an access token already
+issued (valid until `exp`), and on Path B the `auth.users` row is kept, so no FK refuses its writes. Measured:
+a token issued *before* a completed Path B deletion still inserted a row (`201 Created`). The lock is database
+state: a row in `account_deletions` makes every user-originated INSERT/UPDATE/DELETE fail through RESTRICTIVE
+policies (`account_accepts_writes()`, `SECURITY DEFINER`, empty `search_path`, EXECUTE only for `authenticated`).
+Reads and sign-in still work. Refresh sessions are **not** revoked when the lock is taken — the user must be able
+to call the endpoint again — only at completion (Path A: the user is gone; Path B: the soft delete + permanent
+ban). `account_deletions.state`: `deleting` (read-only, retryable) → `deleted` (Path B, recorded after a final
+sweep verifies nothing owned survives). Path A cascades the row away with the auth user.
+
+*When the lock is taken.* After the first Plaid removal pass succeeds, not before. A Plaid failure (an Item Plaid
+cannot remove) therefore leaves the account **fully usable**, as it always did, and the user's own escape hatch —
+disconnecting the bank themselves, then retrying — still works. Once locked, Plaid Items are listed again and any
+that appeared in the window are removed too. `DELETE` on `plaid_items` is the one write the guard does **not**
+block (migration `0022`): removing a bank connection cannot create data, and a locked user must never be unable to
+disconnect a bank Plaid cannot remove. `/api/plaid/link-token` and `/api/plaid/exchange` refuse for a deleting
+account (409 `account_deletion_in_progress`); if the lock lands between the token exchange and the insert (42501),
+the just-created Item is removed at Plaid so no live connection is orphaned.
+
+**Path B is one transaction.** `store.deleteOwnedData` (`src/lib/account/deletion-store.ts`) deletes every owned
+row in a fixed order over the server's direct connection (no 8 s PostgREST limit, real SQLSTATEs, no privileged
+SQL function for a client to call), verifies zero rows remain *inside* the transaction, and rolls back completely
+otherwise. Retried only for 40P01 (measured), bounded, backoff; `57014`, `55P03`, `23503` and everything else
+surface as a failure. `deleteAccount` finishes with ban → sweep → `markDeleted`, and a retry on an account that is
+already de-identified resumes that tail instead of assuming it completed.
+
+**The ledger check no longer depends on a client-library quirk.** `hasMonetizationHistory` is SQL guarded by
+`to_regclass`: a ledger table that does not exist yet (production before the ledger migration) means "no history",
+any other failure fails closed. This is what makes it safe to release the deletion code before the ledger
+migration is applied.
+
+**Cached foreign-key plans (release-readiness gate, 2026-09-21).** The 25k-row Path B test was intermittently
+41-46 s instead of 2.4-5 s. Reproduced deterministically and traced to Postgres's per-backend plan cache: deleting
+a `transactions` row fires two self-referencing FK lookups (`transfer_pair_id`, `duplicate_of_id`, ON DELETE SET
+NULL). After five executions on one backend Postgres may cache a *generic* plan chosen from the table's size at
+that moment and it is **not** re-planned when the table grows. A pooled backend that ran a few small deletes while
+`transactions` was physically about one page (a sequential scan is the cheapest plan for a table that small) keeps
+that sequential-scan plan, and its next 25,000-row delete does 2 x 25,000 scans: ~20 s per trigger, ~43 s total,
+the pre-index pathology returning through a stale plan. Measured on one backend with the table vacuumed to one
+page: 0-2 small deletes primed -> 0.5 s; 3 or more -> 39-41 s; `DISCARD PLANS` on that backend -> 0.5 s.
+Sixty back-to-back 25k runs without the priming condition never produced an outlier (4.2-7.5 s), and no lock,
+IO or autovacuum wait was ever observed during a run.
+
+*Path B:* `deleteOwnedData` runs `discard plans` first, so its cost depends on the table as it is now, not on what
+the pooled connection ran before (`tests/integration/account-deletion-plan-cache.test.ts`; 42 s without it, 2.5 s
+with it). *Path A:* the cascade runs on GoTrue's own backends, where this cannot be applied. With those backends
+primed the same way, a 25k/50k/100k-row hard delete took 11.3/11.6/13.3 s instead of 0.8-1.5 s (CPU-bound, no
+error, roughly flat in row count). It needs a physically tiny `transactions` table, so it should not arise once
+production holds real data, but it is not eliminated; the structural remedy (delete the owned rows in our own
+transaction first, then hard-delete `auth.users`) is a Path A design change and is left as a decision.
+
+### Known V1 limitations (do not remove from this list without a recorded decision)
+
+**Path A can be slow when GoTrue's backends hold stale cached FK-lookup plans — ACCEPTED for V1 (owner decision,
+2026-09-21).** Path A's cascade runs on GoTrue's own database connections, where `discard plans` cannot be applied
+(Path B is protected; see above).
+- *Reproduced:* with GoTrue's backends primed on a physically one-page `transactions` table, a 25k / 50k / 100k-row
+  hard delete took 11.3 / 11.6 / 13.3 s, against 0.8-1.5 s unprimed. CPU-bound, no lock or IO waits, no error, and
+  correct: every owned row was removed atomically. The cost was roughly flat in row count; the reason for that
+  flatness is not understood.
+- *Worst observed:* 13.3 s (100k rows), far inside the 300 s Vercel function budget (Fluid default, Hobby ceiling).
+- *Why accepted:* the failure mode is slow, not incorrect; it needs a physically tiny `transactions` table (roughly
+  under ~8 pages by estimate), which real production data should preclude; and restructuring Path A this late in
+  hardening would add more release risk than the exposure carries.
+- *Revisit if:* real production deletion latency rises, a Path A deletion times out, or the exposure is ever
+  reproduced against a populated table. The remedy on the shelf: delete the owned rows in our own transaction
+  first (as Path B does, with `discard plans`), then hard-delete `auth.users`.
+
+### Stage 0 port notes (2026-09-27)
+
+- **Who may delete.** The route re-checks the caller with the network `auth.getUser()` (`src/server/privileged-user.ts`),
+  cookie or Bearer: a revoked session is refused, and the 10-minute step-up check reads `last_sign_in_at`, which local
+  JWT claims do not carry. This is the one allow-listed `getUser()` outside the older write actions
+  (tests/unit/performance-guardrails.test.ts); every read path verifies tokens locally with `getClaims()`.
+- **Deletion vs. `main`'s leased sync.** `main` syncs each Item under a lease (`0017`), as the database owner, outside
+  RLS and the write guard. Deletion does not wait for the lease: it removes the Item at Plaid and locally, then deletes
+  the account. Proven on staging (`tests/integration/account-deletion-leased-sync.test.ts`): deletion completes while a
+  drain holds the lease; the sync's next write is refused by the foreign keys and nothing owned survives. For Path B,
+  `finishAnonymization`'s sweep deletes anything a server-side writer added after the transaction.
+- **Store subscriptions.** When one may still be running, the route returns the stores' own manage links
+  (`src/lib/billing/manage.ts`); Budgts' own Manage Subscription page is Phase 4.
+- **Logs** carry codes and names only (`describePlaidError`), never error text from the database.

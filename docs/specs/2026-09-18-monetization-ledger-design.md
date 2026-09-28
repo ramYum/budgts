@@ -14,6 +14,16 @@
 > - See `docs/specs/2026-09-17-mobile-app-launch-design.md` (revision
 >   block, §9).
 
+> **Implementation note (Stage 0 port, 2026-09-27).** The schema is migration
+> `0023_monetization_ledger` (all ten tables, the immutability / append-only
+> triggers, RESTRICT foreign keys; the DDL is the reviewed one, renumbered
+> after `main`'s `0017`/`0018`). Only `subscriptions` and `payments` are
+> written, by the billing domain in `src/lib/billing/` (`ledger.ts`, at the
+> first real charge only). The partner / voucher / redemption / allocation /
+> adjustment / payout tables exist but stay empty until the influencer phase.
+> A trial writes no ledger row; it lives in `entitlements` (`0024`). The trial
+> is 7 days, prices $9.99/month and $69/year. Not applied to production.
+
 **Status:** spec-only. No schema, migration, Zod, domain logic, server action,
 UI, Apple/Google billing, or RevenueCat integration has been implemented from
 this document yet.

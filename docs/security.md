@@ -44,6 +44,13 @@ the service worker, CI.
 
 ## Mobile apps — requirements (launch track, 2026-09-26)
 
+> **Built in Stage 0 (2026-09-27, not deployed):** Bearer tokens are verified
+> locally (`getClaims`) and every `/api/mobile/*` query runs through a client
+> carrying the caller's own JWT, so RLS scopes it; only the publishable key is
+> used. Cross-user isolation is proven on staging
+> (`tests/integration/mobile-*.test.ts`, `tests/e2e/mobile-*.spec.ts`).
+> Account deletion re-checks the session with the network `getUser()`.
+
 Design authority: `docs/specs/2026-09-17-mobile-app-launch-design.md` §4, §8.
 Each item needs a test or an explicit check before store submission.
 

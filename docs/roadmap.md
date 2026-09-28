@@ -330,8 +330,8 @@ is the paid feature); influencer program after launch.
 
 | Phase | Scope | Status |
 | --- | --- | --- |
-| 0 | Documents updated; selective port of `mobile/`, the mobile API, Bearer auth, account deletion, DB tooling and their tests | ⏳ documents done 2026-09-26; DB migration-safety tooling ported 2026-09-27; Stage 0 port of `mobile/native-home` in progress on `phase-m/stage0-port` (10 chunks) |
-| 1 | Store blockers on web: privacy + terms pages, account deletion (in-app + Google's web link), per-user time zones, archived migrations renumbered after `0018` | ⏳ per-user time zones built + verified on staging 2026-09-27 (migration `0018`); live on budgts.com 2026-09-27 (`ef4f2d1`); privacy/terms, deletion, renumbering next |
+| 0 | Documents updated; selective port of `mobile/`, the mobile API, Bearer auth, account deletion, DB tooling and their tests | ✅ Stage 0 port of `mobile/native-home` done 2026-09-27 on `phase-m/stage0-port` (local commits, not pushed): mobile app, Bearer auth, native API, deletion, billing (off), migrations `0019`–`0024`. Staging rebuild pending an owner decision |
+| 1 | Store blockers on web: privacy + terms pages, account deletion (in-app + Google's web link), per-user time zones, archived migrations renumbered after `0018` | ⏳ per-user time zones built + verified on staging 2026-09-27 (migration `0018`); live on budgts.com 2026-09-27 (`ef4f2d1`); archived migrations renumbered in Stage 0; deletion API built (screens next); privacy/terms next |
 | 2 | Native foundation: latest Expo SDK, shared brand tokens (`src/lib/brand/tokens.ts`, synced to `globals.css` by test), `<PixelFrame>`, fonts, auth (magic link, Google, Sign in with Apple), per-screen mobile API over the shared domain logic | ⏳ |
 | 3 | Every screen and state, visually identical to the web at phone width, passing the parity check | ⏳ |
 | 4 | Subscription: RevenueCat paywall/trial/restore, entitlement mirror, server-side gate on Plaid for app + web, Plaid connections removed after a lapse | ⏳ |

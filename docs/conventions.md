@@ -261,7 +261,10 @@ failure there names the rule it protects.
 
 1. **Identity on read paths comes from `getSessionUser()`** — a local JWT
    check (`getClaims()` against the cached JWKS, one per request via
-   `cache()`). Never `auth.getUser()`/`getSession()` in pages, layouts,
+   `cache()`). Native Bearer requests verify the same way
+   (`getClaims(token)`, `src/lib/auth/get-request-user.ts`); only account
+   deletion re-checks with the network `getUser()`
+   (`src/server/privileged-user.ts`, allow-listed in the guardrail). Never `auth.getUser()`/`getSession()` in pages, layouts,
    components or `src/lib`; only allow-listed write actions may re-check
    against Auth. This relies on the project's **asymmetric (ES256) JWT
    signing keys** — with a legacy HS256 secret `getClaims()` silently falls

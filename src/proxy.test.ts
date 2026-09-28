@@ -24,6 +24,8 @@ describe("isPublic", () => {
     expect(isPublic("/api/mobile/session")).toBe(true);
     expect(isPublic("/api/mobile/profile")).toBe(true);
     expect(isPublic("/api/billing/entitlement")).toBe(true);
+    expect(isPublic("/api/account/delete")).toBe(true);
+    expect(isPublic("/api/account")).toBe(false);
     expect(isPublic("/api/billing/webhook/revenuecat")).toBe(true);
     // a lookalike path is not the native API
     expect(isPublic("/api/mobileish")).toBe(false);

@@ -24,6 +24,10 @@ const PUBLIC_PREFIXES = [
   // provider's signature, the reconcile cron by CRON_SECRET. Each answers its
   // own 401; the proxy must not 307 a cookie-less caller to /sign-in first.
   "/api/billing/",
+  // Account deletion authenticates itself (getPrivilegedUser: cookie or
+  // Bearer, re-checked with Supabase Auth) so the native app can call it; an
+  // unauthenticated caller still gets the handler's own 401.
+  "/api/account/delete",
 ];
 
 export function isPublic(pathname: string) {

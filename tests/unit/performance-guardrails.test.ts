@@ -51,7 +51,15 @@ describe("performance guardrails", () => {
   it("only the known write-path server actions use the network getUser()", () => {
     // Write actions may deliberately re-check the session against Auth. Adding
     // one is fine, but it must be a conscious choice: extend this list.
-    const allowed = ["src/server/onboarding.ts", "src/server/tour.ts", "src/server/transactions.ts"];
+    // src/server/privileged-user.ts: account deletion must refuse a revoked
+    // session and read last_sign_in_at for its step-up check, which local
+    // claims cannot do. It runs once per deletion, never on a read path.
+    const allowed = [
+      "src/server/onboarding.ts",
+      "src/server/privileged-user.ts",
+      "src/server/tour.ts",
+      "src/server/transactions.ts",
+    ];
     const users = sourceFiles(join(SRC, "server"))
       .filter((p) => /auth\.(getUser|getSession)\(/.test(code(p)))
       .map(rel)

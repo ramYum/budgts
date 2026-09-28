@@ -94,8 +94,13 @@ export type BillingCheck = (userId: string) => Promise<BillingVerdict>;
 export type DeleteAccountResult =
   | { ok: true; alreadyDeleted: true; path: "already-deleted" }
   | { ok: true; alreadyDeleted: false; path: "hard-delete" | "anonymize"; storeSubscriptionMayBeActive?: true }
-  /** `locked`: the account is now read-only (the lock was taken) and a retry will finish the deletion. */
-  | { ok: false; error: string; locked: boolean };
+  /** `locked`: the account is now read-only (the lock was taken) and a retry will finish the deletion.
+   *  `reason: "plaid_removal"`: Plaid could not confirm removing one of the user's banks. Before the lock that leaves the
+   *  account fully usable, and the user can disconnect that bank themselves and retry (the screen says so). */
+  | { ok: false; error: string; locked: boolean; reason?: "plaid_removal" };
+
+/** Plaid could not confirm removing an Item: the one failure the user can act on themselves. */
+class PlaidRemovalError extends Error {}
 
 /** The Plaid Item ids this user has. A read-only prerequisite: it runs before anything is changed. */
 async function listPlaidItemIds(admin: SupabaseClient, userId: string): Promise<string[]> {
@@ -120,7 +125,7 @@ async function removePlaidItems(admin: SupabaseClient, userId: string, itemIds: 
     const result = await disconnectPlaidItem(admin, { userId, itemId, purge: false, strict: true });
     // 404 = the local row vanished between the list and now (a concurrent disconnect): nothing left to do.
     if (!result.ok && result.status !== 404) {
-      throw new Error(`removing Plaid item ${itemId} failed: ${result.error}`);
+      throw new PlaidRemovalError(`removing Plaid item ${itemId} failed: ${result.error}`);
     }
   }
 }
@@ -221,7 +226,12 @@ export async function deleteAccount(
   billing?: BillingCheck,
 ): Promise<DeleteAccountResult> {
   let locked = false;
-  const fail = (error: string): DeleteAccountResult => ({ ok: false, error, locked });
+  const fail = (error: string, reason?: "plaid_removal"): DeleteAccountResult => ({
+    ok: false,
+    error,
+    locked,
+    ...(reason ? { reason } : {}),
+  });
   try {
     const db = store ?? createDeletionStore();
     const { data: existing, error: getErr } = await admin.auth.admin.getUserById(userId);
@@ -285,7 +295,7 @@ export async function deleteAccount(
     if (problem) return fail(problem);
     return { ok: true, alreadyDeleted: false, path: "anonymize", ...storeFlag };
   } catch (e) {
-    return fail(describeError(e));
+    return fail(describeError(e), e instanceof PlaidRemovalError ? "plaid_removal" : undefined);
   }
 }
 

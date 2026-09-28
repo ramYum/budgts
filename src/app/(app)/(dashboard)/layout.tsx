@@ -12,6 +12,7 @@ import { DesktopSidebar } from "@/components/desktop-sidebar";
 import { NeedsCategoryBell } from "@/components/needs-category-bell";
 import { RealtimeRefresh } from "@/components/realtime-refresh";
 import { ReviewBanner } from "@/components/plaid/review-banner";
+import { DeletionBanner } from "@/components/account/deletion-banner";
 import { TimeZoneSync } from "@/components/time-zone-sync";
 
 /** Bank rows awaiting a category. Cached so the mobile header and the desktop
@@ -69,6 +70,11 @@ export default async function DashboardLayout({ children }: LayoutProps<"/">) {
         </Link>
         {plaidOn ? bell : null}
       </header>
+
+      {/* A deletion in progress makes the account read-only: say so on every screen, never let writes fail silently. */}
+      <Suspense fallback={null}>
+        <DeletionBanner />
+      </Suspense>
 
       {plaidOn ? (
         <Suspense fallback={null}>

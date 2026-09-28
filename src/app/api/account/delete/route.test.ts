@@ -205,6 +205,34 @@ describe("POST /api/account/delete — failures are generic to the client, detai
     expect(logged).toContain("item-secret-123"); // the detail IS available to the operator
   });
 
+  it("names a Plaid removal failure before the lock, so the user can disconnect that bank and retry, with no detail", async () => {
+    getPrivilegedUser.mockResolvedValue(FRESH_USER);
+    deleteAccount.mockResolvedValue({
+      ok: false,
+      locked: false,
+      reason: "plaid_removal",
+      error: "removing Plaid item item-secret-123 failed: could not remove bank connection",
+    });
+
+    const res = await POST(req());
+    const body = await res.text();
+
+    expect(res.status).toBe(502);
+    expect(JSON.parse(body)).toMatchObject({ error: "plaid_removal_failed", retryable: true });
+    expect(JSON.parse(body).message).toMatch(/Connected banks/);
+    expect(body).not.toMatch(/item-secret-123/);
+  });
+
+  it("reports a Plaid failure AFTER the lock as the retryable incomplete deletion (a retry finishes it)", async () => {
+    getPrivilegedUser.mockResolvedValue(FRESH_USER);
+    deleteAccount.mockResolvedValue({ ok: false, locked: true, reason: "plaid_removal", error: "removing Plaid item x failed" });
+
+    const res = await POST(req());
+
+    expect(res.status).toBe(500);
+    expect(await res.json()).toMatchObject({ error: "account_deletion_incomplete", retryable: true });
+  });
+
   it("never reports success for a failed deletion (a transient Auth failure must not read as 'deleted')", async () => {
     getPrivilegedUser.mockResolvedValue(FRESH_USER);
     deleteAccount.mockResolvedValue({ ok: false, error: "auth lookup failed (AuthRetryableFetchError, status 500)" });

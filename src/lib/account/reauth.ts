@@ -1,5 +1,6 @@
 import "server-only";
 import type { User } from "@supabase/supabase-js";
+import { REAUTH_WINDOW_MINUTES } from "./screen";
 
 /**
  * How recently the user must have completed a real sign-in (magic link click
@@ -10,7 +11,7 @@ import type { User } from "@supabase/supabase-js";
  * one of the still-open decisions in
  * docs/specs/2026-09-19-account-deletion-design.md §16/§15.
  */
-export const REAUTH_WINDOW_MS = 10 * 60 * 1000;
+export const REAUTH_WINDOW_MS = REAUTH_WINDOW_MINUTES * 60 * 1000;
 
 /** True if `user`'s most recent sign-in is within the step-up window. */
 export function isRecentlyAuthenticated(

@@ -29,6 +29,7 @@ export default async function SettingsPage() {
             <HubSection title="Your account">
               <HubRow href="/settings/profile" label="Profile" icon="profile" value={user.email} />
               <HubRow href="/settings/security" label="Security" icon="security" />
+              <HubRow href="/settings/delete-account" label="Delete account" icon="user-x" />
             </HubSection>
           </div>
           <div className="order-2 lg:order-none">

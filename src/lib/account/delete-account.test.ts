@@ -246,6 +246,7 @@ describe("deleteAccount — no destructive operation may follow a failed prerequ
 
     expect(result.ok).toBe(false);
     expect(result.ok === false && result.locked).toBe(false); // the user can still disconnect the bank themselves and retry
+    expect(result.ok === false && result.reason).toBe("plaid_removal"); // and the screen tells them that is the way out
     expect(destructive(events)).toEqual(["disconnect:item-1", "disconnect:item-2"]); // item-3 never attempted; no lock
   });
 
@@ -278,6 +279,16 @@ describe("deleteAccount — no destructive operation may follow a failed prerequ
 
     expect(result.ok).toBe(false);
     expect(result.ok === false && result.locked).toBe(true);
+    expect(result.ok === false && result.reason).toBe("plaid_removal");
+  });
+
+  it("gives no Plaid reason for a failure that is not Plaid's", async () => {
+    const { admin, store } = setup({ listError: true });
+
+    const result = await deleteAccount(admin, "u1", store);
+
+    expect(result.ok).toBe(false);
+    expect(result.ok === false && result.reason).toBeUndefined();
   });
 
   it("asks Plaid removal to be STRICT, scoped to this user and item, on the admin client", async () => {

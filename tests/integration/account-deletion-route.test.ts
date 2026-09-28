@@ -220,7 +220,7 @@ describe("POST /api/account/delete against real staging — nothing is destroyed
     expect((await pg`select 1 from public.plaid_items where item_id = ${itemId}`).length).toBe(1);
   });
 
-  it("B3 — an Item Plaid cannot remove: a generic 500, the account stays fully usable, and the Item's row (the retry handle) is preserved", async () => {
+  it("B3 — an Item Plaid cannot remove: a named 502 the screen can act on, the account stays fully usable, and the Item's row (the retry handle) is preserved", async () => {
     const u = await mkActor("plaidfail");
     await seed(u);
     const itemId = await seedUnremovablePlaidItem(u);
@@ -230,9 +230,12 @@ describe("POST /api/account/delete against real staging — nothing is destroyed
     const res = await post(POST, u.token);
     const body = await res.text();
 
-    expect(res.status).toBe(500);
-    expect(JSON.parse(body)).toEqual({ error: "could not delete account" });
-    expect(body).not.toMatch(/plaid|bank|item|token/i);
+    // Phase 1: the user is told the one thing they can do (disconnect that bank, then retry), and nothing more:
+    // no Item id, no Plaid error text, no token.
+    expect(res.status).toBe(502);
+    expect(JSON.parse(body)).toMatchObject({ error: "plaid_removal_failed", retryable: true });
+    expect(body).not.toContain(itemId);
+    expect(body).not.toMatch(/token|access|could not remove/i);
     expect(await counts(u.id)).toEqual(before);
     expect((await pg`select 1 from public.plaid_items where item_id = ${itemId}`).length).toBe(1);
     expect((await authUser(u.id))?.deleted_at).toBeFalsy();

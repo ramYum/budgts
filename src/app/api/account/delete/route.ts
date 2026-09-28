@@ -80,6 +80,20 @@ export async function POST(request: Request) {
           { status: 500 },
         );
       }
+      // Plaid would not confirm removing a bank, so deletion stopped before the lock (strict removal): the account is
+      // fully usable, though banks removed before that one stay disconnected. The one failure the user can fix:
+      // disconnect that bank themselves, then try again.
+      if (result.reason === "plaid_removal") {
+        return NextResponse.json(
+          {
+            error: "plaid_removal_failed",
+            retryable: true,
+            message:
+              "We couldn't disconnect one of your banks, so your account wasn't deleted. Disconnect it in Connected banks, then try again.",
+          },
+          { status: 502 },
+        );
+      }
       return genericFailure();
     }
 

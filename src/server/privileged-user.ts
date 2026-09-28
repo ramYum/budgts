@@ -23,6 +23,15 @@ export async function getPrivilegedUser(request: Request): Promise<User | null> 
     const { data, error } = await anon.auth.getUser(token);
     return error || !data.user ? null : data.user;
   }
+  return getPrivilegedCookieUser();
+}
+
+/**
+ * The cookie session's user, re-checked with Supabase Auth (a revoked session reads as signed out) and carrying
+ * `last_sign_in_at` and the linked sign-in providers. The web deletion screen uses it to decide, before anything is
+ * confirmed, whether a fresh sign-in is needed first; the deletion route re-checks the same thing itself.
+ */
+export async function getPrivilegedCookieUser(): Promise<User | null> {
   const {
     data: { user },
   } = await (await createClient()).auth.getUser();

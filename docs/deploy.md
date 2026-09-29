@@ -369,7 +369,7 @@ under `/` and serve it to signed-in users (or the reverse).
 | `SUPPORT_EMAIL` | The public privacy / support / deletion contact | `support@budgts.com` |
 | `LEGAL_RECORD_RETENTION_YEARS` | Years retained billing records (Path B) are kept after deletion, spec §12.4. `0` = nothing is kept: the pages say deletion deletes your data right away. Setting it also confirms nothing else is retained | `0` ("deleted right away") |
 | `LEGAL_GOVERNING_LAW` | Whose law governs the Terms, read after "the laws of" | `the Commonwealth of Pennsylvania` |
-| `LEGAL_EFFECTIVE_DATE` | `YYYY-MM-DD`, the date the owner approved this wording, shown as "Last updated". The documents apply to each user from when they first sign in (the pages say so) | `2026-09-28` |
+| `LEGAL_EFFECTIVE_DATE` | `YYYY-MM-DD`, the date the owner approved this wording, shown as "Last updated". The documents apply to each user from when they first sign in (the pages say so) | `2026-09-29` (was `2026-09-28`; see "Privacy policy update" below) |
 
 Set them in Vercel for Production (and staging to preview), then redeploy: the pages are prerendered at build time.
 Then give Google's OAuth consent screen and both store listings the URLs.
@@ -378,6 +378,11 @@ Then give Google's OAuth consent screen and both store listings the URLs.
 at children under 13; liability capped at what the user paid in the last 12 months; deletion is immediate, with no undo
 window. The terms apply from a user's first sign-in ("once they sign in"). The owner was advised to have counsel read the
 terms.
+
+**Privacy policy update (owner-approved 2026-09-29):** the policy now lists the profile photo link Google shares at
+sign-in (Supabase stores it in the account's user metadata). Before deploying that change, set
+`LEGAL_EFFECTIVE_DATE=2026-09-29` in Vercel **Production**, then deploy, so "Last updated" moves with the wording.
+Every later wording change to `/privacy` or `/terms` needs the same date bump.
 
 **Retention 0 holds only while billing is off.** With billing live, a paying user's deletion keeps anonymized ledger
 rows (Path B), so the production build (`src/lib/env/production-env.ts`, npm `prebuild`) refuses billing live with

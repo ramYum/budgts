@@ -26,6 +26,9 @@ test("crawlers get the homepage at /, not a redirect to sign-in", async ({ reque
   const html = await res.text();
   expect(html).toContain("Budgeting that does itself.");
   expect(html).toContain("<title>Budgts: budgeting that does itself</title>");
+  // the sample purchases use made-up merchants, never real brands (owner, 2026-09-29)
+  expect(html).toContain("Corner Coffee");
+  expect(html).not.toMatch(/Blue Bottle|Netflix|Whole Foods/);
   // the site root itself (NEXT_PUBLIC_SITE_URL), never /company
   expect(html).toMatch(/<link rel="canonical" href="https?:\/\/[^/"]+\/?"/);
   expect(html).toMatch(/<meta property="og:image" content="[^"]+opengraph-image/);

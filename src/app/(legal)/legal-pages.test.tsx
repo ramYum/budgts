@@ -188,11 +188,11 @@ describe("legal pages with the owner's facts (2026-09-28): retention 0, signed-i
     for (const [name, value] of Object.entries(OWNER_LEGAL_ENV)) vi.stubEnv(name, value);
   }
 
-  it.each(PAGES)("/%s shows Last updated September 28, 2026, never 'Effective', and no retention years", (_path, Page) => {
+  it.each(PAGES)("/%s shows Last updated September 29, 2026, never 'Effective', and no retention years", (_path, Page) => {
     ownerFacts();
     const { container } = render(Page());
     const text = container.textContent ?? "";
-    expect(screen.getByText("Last updated September 28, 2026")).toBeInTheDocument();
+    expect(screen.getByText("Last updated September 29, 2026")).toBeInTheDocument();
     expect(text).not.toMatch(/Effective/);
     expect(text).not.toMatch(/\d+ years? after deletion|0 years/);
   });
@@ -206,6 +206,8 @@ describe("legal pages with the owner's facts (2026-09-28): retention 0, signed-i
     expect(screen.getByText(/This policy applies from when you first sign in to Budgts\./)).toBeInTheDocument();
     expect(screen.getByText(/Deleting your account deletes your data right away, as soon as you confirm/)).toBeInTheDocument();
     expect(screen.queryByText(/we keep the billing records/)).not.toBeInTheDocument();
+    // Google sign-in: Supabase also stores the profile photo link (owner-approved wording, 2026-09-29)
+    expect(screen.getByText(/the name, email address and profile photo link Google shares with us\./)).toBeInTheDocument();
   });
 
   it("terms: apply from first sign-in, signing in is agreeing, and Pennsylvania law governs", () => {

@@ -20,12 +20,12 @@ const STEPS: { icon: IconName; heading: string; body: string }[] = [
   {
     icon: "tag",
     heading: "Budgts sorts them for you",
-    body: "Every purchase is filed into the right category. When Budgts isn't sure it asks instead of guessing, and remembers your answer.",
+    body: "Every purchase is filed into the right category. When Budgts isn't sure it asks instead of guessing, and learns from your answer.",
   },
   {
     icon: "bell",
     heading: "You review the exceptions",
-    body: "The bell shows exactly what needs a look. Answering once takes care of that merchant from then on.",
+    body: "The bell shows exactly what needs a look. Your answer usually covers that merchant from then on.",
   },
   {
     icon: "budgets",

@@ -45,7 +45,7 @@ const STEPS: { scene: TourStepId; title: string; body: string }[] = [
   {
     scene: "auto-sort",
     title: "Sorted for you.",
-    body: "Each purchase lands in a category. Not sure about one? Budgts asks you once, then remembers.",
+    body: "Each purchase lands in a category. Not sure about one? Budgts asks you, then learns from your answer.",
   },
   {
     scene: "money-left",
@@ -64,13 +64,13 @@ const TRUST: { icon: IconName; title: string; body: string }[] = [
   { icon: "key", title: "We never see your bank login", body: "You sign in to your bank inside Plaid's window, not ours." },
   { icon: "eye", title: "Read-only", body: "Budgts can read balances and transactions. It can't move money." },
   { icon: "shield", title: "Not sold, no ads", body: "We don't sell your information, show ads or use trackers." },
-  // What Google sign-in shares and what it is for (Google's brand verification asks the homepage to say). Not
-  // "shares only your name and email": Supabase's Google sign-in also receives a profile-photo link in the account
-  // metadata, which nothing in the app reads.
+  // What Google sign-in shares and what it is for (Google's brand verification asks the homepage to say). All three
+  // are named because Supabase's Google sign-in stores the profile-photo link in the account's user metadata, even
+  // though nothing in the app reads it; the privacy policy lists the same three.
   {
     icon: "google",
     title: "Signing in with Google",
-    body: "Google shares your name and email address. Budgts uses them only for your account.",
+    body: "Google shares your name, email address and profile photo link. Budgts uses them only for your account.",
   },
 ];
 

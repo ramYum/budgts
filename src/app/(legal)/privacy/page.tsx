@@ -72,7 +72,7 @@ export default function PrivacyPage() {
               items={[
                 <>
                   <strong className="font-semibold text-ink">Your account.</strong> Your email address. If you sign in with Google,
-                  the name and email address Google shares with us.
+                  the name, email address and profile photo link Google shares with us.
                 </>,
                 <>
                   <strong className="font-semibold text-ink">Your settings.</strong> The currency you chose and your device&apos;s

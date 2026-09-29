@@ -51,7 +51,7 @@ describe("legal switch", () => {
 
   it("accepts the owner's facts, with retention 0 meaning nothing outlives a deleted account", () => {
     const facts = legalFacts(OWNER_LEGAL_ENV);
-    expect(facts).toMatchObject({ entityName: "Budgts, LLC", retentionYears: 0, effectiveDate: "2026-09-28" });
+    expect(facts).toMatchObject({ entityName: "Budgts, LLC", retentionYears: 0, effectiveDate: "2026-09-29" });
     expect(keepsRecordsAfterDeletion(facts)).toBe(false);
     expect(legalRetentionYears(OWNER_LEGAL_ENV)).toBe(0);
   });

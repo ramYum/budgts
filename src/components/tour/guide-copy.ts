@@ -46,7 +46,7 @@ export const GUIDE_COPY: Record<TourStepId, GuideCopy> = {
   "auto-sort": {
     label: "Sorted for you",
     heading: "Sorted for you.",
-    body: "I put each purchase in the right category. Not sure about one? I'll ask you once, then remember it.",
+    body: "I put each purchase in the right category. Not sure about one? I'll ask you, then learn from your answer.",
     cta: "Next",
   },
   "money-left": {

@@ -30,7 +30,12 @@ describe("the company homepage", () => {
     expect(screen.getByText(/Budgts sorts your purchases/)).toBeInTheDocument();
     expect(screen.queryByText(/every purchase,? shows/)).not.toBeInTheDocument();
     // what Google sign-in data is for (Google's brand verification)
-    expect(screen.getByText("Google shares your name and email address. Budgts uses them only for your account.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Google shares your name, email address and profile photo link. Budgts uses them only for your account."),
+    ).toBeInTheDocument();
+    // category memory is keyed by a merchant id not every store has: never "asks you once, then remembers"
+    expect(screen.getByText(/Not sure about one\? Budgts asks you, then learns from your answer\./)).toBeInTheDocument();
+    expect(screen.queryByText(/asks you once|then remembers/)).not.toBeInTheDocument();
     const signIns = screen.getAllByRole("link", { name: /^Sign in/ });
     expect(signIns.length).toBeGreaterThan(0);
     for (const link of signIns) expect(link).toHaveAttribute("href", "/sign-in");

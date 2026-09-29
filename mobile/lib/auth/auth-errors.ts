@@ -14,6 +14,8 @@ export type AuthLinkProblem =
   | "denied"
   /** the link is damaged or incomplete */
   | "invalid"
+  /** a link the app never asks for (a token_hash or implicit-flow link): refused, parse-callback-url.ts */
+  | "not_this_app"
   /** the phone couldn't reach the server */
   | "network";
 
@@ -23,6 +25,7 @@ export const LINK_PROBLEM_MESSAGE: Record<AuthLinkProblem, string> = {
     "That link belongs to a sign-in started somewhere else. Send a new link from this phone, then open it here.",
   denied: "Sign-in was cancelled. You can try again whenever you're ready.",
   invalid: "That sign-in link didn't work. Send yourself a new one below.",
+  not_this_app: "This sign-in link can't be used here. Send yourself a new one below and open it on this phone.",
   network: "Couldn't reach Budgts. Check your connection and try again.",
 };
 

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { LINK_PROBLEM_MESSAGE, describeSendLinkError, problemFromAuthError } from "./auth-errors";
 import { completeSession, type SessionAuth } from "./complete-session";
-import { sendEmailLink } from "./email-link";
+import { NOT_SET_UP, resendWaitSeconds, sendEmailLink } from "./email-link";
 import { signInWithGoogle, type GoogleDeps } from "./google";
 import { appleSignInEnabled, emailLinkRedirect, googleSignInOptions } from "./sign-in-options";
 
@@ -28,24 +28,42 @@ describe("sign-in options", () => {
 });
 
 describe("sending an email link", () => {
+  const apiBaseUrl = "https://budgts.com";
   const redirectTo = "https://budgts.com/app/auth/callback";
 
   it("sends the trimmed address with the hand-off redirect", async () => {
     const signInWithOtp = vi.fn().mockResolvedValue({ error: null });
-    expect(await sendEmailLink("  me@example.com ", { redirectTo, signInWithOtp })).toEqual({ ok: true, email: "me@example.com" });
+    expect(await sendEmailLink("  me@example.com ", { apiBaseUrl, signInWithOtp })).toEqual({ ok: true, email: "me@example.com" });
     expect(signInWithOtp).toHaveBeenCalledWith({ email: "me@example.com", options: { emailRedirectTo: redirectTo } });
+  });
+
+  it("says a build without its API address isn't set up, instead of throwing", async () => {
+    const signInWithOtp = vi.fn();
+    expect(await sendEmailLink("me@example.com", { apiBaseUrl: undefined, signInWithOtp })).toEqual({
+      ok: false,
+      message: NOT_SET_UP,
+      retryAfterSeconds: null,
+    });
+    expect(signInWithOtp).not.toHaveBeenCalled();
+    expect(NOT_SET_UP).toBe("Budgts isn't set up correctly on this device. Please update the app.");
+  });
+
+  it("waits for Send it again as long as the server asks, 60s after a link went out, not at all after other failures", () => {
+    expect(resendWaitSeconds({ ok: true, email: "me@example.com" })).toBe(60);
+    expect(resendWaitSeconds({ ok: false, message: "wait", retryAfterSeconds: 42 })).toBe(42);
+    expect(resendWaitSeconds({ ok: false, message: "offline", retryAfterSeconds: null })).toBe(0);
   });
 
   it("never spends an email on an address that can't be one", async () => {
     const signInWithOtp = vi.fn();
-    const result = await sendEmailLink("me@", { redirectTo, signInWithOtp });
+    const result = await sendEmailLink("me@", { apiBaseUrl, signInWithOtp });
     expect(result).toMatchObject({ ok: false, invalidEmail: true });
     expect(signInWithOtp).not.toHaveBeenCalled();
   });
 
   it("explains Supabase's rate limits in words, with the wait it asks for", async () => {
     const wait = { message: "For security purposes, you can only request this after 42 seconds.", status: 429, code: "over_email_send_rate_limit" };
-    expect(await sendEmailLink("me@example.com", { redirectTo, signInWithOtp: async () => ({ error: wait }) })).toEqual({
+    expect(await sendEmailLink("me@example.com", { apiBaseUrl, signInWithOtp: async () => ({ error: wait }) })).toEqual({
       ok: false,
       message: "For your security, wait 42 seconds before asking for another link.",
       retryAfterSeconds: 42,
@@ -57,11 +75,11 @@ describe("sending an email link", () => {
 
   it("reports a dropped connection as one, and never Supabase's text", async () => {
     const offline = { name: "AuthRetryableFetchError", message: "Network request failed" };
-    expect(await sendEmailLink("me@example.com", { redirectTo, signInWithOtp: async () => ({ error: offline }) })).toMatchObject({
+    expect(await sendEmailLink("me@example.com", { apiBaseUrl, signInWithOtp: async () => ({ error: offline }) })).toMatchObject({
       ok: false,
       message: LINK_PROBLEM_MESSAGE.network,
     });
-    const odd = await sendEmailLink("me@example.com", { redirectTo, signInWithOtp: async () => ({ error: { message: "Unexpected failure: db" } }) });
+    const odd = await sendEmailLink("me@example.com", { apiBaseUrl, signInWithOtp: async () => ({ error: { message: "Unexpected failure: db" } }) });
     expect(odd).toMatchObject({ ok: false, message: "Couldn't send the sign-in link. Try again in a moment." });
   });
 });
@@ -69,7 +87,6 @@ describe("sending an email link", () => {
 describe("finishing a sign-in from its return link", () => {
   const auth = (over: Partial<SessionAuth> = {}): SessionAuth => ({
     exchangeCodeForSession: vi.fn().mockResolvedValue({ error: null }),
-    verifyOtp: vi.fn().mockResolvedValue({ error: null }),
     ...over,
   });
 
@@ -79,10 +96,11 @@ describe("finishing a sign-in from its return link", () => {
     expect(a.exchangeCodeForSession).toHaveBeenCalledWith("c1");
   });
 
-  it("verifies a token hash", async () => {
+  it("refuses a token_hash link without calling Supabase, with a way forward", async () => {
     const a = auth();
-    expect(await completeSession("budgts://auth/callback?token_hash=t&type=magiclink", a)).toEqual({ ok: true });
-    expect(a.verifyOtp).toHaveBeenCalledWith({ type: "magiclink", token_hash: "t" });
+    expect(await completeSession("budgts://auth/callback?token_hash=t&type=magiclink", a)).toEqual({ ok: false, problem: "not_this_app" });
+    expect(a.exchangeCodeForSession).not.toHaveBeenCalled();
+    expect(LINK_PROBLEM_MESSAGE.not_this_app).toMatch(/Send yourself a new one/);
   });
 
   it("stops at an expired link without calling Supabase", async () => {

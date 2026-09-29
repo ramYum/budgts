@@ -17,7 +17,7 @@ export const metadata: Metadata = {
  * then, and on a computer, the link opens here:
  *
  * - on a phone, one button hands the link to the app (`budgts://auth/callback`,
- *   the same query and fragment), which finishes the sign-in;
+ *   carrying only its code or error: HANDOFF_PARAMS), which finishes the sign-in;
  * - on a computer, it says to open the email on the phone, because the link
  *   only works in the app that asked for it (its PKCE verifier is there). Web
  *   sign-in stays one tap away, for account deletion and the browser app.

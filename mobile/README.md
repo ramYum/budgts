@@ -45,8 +45,10 @@ in-app CSV export are post-launch.)
     `budgts://auth/callback` (one tap on a phone) or, on a computer, says to open the email on the phone and keeps web sign-in one
     tap away. Once universal links / app links are configured, the phone opens the app straight from the link. Expired, used and
     other-device links come back to sign-in with a message and the form that fixes it (`lib/auth/auth-errors.ts`; Supabase puts a
-    failed link's error in the URL **fragment**, which the old parser missed). The sent screen has "Send it again" (after 60s) and
-    "Use a different email".
+    failed link's error in the URL **fragment**, which the old parser missed). The page forwards only `code`, `type` and the
+    error parameters, and the app accepts only a PKCE `code` it started: a `token_hash` link is refused with "send a new one"
+    (login-confusion guard, launch spec §4). The sent screen has "Send it again" (after the server's wait, 60s by default) and
+    "Use a different email". A build without `EXPO_PUBLIC_API_BASE_URL` says it isn't set up instead of failing silently.
   - **Google** as on the web (same Supabase project and provider, so the same Google account is the same user), always asking
     which account; closing the sheet or declining is a quiet cancel.
   - **Sign in with Apple** is built and **off**: it shows only on iOS with `EXPO_PUBLIC_APPLE_SIGN_IN=on` in the build, once the
@@ -70,6 +72,22 @@ fails (Chrome: `ERR_CERT_AUTHORITY_INVALID`; the app shows its "Couldn't reach B
 Local build notes (this machine): Gradle's Java needs `JAVA_TOOL_OPTIONS=-Djavax.net.ssl.trustStoreType=Windows-ROOT` (the same
 interception, trusted through Windows' store), and a slow link can time out the Gradle wrapper download (fetch the zip into
 `~/.gradle/wrapper/dists/<version>/<hash>/` by hand).
+
+**Development warnings (checked 2026-09-29, Logcat `ReactNativeJS` and native React tags, cold start, sign-in, both link
+paths, the dev screen).** The app itself logs no JavaScript warning. What showed up, and why each is not a bug:
+
+- **"Open debugger to view warnings" / `Cannot connect to Expo CLI … URL: 10.0.2.2:8081`** (the only JS warning, in the
+  first run's captures): the debug build's developer-tools socket losing Metro while Metro was being restarted during
+  that session, in CI mode. It went away with Metro started once and left running (two clean runs since). Environment only;
+  release builds have no Metro connection.
+- **`StatusBarModule: Ignored status bar change, current activity is edge-to-edge`** (native log): React Native's
+  `StatusBar` sends its default colour and translucency on mount, and React Native deliberately ignores both under
+  Android's edge-to-edge. The status-bar style (dark marks) still applies; nothing to fix in our code.
+- **`Packager connection already open`, `Unable to display loading message … Reloading…`, a
+  `ReactNoCrashSoftException` "onWindowFocusChange while context is not ready"** (native, one each): React Native / Expo
+  development-reload lifecycle logs, emitted while the bundle (re)loads; "NoCrash" by design and absent from release builds.
+- Fixed on the way: with Android's edge-to-edge the keyboard no longer resized the window, so the send button sat under it;
+  the sign-in screen now uses `KeyboardAvoidingView` padding on both platforms and scrolls with the keyboard open.
 
 ## Real-device testing (Expo Go)
 
@@ -292,10 +310,11 @@ all resolve `{ data, error }` rather than throwing on a network failure
 so a network failure surfaces as a normal, handled error state, not a
 crash. A cancelled Google OAuth browser sheet (`WebBrowser.openAuthSessionAsync`
 returning `"cancel"`/`"dismiss"`) is already handled as a silent no-op, not
-an error. A malformed/incomplete deep link and an expired magic-link
-`token_hash` both resolve to `parseAuthCallbackUrl`/`completeSessionFromUrl`
+an error. A malformed/incomplete deep link and an expired magic link
+both resolve to `parseAuthCallbackUrl`/`completeSessionFromUrl`
 returning a typed error the callback screen already displays before
-redirecting to sign-in. None of this required changing the auth
+redirecting to sign-in. (Since Stage 2A the app accepts only PKCE `code`
+links it started; a `token_hash` link is refused, see launch spec §4.) None of this required changing the auth
 architecture — it was already built to handle these cases; this pass
 confirmed that by reading it, not by assuming it.
 

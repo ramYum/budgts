@@ -16,9 +16,24 @@ function linkParams(search: string, hash: string): URLSearchParams {
   return params;
 }
 
-/** The same sign-in return, addressed to the app: every parameter of the link carried over. */
+/**
+ * The only parameters the app's sign-in return reads: its PKCE `code` (and
+ * `type`), or why the link failed. Nothing else is passed on: not a
+ * `token_hash` (the app accepts only PKCE codes it started), and never tokens
+ * (`access_token` / `refresh_token`) that an implicit-flow link would carry in
+ * its fragment.
+ */
+export const HANDOFF_PARAMS = ["code", "type", "error", "error_code", "error_description"] as const;
+
+/** The same sign-in return, addressed to the app, carrying only HANDOFF_PARAMS. */
 export function appHandoffUrl(search: string, hash: string): string {
-  const query = linkParams(search, hash).toString();
+  const all = linkParams(search, hash);
+  const kept = new URLSearchParams();
+  for (const key of HANDOFF_PARAMS) {
+    const value = all.get(key);
+    if (value !== null) kept.set(key, value);
+  }
+  const query = kept.toString();
   return query ? `${APP_AUTH_CALLBACK}?${query}` : APP_AUTH_CALLBACK;
 }
 

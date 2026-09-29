@@ -218,7 +218,9 @@ configuration data, not a constant anywhere in code. See monetization spec
   named `proxy` per the Next 16 rename).
 - Sign-in methods: magic link (`signInWithOtp`) and Google OAuth
   (`signInWithOAuth`), both completing through `/auth/callback` (handles
-  either a PKCE `code` or a direct `token_hash`+`type` verification).
+  either a PKCE `code` or a direct `token_hash`+`type` verification). The
+  app's callback accepts only the PKCE `code` (§4 "Mobile — architecture",
+  decided 2026-09-29).
 
 ### Mobile sign-in methods — LOCKED (2026-09-19)
 
@@ -259,6 +261,16 @@ introduces a third method or a different mechanism per method:
   scheme itself is not yet registered anywhere in this repository (no
   `app.json`/Expo config exists yet, since no mobile project has been
   created).
+- **DECIDED (2026-09-29, Stage 2A review): the app accepts only PKCE `code`
+  links it started.** Unlike the web callback (§4 "Current — web", which
+  keeps both shapes), `budgts://auth/callback` refuses `token_hash` links and
+  implicit-flow tokens with a fixed "send a new one" message. Reason: a code
+  can only be exchanged with the verifier the requesting phone stored, while
+  a `token_hash` is bound to nothing, so an attacker's own magic link opened
+  on a signed-out victim's phone would sign it in to the attacker's account
+  (login confusion: the victim's bank would then feed that account). The
+  email link lands on the web page `/app/auth/callback`, which forwards only
+  `code`, `type` and the error parameters to the app.
 - **IMPLEMENTATION REQUIREMENT:** every mobile request that reaches the
   backend must authenticate with the user's own session/token. The backend
   **must verify the user's identity server-side** on every such request —

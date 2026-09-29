@@ -133,7 +133,13 @@ Each item needs a test or an explicit check before store submission.
   link from its own address. A code opened on the wrong device is useless
   there: exchanging it needs the PKCE verifier held in the requesting
   phone's secure storage. The page sets `referrer: no-referrer` and
-  `noindex`.
+  `noindex`, and forwards only `code`, `type`, `error`, `error_code` and
+  `error_description` (never a `token_hash` or implicit-flow tokens).
+- **Only PKCE codes the app started** (review fix, 2026-09-29): the app's
+  callback refuses `token_hash` links and fragment tokens. A `token_hash` is
+  bound to no device, so an attacker's own magic link opened on a signed-out
+  victim's phone would sign it in to the attacker's account (login
+  confusion). Launch spec §4.
 - **No provider text reaches the screen:** every auth failure maps to a fixed
   message (`mobile/lib/auth/auth-errors.ts`), including the fragment errors
   Supabase returns for spent links.

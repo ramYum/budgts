@@ -1,22 +1,26 @@
-import type { EmailOtpType } from "@supabase/supabase-js";
 import { problemFromCode, type AuthLinkProblem } from "./auth-errors";
 
 /**
- * What `budgts://auth/callback` can carry, mirroring the two shapes the web
- * callback (`src/app/auth/callback/route.ts`) handles: a PKCE `code` (OAuth,
- * and the magic link, since the app's client is PKCE) or a `token_hash`+`type`
- * pair (magic-link verification).
+ * What `budgts://auth/callback` may carry: the PKCE `code` of a sign-in this
+ * app started (Google, and the email link, since the app's client is PKCE),
+ * or why the link failed.
+ *
+ * Only PKCE codes (decided 2026-09-29, launch spec §4): a code is useless
+ * without the verifier this phone stored when it asked for the link, so a
+ * code can't sign the phone in to someone else's account. A `token_hash`
+ * link carries no such binding: an attacker's own magic link opened on a
+ * signed-out phone would sign it in to the attacker's account (and the bank
+ * connected next would feed that account). The app never sends one, so it
+ * refuses them with a way forward. The web's own `/auth/callback` still
+ * verifies `token_hash` links; that is the web's flow.
  *
  * A failed link carries its error in the URL FRAGMENT, not the query: Supabase
  * redirects an expired or used link to `…/callback#error=access_denied&
  * error_code=otp_expired&error_description=…` (verified against staging). The
- * web page that hands a link to the app (/app/auth/callback) forwards both
- * parts, so both are read here.
+ * web page that hands a link to the app (/app/auth/callback) forwards it as
+ * parameters, so both are read here.
  */
-export type ParsedAuthCallback =
-  | { kind: "code"; code: string }
-  | { kind: "otp"; tokenHash: string; type: EmailOtpType }
-  | { kind: "error"; problem: AuthLinkProblem };
+export type ParsedAuthCallback = { kind: "code"; code: string } | { kind: "error"; problem: AuthLinkProblem };
 
 /** Pure — no native modules, no I/O. Safe to unit-test without a device. */
 export function parseAuthCallbackUrl(url: string): ParsedAuthCallback {
@@ -35,12 +39,13 @@ export function parseAuthCallbackUrl(url: string): ParsedAuthCallback {
   const error = params.get("error_code") ?? params.get("error");
   if (error || params.get("error_description")) return { kind: "error", problem: problemFromCode(error) };
 
+  // Never a session this app didn't start: token_hash links and implicit-flow tokens are refused.
+  if (params.has("token_hash") || params.has("access_token") || params.has("refresh_token")) {
+    return { kind: "error", problem: "not_this_app" };
+  }
+
   const code = params.get("code");
   if (code) return { kind: "code", code };
-
-  const tokenHash = params.get("token_hash");
-  const type = params.get("type") as EmailOtpType | null;
-  if (tokenHash && type) return { kind: "otp", tokenHash, type };
 
   return { kind: "error", problem: "invalid" };
 }

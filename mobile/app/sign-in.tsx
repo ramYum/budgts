@@ -10,16 +10,17 @@ import { isAppleSignInAvailable, signInWithAppleNative } from "../lib/auth/apple
 import { LINK_PROBLEM_MESSAGE, type AuthLinkProblem } from "../lib/auth/auth-errors";
 import { buildAuthCallbackUrl } from "../lib/auth/callback-url";
 import { completeSessionFromUrl } from "../lib/auth/complete-session-from-url";
-import { sendEmailLink } from "../lib/auth/email-link";
+import { resendWaitSeconds, sendEmailLink } from "../lib/auth/email-link";
 import { signInWithGoogle } from "../lib/auth/google";
-import { RESEND_AFTER_SECONDS, appleSignInEnabled, emailLinkRedirect } from "../lib/auth/sign-in-options";
+import { appleSignInEnabled } from "../lib/auth/sign-in-options";
 import { legalUrl } from "../lib/legal";
 import { useLegalLive } from "../lib/use-legal-links";
 import { COLOR, FONT, ROLE, SPACE } from "../lib/brand/shared";
 import { BrandStage } from "../components/brand/brand-stage";
-import { Button, Field, IconTile, Rule, TextButton } from "../components/brand/controls";
+import { Button, Field, Rule } from "../components/brand/controls";
 import { PixelFrame } from "../components/brand/pixel-frame";
 import { Text } from "../components/brand/text";
+import { SentState } from "../components/sign-in/sent-state";
 
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL;
 const APPLE_FLAG = appleSignInEnabled(process.env.EXPO_PUBLIC_APPLE_SIGN_IN);
@@ -45,6 +46,8 @@ export default function SignInScreen() {
   const [error, setError] = useState<string | null>(null);
   const [invalidEmail, setInvalidEmail] = useState(false);
   const [pending, setPending] = useState<Pending>(null);
+  // `key` restarts the countdown after every attempt, even one with the same wait
+  const [resendWait, setResendWait] = useState({ seconds: 0, key: 0 });
   const [appleAvailable, setAppleAvailable] = useState(false);
   const legalLive = useLegalLive(API_BASE);
   const field = useRef<TextInput>(null);
@@ -68,9 +71,11 @@ export default function SignInScreen() {
     setPending("email");
     try {
       const result = await sendEmailLink(address, {
-        redirectTo: emailLinkRedirect(API_BASE),
+        apiBaseUrl: API_BASE,
         signInWithOtp: (args) => supabase.auth.signInWithOtp(args),
       });
+      // the resend countdown follows the server's own wait when it names one
+      setResendWait((w) => ({ seconds: resendWaitSeconds(result), key: w.key + 1 }));
       if (result.ok) setSentTo(result.email);
       else {
         setError(result.message);
@@ -116,7 +121,8 @@ export default function SignInScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: ROLE.bg }}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      {/* padding on both: with Android's edge-to-edge the window no longer resizes for the keyboard */}
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         <ScrollView
           contentContainerStyle={{
             flexGrow: 1,
@@ -138,6 +144,8 @@ export default function SignInScreen() {
                 <SentState
                   email={sentTo}
                   onResend={() => void sendLink(sentTo)}
+                  waitSeconds={resendWait.seconds}
+                  waitKey={resendWait.key}
                   resending={pending === "email"}
                   error={error}
                   onUseDifferentEmail={() => {
@@ -237,61 +245,6 @@ export default function SignInScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
-  );
-}
-
-/** "Check your email", with the exits the web's version lacks on a phone: send it again, or use another address. */
-function SentState({
-  email,
-  onResend,
-  resending,
-  error,
-  onUseDifferentEmail,
-}: {
-  email: string;
-  onResend: () => void;
-  resending: boolean;
-  error: string | null;
-  onUseDifferentEmail: () => void;
-}) {
-  const [wait, setWait] = useState(RESEND_AFTER_SECONDS);
-  useEffect(() => {
-    if (wait <= 0) return;
-    const t = setTimeout(() => setWait((s) => s - 1), 1000);
-    return () => clearTimeout(t);
-  }, [wait]);
-
-  return (
-    <View style={{ gap: 12 }} accessibilityLiveRegion="polite">
-      <IconTile name="mail" />
-      <Text variant="heading" accessibilityRole="header">
-        Check your email
-      </Text>
-      <Text variant="body" color={ROLE.muted} testID="sign-in-sent">
-        We sent a sign-in link to {email}. Open it on this phone to sign in.
-      </Text>
-      {error ? (
-        <Text variant="formLabel" color={ROLE.neg} accessibilityRole="alert">
-          {error}
-        </Text>
-      ) : null}
-      <View style={{ gap: 4, marginTop: 4 }}>
-        <TextButton
-          testID="sign-in-resend"
-          icon="mail"
-          disabled={wait > 0 || resending}
-          onPress={() => {
-            setWait(RESEND_AFTER_SECONDS);
-            onResend();
-          }}
-        >
-          {resending ? "Sending…" : wait > 0 ? `Send it again in ${wait}s` : "Send it again"}
-        </TextButton>
-        <TextButton testID="sign-in-different-email" icon="edit" onPress={onUseDifferentEmail}>
-          Use a different email
-        </TextButton>
-      </View>
-    </View>
   );
 }
 

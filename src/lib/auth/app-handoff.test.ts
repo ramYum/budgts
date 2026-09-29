@@ -18,6 +18,22 @@ describe("app sign-in hand-off", () => {
     expect(appHandoffUrl("?code=q", "#code=h")).toBe("budgts://auth/callback?code=q");
   });
 
+  it("passes on only the parameters the app reads, never tokens or a token_hash", () => {
+    const url = new URL(
+      appHandoffUrl(
+        "?code=c1&type=magiclink&token_hash=SECRET_TH&next=/x&redirect_to=https://evil.example",
+        "#access_token=SECRET_AT&refresh_token=SECRET_RT&expires_in=3600&provider_token=SECRET_PT&error_description=d",
+      ),
+    );
+    expect([...url.searchParams.keys()].sort()).toEqual(["code", "error_description", "type"]);
+    const href = url.toString();
+    for (const secret of ["SECRET_", "evil", "next", "redirect_to"]) expect(href).not.toContain(secret);
+  });
+
+  it("forwards nothing from an implicit-flow link but its error", () => {
+    expect(appHandoffUrl("", "#access_token=AT&refresh_token=RT&token_type=bearer")).toBe("budgts://auth/callback");
+  });
+
   it("opens the app's return even with nothing to carry", () => {
     expect(appHandoffUrl("", "")).toBe("budgts://auth/callback");
   });

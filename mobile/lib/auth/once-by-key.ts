@@ -2,7 +2,7 @@
  * Wraps async work so that concurrent AND later calls with the same key share
  * one execution and one result.
  *
- * Why: an auth `code` / `token_hash` is single-use. On Android the same
+ * Why: an auth `code` is single-use. On Android the same
  * `budgts://auth/callback?...` URL reaches the app twice — once as the result
  * of `WebBrowser.openAuthSessionAsync` (sign-in.tsx) and once as an intent
  * routed to `app/auth/callback.tsx`. Exchanging it twice makes the loser fail

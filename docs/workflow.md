@@ -1358,3 +1358,12 @@ implementation goes to `budgts-architect`.
     reading lines set up to ~1.5% wider on Android (glyph advance rounding; starts and heights match); motion
     (Crystal, chirps, the sign-in beat) waits for Reanimated in Phase 3, so native shows the web's motion-off frame;
     a completed device sign-in and Google on a device are still to run.
+  - **Review fixes (independent review 9.2, same day):** the hand-off page forwards only `code`, `type` and the three
+    error parameters (never a `token_hash` or implicit-flow tokens); the app accepts only PKCE codes it started and
+    refuses `token_hash` links with "send a new one" (login-confusion guard; launch spec §4, decided 2026-09-29; the
+    web's own `/auth/callback` is unchanged); the resend countdown follows the server's wait; a build without its API
+    address says it isn't set up instead of throwing; development warnings traced (`mobile/README.md`: none from our
+    code, the rest React Native / Expo dev-only logs); the sign-in screen now scrolls with the keyboard open under
+    Android edge-to-edge. Emulator re-check: a `token_hash` link and an expired link, cold and warm, each land on
+    sign-in with their message. Still waiting on the owner: the device sign-in run (Avast HTTPS scanning, or an EAS
+    phone build).

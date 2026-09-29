@@ -6,11 +6,16 @@ describe("parseAuthCallbackUrl", () => {
     expect(parseAuthCallbackUrl("budgts://auth/callback?code=abc123")).toEqual({ kind: "code", code: "abc123" });
   });
 
-  it("extracts token_hash + type (magic-link OTP verification)", () => {
-    expect(parseAuthCallbackUrl("budgts://auth/callback?token_hash=deadbeef&type=email")).toEqual({
-      kind: "otp",
-      tokenHash: "deadbeef",
-      type: "email",
+  it("refuses a token_hash link: the app accepts only PKCE codes it started", () => {
+    expect(parseAuthCallbackUrl("budgts://auth/callback?token_hash=deadbeef&type=email")).toEqual({ kind: "error", problem: "not_this_app" });
+    // even beside a code: a mixed link is not one the app sent
+    expect(parseAuthCallbackUrl("budgts://auth/callback?code=c&token_hash=deadbeef&type=magiclink")).toEqual({ kind: "error", problem: "not_this_app" });
+  });
+
+  it("refuses implicit-flow tokens in the fragment", () => {
+    expect(parseAuthCallbackUrl("budgts://auth/callback#access_token=a&refresh_token=r&token_type=bearer")).toEqual({
+      kind: "error",
+      problem: "not_this_app",
     });
   });
 
@@ -36,13 +41,12 @@ describe("parseAuthCallbackUrl", () => {
     expect(parseAuthCallbackUrl("budgts://auth/callback?error=server_error")).toEqual({ kind: "error", problem: "invalid" });
   });
 
-  it("prefers an error over a stray code/token_hash", () => {
+  it("prefers an error over a stray code", () => {
     expect(parseAuthCallbackUrl("budgts://auth/callback?error=server_error&code=abc123").kind).toBe("error");
   });
 
-  it("reports a link with neither code nor token_hash as invalid", () => {
+  it("reports a link with no code as invalid", () => {
     expect(parseAuthCallbackUrl("budgts://auth/callback")).toEqual({ kind: "error", problem: "invalid" });
-    expect(parseAuthCallbackUrl("budgts://auth/callback?token_hash=deadbeef")).toEqual({ kind: "error", problem: "invalid" });
   });
 
   it("reports a malformed URL as invalid", () => {

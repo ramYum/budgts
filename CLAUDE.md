@@ -6,17 +6,25 @@ WAT framework" below).
 
 ## What this project is
 
-A **budget tracking app** ("Budgts"), sold as a subscription. It runs as an
-installable **PWA** at https://budgts.com (phone + desktop) and, in
-progress, as **native iOS and Android apps** (Expo) on the App Store and
-Google Play, all backed by the same cloud data. Per-user accounts; no
-household/shared budgets in v1.
+A **budget tracking app** ("Budgts") by **Budgts, LLC**, sold as a
+subscription and shipped **only as native iOS and Android apps** (Expo) on
+the App Store and Google Play, in progress (owner decision 2026-09-29).
+Per-user accounts; no household/shared budgets in v1.
+
+**budgts.com becomes the company website.** Until the apps launch, the
+browser version of the app (an installable PWA) stays live at
+https://budgts.com for existing users and is the visual blueprint the native
+screens copy; signed-out visitors will see the company homepage (Phase 1b).
+At launch the browser app retires: budgts.com keeps the company homepage, the
+store-required pages (privacy, terms, support, account deletion) and the
+server the apps call. The sequence: launch spec §13a.
 
 ### The goal — read this before every decision
 
-Budgts is a **commercial product** published by the **owner's LLC** (with
-a D-U-N-S number, so Apple and Google organization accounts) — decided
-2026-09-26, ending the 2026-09-24/25 personal-use hiatus. The launch plan is
+Budgts is a **commercial product** published by **Budgts, LLC** (Apple and
+Google organization accounts, which need its D-U-N-S number: still pending
+on 2026-09-29) — decided 2026-09-26, ending the 2026-09-24/25 personal-use
+hiatus. The launch plan is
 `docs/specs/2026-09-17-mobile-app-launch-design.md`; owner decisions:
 
 - **Native Expo apps**, every screen **visually identical to the approved
@@ -27,9 +35,12 @@ a D-U-N-S number, so Apple and Google organization accounts) — decided
   Apple/Google billing (RevenueCat). Confirm once Plaid quotes its per-bank
   Production price; if it is above ~$1/bank, cap the base plan at 3 banks
   or raise annual to $79.
-- **One subscription unlocks the apps and budgts.com**: bank sync is the
-  paid feature, gated by a server-side entitlement on both. No web
-  checkout.
+- **Subscriptions are app-only** (2026-09-29, superseding 2026-09-26's "one
+  subscription unlocks the apps and budgts.com"): bank sync is the paid
+  feature, gated by a server-side entitlement. budgts.com has no plan
+  status, no Manage Subscription page and no checkout.
+- **budgts.com is the company website** (2026-09-29), built inside this
+  project; the browser app retires at launch (launch spec §13a).
 - **Influencer program deferred** until after launch.
 
 All Expo / React Native implementation goes to `budgts-architect`
@@ -109,7 +120,8 @@ What carries over is the **spirit**:
 | App framework | Next.js (App Router) + TypeScript + React |
 | Hosting | Vercel. Supabase is currently on the Free/Nano tier (500MB DB, pauses after 7 idle days, no backups) and Vercel is on Hobby. **Both must move to paid plans before selling** (Vercel Hobby is non-commercial; Supabase Free pauses and has no backups): Vercel Pro and Supabase Pro are owner launch steps. |
 | Mobile | Expo (latest stable SDK, New Architecture) + Expo Router + EAS Build/Submit, in `mobile/`; Reanimated, react-native-svg, `react-native-plaid-link-sdk`, RevenueCat (`react-native-purchases`); Maestro for device E2E and parity captures |
-| PWA | web app manifest + service worker (app-shell caching) |
+| PWA | web app manifest + service worker (app-shell caching); retired with the browser app at launch, when a service-worker update clears the caches (launch spec §13a) |
+| Company website | budgts.com homepage + privacy/terms/support/account-deletion pages, Next.js in this project (Phase 1b); the only public web surface after launch |
 | Data / auth / storage / realtime | Supabase (Postgres, Auth, Storage, Realtime) |
 | DB access | `supabase-js` with the user's session for all user-facing reads/writes; Drizzle for migrations **and** the server-only Plaid pipeline (`src/server/plaid/*`, webhook / cron routes, the page-view refresh nudge), which connects as the DB owner — bypassing RLS — so every such query must scope by `user_id`/`item_id` explicitly |
 | Security | Row-Level Security on **every** table, scoped to `auth.uid()` — the enforcement, not a backstop |
@@ -320,16 +332,18 @@ and "this month" follow the zone the user's device reports
 Profile shows it.
 
 **Active (2026-09-26):** **Mobile App + App-Store Launch** — native Expo
-apps on the App Store and Google Play, sold by the owner's LLC.
-Branch `phase-m/mobile-launch`; spec
-`docs/specs/2026-09-17-mobile-app-launch-design.md`. Phases:
-0 documents + selective port of the shelved work (done 2026-09-28) → 1 store
-blockers on web (privacy, terms, account-deletion screens; per-user time
-zones done) → 2 native
-foundation (shared brand tokens, auth incl. Sign in with Apple, per-screen
-mobile API) → 3 every screen, visually identical to the web → 4
-subscription (RevenueCat, server-side entitlement for app + web) → 5
-release (EAS, TestFlight, Play internal track, crash-free beta, review).
+apps on the App Store and Google Play, sold by Budgts, LLC; since
+2026-09-29 they are to be the only product. Branch `phase-m/mobile-launch`;
+spec `docs/specs/2026-09-17-mobile-app-launch-design.md`. Phases:
+0 documents + selective port of the shelved work (done, live 2026-09-28) →
+1 store blockers on web (privacy, terms, support, account deletion; done,
+live 2026-09-28) → 1b company homepage at budgts.com (next web item) → 2
+native foundation (shared brand tokens, auth incl. Sign in with Apple,
+per-screen mobile API) → 3 every screen, visually identical to the web → 4
+subscription (RevenueCat, server-side entitlement; app-only) → 5 release
+(EAS, TestFlight, Play internal track, crash-free beta, review), then retire
+the browser app and switch budgts.com to the company website with store
+buttons (launch spec §13a).
 
 **Paused:** **V1.5** — recurring-series detection (migration `0016`,
 `/api/plaid/recurring-scan`) and subscription / bill classification layers

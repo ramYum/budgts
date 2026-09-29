@@ -2,7 +2,8 @@
 
 > **Revision 2026-09-26 — influencer layer deferred until after launch.**
 > The owner-approved launch plan ships plain subscriptions first ($9.99/mo,
-> $69/yr, 7-day trial; one subscription unlocks the apps and budgts.com).
+> $69/yr, 7-day trial; app-only since 2026-09-29, when the owner made the
+> apps the only product and budgts.com the company website: launch spec §13a).
 > - v1 builds only an **entitlement mirror** (the `subscriptions` +
 >   `payments` part of this design), fed by the RevenueCat webhook.
 > - Partners, vouchers, redemptions, revenue allocations, adjustments,
@@ -73,7 +74,9 @@ second-guesses them.
 ### 1.1 Commercial model
 
 - Monthly price: **$9.99**. Annual price: **$69**. Free trial: **7 days**.
-- The **web product stays free** — no web checkout, no web customer
+- ~~The **web product stays free**~~ — superseded: since 2026-09-29 there
+  is no web product after launch (budgts.com becomes the company website;
+  launch spec §13a). Still no web checkout and no web customer
   subscriptions (see §5 Out of scope).
 - Paid subscription exists **only in the mobile apps** (iOS/Android).
 - Mobile billing rails: **Apple App Store IAP** and **Google Play Billing**.

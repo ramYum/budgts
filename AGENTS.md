@@ -473,7 +473,7 @@ All Expo / React Native implementation belongs to `budgts-architect`.
 - Native Plaid, RevenueCat, and similar integrations must stay behind clear boundaries.
 - Demo/tour data must never contaminate or mutate real user financial data.
 - Device-specific behavior must be tested with the most realistic available environment; do not treat browser-only verification as proof of native behavior.
-- **Visual parity (owner bar, 2026-09-26):** every native screen is visually identical to the approved web app at phone width, in every state (empty, full, over budget, loading, error, offline). The look comes from the same sources as the web (`src/lib/brand/*` tokens, pixel frames, robin art, the icon set), never a re-drawn copy. A screen is not done until the automated parity check passes: web Playwright captures vs native Maestro captures at the same device size, geometry within 1pt, exact token colors, and the per-screen pixel-diff budget.
+- **Visual parity (owner bar, 2026-09-26):** every native screen is visually identical to the approved web app at phone width, in every state (empty, full, over budget, loading, error, offline). The look comes from the same sources as the web (`src/lib/brand/*` tokens, pixel frames, robin art, the icon set), never a re-drawn copy. A screen is not done until the automated parity check passes: web Playwright captures vs native Maestro captures at the same device size, geometry within 1pt, exact token colors, and the per-screen pixel-diff budget. The browser app is that blueprint until Phase 3 parity passes; it retires from budgts.com at launch (launch spec §13a), after which the native app is the design source of truth.
 - **Zero known bugs:** every user journey has a Maestro E2E flow; mobile figures come from the server and match the web for the same account (number-parity test). Nothing ships with a known bug.
 - **Scoring gate:** each part (every screen, the design-system port, auth, Plaid, subscription, store assets) is scored /10 on visual parity, functional correctness, motion fidelity, performance, accessibility and premium polish, and iterated until every criterion is 9.5+. Record the first and final scores and the trade-offs in the commit/PR notes.
 
@@ -481,7 +481,7 @@ All Expo / React Native implementation belongs to `budgts-architect`.
 
 - Web customer subscription checkout remains out of scope unless the owner explicitly changes that decision.
 - Paid functionality is bought in the mobile apps only, through Apple/Google store billing with RevenueCat/approved entitlement architecture ($9.99/month, $69/year, 7-day trial).
-- **One subscription entitles the account everywhere (owner decision 2026-09-26):** the server-side entitlement gates bank sync (Plaid link-token, exchange, sync) on both the apps and budgts.com. The web shows plan status and points to the app to subscribe.
+- **Subscriptions are app-only (owner decision 2026-09-29, superseding 2026-09-26's "one subscription unlocks the apps and budgts.com"):** the server-side entitlement gates bank sync (Plaid link-token, exchange, sync) for the apps. budgts.com shows no plan status and has no Manage Subscription page; after launch it is the company website only (launch spec §13a).
 - Backend owns entitlement truth/mirror; client UI is not authoritative.
 - **The influencer program is deferred until after launch (owner decision 2026-09-26).** The rules below apply when it is built; v1 ships plain subscriptions only.
 - Historical attribution and commercial terms are immutable once earned under the established ledger design.

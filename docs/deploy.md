@@ -33,6 +33,13 @@ Steps you (the owner) do — Claude can't create the accounts or push to a remot
   describes the earlier off-state and staging setup — read it as history for
   how it got turned on, not as prod's current state. See `docs/workflow.md`
   §1/§4 and memory `plaid-live-in-production.md`.
+- **2026-09-28 — Stage 0 and Stage 1 live** (`a72380a`, then `151323f`): the
+  mobile API, account deletion, billing (switched off), migrations
+  `0019`–`0024` (applied to production first), and the legal pages with the
+  owner's facts. Details: "Mobile apps", "Legal pages" and the `0019`–`0024`
+  note below. Since 2026-09-29 the plan is for budgts.com to become the
+  company website at launch ("Planned: budgts.com becomes the company
+  website").
 
 ## 1. Push the repo to GitHub
 
@@ -253,9 +260,11 @@ Steps get their exact, verified commands as they are first run (none are
 guessed here).
 
 - **Accounts** (owner): Apple Developer and Google Play Console, both as
-  **organizations** under the owner's LLC (D-U-N-S). Apple's Small Business
-  Program gives the 15% rate. Organization Play accounts skip the 12-tester
-  closed test.
+  **organizations** under Budgts, LLC (needs its D-U-N-S number: still
+  pending on 2026-09-29; enroll as soon as it arrives, with the name and
+  address exactly as on the D-U-N-S record). Apple's Small Business Program
+  gives the 15% rate. Organization Play accounts skip the 12-tester closed
+  test.
 - **Builds:** EAS Build from `mobile/` (the owner is on Windows, so iOS is
   built in the cloud). Profiles:
   - `development`: dev client, staging API;
@@ -276,6 +285,22 @@ guessed here).
 - **Server side ships first:** mobile API routes, the entitlement gate and
   the RevenueCat webhook deploy with the web app, through staging then
   production, before any store build depends on them.
+
+## Planned: budgts.com becomes the company website (owner decision 2026-09-29)
+
+The apps will be the only product. The server stays in this project on
+budgts.com, so the Vercel project, domain, Plaid addresses, cron jobs and
+Supabase Auth URLs don't move. The full sequence is launch spec §13a:
+
+- **Phase 1b:** signed-out visitors see the company homepage ("coming soon
+  to iPhone and Android", a Sign in link for existing users, the legal
+  links). The browser app keeps working for signed-in users.
+- **Launch (Phase 5):** swap Sign in for the App Store and Google Play
+  buttons and retire the browser app. Ship a service-worker update that
+  clears the PWA caches and unregisters itself, and drop the manifest, so
+  installed PWAs stop showing a stale app. Keep the legal and support pages,
+  the web delete-account flow (Google Play requires it), `/api/*`,
+  `/.well-known/*` and `/app/plaid-oauth`.
 
 ## Legal pages (Phase 1, built 2026-09-28): owner facts turn them on
 

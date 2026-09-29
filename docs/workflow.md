@@ -1150,7 +1150,7 @@ implementation goes to `budgts-architect`.
     each call into its arguments, rejects interpolated template strings and raw errors
     beside a safe call, and covers `console.log` / `info` across `src/lib`.
 
-- **2026-09-27 to 28 — Stage 0: the shelved mobile work ported (finished 2026-09-28; local, not pushed).** Branch
+- **2026-09-27 to 28 — Stage 0: the shelved mobile work ported (finished and live 2026-09-28, `a72380a`).** Branch
   `phase-m/stage0-port` from `e5cfbda` (`main`, live budgts.com): 13 commits (`7ba8a09` … this one: ten port chunks,
   a CLAUDE.md/AGENTS.md docs commit, and two after an independent review scored the port 8.8/10). The branch is to
   be fast-forwarded into `phase-m/mobile-launch` after the review; that has not happened yet. Plan:
@@ -1214,7 +1214,7 @@ implementation goes to `budgts-architect`.
     `docs/operations/database-migrations.md` → "Production ledger: known pre-existing drift".
   - Left for later: legal pages + deletion screens + restoring the mobile legal links (Phase 1), shared tokens +
     restyle (Phases 2–3), `requirePremium` wiring + Manage Subscription (Phase 4).
-- **2026-09-28 — Stage 1: the store blockers on the web (local, not pushed or deployed).** Branch
+- **2026-09-28 — Stage 1: the store blockers on the web (live on budgts.com 2026-09-28, `151323f`).** Branch
   `phase-m/stage1-web` (worktree `budgts-stage1`, from `6bb7d52`). Owner: "start this too after deployment";
   standing rules: no calculation changes, no questions. No migrations.
   - **Legal pages behind one switch.** `/privacy`, `/terms`, `/support`, `/account-deletion` (Google Play's web
@@ -1272,3 +1272,21 @@ implementation goes to `budgts-architect`.
     Phase 2. Scores after the fixes: terms 9.5 → 9.6, privacy 9.5 → 9.6, support 9.5, account-deletion 9.5 → 9.6,
     intro 9.6 (balanced wrap), errors 9.5 → 9.6. Web vitest 1605/1605, mobile 221/221, e2e per switch state:
     on 7/7, off 6/6 + 1 skipped.
+
+- **2026-09-29 — The apps become the only product; budgts.com becomes the company website.** Owner:
+  "I want this app to be only available on app store and play store, and use the web domain budgts.com for my
+  company website", then, on the recommended route: "I love your suggestion and recommendation, lets stick with
+  that plan." Recorded in the launch spec (revision block, §13a, §1, §9, §17), CLAUDE.md, AGENTS.md, the roadmap
+  (new Phase 1b, Phases 4 and 5), deploy.md, README.md and the monetization spec.
+  - **Sequence:** Phase 1b company homepage (next web item; up before the Apple enrollment) → Phases 2–4 with
+    the browser app live as the blueprint → at launch: tell existing users, swap Sign in for the store buttons,
+    retire the browser app (retired addresses land on a "Budgts now lives in the app" page; a service-worker
+    update clears installed PWAs), keep the legal, support and web-deletion pages plus `/api/*`, `/.well-known/*`
+    and `/app/plaid-oauth`, update the legal copy → after parity, delete the web UI code.
+  - **Supersedes** 2026-09-26's "one subscription unlocks the apps and budgts.com": subscriptions are app-only,
+    with no web plan status or Manage Subscription page.
+  - **Why inside this project, not a website builder:** the server, the webhook address on every bank
+    connection, the `pg_cron` jobs, Plaid's registered addresses and the app-link files all stay on budgts.com
+    unchanged. A builder would have forced the server onto a subdomain and moved all of those.
+  - Owner status: the D-U-N-S number is still pending; the Apple and Google organization enrollments wait for
+    it. Nothing in Phases 1b–4 needs it except the iPhone, Sign in with Apple and store-product pieces.

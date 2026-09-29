@@ -66,7 +66,8 @@ BUDGTS
 ```
 
 The **Mobile App + App-Store Launch** track is active (2026-09-26) and is the
-current priority — see the track at the end of this file. **Scale & Infrastructure** is a second parallel track
+current priority: the apps will be the only product, and budgts.com becomes the
+company website at launch (2026-09-29) — see the track at the end of this file. **Scale & Infrastructure** is a second parallel track
 (capacity observability, no plan upgrades yet) — same section. Working
 detail for every tier: `docs/workflow.md §4`.
 
@@ -314,9 +315,11 @@ the data underneath (V1–V2) is trustworthy.
 
 ## Delivery track — Mobile App + App-Store Launch (active, 2026-09-26)
 
-Native iOS/Android apps (Expo) on the App Store and Google Play, sold by the
-owner's LLC (D-U-N-S, organization accounts, so no Google 12-tester closed
-test). Spec: `docs/specs/2026-09-17-mobile-app-launch-design.md`. Branch:
+Native iOS/Android apps (Expo) on the App Store and Google Play, sold by
+Budgts, LLC (organization accounts, so no Google 12-tester closed test; the
+D-U-N-S number is still pending on 2026-09-29). The apps will be the only
+product: at launch the browser app retires and budgts.com becomes the company
+website (owner decision 2026-09-29, launch spec §13a). Spec: `docs/specs/2026-09-17-mobile-app-launch-design.md`. Branch:
 `phase-m/mobile-launch`. The shelved Expo app and account-deletion work
 (`mobile/native-home`, `901ebfd`; the older `archive/mobile-and-deletion-2026-09-24`
 snapshot of it was deleted) is ported selectively, never merged wholesale.
@@ -325,24 +328,30 @@ Stage 0 plan: `docs/superpowers/plans/2026-09-27-stage0-port.md`.
 **Owner decisions:** every native screen visually identical to the approved
 web app, zero known bugs, premium feel, each part scored to 9.5+/10;
 $9.99/month, $69/year, 7-day trial through Apple/Google billing
-(RevenueCat); one subscription unlocks the apps and budgts.com (bank sync
-is the paid feature); influencer program after launch.
+(RevenueCat); subscriptions are app-only (2026-09-29; bank sync is the paid
+feature); budgts.com becomes the company website at launch; influencer
+program after launch.
 
 | Phase | Scope | Status |
 | --- | --- | --- |
-| 0 | Documents updated; selective port of `mobile/`, the mobile API, Bearer auth, account deletion, DB tooling and their tests | ✅ Stage 0 port of `mobile/native-home` built 2026-09-27 to 28, finished 2026-09-28, reviewed 8.8 then 9.5, fast-forwarded into `phase-m/mobile-launch` and pushed (`e26fcfe`, then `e8b4ed3`): mobile app, Bearer auth, native API, deletion, billing (off), migrations `0019`–`0024` (not yet on production; apply before any deploy, `docs/deploy.md`). Staging rebuilt 2026-09-28: history clean, integration 172/172. Watch: 16 recurring/bill/subscription detection integration tests failed on the pre-rebuild staging (identically on `e5cfbda`) and passed after the rebuild, so the drifted staging schema is the likelier cause than the clock skew first recorded; confirm on the next runs |
-| 1 | Store blockers on web: privacy + terms pages, account deletion (in-app + Google's web link), per-user time zones, archived migrations renumbered after `0018` | ⏳ per-user time zones built + verified on staging 2026-09-27 (migration `0018`); live on budgts.com 2026-09-27 (`ef4f2d1`); archived migrations renumbered in Stage 0; deletion API built; **Stage 1 built 2026-09-28 on `phase-m/stage1-web` (local, not deployed)**: privacy, terms, support and `/account-deletion` pages behind one owner-facts switch (`src/lib/legal/config.ts`, 404 and unlinked until set; the apps follow via `GET /api/legal`), Settings → Delete account (explain, fresh sign-in after 10 minutes, type DELETE, progress, every failure with a way out, signed out onto `/account-deleted`), the read-only banner while a deletion holds the lock. Owner: the six legal facts (`docs/deploy.md` → "Legal pages") |
+| 0 | Documents updated; selective port of `mobile/`, the mobile API, Bearer auth, account deletion, DB tooling and their tests | ✅ Stage 0 port of `mobile/native-home` built 2026-09-27 to 28, finished 2026-09-28, reviewed 8.8 then 9.5, fast-forwarded into `phase-m/mobile-launch` and pushed (`e26fcfe`, then `e8b4ed3`): mobile app, Bearer auth, native API, deletion, billing (off), migrations `0019`–`0024` (applied to production 2026-09-28 11:53Z; live on budgts.com since 2026-09-28, `a72380a`). Staging rebuilt 2026-09-28: history clean, integration 172/172. Watch: 16 recurring/bill/subscription detection integration tests failed on the pre-rebuild staging (identically on `e5cfbda`) and passed after the rebuild, so the drifted staging schema is the likelier cause than the clock skew first recorded; confirm on the next runs |
+| 1 | Store blockers on web: privacy + terms pages, account deletion (in-app + Google's web link), per-user time zones, archived migrations renumbered after `0018` | ✅ per-user time zones built + verified on staging 2026-09-27 (migration `0018`); live on budgts.com 2026-09-27 (`ef4f2d1`); archived migrations renumbered in Stage 0; deletion API built; **Stage 1 live on budgts.com 2026-09-28 (`151323f`), with the owner's legal facts**: privacy, terms, support and `/account-deletion` pages behind one owner-facts switch (`src/lib/legal/config.ts`, 404 and unlinked until set; the apps follow via `GET /api/legal`), Settings → Delete account (explain, fresh sign-in after 10 minutes, type DELETE, progress, every failure with a way out, signed out onto `/account-deleted`), the read-only banner while a deletion holds the lock. The owner's six legal facts are set (`docs/deploy.md` → "Legal pages") |
+| 1b | Company homepage: signed-out visitors to budgts.com see the company website (what Budgts is, "coming soon to iPhone and Android", a Sign in link for existing users, links to Privacy, Terms, Support and Delete your account), built in this project in the current design and scored to 9.5+. Up before the owner's Apple organization enrollment, which asks for a company website | ⏳ next web item (owner decision 2026-09-29, launch spec §13a) |
 | 2 | Native foundation: latest Expo SDK, shared brand tokens (`src/lib/brand/tokens.ts`, synced to `globals.css` by test), `<PixelFrame>`, fonts, auth (magic link, Google, Sign in with Apple), per-screen mobile API over the shared domain logic. When Sign in with Apple ships, restore "Apple" in the Privacy and Terms sign-in wording (removed in Stage 1 because it isn't built) | ⏳ |
 | 3 | Every screen and state, visually identical to the web at phone width, passing the parity check | ⏳ |
-| 4 | Subscription: RevenueCat paywall/trial/restore, entitlement mirror, server-side gate on Plaid for app + web, Plaid connections removed after a lapse. **Before billing goes live:** a retention decision (the owner set `LEGAL_RECORD_RETENTION_YEARS=0`, "deleted right away", which the production build refuses once billing is live: decide how long payment records are kept and whether Path B anonymizes or deletes them), and the retained-billing-record purge job (the legal pages promise deletion "in line with our retention schedule" after `LEGAL_RECORD_RETENTION_YEARS`; nothing purges yet, `docs/security.md`); turning billing on (`BILLING_ENVIRONMENT=production` + the webhook secret + the RevenueCat secret API key, then a redeploy) is also what switches the Terms, Support and deletion screens to the paid wording (`billingLive()`), with prices from `src/lib/billing/plans.ts` | ⏳ |
-| 5 | Release: EAS Build/Submit, TestFlight + Play internal track, crash-free Sentry beta, App Review, staged rollout | ⏳ |
+| 4 | Subscription: RevenueCat paywall/trial/restore, entitlement mirror, server-side gate on Plaid for the apps (app-only since 2026-09-29: no web plan status, no Manage Subscription page), Plaid connections removed after a lapse. **Before billing goes live:** a retention decision (the owner set `LEGAL_RECORD_RETENTION_YEARS=0`, "deleted right away", which the production build refuses once billing is live: decide how long payment records are kept and whether Path B anonymizes or deletes them), and the retained-billing-record purge job (the legal pages promise deletion "in line with our retention schedule" after `LEGAL_RECORD_RETENTION_YEARS`; nothing purges yet, `docs/security.md`); turning billing on (`BILLING_ENVIRONMENT=production` + the webhook secret + the RevenueCat secret API key, then a redeploy) is also what switches the Terms, Support and deletion screens to the paid wording (`billingLive()`), with prices from `src/lib/billing/plans.ts` | ⏳ |
+| 5 | Release: EAS Build/Submit, TestFlight + Play internal track, crash-free Sentry beta, App Review, staged rollout. Then retire the browser app (launch spec §13a): tell existing users first; swap the homepage's Sign in for the store buttons; send every retired address to a "Budgts now lives in the app" page; clear installed PWAs with a service-worker update; keep the legal, support and web-deletion pages plus `/api/*`, `/.well-known/*` and `/app/plaid-oauth`; update the legal copy; after parity, delete the web UI code | ⏳ |
 
-**Owner steps (parallel):** LLC + D-U-N-S (in progress), EIN + business bank
-account; Apple Developer (organization, $99/yr) + Small Business Program;
+**Owner steps (parallel):** LLC formed (Budgts, LLC); D-U-N-S pending
+(2026-09-29), then enroll with Apple and Google right away; EIN + business
+bank account; Apple Developer (organization, $99/yr) + Small Business Program;
 Google Play Console (organization, $25); Plaid plan check (Production access
 exists since 2026-09-11 — move off the 10-item Trial to Pay-as-you-go/Growth
 and read the per-bank price, then confirm pricing); Vercel Pro + Supabase
-Pro; privacy policy + terms naming the LLC; retention decision; RevenueCat +
+Pro; ~~privacy policy + terms naming the LLC~~ (done, live 2026-09-28);
+retention decision (set to "deleted right away" for now; revisit before
+billing goes live); Google OAuth: add the privacy and terms links, then
+Publish app; a `support@budgts.com` mailbox; RevenueCat +
 store products; store listing assets and a reviewer demo login.
 
 ## Delivery track (parallel) — Scale & Infrastructure

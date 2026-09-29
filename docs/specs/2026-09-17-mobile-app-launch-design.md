@@ -14,6 +14,27 @@ read — not the original chat. Where a decision was **not** already made, it
 is marked `OPEN ENGINEERING DECISION` or `OPEN PRODUCT DECISION` rather than
 invented here.
 
+**Revision 2026-09-29 (owner decision: the apps are the only product;
+budgts.com becomes the company website).** The owner: "I want this app to be
+only available on app store and play store, and use the web domain budgts.com
+for my company website", then, approving the recommended route: "I love your
+suggestion and recommendation, lets stick with that plan." Where this
+revision and older text disagree, this revision wins.
+
+- **The browser app retires at launch.** Until both apps are live in the
+  stores it stays at budgts.com, for existing users and as the visual
+  blueprint the native screens copy (§15a). At launch it is removed;
+  budgts.com keeps only the company website, the store-required pages and
+  the server the apps call.
+- **Subscriptions are app-only.** The server-side entitlement gates bank
+  sync for the apps; budgts.com shows no plan status and has no Manage
+  Subscription page. This supersedes the 2026-09-26 "one subscription
+  unlocks the apps and budgts.com" below.
+- **The company website is built inside this project**, not in a website
+  builder, so the server, bank connections, sign-in, Plaid's registered
+  return addresses and the app-link files stay where they are. The full
+  sequence is §13a.
+
 **Revision 2026-09-26 (owner-approved launch plan; the track resumes after
 the 2026-09-24/25 personal-use hiatus).** Where this revision and older
 text below disagree, this revision wins; the affected sections carry
@@ -22,10 +43,11 @@ inline notes.
 - **Seller:** the owner's **LLC** with a D-U-N-S number, so Apple and
   Google **organization** developer accounts. Organization Play accounts are
   exempt from Google's 12-tester / 14-day closed test (§11).
-- **Web:** **one subscription unlocks the apps and budgts.com.** Bank sync
-  is the paid feature, gated by the server-side entitlement on both. This
-  supersedes §1's "web stays free" (there is still **no web checkout**;
-  purchase happens in the apps).
+- ~~**Web:** **one subscription unlocks the apps and budgts.com.** Bank sync
+  is the paid feature, gated by the server-side entitlement on both.~~
+  **Superseded 2026-09-29:** subscriptions are app-only and the browser app
+  retires at launch (§13a). Still **no web checkout**; purchase happens in
+  the apps.
 - **Influencer program: deferred until after launch.** v1 ships plain
   subscriptions: no vouchers, no Promotional Offers, no commission ledger.
   The monetization spec stays the authority for when it is built (§2, §9,
@@ -67,9 +89,11 @@ This is the **Mobile App + App-Store Launch** track — the current phase per
 `docs/roadmap.md`, immediately following the completed web V1 (Plaid
 ingestion) and V1.5 (recurring/transfer/subscription/bill detection) work.
 
-- ~~**LOCKED:** the web product (`budgts.com`) stays free.~~ **Superseded
+- ~~**LOCKED:** the web product (`budgts.com`) stays free.~~ ~~**Superseded
   2026-09-26:** one subscription unlocks the apps *and* budgts.com (bank
-  sync is the paid feature). Still **no web checkout** and no web-only
+  sync is the paid feature).~~ **LOCKED 2026-09-29:** the apps are the only
+  product; the browser app retires at launch and budgts.com becomes the
+  company website (§13a). Still **no web checkout** and no web-only
   subscription.
 - **LOCKED:** paid functionality is **purchased only** in the iOS/Android
   mobile apps built under this track.
@@ -452,7 +476,8 @@ their own store notices).
   Unconfigured deployments refuse: no signing secret -> 503
   `not_configured`; `BILLING_ENVIRONMENT` unset -> `sandbox`, so real-money
   events are quarantined. `requirePremium` exists but gates nothing yet
-  (Phase 4 wires it to the Plaid routes for the apps and budgts.com).
+  (Phase 4 wires it to the Plaid routes the apps call; subscriptions are
+  app-only since 2026-09-29, §13a).
 - **Schema** (migrations `0023` ledger, `0024` entitlements + billing events).
   All ten ledger tables exist; only `subscriptions` and `payments` are ever
   written. Partner, voucher, redemption, allocation, adjustment and payout
@@ -772,6 +797,62 @@ treats it as such rather than filling the gap with an assumed number.
 
 ---
 
+## 13a. Web retirement and the company website — LOCKED (owner, 2026-09-29)
+
+Budgts ships only as the iOS and Android apps; budgts.com becomes the
+website of Budgts, LLC. The sequence:
+
+1. **Company homepage (Phase 1b, the next web item).** Signed-out visitors
+   to budgts.com see the company homepage instead of the sign-in screen:
+   what Budgts is, "coming soon to iPhone and Android", a "Sign in" link for
+   existing users, and links to Privacy, Terms, Support and Delete your
+   account. It is built in this project with the current design system
+   (`docs/BRAND_GUIDELINES.md`) and scored to 9.5+ like every other part.
+   Put it up before the owner's Apple organization enrollment, which asks
+   for a company website. Signed-in users keep the browser app, unchanged.
+2. **Phases 2–4 continue with the browser app live.** It is the visual
+   blueprint for the native screens (§15a's parity captures run against it)
+   and the only way existing users use Budgts until the apps ship. Phase 4
+   subscriptions are app-only: the server-side entitlement gates bank sync
+   for the apps; no web plan status, no web Manage Subscription page, no
+   web checkout.
+3. **Launch (Phase 5), once both apps are live in the stores:**
+   - Before the switch, tell existing users that Budgts now lives in the
+     apps: they sign in with the same email, and their accounts, banks and
+     data carry over.
+   - Swap the homepage's "Sign in" link for App Store and Google Play
+     buttons.
+   - Retire the browser app: remove the signed-in web screens. Every retired
+     address (bookmarks, links in old emails, installed home-screen icons)
+     lands on a "Budgts now lives in the app" page with the store buttons
+     and the delete-account path. No retired address may dead-end.
+   - Ship a service-worker update that clears the PWA caches and unregisters
+     itself, and remove the web manifest, so installed PWAs stop showing a
+     stale cached app.
+   - Keep: the company homepage; `/privacy`, `/terms`, `/support`,
+     `/account-deletion`; the web delete-account flow (`/sign-in` →
+     `/settings/delete-account` → `/account-deleted`), because Google Play
+     requires deletion to be possible without the app; `/api/*`;
+     `/.well-known/*`; and `/app/plaid-oauth`.
+   - Update the legal copy that describes using Budgts at budgts.com
+     (Terms, Privacy, and `/account-deletion`'s "Settings, then Delete
+     account"), with a new "Last updated" date (`LEGAL_EFFECTIVE_DATE`).
+   - Remove the web Plaid Link path once nothing uses it, including its
+     registered redirect (`PLAID_OAUTH_REDIRECT_URI`). The native OAuth
+     return (`PLAID_NATIVE_OAUTH_REDIRECT_URI`, `/app/plaid-oauth`) stays.
+4. **After launch:** once native parity is verified, delete the retired web
+   UI code (one authoritative implementation), keeping the shared domain
+   logic in `src/lib/*` and the server routes. The native app then becomes
+   the design source of truth; update `docs/BRAND_GUIDELINES.md` to say so.
+
+Unchanged by this decision: the server (Vercel project `budgts`) stays on
+budgts.com, so Plaid's registered addresses, the webhook address stored on
+every existing bank connection, the `pg_cron` sync jobs, the Supabase Auth
+URLs and Google OAuth's authorized domain need no change. Vercel Pro is
+still required: it hosts the server and the company website.
+
+---
+
 ## 14. Testing strategy
 
 - **Unit tests for shared domain logic** — the existing Vitest unit suite
@@ -962,10 +1043,14 @@ Restated here so nothing downstream infers permission to start on it:
 ## 17. Decision Register
 
 ### LOCKED
+- **2026-09-29 revision** (see the revision block at the top): the apps are
+  the only product; subscriptions are app-only; the browser app retires at
+  launch and budgts.com becomes the company website, built inside this
+  project (§13a).
 - **2026-09-26 revisions** (see the revision block at the top):
   - seller = the owner's LLC (organization accounts);
-  - one subscription unlocks the apps + budgts.com (supersedes "web stays
-    free"; no web checkout);
+  - ~~one subscription unlocks the apps + budgts.com (supersedes "web stays
+    free"; no web checkout)~~, superseded by the 2026-09-29 revision above;
   - influencer items below are **deferred until after launch**;
   - Sign in with Apple included on iOS;
   - every web screen ships, visually identical, under §15a's parity and

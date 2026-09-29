@@ -851,6 +851,36 @@ every existing bank connection, the `pg_cron` sync jobs, the Supabase Auth
 URLs and Google OAuth's authorized domain need no change. Vercel Pro is
 still required: it hosts the server and the company website.
 
+**Feasibility review (2026-09-29).** The path is low-effort because the
+browser app is contained in `src/app/(app)/*`, the web actions are already
+thin adapters over the shared commands the mobile API uses (Stage 0), and
+the service worker (`public/sw.js`) serves navigations network-first and
+caches only the offline page, so a clean-up update is enough to retire
+installed PWAs; the manifest's `start_url` `/` then opens the homepage.
+Phase 1b needs one routing rule: `src/proxy.ts` sends signed-out visitors of
+`/` to the homepage, since the dashboard also lives at `/`. Retiring the web
+code later removes 9 of the 14 Playwright specs, whose journeys Phase 3's
+Maestro flows cover. Watch items:
+
+- **Same sign-in, same account.** Existing users keep their data only if
+  they sign in to the app the way they do today (the same email link or the
+  same Google account). Sign in with Apple with "Hide My Email" creates a
+  separate, empty account. Say so in the launch message and on the "now in
+  the app" page.
+- **Sign-in links opened on a computer.** After the browser app retires, a
+  sign-in link opened anywhere but the phone must land on a page that says
+  to open it on the phone (the web deletion flow excepted). Design this with
+  native sign-in in Phase 2.
+- **Auth email at launch volume.** Magic-link mail uses Supabase's built-in
+  sender (`docs/Thirdparties.md`), which is rate-limited and meant for
+  testing. Set up custom SMTP (the budgts.com Google Workspace or a
+  transactional provider) before the private beta.
+- **Analytics on the company site.** The privacy policy says there are no
+  analytics or tracking tools; adding any means updating the policy first.
+- **Optional overlap.** Retiring the browser app a short time after launch,
+  once the apps have run crash-free, keeps a fallback for existing users
+  during the first days. The owner decides at launch.
+
 ---
 
 ## 14. Testing strategy

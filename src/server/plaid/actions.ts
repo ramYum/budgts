@@ -14,11 +14,8 @@
  */
 import { revalidateUserData } from "@/server/revalidate";
 import { redirect } from "next/navigation";
-import { standardCategory } from "@/lib/categories/standard";
-import { recategorizeUncategorizedBankTxns } from "@/lib/plaid/recategorize";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import {
-  categorizeBankTxnSchema,
   clearAccountReviewSchema,
   disconnectBankSchema,
   mapAccountsSchema,
@@ -27,8 +24,14 @@ import {
 } from "@/lib/validation/plaid";
 import { setAccountCalculationExclusion } from "./account-exclusion";
 import { disconnectPlaidItem } from "./disconnect";
-import { db } from "@/lib/db";
-import { mapAccountsFor, setAccountImportingFor, syncConnectionFor } from "./commands";
+import {
+  categorizeBankTransactionFor,
+  clearAccountReviewFor,
+  mapAccountsFor,
+  rescanUncategorizedFor,
+  setAccountImportingFor,
+  syncConnectionFor,
+} from "./commands";
 
 export type PlaidActionState = {
   error?: string;
@@ -94,11 +97,8 @@ export async function clearAccountReview(
   if (!parsed.success) return { error: "Something went wrong. Refresh and try again." };
 
   const { supabase } = await withUser();
-  const { error } = await supabase
-    .from("plaid_accounts")
-    .update({ needs_review: false, review_reason: null, review_flagged_at: null })
-    .eq("id", parsed.data.plaidAccountRowId);
-  if (error) return { error: "Could not update the review status. Try again." };
+  const result = await clearAccountReviewFor(supabase, parsed.data.plaidAccountRowId);
+  if (!result.ok) return { error: result.message };
 
   revalidateUserData();
   return { ok: true };
@@ -184,74 +184,15 @@ export async function categorizeBankTransaction(
 ): Promise<PlaidActionState> {
   const rawCategoryId = String(formData.get("categoryId") ?? "");
   const rawStandard = String(formData.get("standardCategoryName") ?? "");
-  const parsed = categorizeBankTxnSchema.safeParse({
+  const input = {
     transactionId: String(formData.get("transactionId") ?? ""),
     categoryId: rawCategoryId || undefined,
     standardCategoryName: rawStandard || undefined,
-  });
-  if (!parsed.success) return { error: "Pick a category and try again." };
-  const { transactionId, standardCategoryName } = parsed.data;
-
+  };
   const { user, supabase } = await withUser();
-
-  // Resolve the target category id. If the user picked a standard category they
-  // don't currently have, add it back (un-archive, or create) — no setup screen.
-  let categoryId = parsed.data.categoryId ?? "";
-  if (standardCategoryName) {
-    const std = standardCategory(standardCategoryName);
-    if (!std) return { error: "Unknown category." };
-    const { data: existing } = await supabase
-      .from("categories")
-      .select("id, is_archived")
-      .eq("name", std.name)
-      .maybeSingle();
-    if (existing) {
-      categoryId = existing.id;
-      if (existing.is_archived) {
-        await supabase.from("categories").update({ is_archived: false }).eq("id", existing.id);
-      }
-    } else {
-      const { data: created, error: createErr } = await supabase
-        .from("categories")
-        .insert({ user_id: user.id, name: std.name, kind: std.kind, color: std.color })
-        .select("id")
-        .single();
-      if (createErr || !created) return { error: "Could not add that category. Try again." };
-      categoryId = created.id;
-    }
-  }
-
-  // Set the category and mark it user-owned so re-sync never overwrites it
-  // (design §18). RLS scopes the update to the caller.
-  const { data: updated, error } = await supabase
-    .from("transactions")
-    .update({ category_id: categoryId, user_categorized: true })
-    .eq("id", transactionId)
-    .eq("source", "bank")
-    .select("merchant_entity_id")
-    .maybeSingle();
-  if (error) return { error: "Could not save the category. Try again." };
-  if (!updated) return { error: "That transaction no longer exists. Refresh and try again." };
-
-  // Remember the merchant → category rule, and backfill this user's other
-  // uncategorised transactions from the same merchant (design §18). Blanks only:
-  // never touch a user-set category, a removed row, or a transfer; leave
-  // `user_categorized = false` on the backfilled rows (auto, not manual).
-  if (updated.merchant_entity_id) {
-    await supabase.from("plaid_merchant_rules").upsert(
-      { user_id: user.id, merchant_entity_id: updated.merchant_entity_id, category_id: categoryId },
-      { onConflict: "user_id,merchant_entity_id" },
-    );
-    await supabase
-      .from("transactions")
-      .update({ category_id: categoryId })
-      .eq("source", "bank")
-      .eq("merchant_entity_id", updated.merchant_entity_id)
-      .is("category_id", null)
-      .eq("user_categorized", false)
-      .is("removed_at", null)
-      .eq("is_transfer", false);
-  }
+  // The rule lives in categorizeBankTransactionFor (./commands.ts), shared with the native API.
+  const result = await categorizeBankTransactionFor(supabase, user.id, input);
+  if (!result.ok) return { error: result.message };
 
   revalidateUserData();
   return { ok: true };
@@ -265,9 +206,9 @@ export async function categorizeBankTransaction(
  */
 export async function rescanUncategorized(): Promise<PlaidActionState> {
   const { user } = await withUser();
-  const { updated } = await recategorizeUncategorizedBankTxns(db(), user.id);
+  const result = await rescanUncategorizedFor(user.id);
   revalidateUserData();
-  return { ok: true, warning: updated === 0 ? "Nothing new to categorise." : undefined };
+  return { ok: true, warning: result.ok ? result.warning : undefined };
 }
 
 export async function disconnectBank(

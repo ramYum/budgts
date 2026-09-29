@@ -6,7 +6,8 @@ import { formatMoney, formatSavingsRate } from "@/lib/budget/money";
 import type { DashboardView as DV } from "@/lib/budget/dashboard";
 import type { MonthSpend } from "@/lib/budget/spend-trend";
 import { pickSuggestion } from "@/lib/insights/suggestion";
-import { SpendingBreakdownCard, SpendingTrendCard, sharesOf } from "./spending-overview";
+import { savingsRateDelta, sharesOf } from "@/lib/insights/figures";
+import { SpendingBreakdownCard, SpendingTrendCard } from "./spending-overview";
 import { CategoryIcon, Chevron, IconTile, SegmentedControl, figureSize } from "./ui";
 
 /** Savings rate as a 10×10 waffle: one cell per percent, filled from the
@@ -49,10 +50,7 @@ export function InsightsView({
   const { tiles } = current;
   const suggestion = pickSuggestion(current.bars, previous.bars, tiles.spent);
   const moneyLeft = formatMoney(tiles.netSavings, currency);
-  const rateDelta =
-    tiles.savingsRate !== null && previous.tiles.savingsRate !== null
-      ? Math.round((tiles.savingsRate - previous.tiles.savingsRate) * 100)
-      : null;
+  const rateDelta = savingsRateDelta(tiles.savingsRate, previous.tiles.savingsRate);
   const incomeShares = sharesOf(incomeSources.map((s) => s.amount));
 
   const breakdownHeader = (

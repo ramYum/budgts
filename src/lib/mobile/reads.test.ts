@@ -1,3 +1,5 @@
+import { budgetProgress } from "@/lib/insights/figures";
+import { pickSuggestion } from "@/lib/insights/suggestion";
 import { describe, expect, it } from "vitest";
 import { testHome } from "./test-home";
 import {
@@ -61,9 +63,10 @@ describe("cursor", () => {
 describe("buildMobileBudgets", () => {
   it("projects the dashboard's own budget-vs-actual numbers without recomputing anything", () => {
     const home = testHome();
-    const b = buildMobileBudgets(home);
+    const b = buildMobileBudgets({ ...home, unbudgeted: home.categories.filter((c) => c.id === "cat-rent") });
     expect(b).toMatchObject({
       version: 1,
+      range: "month",
       month: home.month,
       currency: home.currency,
       budgeted: home.view.tiles.budgeted,
@@ -81,7 +84,12 @@ describe("buildMobileBudgets", () => {
       remaining: bar.remaining,
       pctUsed: bar.pctUsed,
       state: bar.state,
+      previousActual: home.prevView.bars.find((p) => p.categoryId === bar.categoryId)?.actual ?? 0,
     });
+    // The web Budgets page's own derivations, from the same shared functions:
+    expect({ spentPct: b.spentPct, tone: b.tone }).toEqual(budgetProgress(home.view.tiles));
+    expect(b.suggestion).toEqual(pickSuggestion(home.view.bars, home.prevView.bars, home.view.tiles.spent));
+    expect(b.unbudgetedCategories).toEqual([{ id: "cat-rent", name: "Rent", color: "#5B6CF0" }]);
   });
 });
 

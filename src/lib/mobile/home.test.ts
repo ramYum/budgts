@@ -10,6 +10,8 @@ describe("buildMobileHome", () => {
     expect(MOBILE_HOME_VERSION).toBe(1);
     expect(Object.keys(home).sort()).toEqual(
       [
+        "bankConnected",
+        "breakdown",
         "budgeted",
         "categories",
         "currency",
@@ -21,7 +23,10 @@ describe("buildMobileHome", () => {
         "savings",
         "savingsRate",
         "spent",
+        "suggestion",
         "today",
+        "trend",
+        "trendChange",
         "version",
       ].sort(),
     );
@@ -72,5 +77,20 @@ describe("buildMobileHome", () => {
     expect(Object.keys(home.recent[0]!).sort()).toEqual(
       ["amount", "category", "description", "direction", "id", "isTransfer", "occurredAt"].sort(),
     );
+  });
+});
+
+describe("buildMobileHome: the spending cards (added 2026-09-29)", () => {
+  it("prints the web cards' own figures: pickSuggestion, spendingBreakdown and trendChange over loadHome's data", async () => {
+    const { pickSuggestion } = await import("@/lib/insights/suggestion");
+    const { spendingBreakdown, trendChange } = await import("@/lib/insights/figures");
+    const data = testHome();
+    const home = buildMobileHome(data);
+    expect(home.suggestion).toEqual(pickSuggestion(data.view.bars, data.prevView.bars, data.view.tiles.spent));
+    expect(home.breakdown).toEqual(spendingBreakdown(data.view.bars, data.view.tiles.spent));
+    expect(home.breakdown.reduce((s, b) => s + b.share, 0)).toBe(100);
+    expect(home.trend).toEqual(data.trend);
+    expect(home.trendChange).toEqual(trendChange(data.trend));
+    expect(home.bankConnected).toBe(data.bankConnected);
   });
 });

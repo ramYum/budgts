@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Icon } from "@/components/icon";
 import { createClient } from "@/lib/supabase/server";
+import { accountWritesLocked } from "@/lib/account/write-lock";
 import { DELETE_ACCOUNT_PATH } from "@/lib/account/screen";
 
 /**
@@ -11,9 +12,8 @@ import { DELETE_ACCOUNT_PATH } from "@/lib/account/screen";
  * Streams in after the shell (the layout wraps it in <Suspense>), so it never delays a page.
  */
 export async function DeletionBanner() {
-  const supabase = await createClient();
-  const { data, error } = await supabase.rpc("account_accepts_writes");
-  if (error || data !== false) return null;
+  // The check is accountWritesLocked, shared with the native app's GET /api/mobile/status.
+  if (!(await accountWritesLocked(await createClient()))) return null;
   return <DeletionNotice />;
 }
 

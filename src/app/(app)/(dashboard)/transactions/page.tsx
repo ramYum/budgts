@@ -14,15 +14,13 @@ import { IconTile } from "@/components/ui";
 import { TransactionList, type TxnListItem } from "@/components/transaction-list";
 import type { AccountOption, CategoryOption } from "@/components/transaction-form";
 import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
-import { applyNeedsCategoryFilter } from "@/lib/plaid/needs-category-window";
-import { STANDARD_CATEGORIES } from "@/lib/categories/standard";
+import { loadNeedsCategory, missingStandardCategories } from "@/lib/transactions/needs-category";
 import { ConnectBank } from "@/components/plaid/connect-bank";
 import { NeedsCategory, type NeedsCategoryItem } from "@/components/plaid/needs-category";
 import { LimitedHistoryBanner } from "@/components/plaid/limited-history-banner";
 import { fetchAllRows } from "@/lib/supabase/fetch-all-rows";
 import { selectableAccounts, type SelectableAccountRow } from "@/lib/accounts/selectable-accounts";
 import { nudgeRefresh } from "@/server/plaid/service";
-import { buildCategoryLookup, suggestPlaidCategory } from "@/lib/plaid/category-map";
 
 export const metadata: Metadata = { title: "Transactions" };
 
@@ -104,6 +102,13 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
   });
 
   const profilePromise = supabase.from("profiles").select("currency, created_at").eq("id", user.id).single();
+  const categoriesPromise = supabase
+    .from("categories")
+    .select("id, name, kind")
+    .eq("is_archived", false)
+    .order("kind")
+    .order("name")
+    .then(({ data }) => (data ?? []) as CategoryOption[]);
 
   // Imported bank rows with no category, inside the user's categorization
   // window — the one prompt V1 shows (design §3; window: 2026-09-16 Advancial
@@ -117,18 +122,11 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
   // instead of after them.
   const needsCategoryPromise = profilePromise.then(async ({ data: p }) => {
     if (!plaidOn || !p?.created_at) return null;
-    const { data } = await applyNeedsCategoryFilter(
-      supabase.from("transactions").select(
-        "id, description, merchant_name, merchant_entity_id, amount, direction, occurred_at, pending, plaid_category_primary, plaid_category_detailed, account:accounts(name)",
-      ),
-      p.created_at,
-    )
-      .order("occurred_at", { ascending: false })
-      .limit(500);
-    return data;
+    // A failed read shows no panel, as it always has on the web; the native API answers 503 instead.
+    return loadNeedsCategory(supabase, p.created_at, await categoriesPromise).catch(() => null);
   });
 
-  const [txns, { data: accounts }, { data: liveLinkedAccounts }, { data: categories }, { data: profile }, nc] =
+  const [txns, { data: accounts }, { data: liveLinkedAccounts }, categories, { data: profile }, nc] =
     await Promise.all([
       txnsPromise,
       supabase.from("accounts").select("id, name, source").eq("is_archived", false).order("name"),
@@ -137,7 +135,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
       plaidOn
         ? supabase.from("plaid_accounts").select("account_id").not("account_id", "is", null)
         : Promise.resolve({ data: [] as { account_id: string | null }[] }),
-      supabase.from("categories").select("id, name, kind").eq("is_archived", false).order("kind").order("name"),
+      categoriesPromise,
       profilePromise,
       needsCategoryPromise,
     ]);
@@ -150,36 +148,13 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
     (accounts ?? []) as SelectableAccountRow[],
     liveLinkedAccountIds,
   );
-  const categoryOpts = (categories ?? []) as CategoryOption[];
 
-  let needsCategory: NeedsCategoryItem[] = [];
-  if (nc) {
-    const categoryLookup = buildCategoryLookup(categoryOpts.map((c) => [c.name, c.id] as const));
-    needsCategory = (nc ?? []).map((r) => {
-      const acc = r.account as { name: string | null } | { name: string | null }[] | null;
-      const accountName = Array.isArray(acc) ? (acc[0]?.name ?? null) : (acc?.name ?? null);
-      const primary = (r.plaid_category_primary as string | null) ?? null;
-      const detailed = (r.plaid_category_detailed as string | null) ?? null;
-      return {
-        id: r.id as string,
-        description: (r.description as string | null) ?? "",
-        merchant_name: (r.merchant_name as string | null) ?? null,
-        merchant_entity_id: (r.merchant_entity_id as string | null) ?? null,
-        amount: r.amount as number,
-        direction: r.direction as "debit" | "credit",
-        occurred_at: r.occurred_at as string,
-        account_name: accountName,
-        pending: r.pending as boolean,
-        plaid_category_primary: primary,
-        suggested_category_id: suggestPlaidCategory(primary, detailed, categoryLookup),
-      };
-    });
-  }
+  const categoryOpts = categories;
+  const needsCategory: NeedsCategoryItem[] = nc ?? [];
 
   // Standard categories the user doesn't currently have — offered in the
   // "Needs a category" picker as "add this one" (auto-created on pick).
-  const haveNames = new Set(categoryOpts.map((c) => c.name));
-  const missingStandard = STANDARD_CATEGORIES.map((c) => c.name).filter((n) => !haveNames.has(n));
+  const missingStandard = missingStandardCategories(categoryOpts.map((c) => c.name));
 
   const showConnectPrompt = plaidOn && (txns ?? []).length === 0 && !categoryFilter;
 

@@ -15,7 +15,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildDashboard, type DashboardCategory, type DashboardView } from "@/lib/budget/dashboard";
 import { currentMonthKey, monthKey, todayDateKey } from "@/lib/budget/month";
 import { priorMonths, spendTrend } from "@/lib/budget/spend-trend";
-import { goalsSummary, type GoalsSummary, type SavingsContribution, type SavingsGoal } from "@/lib/budget/savings";
+import { goalsSummary, type GoalsSummary } from "@/lib/budget/savings";
+import { loadGoalRows } from "@/lib/goals/load-goals";
 import type { BudgetTxn } from "@/lib/budget/types";
 import type { Database } from "@/lib/supabase/database.types";
 import { fetchAllRows, type RowCount } from "@/lib/supabase/fetch-all-rows";
@@ -149,7 +150,6 @@ export async function loadHome(supabase: SupabaseClient, input: LoadHomeInput): 
     excludedRes,
     recentRes,
     goalsRes,
-    contribRes,
     bankCountRes,
   ] = await Promise.all([
     trendTxnRowsPromise,
@@ -177,12 +177,11 @@ export async function loadHome(supabase: SupabaseClient, input: LoadHomeInput): 
       ? supabase.from("plaid_accounts").select("id").eq("excluded_from_calculations", true)
       : Promise.resolve({ data: [] as { id: string }[], error: null }),
     recentQuery,
-    supabase
-      .from("savings_goals")
-      .select("id, name, target_amount, target_date, is_archived")
-      .eq("is_archived", false)
-      .order("created_at"),
-    supabase.from("savings_contributions").select("goal_id, amount"),
+    // The Goals screen's own reads (shared, paged): a failure is named "goals" below, never a guessed total.
+    loadGoalRows(supabase).then(
+      (rows) => ({ rows, error: null }),
+      () => ({ rows: null, error: "goals_read_failed" }),
+    ),
     // "Get set up" marks the bank step done once any connection exists.
     plaidEnabled
       ? supabase.from("plaid_items").select("id", { count: "exact", head: true })
@@ -198,7 +197,6 @@ export async function loadHome(supabase: SupabaseClient, input: LoadHomeInput): 
     excludedAccounts: excludedRes.error,
     recent: recentRes.error,
     goals: goalsRes.error,
-    contributions: contribRes.error,
     bankCount: bankCountRes.error,
   })
     .filter(([, error]) => error != null)
@@ -243,18 +241,7 @@ export async function loadHome(supabase: SupabaseClient, input: LoadHomeInput): 
   const prevView = buildDashboard(prevTxns, cats, [], prevMonth);
   const trend = spendTrend(trendTxns, cats, trendMonths);
 
-  const goals: SavingsGoal[] = (goalsRes.data ?? []).map((g) => ({
-    id: g.id,
-    name: g.name,
-    targetAmount: g.target_amount,
-    targetDate: g.target_date,
-    isArchived: g.is_archived,
-  }));
-  const contributions: SavingsContribution[] = (contribRes.data ?? []).map((c) => ({
-    goalId: c.goal_id,
-    amount: c.amount,
-  }));
-  const savings = goalsSummary(goals, contributions);
+  const savings = goalsSummary(goalsRes.rows?.goals ?? [], goalsRes.rows?.contributions ?? []);
 
   const recent: HomeRecentItem[] = (recentRes.data ?? []).map((r) => {
     const cat = r.category as { name: string; color: string } | { name: string; color: string }[] | null;

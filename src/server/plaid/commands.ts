@@ -10,7 +10,9 @@ import { after } from "next/server";
 import { db } from "@/lib/db";
 import { claimMissReason, findItemByPlaidItemId } from "@/lib/plaid/item-store";
 import { claimMissMessage, runClaimedSync } from "@/lib/plaid/sync-runner";
-import type { AccountMapEntryInput } from "@/lib/validation/plaid";
+import { standardCategory } from "@/lib/categories/standard";
+import { recategorizeUncategorizedBankTxns } from "@/lib/plaid/recategorize";
+import { categorizeBankTxnSchema, type AccountMapEntryInput } from "@/lib/validation/plaid";
 import { drainItemInBackground, syncRunner } from "./service";
 
 type SyncKind = { kind: "synced" } | { kind: "failed" } | { kind: "not_started"; message: string };
@@ -140,4 +142,106 @@ export async function setAccountImportingFor(
     if (warning) return { ok: true, warning };
   }
   return { ok: true };
+}
+
+/**
+ * Clear an account's anomaly-review flag (`plaid_accounts.id`; design: 2026-09-12). An explicit, one-account-at-a-time
+ * owner action, never automatic. It touches no transaction row; it only stops the warning.
+ */
+export async function clearAccountReviewFor(supabase: SupabaseClient, plaidAccountRowId: string): Promise<PlaidCommandResult> {
+  const { data, error } = await supabase
+    .from("plaid_accounts")
+    .update({ needs_review: false, review_reason: null, review_flagged_at: null })
+    .eq("id", plaidAccountRowId)
+    .select("id");
+  if (error) return { ok: false, error: "failed", message: "Could not update the review status. Try again." };
+  if (!data?.length) return { ok: false, error: "not_found", message: "That account no longer exists." };
+  return { ok: true };
+}
+
+/**
+ * "Needs a category": set one imported bank transaction's category and mark it user-owned, so a re-sync never overwrites
+ * it (design §18). Picking a standard category the user doesn't have adds it back (un-archive, or create). Then remember
+ * the merchant → category rule and backfill this user's other still-blank rows from the same merchant: blanks only, never
+ * a user-set category, a removed row or a transfer, and the backfilled rows stay `user_categorized = false` (auto, not
+ * manual). Moved verbatim from the web action (2026-09-29, Stage 2B). RLS scopes every write to the caller.
+ */
+export async function categorizeBankTransactionFor(
+  supabase: SupabaseClient,
+  userId: string,
+  input: { transactionId: string; categoryId?: string; standardCategoryName?: string },
+): Promise<PlaidCommandResult> {
+  const parsed = categorizeBankTxnSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "invalid", message: "Pick a category and try again." };
+  const { transactionId, standardCategoryName } = parsed.data;
+
+  // Resolve the target category id. If the user picked a standard category they
+  // don't currently have, add it back (un-archive, or create) — no setup screen.
+  let categoryId = parsed.data.categoryId ?? "";
+  if (standardCategoryName) {
+    const std = standardCategory(standardCategoryName);
+    if (!std) return { ok: false, error: "invalid", message: "Unknown category." };
+    const { data: existing } = await supabase
+      .from("categories")
+      .select("id, is_archived")
+      .eq("name", std.name)
+      .maybeSingle();
+    if (existing) {
+      categoryId = existing.id;
+      if (existing.is_archived) {
+        await supabase.from("categories").update({ is_archived: false }).eq("id", existing.id);
+      }
+    } else {
+      const { data: created, error: createErr } = await supabase
+        .from("categories")
+        .insert({ user_id: userId, name: std.name, kind: std.kind, color: std.color })
+        .select("id")
+        .single();
+      if (createErr || !created) return { ok: false, error: "failed", message: "Could not add that category. Try again." };
+      categoryId = created.id;
+    }
+  }
+
+  // Set the category and mark it user-owned so re-sync never overwrites it
+  // (design §18). RLS scopes the update to the caller.
+  const { data: updated, error } = await supabase
+    .from("transactions")
+    .update({ category_id: categoryId, user_categorized: true })
+    .eq("id", transactionId)
+    .eq("source", "bank")
+    .select("merchant_entity_id")
+    .maybeSingle();
+  if (error) return { ok: false, error: "failed", message: "Could not save the category. Try again." };
+  if (!updated) return { ok: false, error: "not_found", message: "That transaction no longer exists. Refresh and try again." };
+
+  // Remember the merchant → category rule, and backfill this user's other
+  // uncategorised transactions from the same merchant (design §18). Blanks only:
+  // never touch a user-set category, a removed row, or a transfer; leave
+  // `user_categorized = false` on the backfilled rows (auto, not manual).
+  if (updated.merchant_entity_id) {
+    await supabase.from("plaid_merchant_rules").upsert(
+      { user_id: userId, merchant_entity_id: updated.merchant_entity_id, category_id: categoryId },
+      { onConflict: "user_id,merchant_entity_id" },
+    );
+    await supabase
+      .from("transactions")
+      .update({ category_id: categoryId })
+      .eq("source", "bank")
+      .eq("merchant_entity_id", updated.merchant_entity_id)
+      .is("category_id", null)
+      .eq("user_categorized", false)
+      .is("removed_at", null)
+      .eq("is_transfer", false);
+  }
+  return { ok: true };
+}
+
+/**
+ * "Re-scan": run the deterministic evidence chain over every still-uncategorised bank row of the verified user and fill
+ * the ones it can now resolve. Idempotent; never touches user-set, removed or transfer rows. Owner-level (`db()`), so the
+ * user id must be the verified one, never a request value.
+ */
+export async function rescanUncategorizedFor(userId: string): Promise<PlaidCommandResult> {
+  const { updated } = await recategorizeUncategorizedBankTxns(db(), userId);
+  return updated === 0 ? { ok: true, warning: "Nothing new to categorise." } : { ok: true };
 }

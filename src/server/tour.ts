@@ -3,6 +3,7 @@
 import { revalidateUserData } from "@/server/revalidate";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { markTourSeen } from "@/lib/tour/load-tour";
 
 export type TourState = { error?: string };
 
@@ -16,12 +17,10 @@ export async function completeTour(_prev: TourState, _formData: FormData): Promi
   } = await supabase.auth.getUser();
   if (!user) redirect("/sign-in");
 
-  const { error } = await supabase
-    .from("profiles")
-    .update({ tour_seen_at: new Date().toISOString() })
-    .eq("id", user.id);
-
-  if (error) return { error: "Something went wrong. Try again." };
+  // The write is shared with the native app's POST /api/mobile/tour. A missing profile row goes on to "/", where the
+  // first-run gate sends it to onboarding, exactly as before the move.
+  const result = await markTourSeen(supabase, user.id);
+  if (!result.ok && result.error === "failed") return { error: "Something went wrong. Try again." };
 
   // The dashboard layout gate (onboarded/tour redirects) was rendered into the
   // client router cache before this flag flipped; with staleTimes.dynamic that

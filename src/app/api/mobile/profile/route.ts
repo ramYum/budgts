@@ -7,17 +7,26 @@
  * `supportedCurrencies` is the server's list, so the app never carries a second copy that could drift. `timeZone` is the
  * stored zone the app compares its device's against; `month` and `today` are the user's own "this month" and "today" in
  * that zone (null before onboarding), so the app never decides them from the device clock. The app re-reads this on
- * every return to the foreground, so they roll over at the user's midnight. Bearer only; the profile is read and written through the caller's
+ * every return to the foreground, so they roll over at the user's midnight. `tourSeen` is the welcome guide's gate (the app
+ * plays it until it is true, like the web's `firstRunRedirect`); `displayName`, `signInMethods`, `timeZoneLabel` and
+ * `currencyName` are the Profile screen's lines, from the same functions the web page uses. Bearer only; the profile is read and written through the caller's
  * own JWT (RLS), and the id is always the verified user's.
  */
 import { SUPPORTED_CURRENCIES } from "@/lib/budget/currencies";
 import { currentMonthKey, todayDateKey } from "@/lib/budget/month";
 import { mobileError, mobileJson, mobileRoute, readJson } from "@/lib/mobile/route";
+import { bearerToken } from "@/lib/auth/get-request-user";
 import { loadProfile, saveTimeZone } from "@/lib/profile/onboarding";
+import { timeZoneLabel } from "@/lib/time-zone-label";
+import { loadTourSeen } from "@/lib/tour/load-tour";
+import { displayName } from "@/lib/user/display-name";
+import { providersOfVerifiedToken, signInMethods } from "@/lib/user/sign-in-methods";
 
-export const GET = mobileRoute(async ({ user, supabase }) => {
-  const profile = await loadProfile(supabase, user.id);
+export const GET = mobileRoute(async ({ user, supabase }, request) => {
+  const [profile, tourSeen] = await Promise.all([loadProfile(supabase, user.id), loadTourSeen(supabase, user.id)]);
   if (!profile) return mobileError("profile_missing", 404);
+  // mobileRoute verified this very token before the handler ran.
+  const token = bearerToken(request);
   return mobileJson({
     email: user.email ?? null,
     currency: profile.currency,
@@ -26,6 +35,11 @@ export const GET = mobileRoute(async ({ user, supabase }) => {
     month: profile.timeZone ? currentMonthKey(profile.timeZone) : null,
     today: profile.timeZone ? todayDateKey(profile.timeZone) : null,
     supportedCurrencies: [...SUPPORTED_CURRENCIES],
+    tourSeen,
+    displayName: displayName(user.email),
+    signInMethods: signInMethods(token ? providersOfVerifiedToken(token) : undefined),
+    timeZoneLabel: profile.timeZone ? timeZoneLabel(profile.timeZone) : null,
+    currencyName: new Intl.DisplayNames(["en"], { type: "currency" }).of(profile.currency) ?? profile.currency,
   });
 });
 

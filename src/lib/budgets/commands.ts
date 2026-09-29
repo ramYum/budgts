@@ -6,8 +6,8 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { monthKey } from "@/lib/budget/month";
-import { invalid, type Failed, type Invalid, type MissingReference } from "@/lib/command-result";
-import { referencesVisible } from "@/lib/ownership";
+import { invalid, type Failed, type Invalid, type Locked, type MissingReference } from "@/lib/command-result";
+import { lockedOr, referencesVisible } from "@/lib/ownership";
 import { budgetFormSchema } from "@/lib/validation/budget";
 
 const MONTH_RE = /^\d{4}-\d{2}$/;
@@ -18,7 +18,7 @@ function prevMonth(month: string): string {
   return monthKey(new Date(Date.UTC(y, m - 2, 1)));
 }
 
-export type BudgetResult = { ok: true } | Invalid | MissingReference | Failed;
+export type BudgetResult = { ok: true } | Invalid | MissingReference | Locked | Failed;
 
 /** Upserts one category's budget for a month, or clears it when the amount is empty or zero. */
 export async function setBudget(supabase: SupabaseClient, userId: string, raw: unknown): Promise<BudgetResult> {
@@ -30,23 +30,25 @@ export async function setBudget(supabase: SupabaseClient, userId: string, raw: u
   if (!owned.ok) return owned.error === "missing" ? { ok: false, error: "missing_reference" } : owned;
 
   if (amount === 0) {
-    const { error } = await supabase
+    const { error, count } = await supabase
       .from("budgets")
-      .delete()
+      .delete({ count: "exact" })
       .eq("user_id", userId)
       .eq("category_id", categoryId)
       .eq("month", monthStartDate(month));
-    if (error) return { ok: false, error: "failed", message: error.message };
+    if (error) return lockedOr(supabase, { ok: false, error: "failed", message: error.message } as const);
+    // Nothing cleared is fine (there was no budget), unless the deletion lock refused it.
+    if (count === 0) return lockedOr(supabase, { ok: true } as const);
   } else {
     const { error } = await supabase
       .from("budgets")
       .upsert({ user_id: userId, category_id: categoryId, month: monthStartDate(month), amount }, { onConflict: "user_id,category_id,month" });
-    if (error) return { ok: false, error: "failed", message: error.message };
+    if (error) return lockedOr(supabase, { ok: false, error: "failed", message: error.message } as const);
   }
   return { ok: true };
 }
 
-export type CopyBudgetsResult = { ok: true } | Invalid | { ok: false; error: "nothing_to_copy" } | Failed;
+export type CopyBudgetsResult = { ok: true } | Invalid | { ok: false; error: "nothing_to_copy" } | Locked | Failed;
 
 /** Copies every budget amount from the previous month into `month` (upsert). */
 export async function copyBudgetsFromPreviousMonth(
@@ -71,6 +73,6 @@ export async function copyBudgetsFromPreviousMonth(
     amount: b.amount,
   }));
   const { error } = await supabase.from("budgets").upsert(rows, { onConflict: "user_id,category_id,month" });
-  if (error) return { ok: false, error: "failed", message: error.message };
+  if (error) return lockedOr(supabase, { ok: false, error: "failed", message: error.message } as const);
   return { ok: true };
 }

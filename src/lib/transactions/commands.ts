@@ -8,7 +8,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { failed, invalid, type Failed, type Invalid, type Locked, type MissingReference } from "@/lib/command-result";
-import { missingOrLocked, referencesVisible } from "@/lib/ownership";
+import { lockedOr, missingOrLocked, referencesVisible } from "@/lib/ownership";
 import { landTransaction, normalizeManual, supabaseTransactionStore } from "@/lib/ingestion";
 import { transactionFormSchema } from "@/lib/validation/transaction";
 import { updateTransactionRow } from "@/server/transaction-update";
@@ -22,7 +22,7 @@ function toFormInput(raw: unknown): Record<string, unknown> {
 /** A client-generated id that makes a retried create land once (see `createManualTransaction`). */
 const REQUEST_ID = /^[A-Za-z0-9-]{8,64}$/;
 
-export type CreateResult = { ok: true; id: string } | Invalid | MissingReference | Failed;
+export type CreateResult = { ok: true; id: string } | Invalid | MissingReference | Locked | Failed;
 
 /** The account and category a manual transaction points at must be the caller's own (see src/lib/ownership.ts). */
 async function referencesOwned(
@@ -67,7 +67,7 @@ export async function createManualTransaction(
     );
     return { ok: true, id: row.id };
   } catch (e) {
-    return failed(e, "Could not save the transaction");
+    return lockedOr(supabase, failed(e, "Could not save the transaction"));
   }
 }
 
@@ -99,7 +99,9 @@ export async function updateManualTransaction(supabase: SupabaseClient, id: stri
       isTransfer: n.isTransfer,
     });
     if (result.outcome === "missing") return missingOrLocked(supabase);
-    if (result.outcome === "conflict") return { ok: false, error: "conflict" };
+    // Under the deletion lock the row still reads but both conditional writes match nothing, which looks exactly like
+    // a concurrent change: ask the guard before calling it a conflict.
+    if (result.outcome === "conflict") return lockedOr(supabase, { ok: false, error: "conflict" } as const);
     return { ok: true };
   } catch (e) {
     return failed(e, "Could not update the transaction");

@@ -7,7 +7,9 @@ vi.mock("@/lib/ownership", async (orig) => ({
   ...(await orig<typeof import("@/lib/ownership")>()),
   referencesVisible: async () => ({ ok: true }),
   missingOrLocked: async () => ({ ok: false, error: "missing" }),
+  lockedOr: async (_supabase: unknown, otherwise: unknown) => otherwise,
 }));
+vi.mock("@/lib/account/write-lock", () => ({ accountWritesLocked: async () => false }));
 import { createAccount, setAccountArchived, updateAccount } from "./commands";
 
 /** PostgREST-shaped fake that records what it was asked to do. */

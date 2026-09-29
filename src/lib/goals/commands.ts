@@ -11,7 +11,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { invalid, type Failed, type Invalid, type Locked } from "@/lib/command-result";
-import { missingOrLocked, referencesVisible } from "@/lib/ownership";
+import { lockedOr, missingOrLocked, referencesVisible } from "@/lib/ownership";
 import { contributionFormSchema, savingsGoalFormSchema } from "@/lib/validation/savings";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -19,9 +19,9 @@ const UNIQUE_VIOLATION = "23505";
 
 type Missing = { ok: false; error: "missing" };
 
-export type CreateGoalResult = { ok: true; id: string } | Invalid | Failed;
+export type CreateGoalResult = { ok: true; id: string } | Invalid | Locked | Failed;
 export type GoalWriteResult = { ok: true } | Invalid | Missing | Locked | Failed;
-export type ContributionResult = { ok: true; id: string } | Invalid | Missing | Failed;
+export type ContributionResult = { ok: true; id: string } | Invalid | Missing | Locked | Failed;
 
 function badRequestId(requestId: string | undefined): Invalid | null {
   return requestId !== undefined && !UUID.test(requestId)
@@ -38,7 +38,7 @@ async function insertOnce(
   table: "savings_goals" | "savings_contributions",
   row: Record<string, unknown>,
   requestId: string | undefined,
-): Promise<{ ok: true; id: string } | Failed> {
+): Promise<{ ok: true; id: string } | Locked | Failed> {
   const { data, error } = await supabase
     .from(table)
     .insert(requestId ? { id: requestId, ...row } : row)
@@ -49,7 +49,7 @@ async function insertOnce(
     const { data: landed } = await supabase.from(table).select("id").eq("id", requestId).maybeSingle();
     if (landed) return { ok: true, id: (landed as { id: string }).id };
   }
-  return { ok: false, error: "failed", message: error?.message ?? "Could not save." };
+  return lockedOr(supabase, { ok: false, error: "failed", message: error?.message ?? "Could not save." } as const);
 }
 
 export async function createGoal(

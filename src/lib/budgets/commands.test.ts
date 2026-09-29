@@ -7,7 +7,9 @@ vi.mock("@/lib/ownership", async (orig) => ({
   ...(await orig<typeof import("@/lib/ownership")>()),
   referencesVisible: async () => ({ ok: true }),
   missingOrLocked: async () => ({ ok: false, error: "missing" }),
+  lockedOr: async (_supabase: unknown, otherwise: unknown) => otherwise,
 }));
+vi.mock("@/lib/account/write-lock", () => ({ accountWritesLocked: async () => false }));
 import { copyBudgetsFromPreviousMonth, setBudget } from "./commands";
 
 const CATEGORY = "44444444-4444-4444-8444-444444444444";

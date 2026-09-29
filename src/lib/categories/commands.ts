@@ -9,13 +9,13 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { invalid, type Failed, type Invalid, type Locked } from "@/lib/command-result";
-import { missingOrLocked } from "@/lib/ownership";
+import { lockedOr, missingOrLocked } from "@/lib/ownership";
 import { categoryFormSchema } from "@/lib/validation/category";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const UNIQUE_VIOLATION = "23505";
 
-export type CreateCategoryResult = { ok: true; id: string; name: string } | Invalid | Failed;
+export type CreateCategoryResult = { ok: true; id: string; name: string } | Invalid | Locked | Failed;
 export type CategoryWriteResult = { ok: true } | Invalid | { ok: false; error: "missing" } | Locked | Failed;
 
 export async function createCategory(
@@ -47,7 +47,7 @@ export async function createCategory(
       return { ok: true, id: c.id, name: c.name };
     }
   }
-  return { ok: false, error: "failed", message: error?.message ?? "Could not create the category." };
+  return lockedOr(supabase, { ok: false, error: "failed", message: error?.message ?? "Could not create the category." } as const);
 }
 
 export async function updateCategory(supabase: SupabaseClient, id: string, raw: unknown): Promise<CategoryWriteResult> {

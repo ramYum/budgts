@@ -11,5 +11,6 @@ export function mobilePlaidReply(result: PlaidCommandResult): Response {
   if (result.ok) return mobileJson({ ok: true, ...(result.warning ? { warning: result.warning } : {}) });
   if (result.error === "not_found") return mobileError("not_found", 404);
   if (result.error === "invalid") return mobileError("invalid", 422, { fieldErrors: { form: result.message } });
+  if (result.error === "locked") return mobileError("account_locked", 423);
   return mobileError("unavailable", 503);
 }

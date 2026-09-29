@@ -1430,7 +1430,8 @@ implementation goes to `budgts-architect`.
     - **Deletion lock message.** When an edit or delete of the caller's own row matches nothing, the command asks
       `account_accepts_writes()` and answers `locked` while a deletion holds the lock (`missingOrLocked`): the web
       says "Your account is being deleted, so changes are paused.", the API answers 423 `account_locked`. Goals,
-      categories, accounts and transactions.
+      categories and accounts (edit, archive) and transaction delete. (Transaction edit and the refused inserts
+      were completed in the polish round below.)
     - **Filter-drift guard.** A staging actor with a real purchase plus an excluded-account row, a row held for
       review, a confirmed duplicate and a Plaid-removed row: Home, Insights and Budgets count only the real
       purchase and each equals its web loader.
@@ -1441,4 +1442,18 @@ implementation goes to `budgts-architect`.
     - Verification after the fixes: lint 0 errors, typecheck, unit 1772/1772 (174 files), build; staging
       integration 190/192 in one full run, the 2 being the documented timing-dependent "must really deadlock"
       conditions (those files 10/10 on a rerun); isolated-build e2e 37 passed, 4 skipped (pre-existing).
-    - The roadmap row says "independent review pending" until the reviewer re-scores.
+    - The roadmap row said "independent review pending" until the reviewer re-scored: **re-review 9.5.**
+  - **Polish round (after the 9.5 re-review): one message for every write the deletion lock refuses.** The guard
+    (migration 0021) lets reads through, fails inserts on row-level security and makes updates and deletes match
+    nothing, so three paths still said the wrong thing: a transaction edit read fine, matched nothing twice and
+    answered 409 `conflict`; `setBudget`, `copyBudgetsFromPreviousMonth`, `createGoal`, `addContribution`,
+    `createCategory`, `createAccount` and manual create answered `failed` (a 503, and the database's own text on
+    the web); `categorizeBankTransactionFor` said "That transaction no longer exists". Now every refused write
+    asks the guard (`lockedOr`, `src/lib/ownership.ts`; its Plaid twin in `src/server/plaid/commands.ts` also
+    covers clear-review and account mapping) and answers `locked`: the web shows "Your account is being deleted,
+    so changes are paused.", the API 423 `account_locked`. Clearing a budget that matched nothing is still `ok`
+    unless the lock refused it. Tests: a lock-realistic fake in `ownership.test.ts` (reads succeed, inserts fail
+    RLS, updates match 0 rows; the transaction edit runs the real `updateTransactionRow`), which fails with the
+    check disabled, and a staging test that inserts an `account_deletions` row for a throwaway user and gets 423
+    with nothing written for a goal edit, a transaction edit, a budget and a contribution (then cleans up; staging
+    was left with no test users or locks).

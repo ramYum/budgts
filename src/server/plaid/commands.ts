@@ -13,7 +13,8 @@ import { claimMissMessage, runClaimedSync } from "@/lib/plaid/sync-runner";
 import { standardCategory } from "@/lib/categories/standard";
 import { recategorizeUncategorizedBankTxns } from "@/lib/plaid/recategorize";
 import { categorizeBankTxnSchema, type AccountMapEntryInput } from "@/lib/validation/plaid";
-import { referencesVisible } from "@/lib/ownership";
+import { accountWritesLocked } from "@/lib/account/write-lock";
+import { LOCKED_MESSAGE, referencesVisible } from "@/lib/ownership";
 import { drainItemInBackground, syncRunner } from "./service";
 
 type SyncKind = { kind: "synced" } | { kind: "failed" } | { kind: "not_started"; message: string };
@@ -41,7 +42,12 @@ async function syncIfOwned(userId: string, itemId: string): Promise<SyncKind | n
 /** `warning` is a message for the user (the work succeeded, the sync did not finish or start). */
 export type PlaidCommandResult =
   | { ok: true; warning?: string }
-  | { ok: false; error: "not_found" | "invalid" | "failed"; message: string };
+  | { ok: false; error: "not_found" | "invalid" | "failed" | "locked"; message: string };
+
+/** A refused write: `locked` (with the paused message) while an account deletion holds the lock, else `otherwise`. */
+async function lockedOr(supabase: SupabaseClient, otherwise: PlaidCommandResult): Promise<PlaidCommandResult> {
+  return (await accountWritesLocked(supabase)) ? { ok: false, error: "locked", message: LOCKED_MESSAGE } : otherwise;
+}
 
 const warningFor = (sync: SyncKind | null, prefix: string, failed: string): string | undefined => {
   if (!sync) return undefined;
@@ -99,7 +105,9 @@ export async function mapAccountsFor(
         .insert({ user_id: userId, name: entry.name, type: entry.type ?? "checking", source: "plaid" })
         .select("id")
         .single();
-      if (error || !created) return { ok: false, error: "failed", message: "Could not create the account. Try again." };
+      if (error || !created) {
+        return lockedOr(supabase, { ok: false, error: "failed", message: "Could not create the account. Try again." });
+      }
       accountId = created.id;
       linkState = "mapped";
     } else if (entry.mode === "existing") {
@@ -107,12 +115,17 @@ export async function mapAccountsFor(
       linkState = "mapped";
     }
 
-    const { error: linkErr } = await supabase
+    const { error: linkErr, count } = await supabase
       .from("plaid_accounts")
-      .update({ account_id: accountId, link_state: linkState })
+      .update({ account_id: accountId, link_state: linkState }, { count: "exact" })
       .eq("plaid_item_id", plaidItemId)
       .eq("plaid_account_id", entry.plaidAccountId);
-    if (linkErr) return { ok: false, error: "failed", message: "Could not save the account mapping. Try again." };
+    if (linkErr || count === 0) {
+      const failure: PlaidCommandResult = linkErr
+        ? { ok: false, error: "failed", message: "Could not save the account mapping. Try again." }
+        : { ok: false, error: "not_found", message: "That bank account no longer exists. Try connecting again." };
+      return lockedOr(supabase, failure);
+    }
   }
 
   // First sync — so transactions are on screen when the user lands back.
@@ -168,8 +181,8 @@ export async function clearAccountReviewFor(supabase: SupabaseClient, plaidAccou
     .update({ needs_review: false, review_reason: null, review_flagged_at: null })
     .eq("id", plaidAccountRowId)
     .select("id");
-  if (error) return { ok: false, error: "failed", message: "Could not update the review status. Try again." };
-  if (!data?.length) return { ok: false, error: "not_found", message: "That account no longer exists." };
+  if (error) return lockedOr(supabase, { ok: false, error: "failed", message: "Could not update the review status. Try again." });
+  if (!data?.length) return lockedOr(supabase, { ok: false, error: "not_found", message: "That account no longer exists." });
   return { ok: true };
 }
 
@@ -221,7 +234,9 @@ export async function categorizeBankTransactionFor(
         .insert({ user_id: userId, name: std.name, kind: std.kind, color: std.color })
         .select("id")
         .single();
-      if (createErr || !created) return { ok: false, error: "failed", message: "Could not add that category. Try again." };
+      if (createErr || !created) {
+        return lockedOr(supabase, { ok: false, error: "failed", message: "Could not add that category. Try again." });
+      }
       categoryId = created.id;
     }
   }
@@ -235,8 +250,11 @@ export async function categorizeBankTransactionFor(
     .eq("source", "bank")
     .select("merchant_entity_id")
     .maybeSingle();
-  if (error) return { ok: false, error: "failed", message: "Could not save the category. Try again." };
-  if (!updated) return { ok: false, error: "not_found", message: "That transaction no longer exists. Refresh and try again." };
+  if (error) return lockedOr(supabase, { ok: false, error: "failed", message: "Could not save the category. Try again." });
+  if (!updated) {
+    // Under the deletion lock the update matches nothing, which is not "the transaction is gone".
+    return lockedOr(supabase, { ok: false, error: "not_found", message: "That transaction no longer exists. Refresh and try again." });
+  }
 
   // Remember the merchant → category rule, and backfill this user's other
   // uncategorised transactions from the same merchant (design §18). Blanks only:

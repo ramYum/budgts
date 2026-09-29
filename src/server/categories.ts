@@ -37,9 +37,8 @@ export async function createCategory(
   const { user, supabase } = await withUser();
   const result = await createCategoryCommand(supabase, user.id, Object.fromEntries(formData));
   if (!result.ok) {
-    return result.error === "invalid"
-      ? { fieldError: Object.values(result.fieldErrors)[0] ?? "Invalid category" }
-      : { error: result.message };
+    if (result.error === "invalid") return { fieldError: Object.values(result.fieldErrors)[0] ?? "Invalid category" };
+    return { error: result.error === "locked" ? LOCKED_MESSAGE : result.message };
   }
   revalidateUserData();
   return { ok: true, id: result.id, name: result.name };

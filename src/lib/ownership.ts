@@ -11,6 +11,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { accountWritesLocked } from "@/lib/account/write-lock";
+import type { Locked } from "@/lib/command-result";
 
 export type ReferencedTable = "accounts" | "categories" | "savings_goals";
 
@@ -39,7 +40,16 @@ export async function referencesVisible(
  * longer exists". `locked` then, so the user is told changes are paused rather than that their data vanished.
  */
 export async function missingOrLocked(supabase: Pick<SupabaseClient, "rpc">): Promise<{ ok: false; error: "missing" | "locked" }> {
-  return { ok: false, error: (await accountWritesLocked(supabase)) ? "locked" : "missing" };
+  return lockedOr(supabase, { ok: false, error: "missing" });
+}
+
+/**
+ * Any other refused write: the guard's RESTRICTIVE policies make an insert fail row-level security and an update or
+ * delete match nothing. Asked only after a write was refused, so the happy path pays nothing: `locked` while a deletion
+ * holds the lock (never the database's own error text, never "no longer exists"), otherwise the caller's own outcome.
+ */
+export async function lockedOr<T>(supabase: Pick<SupabaseClient, "rpc">, otherwise: T): Promise<Locked | T> {
+  return (await accountWritesLocked(supabase)) ? { ok: false, error: "locked" } : otherwise;
 }
 
 /** The web's wording for `locked` (brand voice; the app shows its own copy for the `account_locked` code). */

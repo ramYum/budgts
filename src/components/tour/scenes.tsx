@@ -120,12 +120,12 @@ function WelcomeScene() {
 
 // ─── Every purchase, tracked ────────────────────────────────────────────────
 
-// Sample merchants in every scene are made up, never real brands (owner, 2026-09-29): these scenes also run on the
-// public homepage. scenes.test.tsx keeps the old real names out.
+// The sample merchants are real, familiar store names on purpose: the owner chose to keep them (2026-09-29) after
+// being offered made-up names. Don't rename them without asking.
 const FEED: { merchant: string; category: string; via: string; icon: IconName; minor: number }[] = [
-  { merchant: "Corner Coffee", category: "Food / Groceries", via: "Phone tap", icon: "smartphone", minor: 540 },
-  { merchant: "Northside Fuel", category: "Transportation", via: "Card", icon: "credit-card", minor: 4210 },
-  { merchant: "Stream+", category: "Entertainment", via: "Online", icon: "globe", minor: 1549 },
+  { merchant: "Blue Bottle Coffee", category: "Food / Groceries", via: "Phone tap", icon: "smartphone", minor: 540 },
+  { merchant: "Shell", category: "Transportation", via: "Card", icon: "credit-card", minor: 4210 },
+  { merchant: "Netflix", category: "Entertainment", via: "Online", icon: "globe", minor: 1549 },
 ];
 const FEED_CLASS = [s.feed0, s.feed1, s.feed2];
 
@@ -227,7 +227,7 @@ function SortScene({ currency }: { currency: string }) {
           </span>
         </span>
         <span className="min-w-0 flex-1 text-left">
-          <span className="block truncate text-[13px] font-medium text-text">Green Grocer</span>
+          <span className="block truncate text-[13px] font-medium text-text">Whole Foods Market</span>
           <span className={`${s.stack} text-[11px]`}>
             <span className={`${s.unknownMeta} text-warn`}>Needs a category</span>
             <span className={`${s.knownMeta} text-muted`}>Food / Groceries</span>
@@ -241,7 +241,7 @@ function SortScene({ currency }: { currency: string }) {
       <div className="px-card flex items-center gap-3 px-1.5 py-1 opacity-60">
         <CategoryIcon name="Transportation" size={32} />
         <span className="min-w-0 flex-1 text-left">
-          <span className="block truncate text-[13px] font-medium text-text">City Rides</span>
+          <span className="block truncate text-[13px] font-medium text-text">Uber</span>
           <span className="block text-[11px] text-muted">Transportation</span>
         </span>
         <Amount minor={-1860} currency={currency} />

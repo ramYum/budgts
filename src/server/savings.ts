@@ -3,10 +3,17 @@
 import { revalidateUserData } from "@/server/revalidate";
 import { redirect } from "next/navigation";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
-import { contributionFormSchema, savingsGoalFormSchema } from "@/lib/validation/savings";
+import {
+  addContribution as addContributionCommand,
+  createGoal as createGoalCommand,
+  deleteContribution as deleteContributionCommand,
+  setGoalArchived as setGoalArchivedCommand,
+  updateGoal as updateGoalCommand,
+} from "@/lib/goals/commands";
 
 export type SavingsActionState = { error?: string; fieldError?: string; ok?: boolean };
 
+// The rules live in `@/lib/goals/commands`, shared with the native `/api/mobile/goals*` routes; these adapt them to forms.
 
 async function withUser() {
   const user = await getSessionUser();
@@ -14,111 +21,68 @@ async function withUser() {
   return { user, supabase: await createClient() };
 }
 
+const GOAL_GONE = "That goal no longer exists. Refresh and try again.";
+
+type Outcome =
+  | { ok: true; id?: string }
+  | { ok: false; error: "invalid"; fieldErrors: Record<string, string> }
+  | { ok: false; error: "missing" }
+  | { ok: false; error: "failed"; message: string };
+
+function toState(result: Outcome, invalidFallback: string): SavingsActionState {
+  if (result.ok) {
+    revalidateUserData();
+    return { ok: true };
+  }
+  switch (result.error) {
+    case "invalid":
+      return { fieldError: Object.values(result.fieldErrors)[0] ?? invalidFallback };
+    case "missing":
+      return { error: GOAL_GONE };
+    default:
+      return { error: result.message };
+  }
+}
+
 /* ------------------------------- goals -------------------------------- */
 
-export async function createGoal(
-  _prev: SavingsActionState,
-  formData: FormData,
-): Promise<SavingsActionState> {
-  const parsed = savingsGoalFormSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { fieldError: parsed.error.issues[0]?.message ?? "Invalid goal" };
-
+export async function createGoal(_prev: SavingsActionState, formData: FormData): Promise<SavingsActionState> {
   const { user, supabase } = await withUser();
-  const { name, targetAmount, targetDate } = parsed.data;
-  const { error } = await supabase.from("savings_goals").insert({
-    user_id: user.id,
-    name,
-    target_amount: targetAmount,
-    target_date: targetDate,
-  });
-  if (error) return { error: error.message };
-  revalidateUserData();
-  return { ok: true };
+  return toState(await createGoalCommand(supabase, user.id, Object.fromEntries(formData)), "Invalid goal");
 }
 
-export async function updateGoal(
-  _prev: SavingsActionState,
-  formData: FormData,
-): Promise<SavingsActionState> {
+export async function updateGoal(_prev: SavingsActionState, formData: FormData): Promise<SavingsActionState> {
   const id = String(formData.get("id") ?? "");
   if (!id) return { error: "Missing goal id" };
-  const parsed = savingsGoalFormSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { fieldError: parsed.error.issues[0]?.message ?? "Invalid goal" };
-
   const { supabase } = await withUser();
-  const { name, targetAmount, targetDate } = parsed.data;
-  const { error } = await supabase
-    .from("savings_goals")
-    .update({ name, target_amount: targetAmount, target_date: targetDate })
-    .eq("id", id);
-  if (error) return { error: error.message };
-  revalidateUserData();
-  return { ok: true };
+  return toState(await updateGoalCommand(supabase, id, Object.fromEntries(formData)), "Invalid goal");
 }
 
-export async function setGoalArchived(
-  _prev: SavingsActionState,
-  formData: FormData,
-): Promise<SavingsActionState> {
+export async function setGoalArchived(_prev: SavingsActionState, formData: FormData): Promise<SavingsActionState> {
   const id = String(formData.get("id") ?? "");
   const archived = formData.get("archived") === "1";
   if (!id) return { error: "Missing goal id" };
-
   const { supabase } = await withUser();
-  const { error } = await supabase
-    .from("savings_goals")
-    .update({ is_archived: archived })
-    .eq("id", id);
-  if (error) return { error: error.message };
-  revalidateUserData();
-  return { ok: true };
+  return toState(await setGoalArchivedCommand(supabase, id, archived), "Invalid goal");
 }
 
 /* --------------------------- contributions --------------------------- */
 
-/** Insert one contribution; `sign` is +1 for "add", -1 for "withdraw / correct". */
-async function insertContribution(
-  formData: FormData,
-  sign: 1 | -1,
-): Promise<SavingsActionState> {
-  const parsed = contributionFormSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) {
-    return { fieldError: parsed.error.issues[0]?.message ?? "Invalid contribution" };
-  }
-
+export async function addContribution(_prev: SavingsActionState, formData: FormData): Promise<SavingsActionState> {
   const { user, supabase } = await withUser();
-  const { goalId, amount, occurredAt, note } = parsed.data;
-  const { error } = await supabase.from("savings_contributions").insert({
-    user_id: user.id,
-    goal_id: goalId,
-    amount: sign * amount,
-    occurred_at: occurredAt,
-    note,
-  });
-  if (error) return { error: error.message };
-  revalidateUserData();
-  return { ok: true };
+  return toState(await addContributionCommand(supabase, user.id, Object.fromEntries(formData), 1), "Invalid contribution");
 }
 
-export async function addContribution(
-  _prev: SavingsActionState,
-  formData: FormData,
-): Promise<SavingsActionState> {
-  return insertContribution(formData, 1);
-}
-
-export async function withdrawFromGoal(
-  _prev: SavingsActionState,
-  formData: FormData,
-): Promise<SavingsActionState> {
-  return insertContribution(formData, -1);
+export async function withdrawFromGoal(_prev: SavingsActionState, formData: FormData): Promise<SavingsActionState> {
+  const { user, supabase } = await withUser();
+  return toState(await addContributionCommand(supabase, user.id, Object.fromEntries(formData), -1), "Invalid contribution");
 }
 
 export async function deleteContribution(id: string): Promise<{ error?: string }> {
   if (!id) return { error: "Missing contribution id" };
   const { supabase } = await withUser();
-  const { error } = await supabase.from("savings_contributions").delete().eq("id", id);
-  if (error) return { error: error.message };
+  const result = await deleteContributionCommand(supabase, id);
+  if (!result.ok) return { error: result.error === "missing" ? "That contribution no longer exists." : result.message };
   revalidateUserData();
   return {};
 }

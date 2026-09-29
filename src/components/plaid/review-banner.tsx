@@ -1,50 +1,8 @@
 import Link from "next/link";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
+import { loadReviewMessages } from "@/lib/plaid/review-messages";
 import { Icon } from "@/components/icon";
-
-function summarizeNames(names: string[]): string {
-  if (names.length === 1) return names[0];
-  if (names.length === 2) return `${names[0]} and ${names[1]}`;
-  return `${names[0]} and ${names.length - 1} other account${names.length - 1 === 1 ? "" : "s"}`;
-}
-
-export interface ReviewBannerAccount {
-  name: string | null;
-  needsReview: boolean;
-  excludedFromCalculations: boolean;
-}
-
-/**
- * Splits flagged accounts into two independent messages (design: 2026-09-13
- * Advancial containment): an **excluded** account (an explicit owner
- * decision — its data no longer counts toward totals) gets its own,
- * distinct message and is never also listed in the **advisory** message
- * (merely `needsReview`, totals still include it) — the two states must
- * never be blurred together, since one is "you should look at this" and the
- * other is "this has already been acted on."
- */
-export function buildReviewMessages(accounts: ReviewBannerAccount[]): {
-  advisory: string | null;
-  excluded: string | null;
-} {
-  const excludedAccounts = accounts.filter((a) => a.excludedFromCalculations);
-  const advisoryAccounts = accounts.filter((a) => a.needsReview && !a.excludedFromCalculations);
-
-  const excluded =
-    excludedAccounts.length === 0
-      ? null
-      : `${summarizeNames(excludedAccounts.map((a) => a.name ?? "an account"))} ${
-          excludedAccounts.length === 1 ? "is" : "are"
-        } excluded from your financial totals because its bank feed showed unreliable data. Nothing was deleted. Every transaction is still in your history.`;
-
-  const advisory =
-    advisoryAccounts.length === 0
-      ? null
-      : `${summarizeNames(advisoryAccounts.map((a) => a.name ?? "an account"))} showed unusually repetitive transaction data from your bank. Nothing has been removed or changed.`;
-
-  return { advisory, excluded };
-}
 
 /**
  * Owner-facing warning for an anomaly-flagged connection (design: 2026-09-12
@@ -63,21 +21,8 @@ export async function ReviewBanner() {
 
   const user = await getSessionUser();
   if (!user) return null;
-  const supabase = await createClient();
-
-  const { data, error } = await supabase
-    .from("plaid_accounts")
-    .select("name, needs_review, excluded_from_calculations")
-    .or("needs_review.eq.true,excluded_from_calculations.eq.true");
-  if (error || !data || data.length === 0) return null;
-
-  const { advisory, excluded } = buildReviewMessages(
-    data.map((a) => ({
-      name: a.name,
-      needsReview: a.needs_review,
-      excludedFromCalculations: a.excluded_from_calculations,
-    })),
-  );
+  // The read and the wording live in loadReviewMessages, shared with the native app's GET /api/mobile/status.
+  const { advisory, excluded } = await loadReviewMessages(await createClient());
   if (!advisory && !excluded) return null;
 
   return (

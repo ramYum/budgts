@@ -4,13 +4,12 @@ import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { requireTimeZone } from "@/lib/current-profile";
 import { timeZoneLabel } from "@/lib/time-zone-label";
 import { displayName } from "@/lib/user/display-name";
+import { signInMethods } from "@/lib/user/sign-in-methods";
 import { PageHeader } from "@/components/page-header";
 import { CopyButton } from "@/components/copy-button";
 import { Badge, SectionHead } from "@/components/ui";
 
 export const metadata: Metadata = { title: "Profile" };
-
-const PROVIDER_LABEL: Record<string, string> = { email: "Email link", google: "Google" };
 
 /** Basic account information — no internal identifiers exposed (design spec
  * §37). Currency is set once at onboarding; there is no currency-change flow
@@ -30,9 +29,7 @@ export default async function ProfilePage() {
     supabase.auth.getClaims(),
     requireTimeZone(user.id),
   ]);
-  const providers = (
-    (claims?.claims?.app_metadata as { providers?: string[] } | undefined)?.providers ?? ["email"]
-  ).map((p) => PROVIDER_LABEL[p] ?? `${p[0]!.toUpperCase()}${p.slice(1)}`);
+  const providers = signInMethods((claims?.claims?.app_metadata as { providers?: string[] } | undefined)?.providers);
   const currency = profile?.currency ?? "USD";
   const currencyName = new Intl.DisplayNames(["en"], { type: "currency" }).of(currency) ?? currency;
   const name = displayName(user.email);

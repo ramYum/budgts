@@ -5,7 +5,7 @@ import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/current-profile";
 import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
 import { firstRunRedirect } from "@/lib/tour/gate";
-import { applyNeedsCategoryFilter } from "@/lib/plaid/needs-category-window";
+import { needsCategoryCount } from "@/lib/transactions/needs-category";
 import { Logo } from "@/components/logo";
 import { BottomNav } from "@/components/bottom-nav";
 import { DesktopSidebar } from "@/components/desktop-sidebar";
@@ -16,15 +16,9 @@ import { DeletionBanner } from "@/components/account/deletion-banner";
 import { TimeZoneSync } from "@/components/time-zone-sync";
 
 /** Bank rows awaiting a category. Cached so the mobile header and the desktop
- * bar (both render the bell) share one query per request. */
-const getNeedsCategoryCount = cache(async (createdAt: string) => {
-  const supabase = await createClient();
-  const { count } = await applyNeedsCategoryFilter(
-    supabase.from("transactions").select("id", { count: "exact", head: true }),
-    createdAt,
-  );
-  return count ?? 0;
-});
+ * bar (both render the bell) share one query per request. The count is
+ * `needsCategoryCount`, shared with the native app's GET /api/mobile/status. */
+const getNeedsCategoryCount = cache(async (createdAt: string) => needsCategoryCount(await createClient(), createdAt));
 
 /** Streams in after the shell so the count never blocks first paint. */
 async function BellWithCount({ createdAt }: { createdAt: string }) {

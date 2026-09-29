@@ -77,3 +77,29 @@ export async function readJson(request: Request): Promise<unknown | null> {
     return null;
   }
 }
+
+/** The JSON body when it is a plain object, or null (missing, not JSON, an array or a scalar): the routes answer `invalid_body`. */
+export async function readObject(request: Request): Promise<Record<string, unknown> | null> {
+  const body = await readJson(request);
+  return body !== null && typeof body === "object" && !Array.isArray(body) ? (body as Record<string, unknown>) : null;
+}
+
+/**
+ * A native client's optional `requestId`: absent is `undefined`; anything that is not a string is `false`, which the route
+ * answers as `invalid` rather than silently dropping the retry protection the client asked for.
+ */
+export function requestIdOf(body: Record<string, unknown>): string | undefined | false {
+  const id = body.requestId;
+  if (id === undefined || id === null) return undefined;
+  return typeof id === "string" ? id : false;
+}
+
+/** JSON `null` for an optional text field, as the web form's empty string (the shared form schemas take strings). */
+export function nullsAsEmpty(body: Record<string, unknown>, keys: readonly string[]): Record<string, unknown> {
+  const out = { ...body };
+  for (const k of keys) if (out[k] === null || out[k] === undefined) out[k] = "";
+  return out;
+}
+
+export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;

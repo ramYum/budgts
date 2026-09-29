@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatMoney } from "@/lib/budget/money";
 import type { DashboardView as DV, DashboardCategory } from "@/lib/budget/dashboard";
+import type { AllTimeRow } from "@/lib/budgets/load-budgets";
+import { budgetProgress } from "@/lib/insights/figures";
 import { pickSuggestion } from "@/lib/insights/suggestion";
 import { setBudget } from "@/server/budgets";
 import { CopyBudgets } from "./copy-budgets";
@@ -25,7 +27,6 @@ import {
   labelClass,
 } from "./ui";
 
-export type AllTimeRow = { categoryId: string; name: string; color: string; total: number };
 
 function toInput(minor: number) {
   return minor > 0 ? (minor / 100).toFixed(2) : "";
@@ -344,8 +345,7 @@ export function BudgetsView(
   const remaining = formatMoney(tiles.leftToSpend, currency);
   const suggestion = pickSuggestion(view.bars, props.prevView.bars, tiles.spent);
   const unplanned = suggestion?.kind === "unbudgeted" ? suggestion : null;
-  const spentPct = tiles.budgeted > 0 ? (tiles.spent / tiles.budgeted) * 100 : 0;
-  const heroTone = tiles.leftToSpend < 0 ? "over" : spentPct >= 85 ? "near" : "under";
+  const { spentPct, tone: heroTone } = budgetProgress(tiles);
 
   return (
     <div>

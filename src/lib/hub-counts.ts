@@ -1,7 +1,7 @@
 import "server-only";
 import { currentMonthKey } from "@/lib/budget/month";
 import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
-import type { createClient } from "@/lib/supabase/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type HubCounts = {
   goals: number;
@@ -15,11 +15,9 @@ export type HubCounts = {
 
 /** The small counts the More and Settings hubs show beside each row ("2
  * goals", "1 bank"). Head-only counts under the user's own RLS, all at once:
- * no rows come back, just the numbers. */
-export async function hubCounts(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  timeZone: string,
-): Promise<HubCounts> {
+ * no rows come back, just the numbers. Shared by the web hubs and the native
+ * GET /api/mobile/hub (the caller's cookie or Bearer client). */
+export async function hubCounts(supabase: SupabaseClient, timeZone: string): Promise<HubCounts> {
   const head = { count: "exact" as const, head: true };
   const [goals, accounts, banks, categories, budgets] = await Promise.all([
     supabase.from("savings_goals").select("id", head).eq("is_archived", false),

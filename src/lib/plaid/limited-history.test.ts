@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { earliestTxnByAccount } from "./limited-history-banner";
+import { earliestTxnByAccount } from "./limited-history";
 
 type Call = [method: string, ...args: unknown[]];
 

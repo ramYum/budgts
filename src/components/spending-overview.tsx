@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { formatMoney } from "@/lib/budget/money";
 import type { DashboardBar } from "@/lib/budget/dashboard";
 import type { MonthSpend } from "@/lib/budget/spend-trend";
+import { spendingBreakdown, trendChange } from "@/lib/insights/figures";
 import { RollingAmount } from "./rolling-amount";
 
 // Pixel charts: plain server-rendered markup, no chart library and no client
@@ -48,11 +49,8 @@ export function SpendingTrendCard({
   /** a pixel tag inside the card (when the section has no heading outside it) */
   title?: string;
 }) {
-  const current = trend.at(-1);
-  const previous = trend.at(-2);
-  const total = current?.spend ?? 0;
-  const delta = current && previous ? current.spend - previous.spend : null;
-  const prevName = previous ? monthLabel(previous.month, "long") : "";
+  const { total, delta, previousMonth } = trendChange(trend);
+  const prevName = previousMonth ? monthLabel(previousMonth, "long") : "";
   const max = Math.max(0, ...trend.map((t) => t.spend));
   const data = trend.map((t, i) => ({
     ...t,
@@ -144,10 +142,8 @@ export function SpendingTrendCard({
  * draws them (clockwise from 12). */
 const RAMP = ["var(--signal)", "#111111", "#6e6e6e", "#9e9e9e", "#d0d0d0"];
 
-// Grouping (unchanged): known categories in a fixed order, then up to two
-// custom ones, then the uncategorized remainder as "Other".
-const CHART_ORDER = ["Transportation", "Personal Care", "Food / Groceries", "Insurances", "Entertainment", "Housing"];
-const CUSTOM_SLOTS = 2;
+// The slices and their shares come from spendingBreakdown (src/lib/insights/figures.ts),
+// shared with the native API; RAMP has one colour per slice (BREAKDOWN_SLICES).
 
 // A 20×20 grid of 6px cells on an 8px pitch: a fine ring about two and a
 // half cells thick, with room for the total inside it.
@@ -174,23 +170,6 @@ const RING = (() => {
   return cells.sort((p, q) => p.a - q.a);
 })();
 
-/** Whole-percent shares that add up to exactly 100 (largest remainder), so
- * the legend never reads 101%. */
-export function sharesOf(amounts: number[]): number[] {
-  const total = amounts.reduce((s, a) => s + a, 0);
-  if (total <= 0) return amounts.map(() => 0);
-  const raw = amounts.map((a) => (a / total) * 100);
-  const floors = raw.map(Math.floor);
-  let left = 100 - floors.reduce((s, f) => s + f, 0);
-  const order = raw.map((r, i) => ({ i, rem: r - Math.floor(r) })).sort((a, b) => b.rem - a.rem);
-  for (const { i } of order) {
-    if (left <= 0) break;
-    floors[i]! += 1;
-    left -= 1;
-  }
-  return floors;
-}
-
 export function SpendingBreakdownCard({
   bars,
   totalSpent,
@@ -206,35 +185,10 @@ export function SpendingBreakdownCard({
   /** what heads the card, inside its frame (Insights: tag, figure, toggle) */
   header?: ReactNode;
 }) {
-  const known = CHART_ORDER.map((name) => bars.find((b) => b.name === name))
-    .filter((b): b is DashboardBar => !!b && b.actual > 0)
-    .map((b) => ({ name: b.name, amount: b.actual }));
-
-  const knownNames = new Set(known.map((k) => k.name));
-  const custom = bars
-    .filter((b) => b.actual > 0 && !knownNames.has(b.name))
-    .sort((a, b) => b.actual - a.actual)
-    .slice(0, CUSTOM_SLOTS)
-    .map((b) => ({ name: b.name, amount: b.actual }));
-
-  const categorized = known.reduce((sum, s) => sum + s.amount, 0) + custom.reduce((sum, s) => sum + s.amount, 0);
-  const other = Math.max(0, totalSpent - categorized);
-
-  const grouped = [...known, ...custom, ...(other > 0 ? [{ name: "Other", amount: other }] : [])];
-
-  if (grouped.length === 0 || totalSpent <= 0) {
+  const slices = spendingBreakdown(bars, totalSpent).map((s, i) => ({ ...s, color: RAMP[i]! }));
+  if (slices.length === 0) {
     return null;
   }
-
-  // Display: every slice when there are five or fewer, else the four largest
-  // named slices and everything else as "Other".
-  const byAmount = [...grouped].sort((a, b) => b.amount - a.amount);
-  const fits = grouped.length <= RAMP.length;
-  const top = fits ? byAmount : byAmount.filter((s) => s.name !== "Other").slice(0, 4);
-  const rest = totalSpent - top.reduce((sum, s) => sum + s.amount, 0);
-  const list = [...top, ...(!fits && rest > 0 ? [{ name: "Other", amount: rest }] : [])];
-  const shares = sharesOf(list.map((s) => s.amount));
-  const slices = list.map((s, i) => ({ ...s, color: RAMP[i]!, share: shares[i]! }));
 
   // cumulative share → which slice each ring cell belongs to
   const bounds: number[] = [];

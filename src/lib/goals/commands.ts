@@ -1,0 +1,135 @@
+/**
+ * Savings-goal commands (create, edit, archive / restore, add to or take from a goal): the one implementation behind the
+ * web Server Actions (`src/server/savings.ts`) and the native `/api/mobile/goals*` routes. Validation is the shared
+ * `savingsGoalFormSchema` / `contributionFormSchema`; amounts arrive as decimal strings and are stored in integer minor
+ * units. Callers pass the CALLER'S Supabase client, so RLS scopes every write and another user's id matches nothing
+ * (`missing`). Moved out of the web actions (2026-09-29, Stage 2B) without changing a rule.
+ *
+ * Retries: a native caller may send a `requestId` (a UUID it generated). It becomes the new row's primary key, so a retry
+ * after a lost response hits the key it already used and returns the row that landed instead of saving a second goal or
+ * a second contribution (a doubled contribution would overstate what is saved).
+ */
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { invalid, type Failed, type Invalid } from "@/lib/command-result";
+import { contributionFormSchema, savingsGoalFormSchema } from "@/lib/validation/savings";
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UNIQUE_VIOLATION = "23505";
+
+type Missing = { ok: false; error: "missing" };
+
+export type CreateGoalResult = { ok: true; id: string } | Invalid | Failed;
+export type GoalWriteResult = { ok: true } | Invalid | Missing | Failed;
+export type ContributionResult = { ok: true; id: string } | Invalid | Missing | Failed;
+
+function badRequestId(requestId: string | undefined): Invalid | null {
+  return requestId !== undefined && !UUID.test(requestId)
+    ? { ok: false, error: "invalid", fieldErrors: { requestId: "Invalid request id" } }
+    : null;
+}
+
+/**
+ * Inserts one row; with a `requestId`, a replay (the key already exists and RLS shows it to this caller) returns the row
+ * that landed. A key held by anyone else is invisible under RLS, so the insert error stands.
+ */
+async function insertOnce(
+  supabase: SupabaseClient,
+  table: "savings_goals" | "savings_contributions",
+  row: Record<string, unknown>,
+  requestId: string | undefined,
+): Promise<{ ok: true; id: string } | Failed> {
+  const { data, error } = await supabase
+    .from(table)
+    .insert(requestId ? { id: requestId, ...row } : row)
+    .select("id")
+    .single();
+  if (!error && data) return { ok: true, id: (data as { id: string }).id };
+  if (requestId && error?.code === UNIQUE_VIOLATION) {
+    const { data: landed } = await supabase.from(table).select("id").eq("id", requestId).maybeSingle();
+    if (landed) return { ok: true, id: (landed as { id: string }).id };
+  }
+  return { ok: false, error: "failed", message: error?.message ?? "Could not save." };
+}
+
+export async function createGoal(
+  supabase: SupabaseClient,
+  userId: string,
+  raw: unknown,
+  requestId?: string,
+): Promise<CreateGoalResult> {
+  const parsed = savingsGoalFormSchema.safeParse(raw);
+  if (!parsed.success) return invalid(parsed.error.issues);
+  const bad = badRequestId(requestId);
+  if (bad) return bad;
+
+  const { name, targetAmount, targetDate } = parsed.data;
+  return insertOnce(
+    supabase,
+    "savings_goals",
+    { user_id: userId, name, target_amount: targetAmount, target_date: targetDate },
+    requestId,
+  );
+}
+
+export async function updateGoal(supabase: SupabaseClient, id: string, raw: unknown): Promise<GoalWriteResult> {
+  const parsed = savingsGoalFormSchema.safeParse(raw);
+  if (!parsed.success) return invalid(parsed.error.issues);
+
+  const { name, targetAmount, targetDate } = parsed.data;
+  const { data, error } = await supabase
+    .from("savings_goals")
+    .update({ name, target_amount: targetAmount, target_date: targetDate })
+    .eq("id", id)
+    .select("id");
+  if (error) return { ok: false, error: "failed", message: error.message };
+  return data?.length ? { ok: true } : { ok: false, error: "missing" };
+}
+
+export async function setGoalArchived(
+  supabase: SupabaseClient,
+  id: string,
+  archived: boolean,
+): Promise<Exclude<GoalWriteResult, Invalid>> {
+  const { data, error } = await supabase.from("savings_goals").update({ is_archived: archived }).eq("id", id).select("id");
+  if (error) return { ok: false, error: "failed", message: error.message };
+  return data?.length ? { ok: true } : { ok: false, error: "missing" };
+}
+
+/**
+ * Records one contribution. `sign` is +1 for "add" and -1 for "withdraw / correct": the amount is always typed positive
+ * and negated here, so the user never types a minus sign.
+ */
+export async function addContribution(
+  supabase: SupabaseClient,
+  userId: string,
+  raw: unknown,
+  sign: 1 | -1,
+  requestId?: string,
+): Promise<ContributionResult> {
+  const parsed = contributionFormSchema.safeParse(raw);
+  if (!parsed.success) return invalid(parsed.error.issues);
+  const bad = badRequestId(requestId);
+  if (bad) return bad;
+
+  const { goalId, amount, occurredAt, note } = parsed.data;
+  // The goal must be the caller's own (RLS hides anyone else's): say `missing` instead of letting the foreign key fail.
+  const { data: goal, error: goalError } = await supabase.from("savings_goals").select("id").eq("id", goalId).maybeSingle();
+  if (goalError) return { ok: false, error: "failed", message: goalError.message };
+  if (!goal) return { ok: false, error: "missing" };
+
+  return insertOnce(
+    supabase,
+    "savings_contributions",
+    { user_id: userId, goal_id: goalId, amount: sign * amount, occurred_at: occurredAt, note },
+    requestId,
+  );
+}
+
+export async function deleteContribution(
+  supabase: SupabaseClient,
+  id: string,
+): Promise<{ ok: true } | Missing | Failed> {
+  const { data, error } = await supabase.from("savings_contributions").delete().eq("id", id).select("id");
+  if (error) return { ok: false, error: "failed", message: error.message };
+  return data?.length ? { ok: true } : { ok: false, error: "missing" };
+}

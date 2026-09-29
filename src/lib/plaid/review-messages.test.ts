@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildReviewMessages } from "./review-banner";
+import { buildReviewMessages } from "./review-messages";
 
 describe("buildReviewMessages", () => {
   it("returns an advisory message for a merely-flagged account and no excluded message", () => {

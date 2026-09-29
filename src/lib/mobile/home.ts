@@ -6,11 +6,14 @@
  * "This month" and "today" are the user's own, from their stored time zone (`profiles.time_zone`), never the server's UTC
  * clock and never the device's guess: the app shows `month` and pre-fills new entries with `today`.
  *
- * Changing a field is a contract change: bump `MOBILE_HOME_VERSION`, update `mobile/lib/home/contract.ts`, and update the
- * shape test.
+ * Removing or changing a field is a contract change: bump `MOBILE_HOME_VERSION`, update `mobile/lib/home/contract.ts`,
+ * and update the shape test. Adding a field keeps the version (an older app ignores what it does not read); the shape test
+ * still lists it. Added 2026-09-29 (Stage 2B): the spending cards (`suggestion`, `breakdown`, `trend`, `trendChange`) and
+ * `bankConnected`, so the native Home can show everything the web Home does.
  */
 import type { BudgetState } from "@/lib/budget/types";
 import type { HomeData, HomeRecentItem } from "@/lib/home/load-home";
+import { spendingCards, type MobileSpendingCards } from "@/lib/mobile/insights";
 
 export const MOBILE_HOME_VERSION = 1;
 
@@ -25,7 +28,7 @@ export type MobileHomeCategory = {
   state: BudgetState;
 };
 
-export type MobileHome = {
+export type MobileHome = MobileSpendingCards & {
   version: typeof MOBILE_HOME_VERSION;
   /** `YYYY-MM`, the user's current month in their own time zone. */
   month: string;
@@ -46,9 +49,11 @@ export type MobileHome = {
   recent: HomeRecentItem[];
   /** `null` when the user has no active goals. */
   savings: { activeCount: number; totalSaved: number; totalTarget: number } | null;
+  /** "Get set up": whether any bank connection exists; `null` when bank connections are switched off. */
+  bankConnected: boolean | null;
 };
 
-export function mobileCategories(home: Pick<HomeData, "view">): MobileHomeCategory[] {
+export function mobileCategories(home: { view: Pick<HomeData["view"], "bars"> }): MobileHomeCategory[] {
   return home.view.bars.map((b) => ({
     id: b.categoryId,
     name: b.name,
@@ -90,5 +95,7 @@ export function buildMobileHome(home: HomeData): MobileHome {
       savings.activeCount > 0
         ? { activeCount: savings.activeCount, totalSaved: savings.totalSaved, totalTarget: savings.totalTarget }
         : null,
+    bankConnected: home.bankConnected,
+    ...spendingCards(home.view, home.prevView, home.trend),
   };
 }

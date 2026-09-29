@@ -1,93 +1,15 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { buildDashboard, type DashboardCategory } from "@/lib/budget/dashboard";
-import { monthlyActuals } from "@/lib/budget/actuals";
-import { currentMonthKey, monthKey } from "@/lib/budget/month";
-import { priorMonths, spendTrend } from "@/lib/budget/spend-trend";
-import type { BudgetTxn } from "@/lib/budget/types";
+import { currentMonthKey } from "@/lib/budget/month";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { requireTimeZone } from "@/lib/current-profile";
-import type { Database } from "@/lib/supabase/database.types";
-import { fetchAllRows } from "@/lib/supabase/fetch-all-rows";
+import { loadInsights } from "@/lib/insights/load-insights";
 import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
-import { isEventRole } from "@/lib/plaid/event-role";
 import { PageHeader } from "@/components/page-header";
 import { MonthNav } from "@/components/month-nav";
 import { InsightsView } from "@/components/insights-view";
 
 export const metadata: Metadata = { title: "Insights" };
-
-function prevMonthKey(m: string): string {
-  const [y, mm] = m.split("-").map(Number);
-  const d = new Date(Date.UTC(y, mm - 2, 1));
-  return monthKey(d);
-}
-
-function monthRange(m: string) {
-  const [y, mm] = m.split("-").map(Number);
-  return {
-    start: new Date(Date.UTC(y, mm - 1, 1)).toISOString(),
-    end: new Date(Date.UTC(y, mm, 1)).toISOString(),
-  };
-}
-
-type TxnRow = Pick<
-  Database["public"]["Tables"]["transactions"]["Row"],
-  | "category_id"
-  | "amount"
-  | "direction"
-  | "occurred_at"
-  | "status"
-  | "is_transfer"
-  | "duplicate_of_id"
-  | "event_role"
-  | "transfer_user_set"
-  | "plaid_account_id"
->;
-
-/** Mirrors the dashboard page's own query + qualification columns exactly
- * (same `event_role`/`transfer_user_set`/account-exclusion handling) so
- * Insights can never disagree with Home for the same month. One window
- * [start, end) covers the six-month trend; the months are sliced from it. */
-async function loadRange(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  start: string,
-  end: string,
-  excludedPlaidAccountIdsPromise: Promise<Set<string>>,
-): Promise<BudgetTxn[]> {
-  const plaidOn = plaidUiEnabled();
-  // fetchAllRows, not a bare await — see fetch-all-rows.ts: an unbounded
-  // `.select()` silently caps at 1000 rows, which a heavy Plaid feed can
-  // exceed within a single month.
-  const dataPromise = fetchAllRows((from, to, count) => {
-    let q = supabase
-      .from("transactions")
-      .select(
-        "category_id, amount, direction, occurred_at, status, is_transfer, duplicate_of_id, event_role, transfer_user_set, plaid_account_id",
-        { count },
-      )
-      .gte("occurred_at", start)
-      .lt("occurred_at", end)
-      .order("id", { ascending: true })
-      .range(from, to);
-    if (plaidOn) q = q.is("removed_at", null);
-    return q.returns<TxnRow[]>();
-  });
-  // The exclusion set only matters for mapping, so the row fetch doesn't wait on it.
-  const [data, excludedPlaidAccountIds] = await Promise.all([dataPromise, excludedPlaidAccountIdsPromise]);
-  return data.map((t) => ({
-    categoryId: t.category_id,
-    amount: t.amount,
-    direction: t.direction,
-    occurredAt: new Date(t.occurred_at),
-    status: t.status,
-    isTransfer: t.is_transfer,
-    duplicateOfId: t.duplicate_of_id,
-    eventRole: t.event_role != null && isEventRole(t.event_role) ? t.event_role : null,
-    transferUserSet: t.transfer_user_set,
-    accountExcluded: t.plaid_account_id != null && excludedPlaidAccountIds.has(t.plaid_account_id),
-  }));
-}
 
 /** "What can I change to save more?" (design spec §24-26). Composes the same
  * pure `buildDashboard`/`monthlyActuals` functions Home and Budgets already
@@ -101,48 +23,15 @@ export default async function InsightsPage({ searchParams }: PageProps<"/insight
   if (!user) redirect("/sign-in");
   const timeZone = await requireTimeZone(user.id);
   const month = typeof sp.m === "string" && /^\d{4}-\d{2}$/.test(sp.m) ? sp.m : currentMonthKey(timeZone);
-  const prev = prevMonthKey(month);
 
-  const supabase = await createClient();
-
-  const excludedPlaidAccountIds = (async () => {
-    if (!plaidUiEnabled()) return new Set<string>();
-    const { data } = await supabase.from("plaid_accounts").select("id").eq("excluded_from_calculations", true);
-    return new Set((data ?? []).map((a) => a.id));
-  })();
-
-  // One parallel round: the month loads no longer wait for the lookups above.
-  // The trend card's six months, oldest first; this month and last month are
-  // slices of the same rows, exactly as Home does it.
-  const trendMonths = priorMonths(month, 6);
-  const { start: windowStart } = monthRange(trendMonths[0]!);
-  const { start, end } = monthRange(month);
-  const { start: prevStart, end: prevEnd } = monthRange(prev);
-
-  const [{ data: categories }, { data: budgetRows }, { data: profile }, windowTxns] = await Promise.all([
-    supabase.from("categories").select("id, kind, name, color").eq("is_archived", false),
-    supabase.from("budgets").select("category_id, amount").eq("month", `${month}-01`),
-    supabase.from("profiles").select("currency").eq("id", user.id).single(),
-    loadRange(supabase, windowStart, end, excludedPlaidAccountIds),
-  ]);
-  const inRange = (t: BudgetTxn, from: string, to: string) =>
-    t.occurredAt.getTime() >= Date.parse(from) && t.occurredAt.getTime() < Date.parse(to);
-  const currentTxns = windowTxns.filter((t) => inRange(t, start, end));
-  const prevTxns = windowTxns.filter((t) => inRange(t, prevStart, prevEnd));
-
-  const cats: DashboardCategory[] = (categories ?? []) as DashboardCategory[];
-  const budgets = (budgetRows ?? []).map((b) => ({ categoryId: b.category_id, amount: b.amount }));
-
-  const current = buildDashboard(currentTxns, cats, budgets, month);
-  const previous = buildDashboard(prevTxns, cats, [], prev);
-  const trend = spendTrend(windowTxns, cats, trendMonths);
-
-  const incomeCategories = cats.filter((c) => c.kind === "income");
-  const currentIncomeByCategory = monthlyActuals(currentTxns, month);
-  const incomeSources = incomeCategories
-    .map((c) => ({ name: c.name, color: c.color, amount: Math.max(0, -(currentIncomeByCategory.get(c.id) ?? 0)) }))
-    .filter((s) => s.amount > 0)
-    .sort((a, b) => b.amount - a.amount);
+  // Every read and all the money math live in loadInsights, shared with the
+  // native app's GET /api/mobile/insights so the two can never disagree.
+  const { currency, current, previous, trend, incomeSources } = await loadInsights(await createClient(), {
+    userId: user.id,
+    timeZone,
+    month,
+    plaidEnabled: plaidUiEnabled(),
+  });
 
   return (
     <>
@@ -154,7 +43,7 @@ export default async function InsightsPage({ searchParams }: PageProps<"/insight
       />
       <InsightsView
         month={month}
-        currency={profile?.currency ?? "USD"}
+        currency={currency}
         current={current}
         previous={previous}
         trend={trend}

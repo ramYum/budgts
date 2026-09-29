@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getBearerContext = vi.fn();
 const loadProfile = vi.fn();
+const loadTourSeen = vi.fn();
+vi.mock("@/lib/tour/load-tour", () => ({ loadTourSeen: (...a: unknown[]) => loadTourSeen(...a) }));
 const saveTimeZone = vi.fn();
 vi.mock("@/lib/auth/bearer-context", () => ({ getBearerContext: (...a: unknown[]) => getBearerContext(...a) }));
 vi.mock("@/lib/profile/onboarding", () => ({
@@ -24,6 +26,8 @@ const patch = (body: string) =>
 beforeEach(() => {
   getBearerContext.mockReset();
   loadProfile.mockReset();
+  loadTourSeen.mockReset();
+  loadTourSeen.mockResolvedValue(false);
   saveTimeZone.mockReset();
   getBearerContext.mockResolvedValue({ user: { id: "user-a", email: "a@example.test" }, supabase });
   vi.spyOn(console, "error").mockImplementation(() => {});
@@ -51,8 +55,14 @@ describe("GET /api/mobile/profile", () => {
       month: null,
       today: null,
       supportedCurrencies: [...SUPPORTED_CURRENCIES],
+      tourSeen: false,
+      displayName: "A",
+      signInMethods: ["Email link"],
+      timeZoneLabel: null,
+      currencyName: "Canadian Dollar",
     });
     expect(loadProfile).toHaveBeenCalledWith(supabase, "user-a"); // the verified user, via the caller's own client
+    expect(loadTourSeen).toHaveBeenCalledWith(supabase, "user-a");
     expect(res.headers.get("cache-control")).toBe("private, no-store");
   });
 
@@ -65,6 +75,18 @@ describe("GET /api/mobile/profile", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("carries the Profile screen's lines and the welcome-guide gate from the verified token", async () => {
+    const payload = Buffer.from(JSON.stringify({ sub: "user-a", app_metadata: { providers: ["email", "google"] } })).toString("base64url");
+    loadProfile.mockResolvedValue({ currency: "EUR", onboarded: true, timeZone: "America/New_York" });
+    loadTourSeen.mockResolvedValue(true);
+    const res = await GET(
+      new Request("https://example.test/api/mobile/profile", { headers: { authorization: `Bearer h.${payload}.s` } }),
+    );
+    const body = await res.json();
+    expect(body).toMatchObject({ tourSeen: true, signInMethods: ["Email link", "Google"], currencyName: "Euro" });
+    expect(body.timeZoneLabel).toMatch(/^New York · Eastern (Daylight|Standard) Time$/);
   });
 
   it("answers profile_missing (404) when the seed trigger never created a profile", async () => {

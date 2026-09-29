@@ -53,7 +53,7 @@ describe("GET /api/mobile/home", () => {
 
   it("loads the user's current month in their stored time zone, through their own client and verified id only", async () => {
     await GET(
-      req("https://example.test/api/mobile/home?userId=victim&user_id=victim&m=2019-01&month=2019-01", {
+      req("https://example.test/api/mobile/home?userId=victim&user_id=victim&m=2019-01", {
         "x-user-id": "victim",
       }),
     );
@@ -61,9 +61,19 @@ describe("GET /api/mobile/home", () => {
     expect(profileTimeZone).toHaveBeenCalledWith(supabaseA, "user-a");
     const [client, input] = loadHome.mock.calls[0]!;
     expect(client).toBe(supabaseA);
-    // No client-chosen month: loadHome picks the user's current month from the zone.
-    expect(input).toEqual({ userId: "user-a", timeZone: "America/Denver", plaidEnabled: true });
+    // No month asked for (the web's `m` is not this API's parameter): loadHome picks the user's current month from the zone.
+    expect(input).toEqual({ userId: "user-a", timeZone: "America/Denver", month: undefined, plaidEnabled: true });
     expect(JSON.stringify(loadHome.mock.calls)).not.toContain("victim");
+  });
+
+  it("browses another month like the web Home's month switcher, and rejects a malformed one without reading", async () => {
+    await GET(req("https://example.test/api/mobile/home?month=2026-07"));
+    expect(loadHome.mock.calls[0]![1]).toMatchObject({ month: "2026-07", timeZone: "America/Denver" });
+    loadHome.mockClear();
+    const bad = await GET(req("https://example.test/api/mobile/home?month=2026-13"));
+    expect(bad.status).toBe(422);
+    expect(await bad.json()).toEqual({ error: "invalid_month" });
+    expect(loadHome).not.toHaveBeenCalled();
   });
 
   it("answers not_onboarded (409) when the user has no time zone yet, without reading", async () => {

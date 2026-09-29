@@ -9,7 +9,9 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { selectableAccounts, type SelectableAccountRow } from "@/lib/accounts/selectable-accounts";
-import type { HomeData } from "@/lib/home/load-home";
+import type { AllTimeRow, BudgetsAllTimeData, BudgetsMonthData } from "@/lib/budgets/load-budgets";
+import { budgetProgress } from "@/lib/insights/figures";
+import { pickSuggestion, type Suggestion } from "@/lib/insights/suggestion";
 import { mobileCategories, type MobileHomeCategory } from "@/lib/mobile/home";
 
 export const MOBILE_API_VERSION = 1;
@@ -68,28 +70,69 @@ export async function loadCategories(supabase: SupabaseClient): Promise<MobileCa
 
 // ─── budgets ─────────────────────────────────────────────────────────────────
 
+export type MobileBudgetCategory = MobileHomeCategory & {
+  /** What the category spent last month (the detail sheet's comparison); 0 when nothing. */
+  previousActual: number;
+};
+
 export type MobileBudgets = {
   version: typeof MOBILE_API_VERSION;
+  range: "month";
   /** `YYYY-MM`. */
   month: string;
   currency: string;
   budgeted: number;
   spent: number;
   leftToSpend: number;
+  /** The hero bar: the share of the budget spent (uncapped) and its tone, from the web card's own rule. */
+  spentPct: number;
+  tone: "over" | "near" | "under";
+  /** The unplanned-spending note ("X has no budget"), or a mover; the same pick the web Budgets page makes. */
+  suggestion: Suggestion | null;
   /** One per expense category, in the dashboard's own order. Copied from the authoritative budget-vs-actual, never recomputed. */
-  categories: MobileHomeCategory[];
+  categories: MobileBudgetCategory[];
+  /** Expense categories with no budget yet (what "Add a budget" offers), by name. */
+  unbudgetedCategories: { id: string; name: string; color: string }[];
 };
 
-export function buildMobileBudgets(home: HomeData): MobileBudgets {
-  const { tiles } = home.view;
+export type MobileBudgetsAllTime = {
+  version: typeof MOBILE_API_VERSION;
+  range: "all";
+  month: string;
+  currency: string;
+  /** Every expense category's spending across the user's whole history, largest first (categories with none are left out). */
+  allTime: AllTimeRow[];
+};
+
+export function buildMobileBudgets(
+  data: Pick<BudgetsMonthData, "month" | "currency" | "view" | "prevView" | "unbudgeted">,
+): MobileBudgets {
+  const { tiles } = data.view;
+  const { spentPct, tone } = budgetProgress(tiles);
+  const previous = new Map(data.prevView.bars.map((b) => [b.categoryId, b.actual]));
   return {
     version: MOBILE_API_VERSION,
-    month: home.month,
-    currency: home.currency,
+    range: "month",
+    month: data.month,
+    currency: data.currency,
     budgeted: tiles.budgeted,
     spent: tiles.spent,
     leftToSpend: tiles.leftToSpend,
-    categories: mobileCategories(home),
+    spentPct,
+    tone,
+    suggestion: pickSuggestion(data.view.bars, data.prevView.bars, tiles.spent),
+    categories: mobileCategories(data).map((c) => ({ ...c, previousActual: previous.get(c.id) ?? 0 })),
+    unbudgetedCategories: data.unbudgeted.map((c) => ({ id: c.id, name: c.name, color: c.color })),
+  };
+}
+
+export function buildMobileBudgetsAllTime(data: BudgetsAllTimeData): MobileBudgetsAllTime {
+  return {
+    version: MOBILE_API_VERSION,
+    range: "all",
+    month: data.month,
+    currency: data.currency,
+    allTime: data.allTimeRows.map((r) => ({ categoryId: r.categoryId, name: r.name, color: r.color, total: r.total })),
   };
 }
 

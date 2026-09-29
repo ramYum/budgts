@@ -1367,3 +1367,14 @@ implementation goes to `budgts-architect`.
     Android edge-to-edge. Emulator re-check: a `token_hash` link and an expired link, cold and warm, each land on
     sign-in with their message. Still waiting on the owner: the device sign-in run (Avast HTTPS scanning, or an EAS
     phone build).
+  - **Device run (2026-09-29, owner paused Avast HTTPS scanning):** emulator TLS to staging Supabase now works (the
+    rate-limit answer came back over TLS). Found and fixed: PKCE fell back to a `Math.random` verifier and a "plain"
+    challenge on Hermes (no Web Crypto; now expo-crypto, S256); releasing a button crashed the screen (a `transform`
+    turning `undefined` reaches React Native as `null`); on a short screen the keyboard still covered the send button
+    (now scrolled into view). Passed: expired link → message; Google opens Budgts's Google sign-in and cancelling is
+    quiet; keyboard on a 360×640 screen. Blocked, not failed: every item that needs a signed-in session (email link cold
+    and warm, resend countdown, Google with two accounts, a double Google return, the first data screen, sign-out and
+    restart). The app accepts only PKCE links it started, so admin-generated links can't sign it in (by design); the
+    email path needs a sendable, readable test inbox (staging's built-in sender refused the `example.com` test user and
+    then hit its hourly limit), and the Google path a test Google account on the emulator. Owner: a staging test inbox
+    (custom SMTP or a budgts.com alias) and/or a test Google account.

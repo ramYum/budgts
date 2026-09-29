@@ -127,6 +127,11 @@ Each item needs a test or an explicit check before store submission.
 
 - **Token storage unchanged:** the session still lives in `large-secure-store`
   (SecureStore-chunked) and the client stays PKCE.
+- **PKCE is real S256 on the phone** (fixed on the emulator run, 2026-09-29):
+  Hermes has no Web Crypto, so supabase-js had been drawing the verifier from
+  `Math.random` and sending it as a "plain" challenge (visible in the Google
+  authorize URL). `mobile/lib/supabase/install-webcrypto.ts` now supplies
+  secure random values and SHA-256 from expo-crypto before supabase-js loads.
 - **The email hand-off page** (`/app/auth/callback`, public in `src/proxy.ts`,
   that one path only) never reads the link's code on the server: the server
   renders one static page, and the browser builds the `budgts://auth/callback`

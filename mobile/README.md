@@ -73,21 +73,30 @@ Local build notes (this machine): Gradle's Java needs `JAVA_TOOL_OPTIONS=-Djavax
 interception, trusted through Windows' store), and a slow link can time out the Gradle wrapper download (fetch the zip into
 `~/.gradle/wrapper/dists/<version>/<hash>/` by hand).
 
-**Development warnings (checked 2026-09-29, Logcat `ReactNativeJS` and native React tags, cold start, sign-in, both link
-paths, the dev screen).** The app itself logs no JavaScript warning. What showed up, and why each is not a bug:
+**Development warnings (checked 2026-09-29, Logcat `ReactNativeJS` and native React tags: cold start, a real sign-in
+attempt, Google opened and cancelled, both link paths, the dev screen).** What showed up, and what was done:
 
-- **"Open debugger to view warnings" / `Cannot connect to Expo CLI … URL: 10.0.2.2:8081`** (the only JS warning, in the
-  first run's captures): the debug build's developer-tools socket losing Metro while Metro was being restarted during
-  that session, in CI mode. It went away with Metro started once and left running (two clean runs since). Environment only;
-  release builds have no Metro connection.
+- **Fixed: `WebCrypto API is not supported. Code challenge method will default to use plain instead of sha256.`**
+  (JS warning on every sign-in attempt). Hermes has no Web Crypto, so supabase-js drew the PKCE verifier from
+  `Math.random` and sent it as a "plain" challenge. `lib/supabase/install-webcrypto.ts` (the first import of
+  `lib/supabase/client.ts`) now supplies `crypto.getRandomValues` and `crypto.subtle.digest` (SHA-256) from expo-crypto,
+  so the verifier is secure-random and the challenge S256; the warning is gone on the emulator.
+- **Fixed: a crash on releasing a button** (`Cannot read property 'forEach' of null` in `processTransform`): a press
+  style whose `transform` turned `undefined` on release reaches React Native's style processor as `null`. Resting
+  transforms are now `[]` (`components/brand/controls.tsx`, regression test `press-transform.test.tsx`).
+- **"Open debugger to view warnings" / `Cannot connect to Expo CLI … URL: 10.0.2.2:8081`** (JS warning): Expo's
+  fast-refresh (HMR) socket to Metro closes while the app sits behind another app (Chrome's Custom Tab for Google, or
+  the browser for a link) or while Metro restarts, and warns when it comes back. Development only: release builds have
+  no Metro connection. Not our code.
 - **`StatusBarModule: Ignored status bar change, current activity is edge-to-edge`** (native log): React Native's
   `StatusBar` sends its default colour and translucency on mount, and React Native deliberately ignores both under
   Android's edge-to-edge. The status-bar style (dark marks) still applies; nothing to fix in our code.
 - **`Packager connection already open`, `Unable to display loading message … Reloading…`, a
   `ReactNoCrashSoftException` "onWindowFocusChange while context is not ready"** (native, one each): React Native / Expo
   development-reload lifecycle logs, emitted while the bundle (re)loads; "NoCrash" by design and absent from release builds.
-- Fixed on the way: with Android's edge-to-edge the keyboard no longer resized the window, so the send button sat under it;
-  the sign-in screen now uses `KeyboardAvoidingView` padding on both platforms and scrolls with the keyboard open.
+- Fixed on the way: with Android's edge-to-edge the keyboard no longer resizes the window, so the send button sat under
+  it. The sign-in screen uses `KeyboardAvoidingView` padding on both platforms, and when the keyboard appears it scrolls
+  the email field and send button above it (`lib/keyboard.ts`), checked on a 360×640 screen.
 
 ## Real-device testing (Expo Go)
 

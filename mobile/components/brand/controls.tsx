@@ -77,7 +77,9 @@ export function Button({
               alignItems: "center",
               justifyContent: "center",
               gap: 8,
-              transform: sunk ? [{ translateY: 2 }] : pressed ? [{ scale: MOTION.pressScale }] : undefined,
+              // always an array: a transform that turns undefined on release reaches React Native's
+              // style processor as null and crashes it (found on the emulator, 2026-09-29)
+              transform: sunk ? [{ translateY: 2 }] : pressed ? [{ scale: MOTION.pressScale }] : [],
             }}
           >
             {loading ? <ActivityIndicator size="small" color={labelColor} /> : icon ? <Icon name={icon} color={color} /> : null}
@@ -177,7 +179,7 @@ export function TextButton({
         alignItems: "center",
         gap: 6,
         opacity: disabled ? 0.5 : 1,
-        transform: pressed ? [{ scale: MOTION.pressScale }] : undefined,
+        transform: pressed ? [{ scale: MOTION.pressScale }] : [],
       })}
     >
       {({ pressed }) => (

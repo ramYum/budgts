@@ -350,8 +350,10 @@ exists since 2026-09-11 — move off the 10-item Trial to Pay-as-you-go/Growth
 and read the per-bank price, then confirm pricing); Vercel Pro + Supabase
 Pro; ~~privacy policy + terms naming the LLC~~ (done, live 2026-09-28);
 retention decision (set to "deleted right away" for now; revisit before
-billing goes live); Google OAuth: add the privacy and terms links, then
-Publish app; a `support@budgts.com` mailbox; RevenueCat +
+billing goes live); ~~Google OAuth: add the privacy and terms links, then
+Publish app~~ (done 2026-09-29: links added, Crystal badge logo, budgts.com
+verified in Search Console, app In production, branding verified and shown
+to users); a `support@budgts.com` mailbox; RevenueCat +
 store products; store listing assets and a reviewer demo login.
 
 ## Delivery track (parallel) — Scale & Infrastructure

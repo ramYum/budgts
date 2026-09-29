@@ -64,12 +64,13 @@ const TRUST: { icon: IconName; title: string; body: string }[] = [
   { icon: "key", title: "We never see your bank login", body: "You sign in to your bank inside Plaid's window, not ours." },
   { icon: "eye", title: "Read-only", body: "Budgts can read balances and transactions. It can't move money." },
   { icon: "shield", title: "Not sold, no ads", body: "We don't sell your information, show ads or use trackers." },
-  // What Google sign-in shares (Google's brand verification asks the homepage to say). Not "only name and email":
-  // Supabase's Google sign-in also receives a profile-photo link in the account metadata.
+  // What Google sign-in shares and what it is for (Google's brand verification asks the homepage to say). Not
+  // "shares only your name and email": Supabase's Google sign-in also receives a profile-photo link in the account
+  // metadata, which nothing in the app reads.
   {
     icon: "google",
     title: "Signing in with Google",
-    body: "Budgts uses the name and email address Google shares only to run your account.",
+    body: "Google shares your name and email address. Budgts uses them only for your account.",
   },
 ];
 

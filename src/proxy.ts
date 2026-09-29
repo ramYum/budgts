@@ -56,7 +56,9 @@ const PUBLIC_PREFIXES = [
   "/account-deleted",
   // The company homepage (below), public at its own address too.
   "/company",
-  // For search engines (src/app/robots.ts, src/app/sitemap.ts): never sent to sign-in.
+  // For search engines (src/app/robots.ts, src/app/sitemap.ts): never sent to sign-in. Like every entry here these
+  // match as prefixes; `/robots.txt/…` and `/sitemap.xml/…` have no route, so they fall to the (app) catch-all, whose
+  // layout sends a signed-out visitor to sign-in. Neither file carries user data.
   "/robots.txt",
   "/sitemap.xml",
 ];

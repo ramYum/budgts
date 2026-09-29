@@ -1290,3 +1290,23 @@ implementation goes to `budgts-architect`.
     unchanged. A builder would have forced the server onto a subdomain and moved all of those.
   - Owner status: the D-U-N-S number is still pending; the Apple and Google organization enrollments wait for
     it. Nothing in Phases 1b–4 needs it except the iPhone, Sign in with Apple and store-product pieces.
+- **2026-09-29 — Phase 1b: the company homepage (built, not deployed).** Branch `phase-m/stage1b-homepage`.
+  - **Routing:** `src/proxy.ts` rewrites a signed-out `/` to `/company` (a 200 at `/`, for people and crawlers);
+    signed in, `/` is the dashboard as before. Sign-in keeps `next` and its signed-in redirect home, and gains a
+    quiet "Home" link top left. The legal pages' "Open Budgts" now points at `/sign-in`.
+  - **Page:** `src/app/(site)/company/page.tsx`: hero (Track : Plan : Grow, "Budgeting that does itself.",
+    coming soon to iPhone and Android) beside Crystal's welcome scene; "Connect your bank. Safely." with the
+    privacy policy's three facts and the Plaid scene; "How Budgts works" as four cards reusing the welcome
+    guide's scenes (sample figures only); a Sign in band; the legal footer. No prices, no store badges, no
+    third-party scripts. Metadata: absolute title, description, canonical `/`, Open Graph and a generated
+    1200x630 share card (`opengraph-image.tsx`, Dogica + next/og's bundled Geist, the robin at 10px a cell).
+  - **Scores (rubric /10, motion on):** homepage 390 8.8 → 9.5, homepage 1440 8.8 → 9.5 (v1: the scene's own
+    CRYSTAL tag was repeated in a caption below it; 160px gaps between sections), sign-in 390 and 1440 9.5 →
+    9.5, share card 6 → 9.5 (v1: a custom font list replaced next/og's default, so every line set in Dogica
+    and the robin was pushed off the edge). Named trade-offs: the looping scenes are captured mid-loop; at
+    1440 the scenes keep their 384px design width inside wider cards; on a phone the Plaid scene follows the
+    three facts; the page has no primary in the hero (nothing to download yet), its one primary is the closing
+    Sign in; `/company` is also reachable directly, with canonical `/`.
+  - **Copy for the owner to confirm:** the headline and lead, "Connect your bank. Safely.", the four card
+    bodies (from the approved welcome-guide copy), "Already have an account? Sign in and pick up right where
+    you left off."

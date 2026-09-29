@@ -302,6 +302,19 @@ Supabase Auth URLs don't move. The full sequence is launch spec §13a:
   the web delete-account flow (Google Play requires it), `/api/*`,
   `/.well-known/*` and `/app/plaid-oauth`.
 
+### Phase 1b routing (built 2026-09-29, not deployed)
+
+- `src/proxy.ts` **rewrites** a signed-out `/` to the homepage at `/company`: the address stays
+  budgts.com and answers 200, so crawlers and the Apple enrollment reviewer see the company site,
+  not a redirect to `/sign-in`. A signed-in `/` is the dashboard, unchanged. The session check is
+  the same local JWT check (`getClaims`), no network call.
+- The homepage is static (prerendered); like the legal pages, its footer links appear only when the
+  owner facts are set at build time. No new environment variables.
+- After deploying, verify signed out: `curl -sI https://budgts.com/` is `200` (not `307`), the page
+  title is "Budgts: budgeting that does itself", and `og:image` loads. Signed in, `/` is still Home.
+- The legal pages' "Open Budgts" button now goes to `/sign-in` (a signed-in user is sent on to the
+  dashboard), since `/` is the homepage for signed-out visitors.
+
 ## Legal pages (Phase 1, built 2026-09-28): owner facts turn them on
 
 > **Live since 2026-09-28 20:47 ET** (owner: "Deploy stage 1"). The six values below were set

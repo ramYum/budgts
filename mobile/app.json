@@ -17,9 +17,9 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#FFF8F0",
+        "backgroundColor": "#F4F4F4",
         "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png"
+        "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.budgts.app",
@@ -58,7 +58,22 @@
           }
         }
       ],
-      "expo-localization"
+      "expo-localization",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#F4F4F4",
+          "image": "./assets/splash/egg-xxhdpi.png",
+          "imageWidth": 60,
+          "android": {
+            "mdpi": "./assets/splash/egg-mdpi.png",
+            "hdpi": "./assets/splash/egg-hdpi.png",
+            "xhdpi": "./assets/splash/egg-xhdpi.png",
+            "xxhdpi": "./assets/splash/egg-xxhdpi.png",
+            "xxxhdpi": "./assets/splash/egg-xxxhdpi.png"
+          }
+        }
+      ]
     ],
     "extra": {
       "router": {},

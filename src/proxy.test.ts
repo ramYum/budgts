@@ -123,9 +123,10 @@ describe("proxy", () => {
     expect(new URL(res.headers.get("location")!).pathname).toBe("/");
   });
 
-  it("serves the homepage's own address and sign-in signed out", async () => {
+  it("serves the homepage's own address, sign-in, robots.txt and the sitemap signed out", async () => {
     expect(isPublic(HOMEPAGE_PATH)).toBe(true);
-    for (const path of [HOMEPAGE_PATH, "/sign-in"]) {
+    expect(isPublic("/sitemap.xml.bak")).toBe(false);
+    for (const path of [HOMEPAGE_PATH, "/sign-in", "/robots.txt", "/sitemap.xml"]) {
       const res = await visit(path);
       expect(res.headers.get("location")).toBeNull();
       expect(res.headers.get("x-middleware-rewrite")).toBeNull();

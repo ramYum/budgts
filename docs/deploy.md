@@ -308,12 +308,36 @@ Supabase Auth URLs don't move. The full sequence is launch spec §13a:
   budgts.com and answers 200, so crawlers and the Apple enrollment reviewer see the company site,
   not a redirect to `/sign-in`. A signed-in `/` is the dashboard, unchanged. The session check is
   the same local JWT check (`getClaims`), no network call.
-- The homepage is static (prerendered); like the legal pages, its footer links appear only when the
-  owner facts are set at build time. No new environment variables.
-- After deploying, verify signed out: `curl -sI https://budgts.com/` is `200` (not `307`), the page
-  title is "Budgts: budgeting that does itself", and `og:image` loads. Signed in, `/` is still Home.
+- `/robots.txt` (allow all, `/company` included so crawlers can read its canonical `/`) and
+  `/sitemap.xml` (`/` plus the four legal pages while they are live) are public in the proxy.
 - The legal pages' "Open Budgts" button now goes to `/sign-in` (a signed-in user is sent on to the
   dashboard), since `/` is the homepage for signed-out visitors.
+- **The footer's Privacy link needs the six legal facts at build time.** Like the legal pages, the
+  homepage footer (Privacy, Terms, Support, Delete your account) renders only when every owner fact
+  in "Legal pages" below is set when the deployment is built. They are set in Production. Google's
+  OAuth brand verification needs that Privacy link on the homepage, so never build Production
+  without them. No new environment variables.
+
+**Why one address can safely serve two pages.** Vercel runs the proxy before its edge cache, on every
+request, so the cache never decides which page `/` is. A signed-out `/` is rewritten to `/company`,
+a static page cached under that path; a signed-in `/` renders the dashboard, which is dynamic and
+answers `private, no-cache, no-store`. That holds only while nothing in front of Vercel caches
+HTML: Cloudflare must stay **DNS-only (grey cloud)** for both records ("Current deployment" above),
+or, if it is ever proxied, carry no rule that caches HTML. A caching proxy could store the homepage
+under `/` and serve it to signed-in users (or the reverse).
+
+**After deploying, check (signed out, signed in, alternating):**
+
+1. Signed out, no cookie: `curl -sI https://budgts.com/` answers `200` (not `307`); its
+   `cache-control` has no `s-maxage` (Vercel strips it before the browser); it has an
+   `x-vercel-cache` header; and `cf-cache-status` is absent or `DYNAMIC`. The page title is
+   "Budgts: budgeting that does itself" and the `og:image` URL loads.
+2. Signed in: the same request with a real session cookie (copy the `sb-*-auth-token` cookie from a
+   signed-in browser into `curl -sI -H "Cookie: ..."`) answers the dashboard with
+   `cache-control: private, no-cache, no-store`.
+3. Alternate the two requests a few times: the signed-out one always gets the homepage and the
+   signed-in one always the dashboard, never swapped.
+4. `curl -sI https://budgts.com/robots.txt` and `/sitemap.xml` answer `200`, not `307`.
 
 ## Legal pages (Phase 1, built 2026-09-28): owner facts turn them on
 

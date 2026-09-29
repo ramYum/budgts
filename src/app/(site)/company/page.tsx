@@ -9,14 +9,16 @@ import { Reveal } from "@/components/reveal";
 import { GuideScene } from "@/components/tour/scenes";
 import { IconTile, LinkButton } from "@/components/ui";
 import { legalFacts } from "@/lib/legal/config";
+import { siteUrl } from "@/lib/site";
+import home from "./homepage.module.css";
 import type { TourStepId } from "@/lib/tour/steps";
 
 const TITLE = "Budgts: budgeting that does itself";
 const DESCRIPTION =
-  "Connect your bank and Budgts sorts every purchase, shows what's left this month and helps your savings grow. Coming soon to iPhone and Android.";
+  "Connect your bank and Budgts sorts your purchases, shows what's left this month and helps your savings grow. Coming soon to iPhone and Android.";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://budgts.com"),
+  metadataBase: new URL(siteUrl()),
   title: { absolute: TITLE },
   description: DESCRIPTION,
   // Signed out, this page is budgts.com itself (src/proxy.ts rewrites / here): one address for search engines.
@@ -62,6 +64,13 @@ const TRUST: { icon: IconName; title: string; body: string }[] = [
   { icon: "key", title: "We never see your bank login", body: "You sign in to your bank inside Plaid's window, not ours." },
   { icon: "eye", title: "Read-only", body: "Budgts can read balances and transactions. It can't move money." },
   { icon: "shield", title: "Not sold, no ads", body: "We don't sell your information, show ads or use trackers." },
+  // What Google sign-in shares (Google's brand verification asks the homepage to say). Not "only name and email":
+  // Supabase's Google sign-in also receives a profile-photo link in the account metadata.
+  {
+    icon: "google",
+    title: "Signing in with Google",
+    body: "Budgts uses the name and email address Google shares only to run your account.",
+  },
 ];
 
 const h2 = "text-balance text-[24px] font-semibold leading-8 tracking-tight text-ink md:text-[32px] md:leading-10";
@@ -71,7 +80,7 @@ const at = (i: number) => ({ "--i": i }) as CSSProperties;
 /** A scene on the app's dotted illustration stage. Decorative: the words beside it carry the meaning. */
 function SceneStage({ id, className }: { id: TourStepId; className: string }) {
   return (
-    <div className={`px-dots relative overflow-hidden ${className}`} aria-hidden>
+    <div className={`px-dots relative overflow-hidden ${id === "auto-capture" ? home.startFilled : ""} ${className}`} aria-hidden>
       <div className="mx-auto h-full max-w-sm">
         <GuideScene id={id} currency="USD" />
       </div>
@@ -113,7 +122,7 @@ export default function HomePage() {
           className="page-enter grid gap-10 pt-6 md:pt-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,464px)] lg:items-center lg:gap-16"
         >
           <div className="space-y-6">
-            <p className="reveal font-pixel text-[8px] uppercase text-muted" style={at(0)}>
+            <p className="reveal px-tag text-muted" style={at(0)}>
               Track <span className="text-accent">:</span> Plan <span className="text-accent">:</span> Grow
             </p>
             <h1
@@ -124,11 +133,11 @@ export default function HomePage() {
               Budgeting that does itself.
             </h1>
             <p className="reveal max-w-[34rem] text-pretty text-[17px] leading-7 text-graphite" style={at(2)}>
-              Connect your bank and Budgts sorts every purchase, shows what&apos;s left this month and helps your
+              Connect your bank and Budgts sorts your purchases, shows what&apos;s left this month and helps your
               savings grow.
             </p>
             <p className="reveal flex items-center gap-3 pt-2 text-[15px] font-medium leading-6 text-ink" style={at(3)}>
-              <IconTile name="smartphone" tone="ink" />
+              <IconTile name="smartphone" />
               Coming soon to iPhone and Android
             </p>
           </div>
@@ -163,7 +172,7 @@ export default function HomePage() {
               </ul>
             </div>
             <div className="px-card lg:order-1">
-              <SceneStage id="bank" className="h-[236px] md:h-[280px]" />
+              <SceneStage id="bank" className="h-[236px]" />
             </div>
           </Section>
         </Reveal>

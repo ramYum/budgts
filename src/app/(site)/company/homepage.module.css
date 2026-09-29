@@ -1,0 +1,74 @@
+/* Homepage-only presentation of the welcome guide's "Every purchase, tracked." scene (src/components/tour/scenes.tsx).
+ * The guide itself (guide.module.css) is untouched.
+ *
+ * In the guide, its three purchases arrive one by one across the first 38% of a 6.4s loop: the story told as the card
+ * opens. On the homepage the card is seen mid-scroll and read beside its text, so the feed stays full for most of the
+ * loop: the rows arrive quickly (all in by 22%), hold, and leave together at the end. The loop starts 2.4s in, so the
+ * card opens on the filled feed. Same rows, same motion shape (drop in, settle, sink out), same resting state. */
+@media (prefers-reduced-motion: no-preference) {
+  .startFilled li {
+    animation-duration: 6.4s;
+    animation-delay: -2.4s;
+  }
+  .startFilled li:nth-child(1) {
+    animation-name: home-feed-0;
+  }
+  .startFilled li:nth-child(2) {
+    animation-name: home-feed-1;
+  }
+  .startFilled li:nth-child(3) {
+    animation-name: home-feed-2;
+  }
+}
+
+@keyframes home-feed-0 {
+  0%,
+  2% {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.98);
+  }
+  8%,
+  92% {
+    opacity: 1;
+    transform: none;
+  }
+  98%,
+  100% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@keyframes home-feed-1 {
+  0%,
+  9% {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.98);
+  }
+  15%,
+  92% {
+    opacity: 1;
+    transform: none;
+  }
+  98%,
+  100% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+@keyframes home-feed-2 {
+  0%,
+  16% {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.98);
+  }
+  22%,
+  92% {
+    opacity: 1;
+    transform: none;
+  }
+  98%,
+  100% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}

@@ -56,6 +56,9 @@ const PUBLIC_PREFIXES = [
   "/account-deleted",
   // The company homepage (below), public at its own address too.
   "/company",
+  // For search engines (src/app/robots.ts, src/app/sitemap.ts): never sent to sign-in.
+  "/robots.txt",
+  "/sitemap.xml",
 ];
 
 /**

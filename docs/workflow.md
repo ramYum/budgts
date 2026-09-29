@@ -1310,3 +1310,12 @@ implementation goes to `budgts-architect`.
   - **Copy for the owner to confirm:** the headline and lead, "Connect your bank. Safely.", the four card
     bodies (from the approved welcome-guide copy), "Already have an account? Sign in and pick up right where
     you left off."
+  - **Review fixes (2026-09-29, independent review 9.2).** Hero and description say "sorts your purchases" (some
+    arrive as Needs a category); a fourth trust fact says what Google sign-in data is for (Google brand
+    verification; not "only name and email": Supabase also receives a profile-photo link); the bank scene is 236px
+    and centred on its text; on the homepage only, "Every purchase, tracked." opens on its filled feed and stays
+    full for about 80% of its loop (`homepage.module.css`; the welcome guide is untouched); the eyebrow uses
+    `.px-tag`; the coming-soon tile is the quiet gray one; the share card sets its headline in Geist SemiBold
+    (`src/app/fonts/geist`, OFL) with more room under the wordmark; `robots.ts` and `sitemap.ts` added and public
+    in the proxy; `docs/deploy.md` gained the post-deploy cache checks (Cloudflare must stay DNS-only) and the
+    footer's dependence on the six legal facts. Scores: homepage 390 and 1440 9.2 → 9.5, share card 9.5 → 9.5.

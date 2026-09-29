@@ -26,6 +26,11 @@ describe("the company homepage", () => {
       expect(screen.getByRole("heading", { level: 3, name })).toBeInTheDocument();
     }
     expect(screen.getByText(/through Plaid, read-only/)).toBeInTheDocument();
+    // sorts "your purchases", not "every purchase": some arrive as Needs a category
+    expect(screen.getByText(/Budgts sorts your purchases/)).toBeInTheDocument();
+    expect(screen.queryByText(/every purchase,? shows/)).not.toBeInTheDocument();
+    // what Google sign-in data is for (Google's brand verification)
+    expect(screen.getByText("Budgts uses the name and email address Google shares only to run your account.")).toBeInTheDocument();
     const signIns = screen.getAllByRole("link", { name: /^Sign in/ });
     expect(signIns.length).toBeGreaterThan(0);
     for (const link of signIns) expect(link).toHaveAttribute("href", "/sign-in");
@@ -68,7 +73,7 @@ describe("the company homepage", () => {
 
   it("is titled and described for search and sharing, with / as its one address", () => {
     expect(metadata.title).toEqual({ absolute: "Budgts: budgeting that does itself" });
-    expect(metadata.description).toMatch(/Coming soon to iPhone and Android\.$/);
+    expect(metadata.description).toMatch(/^Connect your bank and Budgts sorts your purchases, .*Coming soon to iPhone and Android\.$/);
     expect(metadata.alternates?.canonical).toBe("/");
     expect(metadata.openGraph).toMatchObject({ type: "website", url: "/", siteName: "Budgts" });
     for (const text of [String(metadata.description), JSON.stringify(metadata.openGraph)]) expect(text).not.toMatch(/—/);

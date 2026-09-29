@@ -112,3 +112,19 @@ test.describe("signed in", () => {
     }
   });
 });
+
+test("robots.txt and the sitemap are served signed out, not sent to sign-in", async ({ request }) => {
+  const robots = await request.get("/robots.txt", { maxRedirects: 0 });
+  expect(robots.status()).toBe(200);
+  const text = await robots.text();
+  expect(text).toMatch(/User-Agent: \*/i);
+  expect(text).toMatch(/Allow: \//);
+  expect(text).not.toMatch(/Disallow: \/company/);
+  expect(text).toMatch(/Sitemap: https?:\/\/.+\/sitemap\.xml/);
+
+  const sitemap = await request.get("/sitemap.xml", { maxRedirects: 0 });
+  expect(sitemap.status()).toBe(200);
+  const xml = await sitemap.text();
+  expect(xml).toMatch(/<loc>https?:\/\/[^<]+\/<\/loc>/);
+  expect(xml).not.toContain("/company");
+});

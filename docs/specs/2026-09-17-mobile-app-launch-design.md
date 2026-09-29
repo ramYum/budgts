@@ -387,10 +387,44 @@ functions (directly, since they're plain TypeScript) or the same Route
 Handler outputs — it does not grow its own parallel budget-math or
 sync-math.
 
-**OPEN ENGINEERING DECISION:** which specific mutations get pattern 1 vs.
-pattern 2 is not enumerated anywhere yet — this is ordinary engineering
-work to do per-mutation when mobile UI for that mutation is actually built
-(§13 step 5), not a design gap blocking earlier steps.
+**RESOLVED (engineering, Stage 0 2026-09-28 and Stage 2B 2026-09-29):**
+every native read and mutation uses pattern 2. The app never queries tables
+directly: each screen has one Bearer Route Handler under `/api/mobile/*`
+(`mobileRoute`), which calls the same framework-free loader or command the
+web page or Server Action calls, through the user's own RLS-scoped client.
+That keeps one implementation of every rule and every number, and lets the
+native view-models stay small, explicit and versioned. How to add one:
+`docs/conventions.md` → "Every screen serves two clients".
+
+### Native API — the endpoint per screen (built 2026-09-29, Stage 2B; not deployed)
+
+All Bearer-only through `mobileRoute`; money in integer minor units; month and
+today from the user's `profiles.time_zone`. "Loader / command" is the shared
+implementation the web uses too.
+
+| Screen | Read | Mutations | Loader / command |
+| --- | --- | --- | --- |
+| Session, profile | `GET /session`, `GET /profile` (adds `tourSeen`, `displayName`, `signInMethods`, `timeZoneLabel`, `currencyName`) | `PATCH /profile` (time zone) | `loadProfile`, `saveTimeZone`, `loadTourSeen`, `signInMethods` |
+| Onboarding | `GET /tour?phase=onboarding` (cards) | `POST /onboarding` | `onboardingSteps`, `completeOnboarding` |
+| Welcome guide | `GET /tour?new=1` | `POST /tour` (seen) | `loadTour`, `markTourSeen` |
+| Home | `GET /home?month=` (adds `suggestion`, `breakdown`, `trend`, `trendChange`, `bankConnected`) | via Activity / Budgets | `loadHome` + `src/lib/insights/figures.ts` |
+| Activity | `GET /transactions?month&category&search&cursor`, `GET /activity` (needs a category, limited history) | `POST /transactions`, `PATCH`/`DELETE /transactions/:id`, `POST /transactions/:id/categorize`, `POST /transactions/rescan` | `loadTransactionsPage`, `loadNeedsCategory`, `loadLimitedHistoryMessages`, transactions commands, `categorizeBankTransactionFor`, `rescanUncategorizedFor` |
+| Budgets | `GET /budgets?month&range=month\|all` (adds `previousActual`, `spentPct`, `tone`, `suggestion`, `unbudgetedCategories`, all-time) | `PUT /budgets`, `POST /budgets/copy` | `loadBudgets`, budgets commands |
+| Goals | `GET /goals` | `POST /goals`, `PATCH /goals/:id` (edit or archive), `POST /goals/:id/contributions` (add or withdraw) | `loadGoals`, goals commands |
+| Insights | `GET /insights?month=` | none | `loadInsights`, `figures.ts`, `pickSuggestion` |
+| Accounts | `GET /accounts/overview` (screen), `GET /accounts` (pickers) | `POST /accounts`, `PATCH /accounts/:id` | `loadAccountsOverview`, accounts commands |
+| Connected banks | `GET /plaid/banks` | `POST /plaid/sync`, `POST /plaid/accounts/map`, `PATCH /plaid/accounts/:rowId/exclude`, `PATCH .../importing`, `DELETE .../review`; Link and disconnect on `/api/plaid/{link-token,exchange,item}` (Bearer or cookie) | `loadConnectedBanks`, Plaid commands |
+| More, Settings | `GET /hub` (counts) | sign out is client-side | `hubCounts` |
+| Settings → Categories | `GET /settings/categories`, `GET /categories` (pickers) | `POST /categories`, `PATCH /categories/:id` (rename, recolour, kind, archive) | `loadCategorySettings`, categories commands |
+| Settings → Profile | `GET /profile` | none | as above |
+| Settings → Export | `GET /export/transactions` (CSV) | none | `transactionsCsv` |
+| Settings → Delete account | `GET /account/delete` (first state) | `POST /api/account/delete` | `deletionScreenState`, `deleteAccount` |
+| Every screen's frame | `GET /status` (bell count, review warnings, deletion lock) | none | `needsCategoryCount`, `loadReviewMessages`, `accountWritesLocked` |
+| Help, How it works, About, Security, Appearance | static; legal links from `GET /api/legal` | none | none |
+
+Creates take an optional client `requestId` (a UUID; for transactions the
+`source_ref`, for goals, contributions and categories the row key) so a retry
+lands once.
 
 ---
 

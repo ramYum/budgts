@@ -2,9 +2,7 @@ import type { Metadata } from "next";
 import { StandaloneShell } from "@/components/standalone-shell";
 import { DeleteAccountFlow } from "@/components/account/delete-account-flow";
 import { createClient } from "@/lib/supabase/server";
-import { isRecentlyAuthenticated } from "@/lib/account/reauth";
-import { keepsRecordsAfterDeletion, legalFacts } from "@/lib/legal/config";
-import { billingLive } from "@/lib/billing/config";
+import { deletionFacts, deletionScreenState } from "@/lib/account/deletion-screen";
 import { getPrivilegedCookieUser } from "@/server/privileged-user";
 
 export const metadata: Metadata = { title: "Delete account" };
@@ -22,10 +20,8 @@ export const metadata: Metadata = { title: "Delete account" };
  */
 export default async function DeleteAccountPage({ searchParams }: PageProps<"/settings/delete-account">) {
   const [user, sp] = await Promise.all([getPrivilegedCookieUser(), searchParams]);
-  const facts = legalFacts();
-  const supportEmail = facts?.contactEmail ?? null;
-  const billing = billingLive();
-  const keepsRecords = keepsRecordsAfterDeletion(facts);
+  // The state and the facts come from deletion-screen.ts, shared with the native GET /api/mobile/account/delete.
+  const { supportEmail, billing, keepsRecords } = deletionFacts();
 
   if (!user) {
     return (
@@ -35,18 +31,15 @@ export default async function DeleteAccountPage({ searchParams }: PageProps<"/se
     );
   }
 
-  // `true` while the account accepts writes; false once a deletion has taken the lock. A failed read is treated as
-  // "not started": the flow is the same either way, and the route itself resumes a started deletion.
-  const { data: acceptsWrites } = await (await createClient()).rpc("account_accepts_writes");
-  const providers = (user.app_metadata?.providers as string[] | undefined) ?? [user.app_metadata?.provider as string];
+  const state = await deletionScreenState(user, await createClient());
 
   return (
     <StandaloneShell align="top">
       <DeleteAccountFlow
-        email={user.email ?? ""}
-        recent={isRecentlyAuthenticated(user)}
-        google={providers.includes("google")}
-        inProgress={acceptsWrites === false}
+        email={state.email}
+        recent={state.recent}
+        google={state.google}
+        inProgress={state.inProgress}
         initial={sp.step === "confirm" ? "confirm" : "intro"}
         supportEmail={supportEmail}
         billing={billing}

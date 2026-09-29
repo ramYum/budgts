@@ -7,6 +7,7 @@
 import { loadAccountsOverview } from "@/lib/accounts/load-accounts-overview";
 import { MOBILE_API_VERSION } from "@/lib/mobile/reads";
 import { mobileError, mobileJson, mobileRoute } from "@/lib/mobile/route";
+import type { MobileAccountsOverview } from "@/lib/mobile/screens";
 import { profileTimeZone } from "@/lib/mobile/time-zone";
 import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
 
@@ -14,5 +15,6 @@ export const GET = mobileRoute(async ({ user, supabase }) => {
   const timeZone = await profileTimeZone(supabase, user.id);
   if (!timeZone) return mobileError("not_onboarded", 409);
   const overview = await loadAccountsOverview(supabase, { timeZone, plaidEnabled: plaidUiEnabled() });
-  return mobileJson({ version: MOBILE_API_VERSION, ...overview });
+  const body: MobileAccountsOverview = { version: MOBILE_API_VERSION, ...overview };
+  return mobileJson(body);
 });

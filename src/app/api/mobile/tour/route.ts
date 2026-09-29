@@ -11,6 +11,7 @@
  */
 import { MOBILE_API_VERSION } from "@/lib/mobile/reads";
 import { mobileError, mobileJson, mobileRoute } from "@/lib/mobile/route";
+import { buildMobileTour, type MobileOnboardingCards } from "@/lib/mobile/screens";
 import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
 import { loadTour, loadTourSeen, markTourSeen, onboardingSteps } from "@/lib/tour/load-tour";
 
@@ -20,7 +21,8 @@ export const GET = mobileRoute(async ({ user, supabase }, request) => {
   if (phase !== "tour" && phase !== "onboarding") return mobileError("invalid_phase", 422);
 
   if (phase === "onboarding") {
-    return mobileJson({ version: MOBILE_API_VERSION, phase, ...onboardingSteps(plaidUiEnabled()) });
+    const cards: MobileOnboardingCards = { version: MOBILE_API_VERSION, phase, ...onboardingSteps(plaidUiEnabled()) };
+    return mobileJson(cards);
   }
 
   const [tour, seen] = await Promise.all([
@@ -28,16 +30,7 @@ export const GET = mobileRoute(async ({ user, supabase }, request) => {
     loadTourSeen(supabase, user.id),
   ]);
   if (!tour.onboarded) return mobileError("not_onboarded", 409);
-  return mobileJson({
-    version: MOBILE_API_VERSION,
-    phase,
-    seen,
-    currency: tour.currency,
-    accounts: tour.accounts,
-    stepIds: tour.stepIds,
-    offset: tour.offset,
-    totalVisible: tour.totalVisible,
-  });
+  return mobileJson(buildMobileTour(tour, seen));
 });
 
 export const POST = mobileRoute(async ({ user, supabase }) => {

@@ -1378,3 +1378,41 @@ implementation goes to `budgts-architect`.
     email path needs a sendable, readable test inbox (staging's built-in sender refused the `example.com` test user and
     then hit its hourly limit), and the Google path a test Google account on the emulator. Owner: a staging test inbox
     (custom SMTP or a budgts.com alias) and/or a test Google account.
+- **2026-09-29 — Stage 2B: the native API for every screen (built, not deployed).** Branch `phase-m/stage2-api`
+  (from `7255d25`), worktree `../budgts-stage2-api`; owner: "start stage 2". Stage 2A (native foundation) runs in
+  parallel and owns `mobile/`, `src/lib/brand/*` and sign-in, none of which this touched.
+  - **What:** every signed-in web screen now has one Bearer read under `/api/mobile/*` plus the mutations it uses
+    (the endpoint table is launch spec §6). New: goals (+ edit/archive, add/withdraw), insights, settings
+    categories + category create/edit/archive, welcome guide (cards + seen), hub counts, CSV export, status (bell,
+    review warnings, deletion lock), activity (needs a category, limited history) + categorize + re-scan, accounts
+    overview, Connected banks' clear-review, the Delete account screen's first state. Additive fields on home
+    (spending cards, `bankConnected`, `?month=`), budgets (`range=all`, last month per category, hero, the
+    unplanned note) and profile (`tourSeen`, the Profile screen's lines).
+  - **How:** Stage 0's pattern (`docs/conventions.md` → "Every screen serves two clients"): each page's query path
+    or action moved, not rewritten, into a framework-free loader or command that the page and the route both call.
+    The chart figures the cards print (breakdown shares, trend change, savings-rate delta, budget hero) moved
+    verbatim out of the components into `src/lib/insights/figures.ts`. No formula, migration or Plaid-sync change.
+  - **Decisions:** retried creates land once through a client `requestId` used as the row's primary key (goals,
+    contributions, categories; no migration needed); Home now honours `?month=` like the web Home's month switcher
+    (Stage 0 had pinned it to the current month); home/budgets/profile grow by adding fields, which keeps the
+    contract version (removing or changing a field bumps it).
+  - **Fixed on the way (root causes, small):** contributions were read unpaged (silently capped at 1000 rows for
+    Home's savings card and Goals); a contribution could reference another user's goal id (foreign keys ignore
+    RLS), now refused; the web CSV export returned the storage error's text on failure; web Goals, Accounts and
+    Categories showed an empty screen on a failed read, now the error boundary. The web Activity panel still hides
+    on a failed needs-category read, as before; the API answers 503.
+  - **Moved tests:** `limited-history-banner.test.ts` and `review-banner.test.ts` moved beside the functions they
+    test (`src/lib/plaid/`), import line only. `home.test.ts`, `reads.test.ts` and the home/budgets/profile route
+    tests gained the additive fields; every web test passes unmodified.
+  - **Verification:** lint 0 errors, typecheck, unit 1758/1758 (172 files; the documented `needs-category.test.tsx`
+    and `account-mapping` userEvent flakes appeared once each under full-suite load and passed alone), build;
+    staging integration 188/188 (new `mobile-screens.test.ts` 16/16: API equals the web loaders for goals,
+    insights, budgets, home; B's ids are 404s that write nothing; requestId retries land once); isolated-build e2e
+    37 passed, 4 skipped (pre-existing), including the new `mobile-screens-api.spec.ts` (first full run: a
+    `budgets.spec` and two delete-account timeouts under load, all green on rerun and alone).
+  - **Score (API completion /10):** first 8.6 (the Delete account screen had no read, four screens lacked contract
+    types, docs not written, integration and e2e not yet run) → final 9.5 (coverage, correctness and parity,
+    security, performance, tests and docs each 9.5). Known trade-off: some routes read the profile twice in
+    parallel (time zone and currency), one primary-key row each.
+  - **Deferred:** `deleteContribution` has a command but no route (no screen deletes a contribution);
+    `mobile/lib/*` parsers still read only the old fields (Phase 3 wires the new ones); not pushed or deployed.

@@ -1,5 +1,6 @@
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { Stack } from "expo-router";
+import { useLoadingScreen } from "../../components/loading-screen";
 import { useAuth } from "../../lib/auth/auth-context";
 import { ProfileProvider, useProfile } from "../../lib/profile/profile-context";
 import { colors, fonts, radii } from "../../lib/theme";
@@ -13,14 +14,10 @@ import { OutlineButton, PrimaryButton } from "../../components/ui";
 function Gate() {
   const { state, reload } = useProfile();
   const { signOut } = useAuth();
+  // The egg loader covers the profile load (components/loading-screen.tsx), continuing from start-up.
+  useLoadingScreen(state.status === "loading", "Loading your account");
 
-  if (state.status === "loading") {
-    return (
-      <View style={styles.centered} accessibilityLabel="Loading your account">
-        <ActivityIndicator color={colors.accent} size="large" />
-      </View>
-    );
-  }
+  if (state.status === "loading") return <View style={{ flex: 1, backgroundColor: colors.bg }} />;
 
   if (state.status === "error") {
     const canRetry = state.kind !== "auth" && state.kind !== "profile_missing";

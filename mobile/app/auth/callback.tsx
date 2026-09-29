@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { View } from "react-native";
 import { Redirect, useGlobalSearchParams } from "expo-router";
 import * as Linking from "expo-linking";
+import { useLoadingScreen } from "../../components/loading-screen";
 import type { AuthLinkProblem } from "../../lib/auth/auth-errors";
 import { completeSessionFromUrl } from "../../lib/auth/complete-session-from-url";
 import { isAuthCallbackUrl } from "../../lib/auth/parse-callback-url";
@@ -37,17 +38,13 @@ export default function AuthCallbackScreen() {
     };
   }, [url]);
 
+  // The egg loader covers the exchange (components/loading-screen.tsx).
+  useLoadingScreen(!outcome, "Signing you in");
+
   if (outcome?.ok) return <Redirect href="/" />;
   if (outcome && !outcome.ok) return <Redirect href={{ pathname: "/sign-in", params: { problem: outcome.problem } }} />;
 
-  return (
-    <View
-      style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: ROLE.bg }}
-      accessibilityLabel="Signing you in"
-    >
-      <ActivityIndicator color={ROLE.ink} />
-    </View>
-  );
+  return <View style={{ flex: 1, backgroundColor: ROLE.bg }} />;
 }
 
 /** The route's parameters as a return URL, when the OS's link isn't at hand (Expo Router parsed it already). */

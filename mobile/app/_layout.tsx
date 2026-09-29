@@ -1,42 +1,52 @@
-import { useEffect } from "react";
-import { SplashScreen, Stack } from "expo-router";
+import { useCallback, useEffect, useRef } from "react";
+import { Stack } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
+import { LoadingScreenProvider } from "../components/loading-screen";
 import { AuthProvider, useAuth } from "../lib/auth/auth-context";
 import { FONT_SOURCES } from "../lib/brand/fonts";
 import { ROLE } from "../lib/brand/shared";
 import { registerSupabaseAutoRefresh } from "../lib/supabase/auto-refresh";
 
-// Keep the native splash up until the session read and the brand fonts are
-// ready, so there is no flash of a system-font or wrong-screen first frame.
+// The native splash (app.json → expo-splash-screen: the resting egg on paper)
+// stays up until the loading screen has laid out the very same egg in the
+// very same place; then it fades and the egg starts to roll.
 SplashScreen.preventAutoHideAsync();
+SplashScreen.setOptions({ fade: true, duration: 200 });
 
 function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
   const { session, loading } = useAuth();
   const ready = fontsReady && !loading;
 
-  useEffect(() => {
-    if (ready) SplashScreen.hideAsync();
-  }, [ready]);
+  const splashHidden = useRef(false);
+  const hideSplash = useCallback(() => {
+    if (splashHidden.current) return;
+    splashHidden.current = true;
+    SplashScreen.hide();
+  }, []);
 
-  // Nothing rendered on the initial secure-storage read avoids a flash of
-  // the sign-in screen for an already-authenticated user.
-  if (!ready) return null;
-
+  // Until the session read and the brand fonts are ready the loading screen
+  // covers everything: no flash of the sign-in screen for a signed-in user,
+  // nor of a system font.
   return (
-    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: ROLE.bg } }}>
-      <Stack.Protected guard={!session}>
-        <Stack.Screen name="sign-in" />
-        <Stack.Screen name="auth/callback" />
-      </Stack.Protected>
-      <Stack.Protected guard={!!session}>
-        <Stack.Screen name="(app)" />
-      </Stack.Protected>
-      {/* Development builds only: every brand primitive on one screen, for parity captures (budgts://dev/brand). */}
-      <Stack.Protected guard={__DEV__}>
-        <Stack.Screen name="dev/brand" />
-      </Stack.Protected>
-    </Stack>
+    <LoadingScreenProvider loading={!ready} onLayout={hideSplash}>
+      {ready ? (
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: ROLE.bg } }}>
+          <Stack.Protected guard={!session}>
+            <Stack.Screen name="sign-in" />
+            <Stack.Screen name="auth/callback" />
+          </Stack.Protected>
+          <Stack.Protected guard={!!session}>
+            <Stack.Screen name="(app)" />
+          </Stack.Protected>
+          {/* Development builds only: every brand primitive on one screen, for parity captures (budgts://dev/brand). */}
+          <Stack.Protected guard={__DEV__}>
+            <Stack.Screen name="dev/brand" />
+          </Stack.Protected>
+        </Stack>
+      ) : null}
+    </LoadingScreenProvider>
   );
 }
 

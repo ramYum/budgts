@@ -1,4 +1,4 @@
-import { createElement, type ReactNode } from "react";
+import { createElement, useRef, type ReactNode } from "react";
 
 /**
  * Host stand-ins for react-native and react-native-svg, so the brand
@@ -31,4 +31,41 @@ export const svgMock = () => ({
   Svg: host("Svg"),
   Path: host("Path"),
   G: host("G"),
+});
+
+/**
+ * react-native-reanimated without a UI thread: shared values are plain boxes,
+ * animated styles are computed once per render from them, timings land on
+ * their target at once (finishing their callback), and frame callbacks never
+ * tick. `reducedMotion.value` stands in for the OS setting.
+ */
+export const reducedMotion = { value: false };
+export const frameCallbacks: { active: boolean }[] = [];
+export const reanimatedMock = () => {
+  const AnimatedView = host("Animated.View");
+  return {
+    default: { View: AnimatedView },
+    useSharedValue: <T,>(v: T) => {
+      return useRef({ value: v }).current;
+    },
+    useAnimatedStyle: (fn: () => unknown) => fn(),
+    useReducedMotion: () => reducedMotion.value,
+    useFrameCallback: () => {
+      const cb = useRef<{ active: boolean; setActive: (a: boolean) => void } | null>(null);
+      if (!cb.current) {
+        const c = { active: false, setActive: (a: boolean) => void (c.active = a) };
+        cb.current = c;
+        frameCallbacks.push(c);
+      }
+      return cb.current;
+    },
+    withTiming: <T,>(to: T, _config?: unknown, done?: (finished: boolean) => void) => {
+      done?.(true);
+      return to;
+    },
+  };
+};
+
+export const workletsMock = () => ({
+  scheduleOnRN: <A extends unknown[]>(fn: (...args: A) => void, ...args: A) => fn(...args),
 });

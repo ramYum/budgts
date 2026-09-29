@@ -302,7 +302,16 @@ Supabase Auth URLs don't move. The full sequence is launch spec §13a:
   the web delete-account flow (Google Play requires it), `/api/*`,
   `/.well-known/*` and `/app/plaid-oauth`.
 
-### Phase 1b routing (built 2026-09-29, not deployed)
+### Phase 1b routing (live since 2026-09-29 12:26 ET)
+
+> Owner: "deploy the homepage". `main` fast-forwarded `151323f` → `65bf644`, deployed as
+> `dpl_4E7z2LjDooXDmqseD55zzrHn24YD`: production env check passed, CI green (check + mobile), `/company`,
+> its share image, `/robots.txt` and `/sitemap.xml` prerendered. Post-deploy checks: signed-out `/` 200 with
+> `cache-control: public, max-age=0, must-revalidate` (no `s-maxage`), `x-vercel-cache: PRERENDER`, no
+> `cf-cache-status` (Cloudflare DNS-only); 5 repeated signed-out requests and a bogus session cookie all got the
+> homepage; `/robots.txt` and `/sitemap.xml` 200; `/transactions` still 307 to `/sign-in?next=…`; no errors or
+> 5xx in the logs. The signed-in check (`/` still the dashboard) was proven by e2e on the staging build and is
+> confirmed on production by the owner opening budgts.com signed in.
 
 - `src/proxy.ts` **rewrites** a signed-out `/` to the homepage at `/company`: the address stays
   budgts.com and answers 200, so crawlers and the Apple enrollment reviewer see the company site,

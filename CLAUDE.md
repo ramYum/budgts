@@ -14,7 +14,8 @@ Per-user accounts; no household/shared budgets in v1.
 **budgts.com becomes the company website.** Until the apps launch, the
 browser version of the app (an installable PWA) stays live at
 https://budgts.com for existing users and is the visual blueprint the native
-screens copy; signed-out visitors will see the company homepage (Phase 1b).
+screens copy; signed-out visitors see the company homepage (Phase 1b, live
+2026-09-29).
 At launch the browser app retires: budgts.com keeps the company homepage, the
 store-required pages (privacy, terms, support, account deletion) and the
 server the apps call. The sequence: launch spec §13a.
@@ -337,7 +338,7 @@ apps on the App Store and Google Play, sold by Budgts, LLC; since
 spec `docs/specs/2026-09-17-mobile-app-launch-design.md`. Phases:
 0 documents + selective port of the shelved work (done, live 2026-09-28) →
 1 store blockers on web (privacy, terms, support, account deletion; done,
-live 2026-09-28) → 1b company homepage at budgts.com (next web item) → 2
+live 2026-09-28) → 1b company homepage at budgts.com (done, live 2026-09-29) → 2
 native foundation (shared brand tokens, auth incl. Sign in with Apple,
 per-screen mobile API) → 3 every screen, visually identical to the web → 4
 subscription (RevenueCat, server-side entitlement; app-only) → 5 release

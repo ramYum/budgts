@@ -54,7 +54,16 @@ const PUBLIC_PREFIXES = [
   "/api/legal",
   // Where a completed deletion lands: the user was just signed out.
   "/account-deleted",
+  // The company homepage (below), public at its own address too.
+  "/company",
 ];
+
+/**
+ * The company homepage (spec §13a, Phase 1b). The dashboard also lives at `/`, so a signed-out visitor of `/` is
+ * shown this page by a rewrite: the address stays budgts.com and answers 200, for people and crawlers alike, while a
+ * signed-in user still gets the dashboard at the same address.
+ */
+export const HOMEPAGE_PATH = "/company";
 
 export function isPublic(pathname: string) {
   return PUBLIC_PREFIXES.some(
@@ -67,10 +76,18 @@ export async function proxy(request: NextRequest) {
   const { response, user } = await updateSession(request);
   const { pathname } = request.nextUrl;
 
+  if (!user && pathname === "/") {
+    const url = request.nextUrl.clone();
+    url.pathname = HOMEPAGE_PATH;
+    const rewrite = NextResponse.rewrite(url);
+    response.cookies.getAll().forEach((c) => rewrite.cookies.set(c));
+    return rewrite;
+  }
+
   if (!user && !isPublic(pathname)) {
     const url = request.nextUrl.clone();
     url.pathname = "/sign-in";
-    if (pathname !== "/") url.searchParams.set("next", pathname);
+    url.searchParams.set("next", pathname);
     const redirect = NextResponse.redirect(url);
     response.cookies.getAll().forEach((c) => redirect.cookies.set(c));
     return redirect;

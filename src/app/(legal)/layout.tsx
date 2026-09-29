@@ -18,7 +18,8 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
         <Link href="/" aria-label="Budgts home" className="press inline-flex">
           <Logo size={22} />
         </Link>
-        <LinkButton href="/" variant="secondary">
+        {/* the app itself: sign-in, which sends a signed-in user on to the dashboard (`/` is the homepage signed out) */}
+        <LinkButton href="/sign-in" variant="secondary">
           Open Budgts
         </LinkButton>
       </header>

@@ -68,8 +68,8 @@ test("confirming deletes the account, signs out and lands on the confirmation, e
     await expect(page.getByRole("heading", { name: "Your account is deleted" })).toBeVisible();
     await expectUserGone(user.id);
 
-    // Signed out for real: an app page sends the visitor to sign-in.
-    await page.goto("/");
+    // Signed out for real: an app page sends the visitor to sign-in (/ itself is the company homepage signed out).
+    await page.goto("/transactions");
     await page.waitForURL((u) => u.pathname === "/sign-in", { timeout: 15_000 });
   } finally {
     await deleteTestUser(user.id); // already gone: a harmless no-op

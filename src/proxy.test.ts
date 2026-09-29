@@ -1,5 +1,16 @@
-import { describe, expect, it } from "vitest";
-import { isPublic } from "./proxy";
+import { NextRequest, NextResponse } from "next/server";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { HOMEPAGE_PATH, isPublic, proxy } from "./proxy";
+
+// The session check itself (a local JWT verification) is src/lib/supabase/proxy.ts; here only its answer matters.
+const session = vi.hoisted(() => ({ user: null as { id: string } | null, refreshed: false }));
+vi.mock("@/lib/supabase/proxy", () => ({
+  updateSession: async () => {
+    const response = NextResponse.next();
+    if (session.refreshed) response.cookies.set("sb-auth", "refreshed");
+    return { response, user: session.user };
+  },
+}));
 
 describe("isPublic", () => {
   it("lets Plaid's server-to-server endpoints through without a session", () => {
@@ -66,5 +77,58 @@ describe("isPublic", () => {
     // e.g. a route that merely starts with "/api/plaid/webhooks" (plural) is a
     // different path and must not slip through on a loose prefix match.
     expect(isPublic("/api/plaid/webhooks-audit")).toBe(false);
+  });
+});
+
+describe("proxy", () => {
+  beforeEach(() => {
+    session.user = null;
+    session.refreshed = false;
+  });
+  const visit = (path: string) => proxy(new NextRequest(new URL(path, "https://budgts.com")));
+
+  it("shows a signed-out visitor of / the company homepage at the same address, not a redirect", async () => {
+    const res = await visit("/");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("location")).toBeNull();
+    expect(new URL(res.headers.get("x-middleware-rewrite")!).pathname).toBe(HOMEPAGE_PATH);
+  });
+
+  it("keeps a refreshed session cookie on the homepage rewrite", async () => {
+    session.refreshed = true;
+    const res = await visit("/");
+    expect(res.headers.get("x-middleware-rewrite")).not.toBeNull();
+    expect(res.cookies.get("sb-auth")?.value).toBe("refreshed");
+  });
+
+  it("gives a signed-in user the dashboard at /, unchanged", async () => {
+    session.user = { id: "u1" };
+    const res = await visit("/");
+    expect(res.headers.get("x-middleware-rewrite")).toBeNull();
+    expect(res.headers.get("location")).toBeNull();
+  });
+
+  it("still sends a signed-out visitor of an app page to sign in, and back after", async () => {
+    const res = await visit("/transactions");
+    expect(res.status).toBe(307);
+    const to = new URL(res.headers.get("location")!);
+    expect(to.pathname).toBe("/sign-in");
+    expect(to.searchParams.get("next")).toBe("/transactions");
+  });
+
+  it("still sends a signed-in visitor of /sign-in home", async () => {
+    session.user = { id: "u1" };
+    const res = await visit("/sign-in");
+    expect(res.status).toBe(307);
+    expect(new URL(res.headers.get("location")!).pathname).toBe("/");
+  });
+
+  it("serves the homepage's own address and sign-in signed out", async () => {
+    expect(isPublic(HOMEPAGE_PATH)).toBe(true);
+    for (const path of [HOMEPAGE_PATH, "/sign-in"]) {
+      const res = await visit(path);
+      expect(res.headers.get("location")).toBeNull();
+      expect(res.headers.get("x-middleware-rewrite")).toBeNull();
+    }
   });
 });

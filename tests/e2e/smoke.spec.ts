@@ -1,9 +1,15 @@
 import { expect, test } from "@playwright/test";
 
-test("unauthenticated visitors are redirected to sign-in", async ({ page }) => {
-  await page.goto("/");
-  await expect(page).toHaveURL(/\/sign-in$/);
+test("unauthenticated visitors of an app page are redirected to sign-in, and back after", async ({ page }) => {
+  await page.goto("/transactions");
+  await expect(page).toHaveURL(/\/sign-in\?next=%2Ftransactions$/);
   await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+});
+
+test("unauthenticated visitors of / see the company homepage", async ({ page }) => {
+  await page.goto("/");
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Budgeting that does itself." })).toBeVisible();
 });
 
 test("sign-in page offers magic link and Google", async ({ page }) => {

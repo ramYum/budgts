@@ -6,6 +6,7 @@ import {
   EGG_LOOP,
   EGG_PALETTE,
   EGG_PERIMETER,
+  eggFoot,
   eggSvg,
   type EggFrame,
 } from "./egg-art";
@@ -55,7 +56,8 @@ describe("egg art: palette", () => {
 describe("egg art: frames", () => {
   it("draws every rotation of the roll, at 22.5° steps, the resting (standing) frame first", () => {
     expect(EGG_FRAMES[0]!.angle).toBe(270);
-    for (let a = 180; a <= 360; a += 22.5) expect(byAngle(a % 360), `${a}°`).toBeDefined();
+    for (let a = 0; a < 360; a += 22.5) expect(byAngle(a), `${a}°`).toBeDefined();
+    expect(EGG_FRAMES).toHaveLength(16); // no wobble frames: every frame is a roll
     expect(new Set(EGG_FRAMES.map((f) => f.angle)).size).toBe(EGG_FRAMES.length);
   });
 
@@ -141,47 +143,77 @@ describe("egg art: frames", () => {
 describe("egg art: the loop", () => {
   const pitch = EGG_GROUND.cell + EGG_GROUND.gap;
 
-  it("starts and ends at rest, so it repeats without a jump", () => {
+  it("rolls from its first step, and comes home to rest for a beat at the end of the lap", () => {
     expect(EGG_LOOP[0]).toMatchObject({ frame: 0, x: 0 });
-    expect(EGG_LOOP[EGG_LOOP.length - 1]).toMatchObject({ frame: 0, x: 0 });
+    expect(EGG_LOOP[1]!.frame).not.toBe(0);
+    const tail = EGG_LOOP.slice(-3);
+    expect(tail.every((s) => s.frame === 0 && s.x === 0)).toBe(true);
+    // resting steps: the lap's end plus one beat at each turnaround, never more
+    const still = EGG_LOOP.filter((s, i) => i > 0 && s.frame === EGG_LOOP[i - 1]!.frame).length;
+    expect(still).toBeLessThanOrEqual(4);
+  });
+
+  it("is a real end-over-end roll: half a turn right, a whole turn left, half a turn right, 32 rolling steps", () => {
+    let turned = 0;
+    let rolling = 0;
+    for (let i = 1; i < EGG_LOOP.length; i++) {
+      const a = EGG_FRAMES[EGG_LOOP[i - 1]!.frame]!.angle;
+      const b = EGG_FRAMES[EGG_LOOP[i]!.frame]!.angle;
+      if (a === b) continue;
+      rolling++;
+      const d = ((b - a + 540) % 360) - 180; // signed, in (-180, 180]
+      expect(Math.abs(d)).toBe(22.5);
+      turned += d;
+    }
+    expect(rolling).toBe(32);
+    expect(turned).toBe(0); // home again
   });
 
   it("rolls, never slides: a step moves the egg only when it turns, by the shell's arc", () => {
-    const quarterArc = EGG_PERIMETER / 16; // one 22.5° step's arc, give or take the egg's shape
+    const stepArc = EGG_PERIMETER / 16; // one 22.5° step's arc, give or take the egg's shape
     for (let i = 1; i < EGG_LOOP.length; i++) {
       const a = EGG_LOOP[i - 1]!;
       const b = EGG_LOOP[i]!;
       const contactA = a.x + EGG_FRAMES[a.frame]!.contactX;
       const contactB = b.x + EGG_FRAMES[b.frame]!.contactX;
       if (a.frame === b.frame) expect(b.x, `step ${i}`).toBe(a.x);
-      else expect(Math.abs(contactB - contactA), `step ${i}`).toBeLessThanOrEqual(quarterArc * 1.6 + 1);
+      else expect(Math.abs(contactB - contactA), `step ${i}`).toBeLessThanOrEqual(stepArc * 1.6 + 1);
     }
   });
 
-  it("rolls a quarter turn each way from standing, over the blunt end it stands on: the same way each side, less than half the shell", () => {
-    const at = (angle: number) =>
-      EGG_LOOP.filter((s) => EGG_FRAMES[s.frame]!.angle === angle).map((s) => s.x + EGG_FRAMES[s.frame]!.contactX - EGG_FRAMES[0]!.contactX);
-    const right = Math.max(...at(0));
-    const left = Math.min(...at(180));
-    expect(right).toBeGreaterThan(0);
-    expect(left).toBeLessThan(0);
-    expect(Math.abs(right + left)).toBeLessThanOrEqual(1);
-    expect(right - left).toBeLessThan(EGG_PERIMETER / 2); // the blunt end is the shorter way round
+  it("travels half the shell each way from the middle: a whole shell end to end", () => {
+    const contacts = EGG_LOOP.map((s) => s.x + EGG_FRAMES[s.frame]!.contactX - EGG_FRAMES[0]!.contactX);
+    const right = Math.max(...contacts);
+    const left = Math.min(...contacts);
+    expect(Math.abs(right + left)).toBeLessThanOrEqual(1); // symmetric about the middle
+    expect(Math.abs(right - left - EGG_PERIMETER)).toBeLessThanOrEqual(1.5);
   });
 
-  it("lights the ground cell under the egg, and fades the one it just left", () => {
+  it("marks where the egg stands, and the cells it just left, fading once it stops", () => {
     EGG_LOOP.forEach((s, i) => {
       const contact = s.x + EGG_FRAMES[s.frame]!.contactX - EGG_GROUND.left;
       expect(s.lit).toBe(Math.floor(contact / pitch));
-      const before = EGG_LOOP[(i + EGG_LOOP.length - 1) % EGG_LOOP.length]!.lit;
-      expect(s.trail).toBe(i > 0 && before !== s.lit ? before : -1);
+      expect(s.trail.length).toBeLessThanOrEqual(2);
+      expect(s.trail).not.toContain(s.lit);
+      const recent = [1, 2, 3].map((k) => EGG_LOOP[(i - k + EGG_LOOP.length) % EGG_LOOP.length]!.lit);
+      for (const c of s.trail) expect(recent).toContain(c);
     });
+    // never under the egg's foot: an ink cell there reads as a stalk under the shell
+    for (const s of EGG_LOOP) {
+      const [from, to] = eggFoot(s);
+      for (const c of s.trail) {
+        const x = EGG_GROUND.left + c * pitch;
+        expect(x >= to || x + EGG_GROUND.cell <= from, `cell ${c} under the foot ${from}-${to}`).toBe(true);
+      }
+    }
+    // at rest at the lap's end, the trail has faded away
+    expect(EGG_LOOP[EGG_LOOP.length - 1]!.trail).toEqual([]);
   });
 
-  it("keeps the egg over the ground at both ends", () => {
+  it("keeps the egg's contact point on the row of cells", () => {
     for (const s of EGG_LOOP) {
-      expect(s.x).toBeGreaterThanOrEqual(EGG_GROUND.left);
-      expect(s.x + EGG_FRAMES[s.frame]!.w).toBeLessThanOrEqual(EGG_GROUND.left + EGG_GROUND.width);
+      expect(s.lit).toBeGreaterThanOrEqual(0);
+      expect(s.lit).toBeLessThan(EGG_GROUND.count);
     }
   });
 

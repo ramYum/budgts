@@ -25,9 +25,12 @@ describe("native splash", () => {
     expect(splash.backgroundColor.toLowerCase()).toBe(COLOR.paper);
   });
 
-  it("is as wide as the loader's egg box, so the egg lands at the same size", () => {
+  it("frames the loader's egg: a square just big enough for it, at a size Android can centre on whole pixels", () => {
     const rest = EGG_FRAMES[0]!;
-    expect(splash.imageWidth).toBe(Math.max(rest.w, rest.h) * EGG_SCALE);
+    expect(splash.imageWidth).toBeGreaterThanOrEqual(Math.max(rest.w, rest.h) * EGG_SCALE);
+    expect(splash.imageWidth).toBeLessThan(Math.max(rest.w, rest.h) * EGG_SCALE + 2 * EGG_SCALE);
+    // the plugin centres it on a 288dp canvas: (288 - imageWidth) / 2 × 1.5 must be whole at hdpi
+    expect(((288 - splash.imageWidth) / 2) * 1.5 % 1).toBe(0);
   });
 
   it("hands every Android density its own exact size (no resampling of the pixel art)", () => {

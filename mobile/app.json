@@ -64,7 +64,7 @@
         {
           "backgroundColor": "#F4F4F4",
           "image": "./assets/splash/egg-xxhdpi.png",
-          "imageWidth": 60,
+          "imageWidth": 96,
           "android": {
             "mdpi": "./assets/splash/egg-mdpi.png",
             "hdpi": "./assets/splash/egg-hdpi.png",

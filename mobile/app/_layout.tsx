@@ -11,7 +11,9 @@ import { registerSupabaseAutoRefresh } from "../lib/supabase/auto-refresh";
 
 // The native splash (app.json → expo-splash-screen: the resting egg on paper)
 // stays up until the loading screen has laid out the very same egg in the
-// very same place; then it fades and the egg starts to roll.
+// very same place; then it fades over it and the egg rolls. `fade` is an
+// iOS switch (off by default there); Android's splash always fades out on
+// hide, over `duration` (expo-splash-screen's exit animation, 400ms unless set).
 SplashScreen.preventAutoHideAsync();
 SplashScreen.setOptions({ fade: true, duration: 200 });
 

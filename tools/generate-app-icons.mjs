@@ -11,7 +11,7 @@ import sharp from "sharp";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { robinSvg } from "../src/lib/brand/robin-art.ts";
-import { EGG_FRAMES, eggSvg } from "../src/lib/brand/egg-art.ts";
+import { eggSvg } from "../src/lib/brand/egg-art.ts";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const CANVAS = "#f4f4f4";
@@ -57,24 +57,26 @@ for (const { out, size, scale, background, opaque, mono } of ICONS) {
 }
 
 // The native splash image: the loading screen's resting egg (egg-art.ts,
-// frame 0) centred on a transparent square SPLASH_CELLS cells wide, over
-// app.json's paper backgroundColor. expo-splash-screen fits the square into
-// `imageWidth` dp/pt (SPLASH_CELLS × 4: the loader's 4px grain, so the two
-// eggs match) and resamples it (Lanczos, which softens pixel art) to each
-// density's size. Handing it each size ready-made makes that resample an
-// exact copy: Android takes one per density bucket (app.json android.mdpi …
-// xxxhdpi, ×1 to ×4), iOS takes one image for @1x/@2x/@3x, so it gets the @3x
-// size (today's iPhones; @2x ones get a softened copy, a platform limit).
-// mobile/lib/brand/splash.test.ts pins app.json to these files.
-const REST = EGG_FRAMES[0];
-const SPLASH_CELLS = Math.max(REST.w, REST.h);
-const SPLASH_GRAIN = 4;
+// frame 0) at the loader's grain, centred on a transparent SPLASH_DP square
+// over app.json's paper backgroundColor. expo-splash-screen fits the square
+// into `imageWidth` dp/pt (= SPLASH_DP) centred on the screen, as the loader
+// centres its egg, and resamples it (Lanczos, which softens pixel art) to
+// each density's size. Handing it each size ready-made makes that an exact
+// copy: Android takes one per density bucket (app.json android.mdpi …
+// xxxhdpi, ×1 to ×4: 6 to 24px a cell); iOS takes one image for @1x/@2x/@3x,
+// so it gets the @3x size (today's iPhones; @2x ones get a softened copy, a
+// platform limit). SPLASH_DP is a multiple of 4 because on Android the plugin
+// centres the square on a 288dp canvas at (288 - imageWidth) / 2 × density,
+// which must be whole pixels at hdpi (×1.5). mobile/lib/brand/splash.test.ts
+// pins app.json to these files.
+const SPLASH_GRAIN = 6; // the loader's grain (mobile/components/brand/egg-loader.tsx EGG_SCALE)
+const SPLASH_DP = 96; // the egg is 13×15 cells: 78×90dp
 for (const [name, density] of [["mdpi", 1], ["hdpi", 1.5], ["xhdpi", 2], ["xxhdpi", 3], ["xxxhdpi", 4]]) {
   const out = `mobile/assets/splash/egg-${name}.png`;
   const scale = SPLASH_GRAIN * density;
-  const size = SPLASH_CELLS * scale;
+  const size = SPLASH_DP * density;
   const info = await sharp(Buffer.from(eggSvg({ size, scale })))
     .png({ palette: true, colours: 16, compressionLevel: 9, effort: 10 })
     .toFile(join(ROOT, out));
-  console.log(`${out.padEnd(44)} ${size}x${size}  ${info.size} B  (imageWidth ${SPLASH_CELLS * SPLASH_GRAIN})`);
+  console.log(`${out.padEnd(44)} ${size}x${size}  ${info.size} B  (imageWidth ${SPLASH_DP})`);
 }

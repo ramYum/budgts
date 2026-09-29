@@ -36,11 +36,17 @@ export type EggStep = {
   frame: number;
   /** the frame's left edge, in cells from the resting frame's left edge */
   x: number;
-  /** the ground cell under the egg (index into the ground row) */
+  /** the ground cell under the egg's contact point (index into the ground row) */
   lit: number;
-  /** the cell it just left, fading (-1: none) */
-  trail: number;
+  /** the cells it just left, most recent first, fading */
+  trail: number[];
 };
+
+/** Paper between the egg's lowest cell and the row, in cells: none, it stands on it. */
+const DROP = 0;
+/** How many cells the trail shows, and how many steps back it looks. */
+const TRAIL = 2;
+const TRAIL_STEPS = 3;
 
 /** The palette: Crystal's outline, belly and browns (robin-art.ts) and the brand's paper white. */
 export const EGG_PALETTE = {
@@ -52,24 +58,31 @@ export const EGG_PALETTE = {
   speckleLight: "#a8703f", // Crystal's crown b
 } as const;
 
-/** The ground row's colours: brand tokens (tokens.ts ROLE.track, ROLE.ink, ROLE.cellPast). */
+/** The ground row's colours: brand tokens (tokens.ts ROLE.track, ROLE.ink,
+ * ROLE.cellPast). The cells the egg just rolled off fade ink, then cell-past,
+ * then back to the track; the cell under it stays track, so nothing reads as
+ * a stalk or a tee under the shell. */
 export const EGG_GROUND_PALETTE = {
   track: "#e6e6e6",
-  lit: "#111111",
-  trail: "#c9c9c9",
+  recent: "#111111",
+  older: "#c9c9c9",
 } as const;
 
-// The egg curve, lying on its side: two half-ellipses meeting at the widest
-// point (the origin, which the egg turns about), half-height B. The blunt end
-// (left) reaches BLUNT cells, the pointed end (right) POINTED: a smooth convex
-// egg, so every rotation rasterises to clean steps.
-const BLUNT = 6;
+// The egg curve, lying on its side, the widest point at the origin (which the
+// egg turns about), half-height B. The blunt end (left) is a round
+// half-ellipse BLUNT cells long; the pointed end (right) is POINTED cells long
+// and narrows faster toward its tip (TAPER, flat at the widest point, so the
+// halves join smoothly). Convex, so every rotation rasterises to clean steps.
+const BLUNT = 5.4;
 const POINTED = 8;
-const B = 5.2;
+const B = 5.5;
+const TAPER = 0.3;
 
 function inside(x: number, y: number): boolean {
-  const a = x < 0 ? BLUNT : POINTED;
-  return (x / a) ** 2 + (y / B) ** 2 <= 1 + 1e-9;
+  if (x < 0) return (x / BLUNT) ** 2 + (y / B) ** 2 <= 1 + 1e-9;
+  const t = x / POINTED;
+  if (t > 1) return false;
+  return Math.abs(y) <= B * Math.sqrt(1 - t * t) * (1 - TAPER * t * t) + 1e-9;
 }
 
 // Light from the upper left, fixed while the egg turns (world cells, y down).
@@ -112,7 +125,7 @@ function toWorld(deg: number, x: number, y: number): [number, number] {
 
 /** The shell's cells at a turn: cell centres on the integer grid, the egg's centre on one. */
 function shellCells(deg: number): Set<string> {
-  const R = POINTED + 2;
+  const R = Math.ceil(Math.max(BLUNT, POINTED)) + 2; // whole cells: centres stay on the integer grid
   const cells = new Set<string>();
   for (let j = -R; j <= R; j++)
     for (let i = -R; i <= R; i++) {
@@ -287,7 +300,6 @@ function frameAt(deg: number): EggFrame {
 type Pose = number;
 
 const ROLL_STEP = 22.5; // 16 frames a turn
-const ROCK = 6; // the settle wobble's lean: about one cell of roll
 
 function rollTurns(from: number, to: number): Pose[] {
   const dir = Math.sign(to - from);
@@ -302,25 +314,18 @@ const hold = (pose: Pose, steps: number): Pose[] => Array.from({ length: steps }
 const REST = -90;
 
 /** The loop, as turns (degrees, clockwise = rolling right), one per step. It
- * starts standing in the middle, tips over and rolls right a quarter turn
- * onto its side, rocks and settles, rolls back left half a turn (standing up
- * as it passes the middle) onto its other side, rocks and settles, and rolls
- * right a quarter turn to stand again. */
+ * rolls from the first step: end over end half a turn right (onto its
+ * pointed end), a whole turn back left past the middle, and half a turn right
+ * home, where it stands for a beat before the next lap. A beat at each turn
+ * as its motion reverses. Every step but those beats is a roll. */
 const LOOP_POSES: Pose[] = [
-  ...hold(REST, 6),
-  ...rollTurns(REST, 0),
-  ROCK,
-  ROCK,
-  0,
-  -ROCK / 2,
-  ...hold(0, 5),
-  ...rollTurns(0, -180),
-  -180 - ROCK,
-  -180 - ROCK,
-  -180,
-  -180 + ROCK / 2,
-  ...hold(-180, 5),
-  ...rollTurns(-180, REST),
+  REST,
+  ...rollTurns(REST, REST + 180),
+  REST + 180,
+  ...rollTurns(REST + 180, REST - 180),
+  REST - 180,
+  ...rollTurns(REST - 180, REST),
+  ...hold(REST, 2),
 ];
 
 /** Every distinct frame the loop draws, the resting frame first. */
@@ -332,18 +337,16 @@ export const EGG_FRAMES: EggFrame[] = (() => {
 
 const frameIndex = (deg: number) => EGG_FRAMES.findIndex((f) => f.angle === norm(deg));
 
-/** The ground: a row of the brand's square progress cells under the egg, in
- * cells. `drop` is the paper between the egg's lowest cell and the row (as
- * Crystal's shadow sits under her feet on sign-in), so the lit cell reads as
- * the egg's place on the track, never as a stalk under it. */
+/** The ground: a row of the brand's square progress cells the egg stands on,
+ * in cells, centred under the resting egg (which the splash centres on the
+ * screen) and long enough for the whole roll. */
 export const EGG_GROUND = (() => {
   const cell = 2;
   const gap = 1;
   const count = 14;
-  const drop = 1;
+  const drop = DROP;
   const width = count * (cell + gap) - gap;
   const rest = EGG_FRAMES[0]!;
-  // centred under the resting egg, which the splash centres on the screen
   const left = (rest.w - width) / 2;
   return { cell, gap, count, drop, width, left };
 })();
@@ -354,9 +357,8 @@ export const EGG_LOOP: EggStep[] = (() => {
   let X = 0; // the contact point's travel, in cells, from rest
   let prev = contact(REST);
   let prevDeg = REST;
-  let lastLit = -1;
   const pitch = EGG_GROUND.cell + EGG_GROUND.gap;
-  return LOOP_POSES.map((deg) => {
+  const steps = LOOP_POSES.map((deg) => {
     const c = contact(deg);
     if (deg !== prevDeg) {
       let ds = Math.abs(c.s - prev.s);
@@ -367,15 +369,33 @@ export const EGG_LOOP: EggStep[] = (() => {
     prevDeg = deg;
     const frame = frameIndex(deg);
     const f = EGG_FRAMES[frame]!;
-    const contactWorld = rest.contactX + X; // from the resting frame's left edge
-    const x = Math.round(contactWorld - f.contactX);
+    const x = Math.round(rest.contactX + X - f.contactX);
     // the cell under the contact point as drawn (the frame on whole cells)
     const lit = Math.floor((x + f.contactX - EGG_GROUND.left) / pitch);
-    const trail = lastLit >= 0 && lastLit !== lit ? lastLit : -1;
-    lastLit = lit;
-    return { frame, x, lit, trail };
+    return { frame, x, lit, trail: [] as number[] };
   });
+  // the cells it left in the last TRAIL_STEPS steps, most recent first (the
+  // lap repeats, so the first steps continue from the last): a trail that
+  // fades once the egg stops. Never a cell still under the egg's foot (its
+  // lowest row), which would read as a stalk under the shell.
+  steps.forEach((s, i) => {
+    const [footFrom, footTo] = eggFoot(s);
+    for (let k = 1; k <= TRAIL_STEPS; k++) {
+      const c = steps[(i - k + steps.length) % steps.length]!.lit;
+      const cx = EGG_GROUND.left + c * pitch;
+      const underFoot = cx < footTo && cx + EGG_GROUND.cell > footFrom;
+      if (c !== s.lit && !underFoot && !s.trail.includes(c) && s.trail.length < TRAIL) s.trail.push(c);
+    }
+  });
+  return steps;
 })();
+
+/** Where a step's egg touches the row: its lowest row's extent, in cells from the resting frame's left edge. */
+export function eggFoot(step: { frame: number; x: number }): [from: number, to: number] {
+  const f = EGG_FRAMES[step.frame]!;
+  const bottom = f.runs.filter((r) => r.y === f.h - 1);
+  return [step.x + Math.min(...bottom.map((r) => r.x)), step.x + Math.max(...bottom.map((r) => r.x + r.w))];
+}
 
 /** One step of the loop lasts this long: sprite timing, like the robin's hops. */
 export const EGG_STEP_MS = 80;

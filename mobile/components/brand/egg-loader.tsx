@@ -11,16 +11,16 @@ import { useSteppedClock } from "../../lib/motion/stepped";
  * brand's square progress cells (the art and the loop: src/lib/brand/egg-art.ts;
  * docs/BRAND_GUIDELINES.md → Motion). It opens exactly as the native splash
  * left off (the same resting egg, the same size, the middle of the screen),
- * the cells step in beneath it left to right, then it rolls.
+ * the cells step in beneath it left to right, and it rolls from the first step.
  *
- * Indeterminate on purpose: one cell lights under the egg and the one it
- * just left fades, a chase, never a bar that fills (a full bar would look
- * stuck). No text. All motion runs on the UI thread, whole frames at a time;
- * under Reduce Motion the egg rests on a still row.
+ * Indeterminate on purpose: the cells it rolls off fade ink, then grey, then
+ * back to the track behind it, a chase, never a bar that fills (a full bar
+ * would look stuck). No text. All motion runs on the UI thread, whole frames
+ * at a time; under Reduce Motion the egg stands on a still row.
  */
 
-/** px per art cell: Crystal's grain on sign-in, so the brand reads as one. */
-export const EGG_SCALE = 4;
+/** px per art cell: the loader's one grain (the splash image is drawn at it too). */
+export const EGG_SCALE = 6;
 
 const REST = EGG_FRAMES[0]!;
 const PITCH = EGG_GROUND.cell + EGG_GROUND.gap;
@@ -36,7 +36,8 @@ function framePaths(frame: EggFrame): [fill: string, d: string][] {
   return [...byFill];
 }
 
-export function EggLoader({ label = "Loading", onLayout }: { label?: string; onLayout?: (e: LayoutChangeEvent) => void }) {
+/** Memoised: the loading screen re-renders on every hold and label change, and the egg must roll straight through them. */
+export const EggLoader = memo(function EggLoader({ label = "Loading", onLayout }: { label?: string; onLayout?: (e: LayoutChangeEvent) => void }) {
   const reduceMotion = useReducedMotion();
   const ratio = PixelRatio.get();
   const loopStep = useSteppedClock(LOOP, !reduceMotion);
@@ -74,7 +75,7 @@ export function EggLoader({ label = "Loading", onLayout }: { label?: string; onL
       </View>
     </View>
   );
-}
+});
 
 /** One pre-drawn frame; shown only on the steps that use it, at that step's place. */
 const FrameLayer = memo(function FrameLayer({
@@ -107,7 +108,7 @@ const FrameLayer = memo(function FrameLayer({
   );
 });
 
-/** The row of cells: the track, the lit cell under the egg, the one it just left, and the cover the sweep draws back. */
+/** The row of cells: the track, the two cells the egg just rolled off (ink, then grey), and the cover the sweep draws back. */
 function Ground({
   ratio,
   cellX,
@@ -129,11 +130,13 @@ function Ground({
     return snapPath(d, { unit: EGG_SCALE, ratio });
   }, [ratio]);
 
-  const lit = useAnimatedStyle(() => ({ transform: [{ translateX: cellX[EGG_LOOP[loopStep.value]!.lit]! }] }));
-  const trail = useAnimatedStyle(() => {
-    const t = EGG_LOOP[loopStep.value]!.trail;
-    return { opacity: t < 0 ? 0 : 1, transform: [{ translateX: cellX[Math.max(0, t)]! }] };
-  });
+  const trailCell = (k: number) => {
+    "worklet";
+    const t = still ? undefined : EGG_LOOP[loopStep.value]!.trail[k];
+    return { opacity: t === undefined ? 0 : 1, transform: [{ translateX: cellX[t ?? 0]! }] };
+  };
+  const recent = useAnimatedStyle(() => trailCell(0));
+  const older = useAnimatedStyle(() => trailCell(1));
   // paper over the cells not yet arrived; it slides off one cell at a time
   const cover = useAnimatedStyle(() => ({ transform: [{ translateX: cellX[still ? EGG_GROUND.count : sweepStep.value]! }] }));
 
@@ -143,8 +146,8 @@ function Ground({
       <Svg width={width} height={size}>
         <Path d={track} fill={EGG_GROUND_PALETTE.track} />
       </Svg>
-      <Animated.View testID="egg-ground-trail" style={[cell, { backgroundColor: EGG_GROUND_PALETTE.trail }, trail]} />
-      <Animated.View testID="egg-ground-lit" style={[cell, { backgroundColor: EGG_GROUND_PALETTE.lit }, lit]} />
+      <Animated.View testID="egg-ground-older" style={[cell, { backgroundColor: EGG_GROUND_PALETTE.older }, older]} />
+      <Animated.View testID="egg-ground-recent" style={[cell, { backgroundColor: EGG_GROUND_PALETTE.recent }, recent]} />
       <Animated.View testID="egg-ground-cover" style={[{ position: "absolute", top: 0, left: 0, width, height: size, backgroundColor: ROLE.bg }, cover]} />
     </View>
   );

@@ -143,6 +143,9 @@ describe("legal pages: switched on", () => {
       "https://apps.apple.com/account/subscriptions",
     );
     expect(screen.getByRole("link", { name: /Manage in Google Play/ }).getAttribute("href")).toMatch(/^https:\/\/play\.google\.com\//);
+    // Category memory is keyed by Plaid's merchant id, so it can't promise to remember every store (owner, 2026-09-29)
+    expect(screen.queryByText(/remembers your answer/)).not.toBeInTheDocument();
+    expect(screen.getByText(/uses your answer for that merchant next time when it can\s+recognize the store/)).toBeInTheDocument();
   });
 
   it("account deletion says how, what goes, what stays, and starts at the signed-in screen", () => {

@@ -23,8 +23,8 @@ const QUESTIONS: { q: string; a: React.ReactNode }[] = [
     q: "A transaction is in the wrong category",
     a: (
       <>
-        Open it in Activity and choose the right category. When Budgts asks you to sort a purchase from the bell, it remembers
-        your answer for that merchant.
+        Open it in Activity and choose the right category. Budgts uses your answer for that merchant next time when it can
+        recognize the store.
       </>
     ),
   },

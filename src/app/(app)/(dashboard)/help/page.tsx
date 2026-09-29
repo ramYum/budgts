@@ -18,7 +18,7 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "How does categorization work?",
-    a: "Budgts files obvious transactions automatically. When it isn't confident, it asks you, and uses your answer for that merchant next time when it can recognize the store. Some small local shops can't be recognized, so Budgts may ask about them again.",
+    a: "Budgts files obvious transactions automatically. When it isn't confident, it asks you. Next time it uses your answer for that merchant, as long as it can recognize the store. Some small local shops can't be recognized, so Budgts may ask about them again.",
   },
   {
     q: "What happens if I disconnect a bank?",

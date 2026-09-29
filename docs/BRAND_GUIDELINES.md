@@ -203,14 +203,22 @@ The Expo apps are **visually identical to this web system at phone width**
 (owner bar, 2026-09-26). Everything in this document applies unchanged. The
 native side reads the **same sources**, so the two can't drift.
 
+**Built in Stage 2A (2026-09-29, not deployed):** the tokens, the four
+primitives, fonts and type roles below, in `mobile/components/brand/*`. The
+app imports the web files themselves through Metro `watchFolders`
+(`mobile/metro.config.js`, `mobile/lib/brand/shared.ts`); those files stay
+pure TypeScript (`tests/unit/brand-purity.test.ts`). Motion, progress cells
+and Crystal's walk come with the screens in Phase 3.
+
 | Web | Native |
 | --- | --- |
-| Color / spacing / type tokens in `globals.css` | One `src/lib/brand/tokens.ts`, imported by the app; a unit test keeps `globals.css` equal to it |
-| Stepped frames (`pixel-frames.css`, generated from `src/lib/brand/pixel-frame.ts`) | `<PixelFrame>`: the same `FRAMES` drawn with react-native-svg at the view's measured size |
-| `--shadow-card` / `--shadow-raised` | React Native `boxShadow` with the same values (New Architecture, both platforms) |
-| Geist + Dogica via `next/font`, the `.t-*` roles | The same font files via expo-font; each `.t-*` role becomes a text style with the same size, line height and weight, phone values |
-| Pixelarticons through `<Icon>` at 12/24/36/48 | The same glyph data as SVG at the same sizes, `crispEdges` |
-| The robin (`robin-art.ts`) and Crystal (`crystal-perch.tsx`, `src/lib/crystal/roam.ts`) | The same art data and roam logic; motion in Reanimated |
+| Color / spacing / type / shadow / motion tokens in `globals.css` | One `src/lib/brand/tokens.ts`, imported by the app and by `pixel-frame.ts`; `tests/unit/brand-tokens.test.ts` parses `globals.css` and fails on any difference |
+| Stepped frames (`pixel-frames.css`, generated from `src/lib/brand/pixel-frame.ts`) | `<PixelFrame>`: the same `FRAMES` 9-slice, stretched exactly as `border-image` does, with react-native-svg at the view's measured size; the same transparent `k`-cell border, so padding means the same; `raise` draws `.px-raise`'s edge |
+| `--shadow-card` / `--shadow-raised` | React Native `boxShadow` with the same values, on `px-card` / `px-card-raised` automatically |
+| Geist + Dogica via `next/font`, the `.px-*` / `.t-*` roles | The same font files (`src/app/fonts`: Dogica, and Geist Regular / Medium / SemiBold and Geist Mono as Google Fonts' static instances of what `next/font/google` serves) via expo-font; `<Text variant>` sets each role's size, line height, tracking and weight file. React Native has no `word-spacing`, so Dogica's spaces get the same quarter-em trim as a letter-spacing on the space itself |
+| Pixelarticons through `<Icon>` at 12/24/36/48 | The same glyph data (`src/lib/brand/icons.ts`, which the web `<Icon>` now draws from too; a test pins it to the package) at the same sizes |
+| `shape-rendering: crispEdges` | react-native-svg always anti-aliases, so every cell edge is snapped to the device-pixel grid first (`mobile/lib/brand/snap.ts`, ties to the top-left as the rasteriser does): the same pixels, nothing to blur |
+| The robin (`robin-art.ts`) and Crystal (`crystal-perch.tsx`, `src/lib/crystal/roam.ts`) | `<Robin>` from the same art at whole px per cell, every mood, the chirp and flap frames; roam logic shared; motion in Reanimated (Phase 3) |
 | Motion table above (durations, `steps()`, delays) | Reanimated with the same timings and stepped easing; off under Reduce Motion |
 | Progress cells (`.px-bar`: square cells, count = fit) | The same geometry and lit math, drawn once per bar with react-native-svg |
 | 24px phone gutter, 16px card padding | Identical, inside the safe areas |
@@ -222,6 +230,15 @@ native side reads the **same sources**, so the two can't drift.
   `docs/specs/2026-09-17-mobile-app-launch-design.md` §15a passes. That
   means web and native captures at the same device size, geometry within
   1pt, exact token colors, and the per-screen pixel-diff budget.
+- **The primitives pass it (2026-09-29, Android emulator at 412×915,
+  2.625x):** the dev screen `budgts://dev/brand` (development builds only)
+  lays out every primitive at the places in `mobile/lib/brand/specimen.ts`;
+  the same list drawn with the web's CSS and markup lines up within 0.38pt
+  (one device pixel) for every frame, state, robin and icon, with exact
+  token colours. Known difference: long Geist reading lines set up to ~1.5%
+  wider on Android (3.8pt over a 250pt line), from Android's per-glyph
+  advance rounding; line starts, heights and pixel/figure roles stay within
+  0.76pt.
 
 ## What not to do
 

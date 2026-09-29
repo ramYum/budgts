@@ -1,18 +1,14 @@
 import { useEffect } from "react";
 import { SplashScreen, Stack } from "expo-router";
-import {
-  Poppins_400Regular,
-  Poppins_500Medium,
-  Poppins_600SemiBold,
-  Poppins_700Bold,
-  useFonts,
-} from "@expo-google-fonts/poppins";
+import { useFonts } from "expo-font";
+import { StatusBar } from "expo-status-bar";
 import { AuthProvider, useAuth } from "../lib/auth/auth-context";
+import { FONT_SOURCES } from "../lib/brand/fonts";
+import { ROLE } from "../lib/brand/shared";
 import { registerSupabaseAutoRefresh } from "../lib/supabase/auto-refresh";
-import { colors } from "../lib/theme";
 
-// Keep the native splash up until the session read and brand font are ready, so
-// there is no flash of an unstyled (system-font) or wrong-screen first frame.
+// Keep the native splash up until the session read and the brand fonts are
+// ready, so there is no flash of a system-font or wrong-screen first frame.
 SplashScreen.preventAutoHideAsync();
 
 function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
@@ -28,7 +24,7 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
   if (!ready) return null;
 
   return (
-    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
+    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: ROLE.bg } }}>
       <Stack.Protected guard={!session}>
         <Stack.Screen name="sign-in" />
         <Stack.Screen name="auth/callback" />
@@ -36,22 +32,24 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
       <Stack.Protected guard={!!session}>
         <Stack.Screen name="(app)" />
       </Stack.Protected>
+      {/* Development builds only: every brand primitive on one screen, for parity captures (budgts://dev/brand). */}
+      <Stack.Protected guard={__DEV__}>
+        <Stack.Screen name="dev/brand" />
+      </Stack.Protected>
     </Stack>
   );
 }
 
 export default function RootLayout() {
-  const [fontsLoaded, fontError] = useFonts({
-    Poppins_400Regular,
-    Poppins_500Medium,
-    Poppins_600SemiBold,
-    Poppins_700Bold,
-  });
+  // The web's own font files (src/app/fonts), bundled into the app.
+  const [fontsLoaded, fontError] = useFonts(FONT_SOURCES);
 
   useEffect(() => registerSupabaseAutoRefresh(), []);
 
   return (
     <AuthProvider>
+      {/* dark status-bar marks on the light canvas (the app is light only) */}
+      <StatusBar style="dark" />
       {/* A font failure must not brick sign-in: fall back to the system font. */}
       <RootNavigator fontsReady={fontsLoaded || !!fontError} />
     </AuthProvider>

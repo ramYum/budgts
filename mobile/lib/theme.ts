@@ -1,35 +1,41 @@
+import { COLOR, FONT, ROLE } from "./brand/shared";
+
 /**
- * Budgts design tokens for native screens. The single source of truth is the
- * web app's `src/app/globals.css` (see `docs/BRAND_GUIDELINES.md`); mobile is a
- * separate npm root and cannot import it, so the values are mirrored here and
- * `theme.test.ts` fails if they drift from that file.
+ * The older screens' palette and fonts, from the shared design tokens
+ * (src/lib/brand/tokens.ts, which a web test keeps equal to globals.css).
+ * Phase 3 rebuilds each screen from the brand primitives (components/brand)
+ * and retires this module; until then those screens read the real brand
+ * colors and Geist through it, never the pre-redesign palette.
  */
 export const colors = {
-  bg: "#fff8f0", // --cream: page background
-  surface: "#fffdf9", // --surface-raw: cards, fields
-  text: "#0f0f0f", // --ink
-  muted: "#8b8f9c",
-  border: "#ece5da",
-  accent: "#ff7b61", // --coral: links, focus, highlights
-  primaryBtn: "#ffd166", // --sun: the one primary action per screen
-  onPrimaryBtn: "#0f0f0f", // ink on sun (white on sun fails contrast)
-  neg: "#ff6347", // --coral-strong: errors / over-budget
-  pos: "#3fa772", // --sage-strong
-  heroFill: "#ffe8b3", // --sun-light: the Money Left hero card
-  fillNear: "#f7b733", // --sun-strong: "near budget" progress fill
+  bg: ROLE.bg,
+  surface: ROLE.surface,
+  text: ROLE.text,
+  muted: ROLE.muted,
+  border: ROLE.border,
+  /** links, focus, spinners */
+  accent: COLOR.signal,
+  /** the one primary action per screen */
+  primaryBtn: ROLE.primaryBtn,
+  onPrimaryBtn: ROLE.onPrimaryBtn,
+  neg: ROLE.neg,
+  pos: ROLE.pos,
+  /** the Money Left hero card: a white sheet */
+  heroFill: ROLE.surface,
+  /** "near budget" progress: the web paints near and over red */
+  fillNear: COLOR.signal,
 } as const;
 
-/** Poppins per weight — React Native does not synthesise weights for custom
- * fonts, so each weight is its own family name (loaded in `app/_layout.tsx`). */
+/** Geist per weight: React Native never synthesises a weight for a custom font, so each weight is its own family. */
 export const fonts = {
-  regular: "Poppins_400Regular",
-  medium: "Poppins_500Medium",
-  semibold: "Poppins_600SemiBold",
-  bold: "Poppins_700Bold",
+  regular: FONT.geist[400],
+  medium: FONT.geist[500],
+  semibold: FONT.geist[600],
+  bold: FONT.geist[600],
 } as const;
 
 export const radii = {
-  field: 12, // web: rounded-lg
-  card: 32, // web: .brand-mascot-stage
-  pill: 999, // web: rounded-full buttons
+  field: 12,
+  card: 32,
+  pill: 999,
 } as const;

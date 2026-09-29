@@ -51,6 +51,12 @@ describe("isPublic", () => {
     expect(isPublic("/app/anything-else")).toBe(false);
   });
 
+  it("serves the page an app sign-in link opens in a browser signed out, and nothing beside it", () => {
+    expect(isPublic("/app/auth/callback")).toBe(true);
+    expect(isPublic("/app/auth")).toBe(false);
+    expect(isPublic("/app/auth/callbacks")).toBe(false);
+  });
+
   it("still requires a session for ordinary app pages", () => {
     expect(isPublic("/")).toBe(false);
     expect(isPublic("/transactions")).toBe(false);

@@ -1319,3 +1319,42 @@ implementation goes to `budgts-architect`.
     (`src/app/fonts/geist`, OFL) with more room under the wordmark; `robots.ts` and `sitemap.ts` added and public
     in the proxy; `docs/deploy.md` gained the post-deploy cache checks (Cloudflare must stay DNS-only) and the
     footer's dependence on the six legal facts. Scores: homepage 390 and 1440 9.2 → 9.5, share card 9.5 → 9.5.
+- **2026-09-29 — Stage 2A: the native foundation (built, not deployed).** Branch `phase-m/stage2-native` (from
+  `7255d25`), by `budgts-architect`; Stage 2B (the mobile API) runs in parallel in another folder.
+  - **Toolkit:** Expo SDK 57 latest patch (`expo`, `expo-router` bumped), New Architecture on, `expo-doctor` 21/21. The
+    "duplicate react" warning's root cause was `react-dom` (a required peer of expo-router's web modal packages) missing
+    from `mobile/` under `legacy-peer-deps`, so it resolved from the web's `../node_modules`; installed at `19.2.3`.
+    Added `react-native-svg`, `expo-system-ui`; removed Poppins.
+  - **One look:** `src/lib/brand/tokens.ts` (colours, roles, type roles, spacing, shadows, motion), which
+    `pixel-frame.ts` now reads; `tests/unit/brand-tokens.test.ts` parses `globals.css` and fails on any difference.
+    Icons moved into one data table, `src/lib/brand/icons.ts` (the web `<Icon>` draws from it; a test pins every row
+    to Pixelarticons). Geist Regular / Medium and Geist Mono joined `src/app/fonts` (Google's static instances of the
+    fonts `next/font/google` serves). `tests/unit/brand-purity.test.ts` keeps the shared modules pure TypeScript.
+  - **Web unchanged, proven:** isolated staging builds of `7255d25` and this branch, `/`, `/company`, `/sign-in`,
+    `/privacy`, a signed-in dashboard and Settings, at 390 (3x) and 1280: **0 changed pixels in 12 captures**.
+  - **Native primitives** (`mobile/components/brand`): `<PixelFrame>`, `<Robin>`, `<Icon>`, `<Text variant>`, buttons,
+    field, tiles, the sign-in brand stage; every cell edge snapped to device pixels (react-native-svg has no
+    crispEdges). A dev screen (`budgts://dev/brand`) and a web harness draw the same specimen: on an Android 16
+    emulator at 412×915 / 2.625x every frame, state, robin and icon sits within **0.38pt** of the web with exact
+    token colours. Found and fixed on the way: a frame whose top fell on a half device pixel lost 3px of its bottom
+    step (the SVG sized itself; it now rides the view's rounded edges).
+  - **Sign-in:** the web's sign-in screen from those primitives; email links land on the new
+    `/app/auth/callback` web page (public in the proxy, one entry), which hands them to the app or, on a computer,
+    says to open them on the phone with web sign-in one tap away. Supabase puts a spent link's error in the URL
+    fragment, which the app never read (an expired link said "no code or token_hash"): fixed, with fixed messages
+    for every problem, "Send it again" and "Use a different email". Google asks which account; Sign in with Apple
+    is built behind `EXPO_PUBLIC_APPLE_SIGN_IN` (off). A note tells budgts.com users to use the same email or Google
+    account; with Apple shown, that Hide My Email starts a separate account. `docs/deploy.md` has the redirect URLs,
+    the Apple setup and the custom-SMTP steps (no settings changed).
+  - **Device:** a local Gradle dev build on the emulator, against an isolated staging server. Verified the fonts,
+    primitives, sign-in screen, the hand-off page in Chrome, the deep link, and the expired-link path. Not verified:
+    a completed session and a data screen, because Avast Web Shield re-signs HTTPS on this machine and the emulator
+    rejects it (ERR_CERT_AUTHORITY_INVALID). Owner: an EAS preview build on a phone.
+  - **Tests:** web 157 files / 1,732 tests, lint (0 errors, 5 old warnings), typecheck, build; mobile 31 files / 271
+    tests (15 new rendering tests), `tsc`; web e2e `app-sign-in-handoff.spec.ts` 4/4 on the isolated build.
+  - **Scores** (first → final): design-system port 8.6 → 9.5 (parity 8.5 → 9.5, correctness 9.0 → 9.6, performance
+    9.0 → 9.5, accessibility 9.0 → 9.5, polish 8.5 → 9.5); sign-in foundation 8.4 → 9.5 (parity 9.0 → 9.5,
+    correctness 8.0 → 9.5, performance 9.5 → 9.5, accessibility 9.0 → 9.5, polish 8.0 → 9.5). Trade-offs: long Geist
+    reading lines set up to ~1.5% wider on Android (glyph advance rounding; starts and heights match); motion
+    (Crystal, chirps, the sign-in beat) waits for Reanimated in Phase 3, so native shows the web's motion-off frame;
+    a completed device sign-in and Google on a device are still to run.

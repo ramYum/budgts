@@ -42,6 +42,10 @@ const PUBLIC_PREFIXES = [
   // whose web fallback page must load when the app is not installed.
   "/.well-known/",
   "/app/plaid-oauth",
+  // Where the app's sign-in email links land when they open in a browser (a
+  // computer, or a phone before app links are set up): it hands the link to
+  // the app and reads no user data (src/app/app/auth/callback).
+  "/app/auth/callback",
   // The legal and support pages the stores, Google's OAuth consent screen and
   // the apps link to, and the switch the apps read (src/lib/legal/config.ts).
   // Public whether or not the switch is on: while it is off each page is a

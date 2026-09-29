@@ -7,28 +7,32 @@
 // Generated into src/app/pixel-frames.css by `node tools/generate-pixel-frames.mjs`;
 // tests/unit/pixel-frames.test.ts fails if the CSS drifts from this file.
 
+// The `.ts` extension lets Node's type stripping load this module (the
+// generator above); Next, Vitest and Metro resolve it as written.
+import { COLOR, ROLE } from "./tokens.ts";
+
 /** One cell of the pixel grid, in CSS px. */
 export const CELL = 2;
 
-/** The palette the frames paint with. Mirrors the tokens in globals.css
- * (asserted by the test), because a data-URI SVG can't read CSS variables. */
+/** The palette the frames paint with: the design tokens (src/lib/brand/tokens.ts),
+ * spelled out here because a data-URI SVG can't read CSS variables. */
 export const PALETTE = {
-  ink: "#111111",
-  ash: "#6e6e6e",
-  stone: "#949494",
-  silver: "#b9b9b9",
-  gray: "#e6e6e6",
-  paper: "#f4f4f4",
-  white: "#ffffff",
-  surface2: "#f0f0f0",
-  signal: "#e54848",
-  signalStrong: "#d63c3c",
-  signalInk: "#c93434",
-  signalWash: "#fdeeee",
-  signalLine: "#f8d9d9",
-  growth: "#18794a",
-  growthWash: "#e6f2eb",
-  warnWash: "#fbf0da",
+  ink: COLOR.charcoal,
+  ash: COLOR.ash,
+  stone: COLOR.stone,
+  silver: COLOR.silver,
+  gray: COLOR.gray,
+  paper: COLOR.paper,
+  white: COLOR.white,
+  surface2: ROLE.surface2,
+  signal: COLOR.signal,
+  signalStrong: COLOR.signalStrong,
+  signalInk: COLOR.signalInk,
+  signalWash: COLOR.signalWash,
+  signalLine: COLOR.signalLine,
+  growth: COLOR.growth,
+  growthWash: COLOR.growthWash,
+  warnWash: COLOR.warnWash,
 } as const;
 
 export type FrameSpec = {

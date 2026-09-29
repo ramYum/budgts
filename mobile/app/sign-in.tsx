@@ -1,14 +1,5 @@
-import { useEffect, useState } from "react";
-import {
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { KeyboardAvoidingView, Platform, ScrollView, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams } from "expo-router";
 import * as Linking from "expo-linking";
@@ -16,112 +7,104 @@ import * as WebBrowser from "expo-web-browser";
 import * as AppleAuthentication from "expo-apple-authentication";
 import { supabase } from "../lib/supabase/client";
 import { isAppleSignInAvailable, signInWithAppleNative } from "../lib/auth/apple-native";
+import { LINK_PROBLEM_MESSAGE, type AuthLinkProblem } from "../lib/auth/auth-errors";
 import { buildAuthCallbackUrl } from "../lib/auth/callback-url";
 import { completeSessionFromUrl } from "../lib/auth/complete-session-from-url";
-import { isPlausibleEmail, normalizeEmail } from "../lib/auth/email";
-import { colors, fonts, radii } from "../lib/theme";
-import { OutlineButton, PrimaryButton, TextLink } from "../components/ui";
+import { sendEmailLink } from "../lib/auth/email-link";
+import { signInWithGoogle } from "../lib/auth/google";
+import { RESEND_AFTER_SECONDS, appleSignInEnabled, emailLinkRedirect } from "../lib/auth/sign-in-options";
+import { legalUrl } from "../lib/legal";
+import { useLegalLive } from "../lib/use-legal-links";
+import { COLOR, FONT, ROLE, SPACE } from "../lib/brand/shared";
+import { BrandStage } from "../components/brand/brand-stage";
+import { Button, Field, IconTile, Rule, TextButton } from "../components/brand/controls";
+import { PixelFrame } from "../components/brand/pixel-frame";
+import { Text } from "../components/brand/text";
 
-// `budgts://auth/callback` — the app's URL scheme (app.json "scheme") plus the
-// path, and the EXACT string that must be in Supabase's redirect allow-list
-// (docs/specs/2026-09-17-mobile-app-launch-design.md §4). Built through
-// `buildAuthCallbackUrl` because `Linking.createURL("/auth/callback")` yields a
-// triple-slash URL that Supabase rejects, silently sending the Magic Link to
-// the web app instead. See lib/auth/callback-url.test.ts.
-function redirectUri() {
-  return buildAuthCallbackUrl(Linking.createURL);
-}
+const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL;
+const APPLE_FLAG = appleSignInEnabled(process.env.EXPO_PUBLIC_APPLE_SIGN_IN);
 
 type Pending = null | "email" | "google" | "apple";
 
+function isProblem(value: unknown): value is AuthLinkProblem {
+  return typeof value === "string" && value in LINK_PROBLEM_MESSAGE;
+}
+
+/**
+ * Sign in: the web's sign-in screen (src/app/(auth)) drawn from the same brand
+ * sources: the brand stage, then one raised card with the email link and
+ * Google, plus Sign in with Apple on iOS once it is switched on
+ * (sign-in-options.ts). A link that failed on its way back (expired, used,
+ * from another device) lands here with its `problem`, shown above the form
+ * that fixes it.
+ */
 export default function SignInScreen() {
-  // `error` arrives here when a deep-link callback failed (expired/used link,
-  // link opened on a different device) — see app/auth/callback.tsx.
-  const params = useLocalSearchParams<{ error?: string }>();
+  const params = useLocalSearchParams<{ problem?: string }>();
   const [email, setEmail] = useState("");
   const [sentTo, setSentTo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [invalidEmail, setInvalidEmail] = useState(false);
   const [pending, setPending] = useState<Pending>(null);
-  // Sign in with Apple is iOS-only; the button appears only where the OS says it can run.
   const [appleAvailable, setAppleAvailable] = useState(false);
+  const legalLive = useLegalLive(API_BASE);
+  const field = useRef<TextInput>(null);
+
   useEffect(() => {
-    if (Platform.OS !== "ios") return;
+    if (Platform.OS !== "ios" || !APPLE_FLAG) return;
     void isAppleSignInAvailable()
       .then(setAppleAvailable)
       .catch(() => setAppleAvailable(false));
   }, []);
 
-  // Seeded into state (not read straight from params) so retrying clears it.
+  // Seeded into state (not read straight from params) so a new attempt clears it.
   useEffect(() => {
-    if (typeof params.error === "string") setError(params.error);
-  }, [params.error]);
+    if (isProblem(params.problem)) setError(LINK_PROBLEM_MESSAGE[params.problem]);
+  }, [params.problem]);
 
-  const cleanEmail = normalizeEmail(email);
-  const canSend = isPlausibleEmail(cleanEmail);
-  const shownError = error;
-
-  async function sendMagicLink() {
-    if (!canSend || pending) return;
+  async function sendLink(address: string) {
+    if (pending) return;
     setError(null);
+    setInvalidEmail(false);
     setPending("email");
     try {
-      const { error: otpError } = await supabase.auth.signInWithOtp({
-        email: cleanEmail,
-        options: { emailRedirectTo: redirectUri() },
+      const result = await sendEmailLink(address, {
+        redirectTo: emailLinkRedirect(API_BASE),
+        signInWithOtp: (args) => supabase.auth.signInWithOtp(args),
       });
-      if (otpError) {
-        setError(otpError.message);
-        return;
+      if (result.ok) setSentTo(result.email);
+      else {
+        setError(result.message);
+        setInvalidEmail(!!result.invalidEmail);
       }
-      setSentTo(cleanEmail);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not send the sign-in link");
     } finally {
       setPending(null);
     }
   }
 
-  async function signInWithGoogle() {
+  async function google() {
     if (pending) return;
     setError(null);
     setPending("google");
     try {
-      const redirectTo = redirectUri();
-      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: { redirectTo, skipBrowserRedirect: true },
+      const result = await signInWithGoogle({
+        redirectTo: buildAuthCallbackUrl(Linking.createURL),
+        signInWithOAuth: (args) => supabase.auth.signInWithOAuth(args),
+        openAuthSession: (url, returnUrl) => WebBrowser.openAuthSessionAsync(url, returnUrl),
+        completeSession: completeSessionFromUrl,
       });
-
-      if (oauthError || !data.url) {
-        setError(oauthError?.message ?? "Could not start Google sign-in");
-        return;
-      }
-
-      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
-
-      if (result.type !== "success" || !result.url) {
-        if (result.type !== "cancel" && result.type !== "dismiss") {
-          setError("Google sign-in did not complete");
-        }
-        return;
-      }
-
-      const completion = await completeSessionFromUrl(result.url);
-      if (!completion.ok) setError(completion.error);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Google sign-in failed");
+      // signed in: the auth listener moves the app on; cancelled: nothing to say
+      if (result.status === "error") setError(result.message);
     } finally {
       setPending(null);
     }
   }
 
-  async function signInWithApple() {
+  async function apple() {
     if (pending) return;
     setError(null);
     setPending("apple");
     try {
       const result = await signInWithAppleNative();
-      // "signed_in": the auth listener moves the app on. "cancelled": the user dismissed Apple's sheet — nothing to say.
       if (result.status === "error") setError(result.message);
       else if (result.status === "unavailable") setError("Sign in with Apple isn't available on this device.");
     } finally {
@@ -129,51 +112,57 @@ export default function SignInScreen() {
     }
   }
 
+  const showApple = APPLE_FLAG && appleAvailable;
+
   return (
-    <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
+    <SafeAreaView style={{ flex: 1, backgroundColor: ROLE.bg }}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView
-          contentContainerStyle={styles.scroll}
+          contentContainerStyle={{
+            flexGrow: 1,
+            justifyContent: "center",
+            paddingHorizontal: SPACE.gutter,
+            paddingTop: 24,
+            paddingBottom: 40,
+          }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.column}>
-            {sentTo ? (
-              <SentState
-                email={sentTo}
-                onUseDifferentEmail={() => {
-                  setSentTo(null);
-                  setError(null);
-                }}
-              />
-            ) : (
-              <>
-                <View style={styles.stage}>
-                  <Image
-                    source={require("../assets/brand/logo-sunburst.png")}
-                    style={styles.logo}
-                    resizeMode="contain"
-                    accessibilityLabel="Budgts — a brighter way to budget"
-                  />
-                </View>
+          <View style={{ width: "100%", maxWidth: 384, alignSelf: "center" }}>
+            <View style={{ marginBottom: 32 }}>
+              <BrandStage />
+            </View>
 
-                <View style={styles.headingBlock}>
-                  <Text style={styles.title} accessibilityRole="header">
-                    Sign in
-                  </Text>
-                  <Text style={styles.subtitle}>Track spending against your budget.</Text>
-                </View>
+            <PixelFrame frame="px-card-raised" style={{ padding: 20 }} testID="sign-in-card">
+              {sentTo ? (
+                <SentState
+                  email={sentTo}
+                  onResend={() => void sendLink(sentTo)}
+                  resending={pending === "email"}
+                  error={error}
+                  onUseDifferentEmail={() => {
+                    setSentTo(null);
+                    setError(null);
+                    setTimeout(() => field.current?.focus(), 0);
+                  }}
+                />
+              ) : (
+                <View style={{ gap: 24 }}>
+                  <View style={{ gap: 4 }}>
+                    <Text variant="heading" accessibilityRole="header">
+                      Sign in
+                    </Text>
+                    <Text variant="body" color={ROLE.muted}>
+                      Track spending against your budget.
+                    </Text>
+                  </View>
 
-                <View style={styles.form}>
-                  <View style={styles.fieldBlock}>
-                    <Text style={styles.label}>Email</Text>
-                    <TextInput
-                      style={styles.input}
+                  <View style={{ gap: 12 }}>
+                    <Field
+                      ref={field}
+                      testID="sign-in-email"
+                      label="Email"
                       placeholder="you@example.com"
-                      placeholderTextColor={colors.muted}
                       autoCapitalize="none"
                       autoCorrect={false}
                       autoComplete="email"
@@ -182,54 +171,68 @@ export default function SignInScreen() {
                       returnKeyType="send"
                       value={email}
                       onChangeText={setEmail}
-                      onSubmitEditing={sendMagicLink}
+                      onSubmitEditing={() => void sendLink(email)}
                       editable={!pending}
+                      invalid={invalidEmail}
                     />
+                    {error ? (
+                      <Text variant="formLabel" color={ROLE.neg} accessibilityRole="alert" accessibilityLiveRegion="polite" testID="sign-in-error">
+                        {error}
+                      </Text>
+                    ) : null}
+                    <Button
+                      testID="sign-in-email-send"
+                      size="lg"
+                      arrow={pending !== "email"}
+                      disabled={pending !== null}
+                      onPress={() => void sendLink(email)}
+                    >
+                      {pending === "email" ? "Sending…" : "Email me a sign-in link"}
+                    </Button>
                   </View>
 
-                  {shownError ? (
-                    <Text style={styles.error} accessibilityRole="alert">
-                      {shownError}
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                    <Rule style={{ flex: 1 }} />
+                    <Text variant="caption" color={ROLE.muted}>
+                      or
                     </Text>
-                  ) : null}
+                    <Rule style={{ flex: 1 }} />
+                  </View>
 
-                  <PrimaryButton
-                    onPress={sendMagicLink}
-                    disabled={!canSend || pending === "google" || pending === "apple"}
-                    loading={pending === "email"}
-                  >
-                    Email me a sign-in link
-                  </PrimaryButton>
+                  <View style={{ gap: 12 }}>
+                    <Button
+                      testID="sign-in-google"
+                      variant="secondary"
+                      size="lg"
+                      icon="google"
+                      loading={pending === "google"}
+                      disabled={pending !== null && pending !== "google"}
+                      onPress={() => void google()}
+                    >
+                      Continue with Google
+                    </Button>
+                    {showApple ? (
+                      // Apple's own button (App Store guideline 4.8 / HIG), the same height as Google's.
+                      <AppleAuthentication.AppleAuthenticationButton
+                        testID="sign-in-apple"
+                        buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                        buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                        cornerRadius={0}
+                        style={{ height: SPACE.buttonLg, width: "100%" }}
+                        onPress={() => void apple()}
+                      />
+                    ) : null}
+                  </View>
+
+                  <Text variant="meta" color={ROLE.muted} testID="sign-in-same-account">
+                    Already use Budgts on budgts.com? Sign in with the same email or Google account to keep your budget.
+                    {showApple ? " With Sign in with Apple, Hide My Email starts a separate, new account." : ""}
+                  </Text>
                 </View>
+              )}
+            </PixelFrame>
 
-                <View style={styles.divider}>
-                  <View style={styles.rule} />
-                  <Text style={styles.dividerText}>or</Text>
-                  <View style={styles.rule} />
-                </View>
-
-                <OutlineButton
-                  testID="sign-in-google"
-                  onPress={signInWithGoogle}
-                  disabled={pending === "email" || pending === "apple"}
-                  loading={pending === "google"}
-                >
-                  Continue with Google
-                </OutlineButton>
-
-                {appleAvailable ? (
-                  // Apple's own button (App Store guideline 4.8 / HIG), the same size and prominence as Google's.
-                  <AppleAuthentication.AppleAuthenticationButton
-                    testID="sign-in-apple"
-                    buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-                    buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-                    cornerRadius={24}
-                    style={styles.appleButton}
-                    onPress={() => void signInWithApple()}
-                  />
-                ) : null}
-              </>
-            )}
+            {legalLive ? <LegalLine /> : null}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -237,74 +240,79 @@ export default function SignInScreen() {
   );
 }
 
-/** "Check your email" — mirrors the web state, plus the reachable exit the
- * placeholder lacked (a mistyped address used to be a dead end). */
+/** "Check your email", with the exits the web's version lacks on a phone: send it again, or use another address. */
 function SentState({
   email,
+  onResend,
+  resending,
+  error,
   onUseDifferentEmail,
 }: {
   email: string;
+  onResend: () => void;
+  resending: boolean;
+  error: string | null;
   onUseDifferentEmail: () => void;
 }) {
+  const [wait, setWait] = useState(RESEND_AFTER_SECONDS);
+  useEffect(() => {
+    if (wait <= 0) return;
+    const t = setTimeout(() => setWait((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [wait]);
+
   return (
-    <View style={styles.sent}>
-      <View style={styles.stage}>
-        <Image
-          source={require("../assets/brand/mood-happy.png")}
-          style={styles.sentMascot}
-          resizeMode="contain"
-          accessibilityLabel="Budgts robin mascot"
-        />
-      </View>
-      <View style={styles.headingBlock}>
-        <Text style={[styles.title, styles.center]} accessibilityRole="header">
-          Check your email
+    <View style={{ gap: 12 }} accessibilityLiveRegion="polite">
+      <IconTile name="mail" />
+      <Text variant="heading" accessibilityRole="header">
+        Check your email
+      </Text>
+      <Text variant="body" color={ROLE.muted} testID="sign-in-sent">
+        We sent a sign-in link to {email}. Open it on this phone to sign in.
+      </Text>
+      {error ? (
+        <Text variant="formLabel" color={ROLE.neg} accessibilityRole="alert">
+          {error}
         </Text>
-        <Text style={[styles.subtitle, styles.center]}>
-          We sent a sign-in link to {email}. Open it on this phone and Budgts will open
-          automatically.
-        </Text>
+      ) : null}
+      <View style={{ gap: 4, marginTop: 4 }}>
+        <TextButton
+          testID="sign-in-resend"
+          icon="mail"
+          disabled={wait > 0 || resending}
+          onPress={() => {
+            setWait(RESEND_AFTER_SECONDS);
+            onResend();
+          }}
+        >
+          {resending ? "Sending…" : wait > 0 ? `Send it again in ${wait}s` : "Send it again"}
+        </TextButton>
+        <TextButton testID="sign-in-different-email" icon="edit" onPress={onUseDifferentEmail}>
+          Use a different email
+        </TextButton>
       </View>
-      <TextLink onPress={onUseDifferentEmail}>Use a different email</TextLink>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  flex: { flex: 1 },
-  safe: { flex: 1, backgroundColor: colors.bg },
-  scroll: { flexGrow: 1, justifyContent: "center", padding: 24 },
-  column: { width: "100%", maxWidth: 384, alignSelf: "center", gap: 24 },
-  stage: {
-    alignItems: "center",
-    paddingVertical: 16,
-    borderRadius: radii.card,
-    backgroundColor: colors.surface,
-  },
-  logo: { width: 240, height: 240 },
-  sentMascot: { width: 140, height: 132 },
-  headingBlock: { gap: 4 },
-  title: { fontFamily: fonts.bold, fontSize: 22, color: colors.text },
-  subtitle: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 21, color: colors.muted },
-  center: { textAlign: "center" },
-  form: { gap: 12 },
-  fieldBlock: { gap: 4 },
-  label: { fontFamily: fonts.medium, fontSize: 12, color: colors.muted },
-  input: {
-    minHeight: 48,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.field,
-    backgroundColor: colors.surface,
-    paddingHorizontal: 12,
-    fontFamily: fonts.regular,
-    fontSize: 15,
-    color: colors.text,
-  },
-  error: { fontFamily: fonts.regular, fontSize: 13, color: colors.neg },
-  divider: { flexDirection: "row", alignItems: "center", gap: 12 },
-  rule: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: colors.border },
-  dividerText: { fontFamily: fonts.regular, fontSize: 12, color: colors.muted },
-  sent: { gap: 24 },
-  appleButton: { height: 48, width: "100%" },
-});
+/** The web's line under the sign-in card, once the legal pages are live. */
+function LegalLine() {
+  const open = (page: "terms" | "privacy") => {
+    const url = legalUrl(API_BASE, page);
+    if (url) void WebBrowser.openBrowserAsync(url);
+  };
+  const link = { fontFamily: FONT.geist[500], color: ROLE.ink, textDecorationLine: "underline" as const, textDecorationColor: COLOR.silver };
+  return (
+    <Text variant="meta" color={ROLE.muted} style={{ marginTop: 16, textAlign: "center" }}>
+      By signing in you agree to the{" "}
+      <Text variant="meta" style={link} onPress={() => open("terms")} accessibilityRole="link">
+        Terms
+      </Text>{" "}
+      and{" "}
+      <Text variant="meta" style={link} onPress={() => open("privacy")} accessibilityRole="link">
+        Privacy policy
+      </Text>
+      .
+    </Text>
+  );
+}

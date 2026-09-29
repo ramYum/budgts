@@ -286,6 +286,64 @@ guessed here).
   the RevenueCat webhook deploy with the web app, through staging then
   production, before any store build depends on them.
 
+### App sign-in: what Supabase needs (Stage 2A, 2026-09-29; no settings changed)
+
+- **Redirect URLs** (Supabase → Authentication → URL Configuration), on each
+  project the app points at:
+  - `budgts://auth/callback`: Google's return to the app (already on
+    staging's list).
+  - `https://<site>/app/auth/callback`: where the app's email links land, the
+    page that hands them to the app (`src/app/app/auth/callback`). A
+    `https://budgts.com/**` entry covers it on production (check it is
+    there, or add the exact address); staging's list already covers
+    `http://localhost:3000/**` and `https://budgts-staging.vercel.app/**`
+    (verified 2026-09-29 by the read-only `/auth/v1/verify?redirect_to=`
+    probe). Supabase silently sends any address not on the list to the Site
+    URL instead, so check before a store build.
+- **Sign in with Apple:** Apple Developer account (waits on the LLC's
+  D-U-N-S number) → the bundle id with the Sign in with Apple capability →
+  Supabase → Providers → Apple enabled, the bundle id as an authorized
+  client id (native ID-token flow; no Services ID or `.p8` needed) → set
+  `EXPO_PUBLIC_APPLE_SIGN_IN=on` in the iOS EAS environment
+  (`mobile/README.md`, "Sign in with Apple").
+
+### Sign-in email at launch volume: custom SMTP (owner, before the private beta)
+
+Every magic link (web and app) is sent by Supabase's **built-in mail
+sender**. It is for testing only: a few emails an hour per project,
+best-effort delivery, a generic sender, and no guarantee it reaches inboxes.
+The app shows Supabase's "wait N seconds" limit in words, but real users will
+hit the hourly cap. Before the private beta, give each Supabase project
+(staging, then production) its own SMTP sender. Nothing was changed; the
+steps:
+
+1. **Choose a sender.** Either:
+   - **Google Workspace (budgts.com):** simplest if the owner already has
+     it. Create a mailbox or alias such as `no-reply@budgts.com`, turn on
+     2-Step Verification for that account and create an **App password**
+     (or configure the Workspace **SMTP relay** service for the domain).
+     Host `smtp.gmail.com` (or `smtp-relay.gmail.com` for the relay), port
+     587 (STARTTLS) or 465 (SSL). Workspace caps a user at about 2,000
+     messages a day: plenty for sign-in links at launch.
+   - **A transactional provider** (Postmark, Resend, Amazon SES, SendGrid):
+     better deliverability and logs, per-message pricing. Verify the domain
+     in the provider and use its SMTP host, port and credentials.
+2. **DNS (Cloudflare, budgts.com):** SPF (include the provider or Google),
+   the provider's DKIM record, and a DMARC record
+   (`v=DMARC1; p=none; rua=mailto:<owner address>` to start, tighten later).
+3. **Supabase → Authentication → SMTP Settings** (per project): enable
+   custom SMTP; sender email `no-reply@budgts.com`, sender name `Budgts`;
+   host, port, username, password from step 1. Keep the password in the
+   dashboard only (never in the repo or `.env` files).
+4. **Supabase → Authentication → Rate Limits:** raise "emails sent per hour"
+   to suit the beta (custom SMTP unlocks it), keeping the per-address
+   60-second resend limit the app's "Send it again" timer matches.
+5. **Test** on staging: a web sign-in link and an app sign-in link arrive
+   from `no-reply@budgts.com`, pass SPF/DKIM (Gmail → "Show original"), and
+   open on the right device. Then production.
+6. **Privacy policy:** name the email provider as a processor if it is new
+   (a transactional provider is; Google already is for Workspace).
+
 ## Planned: budgts.com becomes the company website (owner decision 2026-09-29)
 
 The apps will be the only product. The server stays in this project on

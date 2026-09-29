@@ -123,6 +123,24 @@ Each item needs a test or an explicit check before store submission.
   Production) closes that; also check that no log drain forwards Vercel logs
   elsewhere.
 
+## App sign-in (Stage 2A, 2026-09-29, not deployed)
+
+- **Token storage unchanged:** the session still lives in `large-secure-store`
+  (SecureStore-chunked) and the client stays PKCE.
+- **The email hand-off page** (`/app/auth/callback`, public in `src/proxy.ts`,
+  that one path only) never reads the link's code on the server: the server
+  renders one static page, and the browser builds the `budgts://auth/callback`
+  link from its own address. A code opened on the wrong device is useless
+  there: exchanging it needs the PKCE verifier held in the requesting
+  phone's secure storage. The page sets `referrer: no-referrer` and
+  `noindex`.
+- **No provider text reaches the screen:** every auth failure maps to a fixed
+  message (`mobile/lib/auth/auth-errors.ts`), including the fragment errors
+  Supabase returns for spent links.
+- **Sign in with Apple** stays behind `EXPO_PUBLIC_APPLE_SIGN_IN` (off); the
+  nonce flow is unchanged.
+- The app bundle still holds only public values (the new flag included).
+
 ## Account deletion screens and legal pages (Phase 1, 2026-09-28)
 
 - **The web deletion screen** (`/settings/delete-account`) decides nothing: `POST /api/account/delete` stays the only

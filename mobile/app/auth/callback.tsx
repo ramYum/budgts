@@ -1,93 +1,61 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
-import { Redirect, useLocalSearchParams } from "expo-router";
+import { ActivityIndicator, View } from "react-native";
+import { Redirect, useGlobalSearchParams } from "expo-router";
 import * as Linking from "expo-linking";
+import type { AuthLinkProblem } from "../../lib/auth/auth-errors";
 import { completeSessionFromUrl } from "../../lib/auth/complete-session-from-url";
-import { colors } from "../../lib/theme";
+import { isAuthCallbackUrl } from "../../lib/auth/parse-callback-url";
+import { ROLE } from "../../lib/brand/shared";
 
 /**
- * Landing screen for `budgts://auth/callback` when the OS opens the app
- * directly from the magic-link email (Google OAuth normally completes inline
- * in sign-in.tsx via `WebBrowser.openAuthSessionAsync`'s own result URL, but
- * Android may ALSO route the same URL here — `completeSessionFromUrl` is
- * deduplicated per URL so the single-use code is only exchanged once).
- * Mirrors `src/app/auth/callback/route.ts`.
+ * Landing screen for `budgts://auth/callback`: the email link (handed over by
+ * the web page it opens, src/app/app/auth/callback) and, on Android, Google's
+ * return as well (`completeSessionFromUrl` is deduplicated per URL, so the
+ * single-use code is exchanged once). Mirrors `src/app/auth/callback/route.ts`.
+ *
+ * It reads the whole link the OS opened, fragment included: a failed link
+ * carries its error there. A failure goes back to sign-in with its problem,
+ * where the message sits above the form that fixes it (auth-errors.ts).
  */
 export default function AuthCallbackScreen() {
-  const params = useLocalSearchParams();
-  const [status, setStatus] = useState<"pending" | "done" | "error">("pending");
-  const [error, setError] = useState<string | null>(null);
+  const params = useGlobalSearchParams();
+  const [outcome, setOutcome] = useState<{ ok: true } | { ok: false; problem: AuthLinkProblem } | null>(null);
+
+  // Chosen once: the single-use code must be exchanged for exactly one URL.
+  const [url] = useState(() => {
+    const opened = Linking.getLinkingURL();
+    return isAuthCallbackUrl(opened) ? opened : fromParams(params);
+  });
 
   useEffect(() => {
     let cancelled = false;
-
-    (async () => {
-      const url = reconstructUrlFromParams(params) ?? Linking.getLinkingURL();
-      if (!url) {
-        if (!cancelled) {
-          setStatus("error");
-          setError("No callback data received");
-        }
-        return;
-      }
-
-      const result = await completeSessionFromUrl(url);
-      if (cancelled) return;
-
-      if (result.ok) {
-        setStatus("done");
-      } else {
-        setStatus("error");
-        setError(result.error);
-      }
-    })();
-
+    void completeSessionFromUrl(url).then((result) => {
+      if (!cancelled) setOutcome(result);
+    });
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [url]);
 
-  if (status === "done") return <Redirect href="/" />;
-
-  // The message travels to the sign-in screen, which renders it — it used to be
-  // shown here for one frame and then redirected away (a silent failure).
-  if (status === "error") {
-    return (
-      <Redirect
-        href={{
-          pathname: "/sign-in",
-          params: { error: error ?? "Sign-in link is invalid or expired" },
-        }}
-      />
-    );
-  }
+  if (outcome?.ok) return <Redirect href="/" />;
+  if (outcome && !outcome.ok) return <Redirect href={{ pathname: "/sign-in", params: { problem: outcome.problem } }} />;
 
   return (
-    <View style={styles.container}>
-      <ActivityIndicator color={colors.accent} />
+    <View
+      style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: ROLE.bg }}
+      accessibilityLabel="Signing you in"
+    >
+      <ActivityIndicator color={ROLE.ink} />
     </View>
   );
 }
 
-/** Expo Router already parsed the query string into `params` by the time
- * this screen mounts on some platforms/cold-start paths; rebuild a URL
- * `parseAuthCallbackUrl` can read so both entry paths share one code path. */
-function reconstructUrlFromParams(params: Record<string, string | string[] | undefined>) {
+/** The route's parameters as a return URL, when the OS's link isn't at hand (Expo Router parsed it already). */
+function fromParams(params: Record<string, string | string[] | undefined>): string {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     if (typeof value === "string") search.set(key, value);
   }
   const query = search.toString();
-  return query ? `budgts://auth/callback?${query}` : null;
+  return query ? `budgts://auth/callback?${query}` : "budgts://auth/callback";
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 24,
-    backgroundColor: colors.bg,
-  },
-});

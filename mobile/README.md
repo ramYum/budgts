@@ -26,6 +26,51 @@ are live (`GET /api/legal`, `lib/legal.ts`). The web's switch is the one switch:
 suite (needs a device/emulator or CI runner); real-device verification of everything above. (Goals, category management and
 in-app CSV export are post-launch.)
 
+## Stage 2A: native foundation (2026-09-29, built, not deployed)
+
+- **Toolkit:** Expo SDK 57 at its latest patch set (`npx expo install --fix`), New Architecture on; `npx expo-doctor` 21/21.
+  The old "duplicate react" warning had a root cause: `react-dom`, a required peer of expo-router's web modal packages, was not
+  installed here (`.npmrc` has `legacy-peer-deps`), so it resolved from the web app's `../node_modules` and pulled that `react` in.
+  `react-dom@19.2.3` is now installed here, matching `react`. `react-native-plaid-link-sdk` is excluded from the React Native
+  Directory check: v13 is an Expo module (New Architecture native); the directory's metadata is stale.
+- **Shared, not copied:** `metro.config.js` watches only `src/lib/brand`, `src/lib/crystal` and `src/app/fonts` of the web app and
+  resolves packages from this folder's `node_modules` alone (the web's `node_modules` and `.next` are block-listed).
+  `lib/brand/shared.ts` is the one import of those files. `lib/theme.ts` now maps the older screens onto the same tokens and Geist
+  (Poppins and the cream palette are gone) until Phase 3 rebuilds each screen from the primitives.
+- **Brand primitives** (`components/brand/*`): `<PixelFrame>`, `<Robin>`, `<Icon>`, `<Text variant>`, `<Button>`, `<Field>`,
+  `<TextButton>`, `<IconTile>`, `<BrandStage>`; see `docs/BRAND_GUIDELINES.md` → "Native apps". The development-only screen
+  `budgts://dev/brand` shows every primitive at the places in `lib/brand/specimen.ts`, for parity captures.
+- **Sign-in:** the web's sign-in screen drawn from the primitives.
+  - **Email link** lands on `<API base>/app/auth/callback` (`lib/auth/sign-in-options.ts`): a web page that hands it to the app as
+    `budgts://auth/callback` (one tap on a phone) or, on a computer, says to open the email on the phone and keeps web sign-in one
+    tap away. Once universal links / app links are configured, the phone opens the app straight from the link. Expired, used and
+    other-device links come back to sign-in with a message and the form that fixes it (`lib/auth/auth-errors.ts`; Supabase puts a
+    failed link's error in the URL **fragment**, which the old parser missed). The sent screen has "Send it again" (after 60s) and
+    "Use a different email".
+  - **Google** as on the web (same Supabase project and provider, so the same Google account is the same user), always asking
+    which account; closing the sheet or declining is a quiet cancel.
+  - **Sign in with Apple** is built and **off**: it shows only on iOS with `EXPO_PUBLIC_APPLE_SIGN_IN=on` in the build, once the
+    Apple developer account and Supabase's Apple provider exist (below). Where it shows, the screen warns that Hide My Email starts
+    a separate account.
+  - Under the buttons, existing budgts.com users are told to use the same email or Google account.
+- **Tests:** `npx vitest run` also renders the primitives (`components/**/*.test.tsx`, react-test-renderer over host stand-ins in
+  `test/`).
+
+### Device run (Android emulator, 2026-09-29)
+
+A development build (`npx expo run:android`, local Gradle) ran on an Android 16 emulator (Pixel 6 profile, 412×915 at 2.625x)
+against an isolated local staging web server (`adb reverse tcp:3000 tcp:3000`, `EXPO_PUBLIC_API_BASE_URL=http://localhost:3000`).
+Verified: the fonts, every primitive (within one device pixel of the web, exact colours), the sign-in screen, the web hand-off
+page in Chrome, the `budgts://auth/callback` deep link into the running app, and an expired link landing on sign-in with its
+message. **Not verified on the device:** a completed sign-in and a data screen loading. On this machine Avast Web/Mail Shield
+intercepts HTTPS with its own root certificate, which the emulator doesn't trust, so every HTTPS call from the emulator to Supabase
+fails (Chrome: `ERR_CERT_AUTHORITY_INVALID`; the app shows its "Couldn't reach Budgts" message, as designed). Run those on a phone
+(an EAS preview build) or with Avast's HTTPS scanning off for the emulator.
+
+Local build notes (this machine): Gradle's Java needs `JAVA_TOOL_OPTIONS=-Djavax.net.ssl.trustStoreType=Windows-ROOT` (the same
+interception, trusted through Windows' store), and a slow link can time out the Gradle wrapper download (fetch the zip into
+`~/.gradle/wrapper/dists/<version>/<hash>/` by hand).
+
 ## Real-device testing (Expo Go)
 
 Sign-in (Magic Link, Google, Sign in with Apple), Home and the account screens run in **Expo Go** — no EAS dev-client build, Xcode or
@@ -82,15 +127,18 @@ Implemented in code (see "Sign in with Apple" at the end of this file). These st
    (the native ID-token flow). A Services ID and `.p8` key are only needed for a browser-based Apple flow, which Budgts does not use.
 4. `app.json` already carries `ios.usesAppleSignIn` and the `expo-apple-authentication` config plugin. The flow does not use
    `budgts://auth/callback`.
+5. Switch it on: `EXPO_PUBLIC_APPLE_SIGN_IN=on` for the iOS builds (`eas env:create`, per environment), staging first. Until then
+   the button never shows. Then test on a device: a new Apple ID signs up; an Apple ID whose shared email is already a Budgts user
+   signs in to that same user; Hide My Email creates a new, separate user (the screen says so).
 
 ## What's implemented vs. still open
 
 | Item | Status |
 | --- | --- |
 | Expo SDK 57 / Expo Router scaffold | Done |
-| Magic Link sign-in | Code-complete. **Device test 2026-09-19 found the email link opened the web app** — root cause fixed (see "Auth redirect URL contract"); needs re-test on the new build |
-| Google OAuth sign-in | Code-complete; provider config verified live, browser round-trip verified on **web**. Uses the same redirect URL as Magic Link, so the same fix applies; re-test on the new build |
-| Branded sign-in screen | Done — Poppins, cream/sun palette, real robin/sunburst art, "Use a different email" exit; tokens mirrored from web `globals.css` (`lib/theme.ts`, drift-tested) |
+| Magic Link sign-in | Built (Stage 2A): web hand-off page, deep-link return, expired/used/other-device handling; emulator-verified up to the deep link (see "Device run") |
+| Google OAuth sign-in | Built (Stage 2A): account chooser, quiet cancel, fixed messages; unit-tested; not yet run on a device |
+| Branded sign-in screen | Done (Stage 2A): the web's sign-in screen from the shared brand sources |
 | Sign in with Apple | Code-complete and unit-tested (`lib/auth/apple-sign-in.ts`), iOS only. **Not run on a device**; needs Apple Developer enrolment and the Supabase Apple provider — see "Sign in with Apple" below |
 | Signed-in shell, Get Started, Settings, paywall, delete account | Code-complete, typechecked, pure logic unit-tested (`lib/profile`, `lib/account`, `lib/billing/describe.ts`). **Not run on a device** |
 | Data API (transactions, accounts, categories, budgets) | Server side built and verified live on staging; native Activity, add/edit transaction, Budgets and Accounts screens built and typechecked. **Not run on a device** |
@@ -105,7 +153,7 @@ Implemented in code (see "Sign in with Apple" at the end of this file). These st
 | EAS build config | `eas.json` present (`development`, `preview`); linked to a real EAS project (`@budgts/budgts`, see "EAS readiness" below) and validated via `eas config` for both platforms |
 | Native Home | Done — `app/(app)` Home over `GET /api/mobile/home` (Bearer); currency formatting verified on a device under Hermes |
 | Store billing (trial / purchase / restore) | Code-complete and unit-tested (`lib/billing/*`, `react-native-purchases` behind a provider port; the server decides access). **Not exercised against a real store** — no RevenueCat project or Apple/Google products yet. The paywall and Settings screens host it |
-| Physical-device/simulator run | **Not performed** — no device, no emulator, and (being Windows) no possibility of an iOS Simulator on this machine |
+| Physical-device/simulator run | Android emulator run 2026-09-29 (see "Device run"); no physical device yet; iOS needs a Mac or EAS |
 
 ## Auth redirect URL contract (why Magic Link once opened the web app)
 
@@ -160,7 +208,7 @@ regenerable — nothing from this is committed):
   (`scheme` in app.json → the platform's own URL-handling config), so there's
   no reason to expect it behaves differently, but that's an expectation, not
   a verification.
-- `npx expo-doctor`: 20/21 checks pass, including "Validate packages against
+- `npx expo-doctor` (2026-09-18; 21/21 since Stage 2A): 20/21 checks passed then, including "Validate packages against
   React Native Directory package metadata" — the check that would flag a
   package needing custom native code incompatible with Expo Go. The one
   failure (duplicate `react` versions) is the same pre-existing,

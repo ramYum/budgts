@@ -100,7 +100,16 @@ The frame generator's palette mirrors these tokens;
   sound; the marks rest hidden while animated), `curious` ("?", used for
   errors and a negative month), `sleepy` (eyes shut, "z", used for empty lists
   and offline).
-- **App icons:** generated from the same art by `node tools/generate-app-icons.mjs`.
+- **App icons:** generated from the same art by `node tools/generate-app-icons.mjs`:
+  the web icons, and the native apps' store icon (opaque paper), Android's
+  adaptive foreground (inside the 66dp safe circle, on a paper background)
+  and its themed monochrome icon (her darks only: outline, cap, back, wing,
+  tail).
+- **Crystal's egg** (`src/lib/brand/egg-art.ts`, native apps only): a
+  speckled pixel egg in Crystal's own palette (her charcoal outline, belly
+  white and shade, a white glint, speckles in her head and crown browns),
+  lit from the upper left. It is the apps' loading screen and their native
+  splash; the same tool renders the splash image from it.
 
 ## Components
 
@@ -195,6 +204,7 @@ enforces this.
 | `press` (scale 0.98) / `lift` | A tap was felt / a card is interactive |
 | `pip` | The active-tab marker snaps in |
 | `.skeleton` sweep | Content is loading, shaped like what's coming |
+| Egg loader (native apps, `egg-loader.tsx`, art and loop in `egg-art.ts`) | The app is starting, signing in or opening the account. The native splash's standing egg is its first frame, same size and place; the splash fades (200ms) as the loader lays out. The ground, a row of 14 progress cells, steps in beneath it left to right (`cells-sweep`, 352ms), then the egg tips over and rolls end over end a quarter turn onto its side, rocks and settles, rolls back half a turn past the middle onto its other side, rocks, and rolls home to stand again: 40 steps of 80ms, one pre-drawn frame per step (16 per turn), each step moving it by the arc of shell that met the ground, so it rolls, never slides. The cell under it lights in ink and the one it left fades to `--cell-past`: a chase, never a bar that fills. No text; one busy progress bar to screen readers. It never delays the app: when loading ends the screen beneath takes touches at once and the loader fades out (200ms). Motion off: the standing egg on a still, full row |
 | `rise` / `pop` (`--at`) | One-off entrances placed on the beat: the greeting word by word, a hero's detail lines, a tag snapping on after its chart column builds |
 
 ## Native apps (iOS + Android)
@@ -208,7 +218,8 @@ primitives, fonts and type roles below, in `mobile/components/brand/*`. The
 app imports the web files themselves through Metro `watchFolders`
 (`mobile/metro.config.js`, `mobile/lib/brand/shared.ts`); those files stay
 pure TypeScript (`tests/unit/brand-purity.test.ts`). Motion, progress cells
-and Crystal's walk come with the screens in Phase 3.
+and Crystal's walk come with the screens in Phase 3. The first native motion,
+the egg loader, came first (2026-09-29): Reanimated is installed.
 
 | Web | Native |
 | --- | --- |
@@ -219,7 +230,8 @@ and Crystal's walk come with the screens in Phase 3.
 | Pixelarticons through `<Icon>` at 12/24/36/48 | The same glyph data (`src/lib/brand/icons.ts`, which the web `<Icon>` now draws from too; a test pins it to the package) at the same sizes |
 | `shape-rendering: crispEdges` | react-native-svg always anti-aliases, so every cell edge is snapped to the device-pixel grid first (`mobile/lib/brand/snap.ts`, ties to the top-left as the rasteriser does): the same pixels, nothing to blur |
 | The robin (`robin-art.ts`) and Crystal (`crystal-perch.tsx`, `src/lib/crystal/roam.ts`) | `<Robin>` from the same art at whole px per cell, every mood, the chirp and flap frames; roam logic shared; motion in Reanimated (Phase 3) |
-| Motion table above (durations, `steps()`, delays) | Reanimated with the same timings and stepped easing; off under Reduce Motion |
+| Motion table above (durations, `steps()`, delays) | Reanimated with the same timings and stepped easing; off under Reduce Motion. `steps()` is `useSteppedClock` (`mobile/lib/motion/stepped.ts`): whole steps from the UI thread's frame clock, so sprite motion keeps time while JavaScript is busy |
+| (native only) the loading screen and splash | `<EggLoader>` at the sign-in grain (4px per cell), one instance for every full-screen load (`components/loading-screen.tsx`: start-up, the sign-in link, the profile) so the egg rolls on across the handoffs. The native splash (`expo-splash-screen`) shows its first frame: paper `#F4F4F4`, the egg in a 60dp/pt square, one image per Android density so no bucket is resampled |
 | Progress cells (`.px-bar`: square cells, count = fit) | The same geometry and lit math, drawn once per bar with react-native-svg |
 | 24px phone gutter, 16px card padding | Identical, inside the safe areas |
 

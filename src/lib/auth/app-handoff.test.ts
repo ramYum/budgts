@@ -25,9 +25,9 @@ describe("app sign-in hand-off", () => {
         "#access_token=SECRET_AT&refresh_token=SECRET_RT&expires_in=3600&provider_token=SECRET_PT&error_description=d",
       ),
     );
-    expect([...url.searchParams.keys()].sort()).toEqual(["code", "error_description", "type"]);
+    expect([...url.searchParams.keys()].sort()).toEqual(["code", "error_description"]);
     const href = url.toString();
-    for (const secret of ["SECRET_", "evil", "next", "redirect_to"]) expect(href).not.toContain(secret);
+    for (const secret of ["SECRET_", "evil", "next", "redirect_to", "type", "magiclink"]) expect(href).not.toContain(secret);
   });
 
   it("forwards nothing from an implicit-flow link but its error", () => {

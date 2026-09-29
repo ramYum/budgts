@@ -133,7 +133,7 @@ Each item needs a test or an explicit check before store submission.
   link from its own address. A code opened on the wrong device is useless
   there: exchanging it needs the PKCE verifier held in the requesting
   phone's secure storage. The page sets `referrer: no-referrer` and
-  `noindex`, and forwards only `code`, `type`, `error`, `error_code` and
+  `noindex`, and forwards only `code`, `error`, `error_code` and
   `error_description` (never a `token_hash` or implicit-flow tokens).
 - **Only PKCE codes the app started** (review fix, 2026-09-29): the app's
   callback refuses `token_hash` links and fragment tokens. A `token_hash` is

@@ -45,7 +45,7 @@ in-app CSV export are post-launch.)
     `budgts://auth/callback` (one tap on a phone) or, on a computer, says to open the email on the phone and keeps web sign-in one
     tap away. Once universal links / app links are configured, the phone opens the app straight from the link. Expired, used and
     other-device links come back to sign-in with a message and the form that fixes it (`lib/auth/auth-errors.ts`; Supabase puts a
-    failed link's error in the URL **fragment**, which the old parser missed). The page forwards only `code`, `type` and the
+    failed link's error in the URL **fragment**, which the old parser missed). The page forwards only `code` and the
     error parameters, and the app accepts only a PKCE `code` it started: a `token_hash` link is refused with "send a new one"
     (login-confusion guard, launch spec §4). The sent screen has "Send it again" (after the server's wait, 60s by default) and
     "Use a different email". A build without `EXPO_PUBLIC_API_BASE_URL` says it isn't set up instead of failing silently.

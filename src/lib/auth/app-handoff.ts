@@ -17,13 +17,13 @@ function linkParams(search: string, hash: string): URLSearchParams {
 }
 
 /**
- * The only parameters the app's sign-in return reads: its PKCE `code` (and
- * `type`), or why the link failed. Nothing else is passed on: not a
+ * The only parameters the app's sign-in return reads: its PKCE `code`, or
+ * why the link failed. Nothing else is passed on: not a
  * `token_hash` (the app accepts only PKCE codes it started), and never tokens
  * (`access_token` / `refresh_token`) that an implicit-flow link would carry in
  * its fragment.
  */
-export const HANDOFF_PARAMS = ["code", "type", "error", "error_code", "error_description"] as const;
+export const HANDOFF_PARAMS = ["code", "error", "error_code", "error_description"] as const;
 
 /** The same sign-in return, addressed to the app, carrying only HANDOFF_PARAMS. */
 export function appHandoffUrl(search: string, hash: string): string {

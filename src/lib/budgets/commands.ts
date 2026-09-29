@@ -6,7 +6,8 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { monthKey } from "@/lib/budget/month";
-import { invalid, type Failed, type Invalid } from "@/lib/command-result";
+import { invalid, type Failed, type Invalid, type MissingReference } from "@/lib/command-result";
+import { referencesVisible } from "@/lib/ownership";
 import { budgetFormSchema } from "@/lib/validation/budget";
 
 const MONTH_RE = /^\d{4}-\d{2}$/;
@@ -17,13 +18,16 @@ function prevMonth(month: string): string {
   return monthKey(new Date(Date.UTC(y, m - 2, 1)));
 }
 
-export type BudgetResult = { ok: true } | Invalid | Failed;
+export type BudgetResult = { ok: true } | Invalid | MissingReference | Failed;
 
 /** Upserts one category's budget for a month, or clears it when the amount is empty or zero. */
 export async function setBudget(supabase: SupabaseClient, userId: string, raw: unknown): Promise<BudgetResult> {
   const parsed = budgetFormSchema.safeParse(raw);
   if (!parsed.success) return invalid(parsed.error.issues);
   const { categoryId, month, amount } = parsed.data;
+  // The category must be the caller's own: a foreign id would otherwise be stored (see src/lib/ownership.ts).
+  const owned = await referencesVisible(supabase, "categories", [categoryId]);
+  if (!owned.ok) return owned.error === "missing" ? { ok: false, error: "missing_reference" } : owned;
 
   if (amount === 0) {
     const { error } = await supabase

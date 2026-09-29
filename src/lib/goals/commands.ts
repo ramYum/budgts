@@ -10,7 +10,8 @@
  * a second contribution (a doubled contribution would overstate what is saved).
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { invalid, type Failed, type Invalid } from "@/lib/command-result";
+import { invalid, type Failed, type Invalid, type Locked } from "@/lib/command-result";
+import { missingOrLocked, referencesVisible } from "@/lib/ownership";
 import { contributionFormSchema, savingsGoalFormSchema } from "@/lib/validation/savings";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -19,7 +20,7 @@ const UNIQUE_VIOLATION = "23505";
 type Missing = { ok: false; error: "missing" };
 
 export type CreateGoalResult = { ok: true; id: string } | Invalid | Failed;
-export type GoalWriteResult = { ok: true } | Invalid | Missing | Failed;
+export type GoalWriteResult = { ok: true } | Invalid | Missing | Locked | Failed;
 export type ContributionResult = { ok: true; id: string } | Invalid | Missing | Failed;
 
 function badRequestId(requestId: string | undefined): Invalid | null {
@@ -82,7 +83,7 @@ export async function updateGoal(supabase: SupabaseClient, id: string, raw: unkn
     .eq("id", id)
     .select("id");
   if (error) return { ok: false, error: "failed", message: error.message };
-  return data?.length ? { ok: true } : { ok: false, error: "missing" };
+  return data?.length ? { ok: true } : missingOrLocked(supabase);
 }
 
 export async function setGoalArchived(
@@ -92,7 +93,7 @@ export async function setGoalArchived(
 ): Promise<Exclude<GoalWriteResult, Invalid>> {
   const { data, error } = await supabase.from("savings_goals").update({ is_archived: archived }).eq("id", id).select("id");
   if (error) return { ok: false, error: "failed", message: error.message };
-  return data?.length ? { ok: true } : { ok: false, error: "missing" };
+  return data?.length ? { ok: true } : missingOrLocked(supabase);
 }
 
 /**
@@ -112,10 +113,10 @@ export async function addContribution(
   if (bad) return bad;
 
   const { goalId, amount, occurredAt, note } = parsed.data;
-  // The goal must be the caller's own (RLS hides anyone else's): say `missing` instead of letting the foreign key fail.
-  const { data: goal, error: goalError } = await supabase.from("savings_goals").select("id").eq("id", goalId).maybeSingle();
-  if (goalError) return { ok: false, error: "failed", message: goalError.message };
-  if (!goal) return { ok: false, error: "missing" };
+  // The goal must be the caller's own: foreign keys ignore RLS, so another user's goal id would otherwise be accepted
+  // (src/lib/ownership.ts). It reads as `missing`, exactly like an unknown id.
+  const owned = await referencesVisible(supabase, "savings_goals", [goalId]);
+  if (!owned.ok) return owned;
 
   return insertOnce(
     supabase,
@@ -128,8 +129,8 @@ export async function addContribution(
 export async function deleteContribution(
   supabase: SupabaseClient,
   id: string,
-): Promise<{ ok: true } | Missing | Failed> {
+): Promise<{ ok: true } | Missing | Locked | Failed> {
   const { data, error } = await supabase.from("savings_contributions").delete().eq("id", id).select("id");
   if (error) return { ok: false, error: "failed", message: error.message };
-  return data?.length ? { ok: true } : { ok: false, error: "missing" };
+  return data?.length ? { ok: true } : missingOrLocked(supabase);
 }

@@ -39,7 +39,12 @@ export function mobileCommandError(failure: {
     case "invalid":
       return mobileError("invalid", 422, { fieldErrors: failure.fieldErrors ?? {} });
     case "missing":
+    case "missing_reference":
       return mobileError("not_found", 404);
+    case "locked":
+      // A started account deletion has made the account read-only (423 Locked): the app says changes are paused and
+      // offers to finish deleting, never "not found".
+      return mobileError("account_locked", 423);
     case "conflict":
       return mobileError("conflict", 409);
     case "nothing_to_copy":

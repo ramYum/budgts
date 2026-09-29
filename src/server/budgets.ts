@@ -26,9 +26,8 @@ export async function setBudget(
   const { user, supabase } = await withUser();
   const result = await setBudgetCommand(supabase, user.id, Object.fromEntries(formData));
   if (!result.ok) {
-    return result.error === "invalid"
-      ? { fieldError: Object.values(result.fieldErrors)[0] ?? "Invalid budget" }
-      : { error: result.message };
+    if (result.error === "invalid") return { fieldError: Object.values(result.fieldErrors)[0] ?? "Invalid budget" };
+    return { error: result.error === "missing_reference" ? "That category no longer exists. Refresh and try again." : result.message };
   }
   revalidateUserData();
   return { ok: true };

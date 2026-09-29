@@ -8,14 +8,15 @@
  * after a lost response returns the category that landed instead of creating a second one with the same name.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { invalid, type Failed, type Invalid } from "@/lib/command-result";
+import { invalid, type Failed, type Invalid, type Locked } from "@/lib/command-result";
+import { missingOrLocked } from "@/lib/ownership";
 import { categoryFormSchema } from "@/lib/validation/category";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const UNIQUE_VIOLATION = "23505";
 
 export type CreateCategoryResult = { ok: true; id: string; name: string } | Invalid | Failed;
-export type CategoryWriteResult = { ok: true } | Invalid | { ok: false; error: "missing" } | Failed;
+export type CategoryWriteResult = { ok: true } | Invalid | { ok: false; error: "missing" } | Locked | Failed;
 
 export async function createCategory(
   supabase: SupabaseClient,
@@ -55,7 +56,7 @@ export async function updateCategory(supabase: SupabaseClient, id: string, raw: 
 
   const { data, error } = await supabase.from("categories").update(parsed.data).eq("id", id).select("id");
   if (error) return { ok: false, error: "failed", message: error.message };
-  return data?.length ? { ok: true } : { ok: false, error: "missing" };
+  return data?.length ? { ok: true } : missingOrLocked(supabase);
 }
 
 export async function setCategoryArchived(
@@ -65,5 +66,5 @@ export async function setCategoryArchived(
 ): Promise<Exclude<CategoryWriteResult, Invalid>> {
   const { data, error } = await supabase.from("categories").update({ is_archived: archived }).eq("id", id).select("id");
   if (error) return { ok: false, error: "failed", message: error.message };
-  return data?.length ? { ok: true } : { ok: false, error: "missing" };
+  return data?.length ? { ok: true } : missingOrLocked(supabase);
 }

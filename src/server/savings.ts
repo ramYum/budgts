@@ -10,6 +10,7 @@ import {
   setGoalArchived as setGoalArchivedCommand,
   updateGoal as updateGoalCommand,
 } from "@/lib/goals/commands";
+import { LOCKED_MESSAGE } from "@/lib/ownership";
 
 export type SavingsActionState = { error?: string; fieldError?: string; ok?: boolean };
 
@@ -27,6 +28,7 @@ type Outcome =
   | { ok: true; id?: string }
   | { ok: false; error: "invalid"; fieldErrors: Record<string, string> }
   | { ok: false; error: "missing" }
+  | { ok: false; error: "locked" }
   | { ok: false; error: "failed"; message: string };
 
 function toState(result: Outcome, invalidFallback: string): SavingsActionState {
@@ -39,6 +41,8 @@ function toState(result: Outcome, invalidFallback: string): SavingsActionState {
       return { fieldError: Object.values(result.fieldErrors)[0] ?? invalidFallback };
     case "missing":
       return { error: GOAL_GONE };
+    case "locked":
+      return { error: LOCKED_MESSAGE };
     default:
       return { error: result.message };
   }
@@ -82,7 +86,10 @@ export async function deleteContribution(id: string): Promise<{ error?: string }
   if (!id) return { error: "Missing contribution id" };
   const { supabase } = await withUser();
   const result = await deleteContributionCommand(supabase, id);
-  if (!result.ok) return { error: result.error === "missing" ? "That contribution no longer exists." : result.message };
+  if (!result.ok) {
+    if (result.error === "missing") return { error: "That contribution no longer exists." };
+    return { error: result.error === "locked" ? LOCKED_MESSAGE : result.message };
+  }
   revalidateUserData();
   return {};
 }

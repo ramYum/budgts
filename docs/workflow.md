@@ -1339,7 +1339,7 @@ implementation goes to `budgts-architect`.
     contract version (removing or changing a field bumps it).
   - **Fixed on the way (root causes, small):** contributions were read unpaged (silently capped at 1000 rows for
     Home's savings card and Goals); a contribution could reference another user's goal id (foreign keys ignore
-    RLS), now refused; the web CSV export returned the storage error's text on failure; web Goals, Accounts and
+    RLS), now refused by the app (see the review fixes below); the web CSV export returned the storage error's text on failure; web Goals, Accounts and
     Categories showed an empty screen on a failed read, now the error boundary. The web Activity panel still hides
     on a failed needs-category read, as before; the API answers 503.
   - **Moved tests:** `limited-history-banner.test.ts` and `review-banner.test.ts` moved beside the functions they
@@ -1351,9 +1351,35 @@ implementation goes to `budgts-architect`.
     insights, budgets, home; B's ids are 404s that write nothing; requestId retries land once); isolated-build e2e
     37 passed, 4 skipped (pre-existing), including the new `mobile-screens-api.spec.ts` (first full run: a
     `budgets.spec` and two delete-account timeouts under load, all green on rerun and alone).
-  - **Score (API completion /10):** first 8.6 (the Delete account screen had no read, four screens lacked contract
+  - **Self-score (API completion /10):** first 8.6 (the Delete account screen had no read, four screens lacked contract
     types, docs not written, integration and e2e not yet run) → final 9.5 (coverage, correctness and parity,
     security, performance, tests and docs each 9.5). Known trade-off: some routes read the profile twice in
     parallel (time zone and currency), one primary-key row each.
   - **Deferred:** `deleteContribution` has a command but no route (no screen deletes a contribution);
     `mobile/lib/*` parsers still read only the old fields (Phase 3 wires the new ones); not pushed or deployed.
+  - **Independent review 9.3 (2026-09-29) and its fixes.** The review confirmed the moves are faithful (money math
+    untouched) and reproduced the counts. Fixed:
+    - **Same-owner references, enforced by the app.** Every client-supplied id that points at another table is now
+      confirmed visible through the caller's own RLS client before the write, by one helper
+      (`referencesVisible`, `src/lib/ownership.ts`): manual transaction create and update (account, category),
+      `setBudget` (category), `addContribution` (goal), `categorizeBankTransactionFor` (category; it also reaches
+      the merchant rule and the backfill) and `mapAccountsFor` (existing account, checked before any entry is
+      written). A foreign or unknown id writes nothing and answers not found (web message, native 404). **This is an
+      app-layer guarantee only: the database still accepts such rows sent directly through PostgREST with a user's
+      own token.** The database fix (composite foreign keys recommended) is proposed, not built, and is an owner
+      decision before launch (`docs/security.md` → "Still open"; roadmap owner steps).
+    - **Deletion lock message.** When an edit or delete of the caller's own row matches nothing, the command asks
+      `account_accepts_writes()` and answers `locked` while a deletion holds the lock (`missingOrLocked`): the web
+      says "Your account is being deleted, so changes are paused.", the API answers 423 `account_locked`. Goals,
+      categories, accounts and transactions.
+    - **Filter-drift guard.** A staging actor with a real purchase plus an excluded-account row, a row held for
+      review, a confirmed duplicate and a Plaid-removed row: Home, Insights and Budgets count only the real
+      purchase and each equals its web loader.
+    - Tests: `src/lib/ownership.test.ts` (13), `src/server/savings.test.ts`, 4 new staging tests (each ownership
+      test fails with the check disabled; staging was left with no test users and no cross-user rows). The
+      pre-existing command tests (`accounts`, `budgets`, `transactions`, `server/transactions`, `server/plaid`)
+      stub the ownership helper, since each fakes only its own table; their assertions are unchanged.
+    - Verification after the fixes: lint 0 errors, typecheck, unit 1772/1772 (174 files), build; staging
+      integration 190/192 in one full run, the 2 being the documented timing-dependent "must really deadlock"
+      conditions (those files 10/10 on a rerun); isolated-build e2e 37 passed, 4 skipped (pre-existing).
+    - The roadmap row says "independent review pending" until the reviewer re-scores.

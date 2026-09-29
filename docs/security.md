@@ -106,18 +106,59 @@ Each item needs a test or an explicit check before store submission.
   re-throw a PostgREST message as a plain `Error` (`account-exclusion.ts`,
   `fetch-all-rows.ts`, `supabase-store.ts`, `transaction-update.ts`,
   `current-profile.ts`); re-throw with a fixed message and `{ cause }`.
-- **Still open (follow-up, pre-existing; found in the Stage 0 review):** a
-  write that names an account by id does not check the account belongs to the
-  same user. Manual transactions (`landTransaction`, web and native) and
-  account mapping's "existing" mode (`mapAccountsFor`) accept any account
-  UUID; RLS checks the row's own `user_id`, and the foreign key only checks
-  that the account exists. With a leaked account UUID, another user could
-  point their own row at it, and the `ON DELETE RESTRICT` foreign key on
-  `transactions.account_id` would then block the victim's account deletion
-  (and leave the attacker's row referencing it). No data is exposed (RLS
-  still hides the victim's rows). Fix in a future migration with a same-owner
-  guarantee: a composite foreign key (`(account_id, user_id)` →
-  `accounts(id, user_id)`) or a trigger. Not changed in the Stage 0 port.
+- **Still open: same-owner references are enforced by the app, not the
+  database (OWNER DECISION BEFORE LAUNCH).** Found in the Stage 0 review,
+  widened in the Stage 2B review (2026-09-29). Every `own ...` RLS policy
+  checks only the row's own `user_id`, and Postgres checks foreign keys
+  WITHOUT RLS, so a row a user owns can reference another user's row by id:
+  - `savings_contributions.goal_id` → `savings_goals` (`ON DELETE CASCADE`);
+  - `transactions.account_id` → `accounts` (`ON DELETE RESTRICT`) and
+    `transactions.category_id` → `categories` (`ON DELETE SET NULL`);
+  - `budgets.category_id` → `categories` (`ON DELETE CASCADE`);
+  - `plaid_merchant_rules.category_id` → `categories` (`ON DELETE CASCADE`);
+  - the Plaid mapping `plaid_accounts.account_id` → `accounts`
+    (`ON DELETE SET NULL`).
+
+  **Closed at the app layer (Stage 2B):** every command that writes a
+  client-supplied id confirms, through the caller's own RLS client, that the
+  referenced row is visible to them before it writes
+  (`referencesVisible`, `src/lib/ownership.ts`): manual transaction create and
+  update (account, category), `setBudget` (category), `addContribution`
+  (goal), `categorizeBankTransactionFor` (category, which also reaches the
+  merchant rule and the backfill) and `mapAccountsFor` (existing account). A
+  foreign or unknown id writes nothing and answers not found (web message;
+  native 404). The web actions and the native API share these commands.
+  Staging tests prove each refusal (`tests/integration/mobile-screens.test.ts`)
+  and fail without the check.
+
+  **Still open at the database:** the tables still accept such rows directly
+  through PostgREST with a user's own token (the app is the only guard). No
+  data is exposed either way (RLS still hides the victim's rows), but the
+  worst case is real: a row pointing at a victim's account through
+  `transactions.account_id` (`ON DELETE RESTRICT`) blocks the victim's
+  account deletion and leaves the attacker's row referencing it. A foreign
+  `budgets`, merchant-rule or contribution row only affects the attacker's own
+  numbers and is removed or nulled when the victim deletes the target.
+
+  **Proposed fix (no migration written; needs an owner decision and a
+  staging-first migration):**
+  1. *Composite foreign keys* (`(user_id, account_id)` →
+     `accounts(user_id, id)`, and likewise for categories, goals and the
+     mapping): add `unique (user_id, id)` to each parent, then replace each
+     single-column key. Pros: the database proves ownership on every write,
+     no code path can forget it, no per-row cost beyond the index. Cons: one
+     new unique index per parent table, a validation pass over existing rows
+     (production must have none that cross users: a read-only probe first),
+     and each `ON DELETE SET NULL` key needs care (a composite `SET NULL`
+     would also null `user_id`; Postgres 15+ `SET NULL (column)` avoids it).
+  2. *Ownership triggers* (a `BEFORE INSERT OR UPDATE` trigger per child that
+     checks the parent's `user_id`): Pros: no index or key rewrite, a clear
+     error message. Cons: a lookup per written row (the Plaid sync writes
+     many), easy to miss on a new table, and the Plaid pipeline (owner
+     connection) goes through it too.
+
+  Recommendation: composite keys, starting with `transactions.account_id`
+  (the deletion-blocking one). Listed in the roadmap's owner steps.
 - **Owner:** earlier failures may have left `PLAID_SECRET` in Vercel's
   runtime logs. Rotating it in the Plaid dashboard (then updating Vercel
   Production) closes that; also check that no log drain forwards Vercel logs

@@ -29,6 +29,10 @@ import { GET as getStatus } from "@/app/api/mobile/status/route";
 import { GET as getActivity } from "@/app/api/mobile/activity/route";
 import { GET as getOverview } from "@/app/api/mobile/accounts/overview/route";
 import { POST as postCategorize } from "@/app/api/mobile/transactions/[id]/categorize/route";
+import { PUT as putBudget } from "@/app/api/mobile/budgets/route";
+import { GET as getTransactions, POST as postTransaction } from "@/app/api/mobile/transactions/route";
+import { PATCH as patchTransaction } from "@/app/api/mobile/transactions/[id]/route";
+import { POST as postMap } from "@/app/api/mobile/plaid/accounts/map/route";
 import { bearerClient } from "@/lib/auth/bearer-context";
 import { currentMonthKey, todayDateKey } from "@/lib/budget/month";
 import { loadBudgets } from "@/lib/budgets/load-budgets";
@@ -314,5 +318,147 @@ describe("status, activity, accounts overview, categorize (real staging)", () =>
     expect(ok.status).toBe(200);
     const [row] = await client<{ category_id: string; user_categorized: boolean }[]>`select category_id, user_categorized from public.transactions where id = ${txn}`;
     expect(row).toEqual({ category_id: food, user_categorized: true });
+  });
+});
+
+describe("client-supplied ids that point at another table must be the caller's own (real staging)", () => {
+  // Foreign keys ignore RLS, so without the app-layer check (src/lib/ownership.ts) each of these would store B's row
+  // pointing at A's account or category. Each must answer 404 and write nothing.
+  it("B cannot budget against, or record a transaction into, A's category or account", async () => {
+    const aFood = await categoryIdByName(a.id, "Food / Groceries");
+    const aAccount = await mainAccountId(a.id);
+    const bAccount = await mainAccountId(b.id);
+    const bFood = await categoryIdByName(b.id, "Food / Groceries");
+
+    const budget = await putBudget(
+      call(b.token, "/api/mobile/budgets", { method: "PUT", body: { categoryId: aFood, month: currentMonthKey(b.zone), amount: "1" } }),
+    );
+    expect(budget.status).toBe(404);
+    expect(await client`select id from public.budgets where user_id = ${b.id} and category_id = ${aFood}`).toHaveLength(0);
+
+    const base = { amount: "1.23", direction: "debit", occurredAt: todayDateKey(b.zone), description: "BOB-SCREENS foreign ref", note: "", isTransfer: false };
+    for (const refs of [{ accountId: aAccount, categoryId: bFood }, { accountId: bAccount, categoryId: aFood }]) {
+      const res = await postTransaction(call(b.token, "/api/mobile/transactions", { method: "POST", body: { ...base, ...refs } }));
+      expect(res.status).toBe(404);
+    }
+    expect(await client`select id from public.transactions where user_id = ${b.id} and description = 'BOB-SCREENS foreign ref'`).toHaveLength(0);
+
+    // Update: B's own row cannot be pointed at A's category.
+    const items = (await (await getTransactions(call(b.token, "/api/mobile/transactions"))).json()).items as { id: string; description: string }[];
+    const own = items.find((t) => t.description === "BOB-SCREENS groceries")!;
+    const res = await patchTransaction(
+      call(b.token, `/api/mobile/transactions/${own.id}`, { method: "PATCH", body: { ...base, accountId: bAccount, categoryId: aFood } }),
+      idParams(own.id),
+    );
+    expect(res.status).toBe(404);
+    const [row] = await client<{ category_id: string }[]>`select category_id from public.transactions where id = ${own.id}`;
+    expect(row.category_id).toBe(bFood);
+  });
+
+  it("B cannot categorize its bank row with A's category (nor write a merchant rule with it)", async () => {
+    const aFood = await categoryIdByName(a.id, "Food / Groceries");
+    const bAccount = await mainAccountId(b.id);
+    const txn = await insertBankTxn(b.id, bAccount, {
+      description: "BOB-SCREENS bank",
+      merchantEntityId: "itest-merchant-foreign",
+      occurredAt: midMonth(b.zone),
+    });
+    const res = await postCategorize(
+      call(b.token, `/api/mobile/transactions/${txn}/categorize`, { method: "POST", body: { categoryId: aFood } }),
+      idParams(txn),
+    );
+    expect(res.status).toBe(404);
+    const [row] = await client<{ category_id: string | null; user_categorized: boolean }[]>`
+      select category_id, user_categorized from public.transactions where id = ${txn}`;
+    expect(row).toEqual({ category_id: null, user_categorized: false });
+    expect(await client`select 1 from public.plaid_merchant_rules where user_id = ${b.id}`).toHaveLength(0);
+  });
+
+  it("B cannot map its bank account onto A's account", async () => {
+    const aAccount = await mainAccountId(a.id);
+    const [item] = await client<{ id: string }[]>`
+      insert into public.plaid_items (user_id, item_id, institution_name, access_token_enc, status, needs_sync)
+      values (${b.id}, ${`itest-item-${crypto.randomUUID()}`}, 'Synthetic Bank', 'enc-blob', 'active', false) returning id`;
+    const plaidAccountId = `itest-pa-${crypto.randomUUID()}`;
+    await client`insert into public.plaid_accounts (user_id, plaid_item_id, plaid_account_id, account_id, link_state, name)
+      values (${b.id}, ${item.id}, ${plaidAccountId}, null, 'unmapped', 'Checking')`;
+    const res = await postMap(
+      call(b.token, "/api/mobile/plaid/accounts/map", {
+        method: "POST",
+        body: { plaidItemId: item.id, entries: [{ plaidAccountId, mode: "existing", existingAccountId: aAccount }] },
+      }),
+    );
+    expect(res.status).toBe(404);
+    const [pa] = await client<{ account_id: string | null; link_state: string }[]>`
+      select account_id, link_state from public.plaid_accounts where plaid_account_id = ${plaidAccountId}`;
+    expect(pa).toEqual({ account_id: null, link_state: "unmapped" });
+  });
+});
+
+describe("the figures ignore every row the web ignores (filter-drift guard, real staging)", () => {
+  let c: Actor;
+
+  beforeAll(async () => {
+    c = await mintActor("CAROL-SCREENS", "Europe/Berlin");
+    const accountId = await mainAccountId(c.id);
+    const salary = await categoryIdByName(c.id, "Salary");
+    const food = await categoryIdByName(c.id, "Food / Groceries");
+    const at = midMonth(c.zone);
+    await client`insert into public.transactions (user_id, account_id, category_id, amount, direction, occurred_at, description, source)
+      values (${c.id}, ${accountId}, ${salary}, 100000, 'credit', ${at}, 'CAROL pay', 'manual')`;
+    const real = await insertBankTxn(c.id, accountId, { categoryId: food, amount: 10_000, occurredAt: at, description: "CAROL real" });
+    // An owner-excluded bank account's row, a row held for review, a confirmed duplicate and a Plaid-removed row:
+    // none may count toward spending anywhere.
+    const [item] = await client<{ id: string }[]>`
+      insert into public.plaid_items (user_id, item_id, institution_name, access_token_enc, status, needs_sync)
+      values (${c.id}, ${`itest-item-${crypto.randomUUID()}`}, 'Synthetic Bank', 'enc-blob', 'active', false) returning id`;
+    const [excluded] = await client<{ id: string }[]>`
+      insert into public.plaid_accounts
+        (user_id, plaid_item_id, plaid_account_id, account_id, link_state, name, needs_review, excluded_from_calculations)
+      values (${c.id}, ${item.id}, ${`itest-pa-${crypto.randomUUID()}`}, ${accountId}, 'mapped', 'Flaky card', true, true)
+      returning id`;
+    await insertBankTxn(c.id, accountId, { categoryId: food, amount: 7_777, occurredAt: at, plaidAccountId: excluded.id, description: "CAROL excluded" });
+    await insertBankTxn(c.id, accountId, {
+      categoryId: food,
+      amount: 3_333,
+      occurredAt: at,
+      status: "pending_review",
+      pendingReason: "sign_convention_unknown",
+      description: "CAROL held",
+    });
+    await insertBankTxn(c.id, accountId, { categoryId: food, amount: 10_000, occurredAt: at, duplicateOfId: real, description: "CAROL duplicate" });
+    await insertBankTxn(c.id, accountId, {
+      categoryId: food,
+      amount: 5_555,
+      occurredAt: at,
+      removedAt: new Date().toISOString(),
+      description: "CAROL removed",
+    });
+  }, 60_000);
+
+  afterAll(async () => {
+    if (!c) return;
+    await admin.auth.admin.deleteUser(c.id, false).catch(() => {});
+    await cleanupUser(c.id).catch(() => {});
+  });
+
+  it("Home, Insights and Budgets count only the real purchase, and each equals its web loader", async () => {
+    const home = await (await getHome(call(c.token, "/api/mobile/home"))).json();
+    const insights = await (await getInsights(call(c.token, "/api/mobile/insights"))).json();
+    const budgets = await (await getBudgets(call(c.token, "/api/mobile/budgets"))).json();
+    for (const screen of [home, insights, budgets]) expect(screen.spent).toBe(10_000);
+    expect(home.moneyLeft).toBe(90_000);
+    expect(insights.moneyLeft).toBe(90_000);
+
+    const rls = bearerClient(c.token);
+    const opts = { userId: c.id, timeZone: c.zone, plaidEnabled: plaidUiEnabled() };
+    expect(home).toEqual(JSON.parse(JSON.stringify(buildMobileHome(await loadHome(rls, opts)))));
+    expect(insights).toEqual(JSON.parse(JSON.stringify(buildMobileInsights(await loadInsights(rls, opts)))));
+    const web = await loadBudgets(rls, { ...opts, range: "month" });
+    if (web.range !== "month") throw new Error("expected the month view");
+    expect(budgets).toEqual(JSON.parse(JSON.stringify(buildMobileBudgets(web))));
+
+    const status = await (await getStatus(call(c.token, "/api/mobile/status"))).json();
+    expect(status.review.excluded).toMatch(/^Flaky card is excluded from your financial totals/);
   });
 });

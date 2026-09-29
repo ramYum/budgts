@@ -13,6 +13,7 @@ import { claimMissMessage, runClaimedSync } from "@/lib/plaid/sync-runner";
 import { standardCategory } from "@/lib/categories/standard";
 import { recategorizeUncategorizedBankTxns } from "@/lib/plaid/recategorize";
 import { categorizeBankTxnSchema, type AccountMapEntryInput } from "@/lib/validation/plaid";
+import { referencesVisible } from "@/lib/ownership";
 import { drainItemInBackground, syncRunner } from "./service";
 
 type SyncKind = { kind: "synced" } | { kind: "failed" } | { kind: "not_started"; message: string };
@@ -74,6 +75,19 @@ export async function mapAccountsFor(
   // Confirm the Item is the caller's and grab its Plaid `item_id` for the sync.
   const { data: item } = await supabase.from("plaid_items").select("item_id").eq("id", plaidItemId).maybeSingle();
   if (!item) return { ok: false, error: "not_found", message: "That bank connection no longer exists. Try connecting again." };
+
+  // Every "existing" account must be the caller's own, checked before anything is written (src/lib/ownership.ts): a
+  // foreign account id would otherwise route this bank's transactions into another user's account.
+  const existing = await referencesVisible(
+    supabase,
+    "accounts",
+    entries.map((e) => (e.mode === "existing" ? e.existingAccountId : null)),
+  );
+  if (!existing.ok) {
+    return existing.error === "missing"
+      ? { ok: false, error: "not_found", message: "That account no longer exists. Refresh and try again." }
+      : { ok: false, error: "failed", message: "Could not save the account mapping. Try again." };
+  }
 
   for (const entry of entries) {
     let accountId: string | null = null;
@@ -178,6 +192,16 @@ export async function categorizeBankTransactionFor(
   // Resolve the target category id. If the user picked a standard category they
   // don't currently have, add it back (un-archive, or create) — no setup screen.
   let categoryId = parsed.data.categoryId ?? "";
+  if (!standardCategoryName) {
+    // The picked category must be the caller's own (src/lib/ownership.ts): it is written to this row, to the merchant
+    // rule and onto the merchant's other rows, and foreign keys would accept another user's category id.
+    const owned = await referencesVisible(supabase, "categories", [categoryId]);
+    if (!owned.ok) {
+      return owned.error === "missing"
+        ? { ok: false, error: "not_found", message: "That category no longer exists. Refresh and try again." }
+        : { ok: false, error: "failed", message: "Could not save the category. Try again." };
+    }
+  }
   if (standardCategoryName) {
     const std = standardCategory(standardCategoryName);
     if (!std) return { ok: false, error: "invalid", message: "Unknown category." };

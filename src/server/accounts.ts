@@ -32,7 +32,8 @@ export async function createAccount(
   const { user, supabase } = await withUser();
   const result = await createAccountCommand(supabase, user.id, Object.fromEntries(formData));
   if (!result.ok) {
-    return result.error === "invalid" ? { fieldError: firstFieldError(result.fieldErrors) } : { error: result.message };
+    if (result.error === "invalid") return { fieldError: firstFieldError(result.fieldErrors) };
+    return { error: result.error === "locked" ? LOCKED_MESSAGE : result.message };
   }
   revalidateUserData();
   return { ok: true };

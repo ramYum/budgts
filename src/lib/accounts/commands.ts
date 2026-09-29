@@ -5,10 +5,10 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { invalid, type Failed, type Invalid, type Locked } from "@/lib/command-result";
-import { missingOrLocked } from "@/lib/ownership";
+import { lockedOr, missingOrLocked } from "@/lib/ownership";
 import { accountFormSchema } from "@/lib/validation/account";
 
-export type CreateAccountResult = { ok: true; id: string } | Invalid | Failed;
+export type CreateAccountResult = { ok: true; id: string } | Invalid | Locked | Failed;
 
 export async function createAccount(supabase: SupabaseClient, userId: string, raw: unknown): Promise<CreateAccountResult> {
   const parsed = accountFormSchema.safeParse(raw);
@@ -19,7 +19,7 @@ export async function createAccount(supabase: SupabaseClient, userId: string, ra
     .insert({ user_id: userId, ...parsed.data })
     .select("id")
     .single();
-  if (error) return { ok: false, error: "failed", message: error.message };
+  if (error) return lockedOr(supabase, { ok: false, error: "failed", message: error.message } as const);
   return { ok: true, id: (data as { id: string }).id };
 }
 

@@ -13,14 +13,15 @@ vi.mock("@/lib/ingestion", async (orig) => ({
 const updateTransactionRow = vi.fn();
 vi.mock("@/server/transaction-update", () => ({ updateTransactionRow: (...a: unknown[]) => updateTransactionRow(...a) }));
 
-import { missingOrLocked, referencesVisible } from "./ownership";
+import { LOCKED_MESSAGE, missingOrLocked, referencesVisible } from "./ownership";
 import { createManualTransaction, deleteTransactionById, updateManualTransaction } from "@/lib/transactions/commands";
-import { setBudget } from "@/lib/budgets/commands";
-import { addContribution, setGoalArchived, updateGoal } from "@/lib/goals/commands";
-import { setCategoryArchived, updateCategory } from "@/lib/categories/commands";
-import { setAccountArchived, updateAccount } from "@/lib/accounts/commands";
-import { categorizeBankTransactionFor, mapAccountsFor } from "@/server/plaid/commands";
+import { copyBudgetsFromPreviousMonth, setBudget } from "@/lib/budgets/commands";
+import { addContribution, createGoal, setGoalArchived, updateGoal } from "@/lib/goals/commands";
+import { createCategory, setCategoryArchived, updateCategory } from "@/lib/categories/commands";
+import { createAccount, setAccountArchived, updateAccount } from "@/lib/accounts/commands";
+import { categorizeBankTransactionFor, clearAccountReviewFor, mapAccountsFor } from "@/server/plaid/commands";
 import { mobileCommandError } from "@/lib/mobile/route";
+import { mobilePlaidReply } from "@/lib/mobile/plaid-reply";
 
 const MINE = "11111111-1111-4111-8111-111111111111";
 const THEIRS = "99999999-9999-4999-8999-999999999999";
@@ -148,27 +149,94 @@ describe("every command refuses another user's id and writes nothing", () => {
   });
 });
 
-describe("while an account deletion holds the lock, edits say so instead of 'no longer exists'", () => {
-  it("goals, categories, accounts and transactions answer locked", async () => {
-    const { supabase } = caller({ locked: true });
-    expect(await updateGoal(supabase, ROW, { name: "x", targetAmount: "5", targetDate: "" })).toEqual({ ok: false, error: "locked" });
-    expect(await setGoalArchived(supabase, ROW, true)).toEqual({ ok: false, error: "locked" });
-    expect(await updateCategory(supabase, ROW, { name: "x", kind: "expense" })).toEqual({ ok: false, error: "locked" });
-    expect(await setCategoryArchived(supabase, ROW, true)).toEqual({ ok: false, error: "locked" });
-    expect(await updateAccount(supabase, ROW, { name: "x", type: "cash" })).toEqual({ ok: false, error: "locked" });
-    expect(await setAccountArchived(supabase, ROW, true)).toEqual({ ok: false, error: "locked" });
-    expect(await deleteTransactionById(supabase, ROW)).toEqual({ ok: false, error: "locked" });
-    updateTransactionRow.mockResolvedValueOnce({ outcome: "missing" });
-    expect(await updateManualTransaction(supabase, ROW, txn({}))).toEqual({ ok: false, error: "locked" });
-  });
-
-  it("the native routes answer 423 account_locked", async () => {
-    const res = mobileCommandError({ ok: false, error: "locked" });
-    expect(res.status).toBe(423);
-    expect(await res.json()).toEqual({ error: "account_locked" });
-  });
-
-  function txn(over: Record<string, unknown>) {
-    return { accountId: MINE, categoryId: null, amount: "5", direction: "debit", occurredAt: "2026-09-10", description: "x", note: "", isTransfer: false, ...over };
+describe("while an account deletion holds the lock, every refused write says so", () => {
+  /**
+   * The write guard as the database applies it (migration 0021): reads still work, an insert or upsert fails
+   * row-level security, an update or delete matches nothing, and `account_accepts_writes()` says false.
+   */
+  function lockedCaller() {
+    return fakeSupabase(
+      (table: string, calls: FakeCall[]): FakeResult => {
+        if (has(calls, "insert") || has(calls, "upsert")) {
+          return { error: { code: "42501", message: 'new row violates row-level security policy for table "x"' } };
+        }
+        if (has(calls, "update") || has(calls, "delete")) {
+          return has(calls, "maybeSingle") ? { data: null, count: 0 } : { data: [], count: 0 };
+        }
+        if (has(calls, "in")) {
+          const ids = (calls.find((c) => c[0] === "in")![2] as string[]) ?? [];
+          return { data: ids.filter((id) => id === MINE).map((id) => ({ id })) };
+        }
+        if (table === "transactions" && has(calls, "maybeSingle")) return { data: { is_transfer: false } };
+        if (table === "plaid_items") return { data: { item_id: "item-1" } };
+        if (table === "budgets") return { data: [{ category_id: MINE, amount: 100 }] };
+        return { data: null };
+      },
+      () => ({ data: false }),
+    );
   }
+
+  const txn = (over: Record<string, unknown> = {}) => ({
+    accountId: MINE,
+    categoryId: null,
+    amount: "5",
+    direction: "debit",
+    occurredAt: "2026-09-10",
+    description: "x",
+    note: "",
+    isTransfer: false,
+    ...over,
+  });
+  const LOCKED = { ok: false, error: "locked" };
+
+  it("edits and deletes of the caller's own rows (which match nothing) answer locked, not 'no longer exists'", async () => {
+    const { supabase } = lockedCaller();
+    expect(await updateGoal(supabase, ROW, { name: "x", targetAmount: "5", targetDate: "" })).toEqual(LOCKED);
+    expect(await setGoalArchived(supabase, ROW, true)).toEqual(LOCKED);
+    expect(await updateCategory(supabase, ROW, { name: "x", kind: "expense" })).toEqual(LOCKED);
+    expect(await setCategoryArchived(supabase, ROW, true)).toEqual(LOCKED);
+    expect(await updateAccount(supabase, ROW, { name: "x", type: "cash" })).toEqual(LOCKED);
+    expect(await setAccountArchived(supabase, ROW, true)).toEqual(LOCKED);
+    expect(await deleteTransactionById(supabase, ROW)).toEqual(LOCKED);
+  });
+
+  it("a transaction edit reads fine but both conditional writes match nothing: locked, not conflict", async () => {
+    const actual = await vi.importActual<typeof import("@/server/transaction-update")>("@/server/transaction-update");
+    updateTransactionRow.mockImplementationOnce(actual.updateTransactionRow);
+    expect(await updateManualTransaction(lockedCaller().supabase, ROW, txn())).toEqual(LOCKED);
+  });
+
+  it("inserts and upserts refused by row-level security answer locked, never the database's text", async () => {
+    const { supabase } = lockedCaller();
+    expect(await setBudget(supabase, "u", { categoryId: MINE, month: "2026-09", amount: "400" })).toEqual(LOCKED);
+    expect(await setBudget(supabase, "u", { categoryId: MINE, month: "2026-09", amount: "0" })).toEqual(LOCKED);
+    expect(await copyBudgetsFromPreviousMonth(supabase, "u", "2026-10")).toEqual(LOCKED);
+    expect(await createGoal(supabase, "u", { name: "Trip", targetAmount: "5", targetDate: "" })).toEqual(LOCKED);
+    expect(await addContribution(supabase, "u", { goalId: MINE, amount: "5", occurredAt: "2026-09-10", note: "" }, 1)).toEqual(LOCKED);
+    expect(await createCategory(supabase, "u", { name: "Pets", kind: "expense" })).toEqual(LOCKED);
+    expect(await createAccount(supabase, "u", { name: "Wallet", type: "cash" })).toEqual(LOCKED);
+    landTransaction.mockRejectedValueOnce(new Error('new row violates row-level security policy for table "transactions"'));
+    expect(await createManualTransaction(supabase, "u", txn())).toEqual(LOCKED);
+  });
+
+  it("the Plaid owner actions answer locked with the paused message", async () => {
+    const { supabase } = lockedCaller();
+    const paused = { ok: false, error: "locked", message: LOCKED_MESSAGE };
+    expect(await categorizeBankTransactionFor(supabase, "u", { transactionId: ROW, categoryId: MINE })).toEqual(paused);
+    expect(await clearAccountReviewFor(supabase, ROW)).toEqual(paused);
+    expect(
+      await mapAccountsFor(supabase, "u", ROW, [{ plaidAccountId: "pa-1", mode: "existing", existingAccountId: MINE }]),
+    ).toEqual(paused);
+  });
+
+  it("the native routes answer 423 account_locked; the web says changes are paused", async () => {
+    for (const res of [
+      mobileCommandError({ ok: false, error: "locked" }),
+      mobilePlaidReply({ ok: false, error: "locked", message: LOCKED_MESSAGE }),
+    ]) {
+      expect(res.status).toBe(423);
+      expect(await res.json()).toEqual({ error: "account_locked" });
+    }
+    expect(LOCKED_MESSAGE).toBe("Your account is being deleted, so changes are paused.");
+  });
 });

@@ -40,6 +40,7 @@ export async function createTransaction(
   const result = await createManualTransaction(supabase, user.id, Object.fromEntries(formData));
   if (!result.ok) {
     if (result.error === "invalid") return { fieldErrors: result.fieldErrors };
+    if (result.error === "locked") return { error: LOCKED_MESSAGE };
     return { error: result.error === "missing_reference" ? MISSING_REFERENCE : result.message };
   }
   revalidateUserData();

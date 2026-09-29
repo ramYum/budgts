@@ -462,3 +462,71 @@ describe("the figures ignore every row the web ignores (filter-drift guard, real
     expect(status.review.excluded).toMatch(/^Flaky card is excluded from your financial totals/);
   });
 });
+
+describe("while an account deletion holds the lock, writes answer 423 account_locked (real staging)", () => {
+  let d: Actor;
+  let goal: string;
+  let txn: string;
+  let food: string;
+
+  beforeAll(async () => {
+    d = await mintActor("DAVE-SCREENS", "UTC");
+    food = await categoryIdByName(d.id, "Food / Groceries");
+    goal = (await (await postGoal(call(d.token, "/api/mobile/goals", { method: "POST", body: { name: "DAVE goal", targetAmount: "100", targetDate: null } }))).json()).id;
+    const accountId = await mainAccountId(d.id);
+    txn = (
+      await (
+        await postTransaction(
+          call(d.token, "/api/mobile/transactions", {
+            method: "POST",
+            body: { accountId, categoryId: food, amount: "10", direction: "debit", occurredAt: todayDateKey(d.zone), description: "DAVE coffee", note: "", isTransfer: false },
+          }),
+        )
+      ).json()
+    ).id;
+    // The lock a started deletion takes (migration 0021's write guard reads this row).
+    await client`insert into public.account_deletions (user_id, state) values (${d.id}, 'deleting')`;
+  }, 60_000);
+
+  afterAll(async () => {
+    if (!d) return;
+    await client`delete from public.account_deletions where user_id = ${d.id}`.catch(() => {});
+    await admin.auth.admin.deleteUser(d.id, false).catch(() => {});
+    await cleanupUser(d.id).catch(() => {});
+  });
+
+  it("an edit, a transaction edit, a budget and a contribution are refused with 423 and nothing is written", async () => {
+    const rename = await patchGoal(
+      call(d.token, `/api/mobile/goals/${goal}`, { method: "PATCH", body: { name: "DAVE renamed", targetAmount: "100", targetDate: null } }),
+      idParams(goal),
+    );
+    expect(rename.status).toBe(423);
+    expect(await rename.json()).toEqual({ error: "account_locked" });
+
+    const accountId = await mainAccountId(d.id);
+    const edit = await patchTransaction(
+      call(d.token, `/api/mobile/transactions/${txn}`, {
+        method: "PATCH",
+        body: { accountId, categoryId: food, amount: "99", direction: "debit", occurredAt: todayDateKey(d.zone), description: "DAVE edited", note: "", isTransfer: false },
+      }),
+      idParams(txn),
+    );
+    expect(edit.status).toBe(423);
+
+    const budget = await putBudget(call(d.token, "/api/mobile/budgets", { method: "PUT", body: { categoryId: food, month: currentMonthKey(d.zone), amount: "50" } }));
+    expect(budget.status).toBe(423);
+
+    const add = await postContribution(
+      call(d.token, `/api/mobile/goals/${goal}/contributions`, { method: "POST", body: { kind: "add", amount: "5", occurredAt: todayDateKey(d.zone), note: null } }),
+      idParams(goal),
+    );
+    expect(add.status).toBe(423);
+
+    const [g] = await client<{ name: string }[]>`select name from public.savings_goals where id = ${goal}`;
+    expect(g.name).toBe("DAVE goal");
+    const [t] = await client<{ description: string; amount: number }[]>`select description, amount from public.transactions where id = ${txn}`;
+    expect(t).toEqual({ description: "DAVE coffee", amount: 1000 });
+    expect(await client`select id from public.budgets where user_id = ${d.id}`).toHaveLength(0);
+    expect(await client`select id from public.savings_contributions where user_id = ${d.id}`).toHaveLength(0);
+  });
+});

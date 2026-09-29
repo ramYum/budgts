@@ -7,6 +7,7 @@ import {
   setBudget as setBudgetCommand,
 } from "@/lib/budgets/commands";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
+import { LOCKED_MESSAGE } from "@/lib/ownership";
 
 export type BudgetActionState = { error?: string; fieldError?: string; ok?: boolean };
 
@@ -27,7 +28,8 @@ export async function setBudget(
   const result = await setBudgetCommand(supabase, user.id, Object.fromEntries(formData));
   if (!result.ok) {
     if (result.error === "invalid") return { fieldError: Object.values(result.fieldErrors)[0] ?? "Invalid budget" };
-    return { error: result.error === "missing_reference" ? "That category no longer exists. Refresh and try again." : result.message };
+    if (result.error === "missing_reference") return { error: "That category no longer exists. Refresh and try again." };
+    return { error: result.error === "locked" ? LOCKED_MESSAGE : result.message };
   }
   revalidateUserData();
   return { ok: true };
@@ -46,6 +48,8 @@ export async function copyBudgetsFromPreviousMonth(
         return { error: "Invalid month" };
       case "nothing_to_copy":
         return { error: "There were no budgets last month to copy." };
+      case "locked":
+        return { error: LOCKED_MESSAGE };
       default:
         return { error: result.message };
     }

@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
-import type { LayoutChangeEvent } from "react-native";
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import { View, type LayoutChangeEvent } from "react-native";
+import Animated, { useAnimatedStyle, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
 import { EggLoader } from "./brand/egg-loader";
 
@@ -20,6 +20,10 @@ import { EggLoader } from "./brand/egg-loader";
 export const LOADING_FADE_OUT_MS = 200;
 /** when a later load (a retry) brings it back */
 const FADE_IN_MS = 120;
+/** about two frames before the fade starts: a screen that takes over the
+ * loading (start-up → the profile) holds it again inside that window, so
+ * the hand-off never dips the loader's opacity */
+const FADE_OUT_DELAY_MS = 32;
 const FILL = { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 } as const;
 
 type Holds = { hold: (id: string, label: string) => void; release: (id: string) => void };
@@ -47,10 +51,13 @@ export function LoadingScreenProvider({
   useEffect(() => {
     if (active) opacity.value = withTiming(1, { duration: FADE_IN_MS });
     else
-      opacity.value = withTiming(0, { duration: LOADING_FADE_OUT_MS }, (finished) => {
-        "worklet";
-        if (finished) scheduleOnRN(setShown, false);
-      });
+      opacity.value = withDelay(
+        FADE_OUT_DELAY_MS,
+        withTiming(0, { duration: LOADING_FADE_OUT_MS }, (finished) => {
+          "worklet";
+          if (finished) scheduleOnRN(setShown, false);
+        }),
+      );
     // (opacity is a stable shared value)
   }, [active]);
   const fade = useAnimatedStyle(() => ({ opacity: opacity.value }));
@@ -72,9 +79,21 @@ export function LoadingScreenProvider({
 
   return (
     <LoadingScreenContext.Provider value={value}>
-      {children}
+      {/* While loading, screen readers see only the loader, not the paper screens under it. */}
+      <View
+        style={{ flex: 1 }}
+        importantForAccessibility={active ? "no-hide-descendants" : "auto"}
+        accessibilityElementsHidden={active}
+      >
+        {children}
+      </View>
       {shown ? (
-        <Animated.View testID="loading-screen" style={[FILL, fade]} pointerEvents={active ? "auto" : "none"}>
+        <Animated.View
+          testID="loading-screen"
+          style={[FILL, fade]}
+          pointerEvents={active ? "auto" : "none"}
+          accessibilityViewIsModal={active}
+        >
           <EggLoader label={current} onLayout={onLayout} />
         </Animated.View>
       ) : null}

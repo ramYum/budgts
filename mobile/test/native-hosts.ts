@@ -35,12 +35,23 @@ export const svgMock = () => ({
 
 /**
  * react-native-reanimated without a UI thread: shared values are plain boxes,
- * animated styles are computed once per render from them, timings land on
- * their target at once (finishing their callback), and frame callbacks never
- * tick. `reducedMotion.value` stands in for the OS setting.
+ * animated styles read them whenever a property is read, timings land on
+ * their target at once (finishing their callback), and frame callbacks run
+ * only when a test ticks them (tickFrames). `reducedMotion.value` stands in for the OS setting.
  */
 export const reducedMotion = { value: false };
-export const frameCallbacks: { active: boolean }[] = [];
+/** Every useFrameCallback, with each callback it has been handed (to catch a clock that re-registers). */
+export type FakeFrameCallback = {
+  active: boolean;
+  setActive: (a: boolean) => void;
+  callback: (frame: { timestamp: number }) => void;
+  seen: Set<unknown>;
+};
+export const frameCallbacks: FakeFrameCallback[] = [];
+/** The display ticking: every active frame callback runs at `timestamp` ms. */
+export function tickFrames(timestamp: number) {
+  for (const c of frameCallbacks) if (c.active) c.callback({ timestamp });
+}
 export const reanimatedMock = () => {
   const AnimatedView = host("Animated.View");
   return {
@@ -48,17 +59,25 @@ export const reanimatedMock = () => {
     useSharedValue: <T,>(v: T) => {
       return useRef({ value: v }).current;
     },
-    useAnimatedStyle: (fn: () => unknown) => fn(),
+    // live, like the UI thread's: each property reads the shared values when it is read
+    useAnimatedStyle: (fn: () => Record<string, unknown>) => {
+      const style = {};
+      for (const k of Object.keys(fn())) Object.defineProperty(style, k, { enumerable: true, get: () => fn()[k] });
+      return style;
+    },
     useReducedMotion: () => reducedMotion.value,
-    useFrameCallback: () => {
-      const cb = useRef<{ active: boolean; setActive: (a: boolean) => void } | null>(null);
+    useFrameCallback: (callback: (frame: { timestamp: number }) => void) => {
+      const cb = useRef<FakeFrameCallback | null>(null);
       if (!cb.current) {
-        const c = { active: false, setActive: (a: boolean) => void (c.active = a) };
+        const c: FakeFrameCallback = { active: false, setActive: (a) => void (c.active = a), callback, seen: new Set() };
         cb.current = c;
         frameCallbacks.push(c);
       }
+      cb.current.callback = callback;
+      cb.current.seen.add(callback);
       return cb.current;
     },
+    withDelay: <T,>(_ms: number, animation: T) => animation,
     withTiming: <T,>(to: T, _config?: unknown, done?: (finished: boolean) => void) => {
       done?.(true);
       return to;

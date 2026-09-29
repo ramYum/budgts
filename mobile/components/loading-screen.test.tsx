@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { EGG_FRAMES, EGG_LOOP, EGG_STEP_MS } from "../lib/brand/shared";
+import { frameCallbacks, tickFrames } from "../test/native-hosts";
 import { LoadingScreenProvider, useLoadingScreen } from "./loading-screen";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -17,12 +19,23 @@ const label = (r: ReactTestRenderer) =>
   r.root.find((n) => n.props.accessibilityRole === "progressbar" && typeof n.type === "string").props.accessibilityLabel as string;
 
 let setScreenLoading!: (v: boolean) => void;
-function Screen({ initial }: { initial: boolean }) {
+function Screen({ initial, label: words = "Loading your account" }: { initial: boolean; label?: string }) {
   const [loading, set] = useState(initial);
   setScreenLoading = set;
-  useLoadingScreen(loading, "Loading your account");
+  useLoadingScreen(loading, words);
   return null;
 }
+/** the egg frame showing (the stand-in styles are read on render) */
+const eggFrame = (r: ReactTestRenderer) =>
+  EGG_FRAMES.findIndex((f) => {
+    const n = r.root.find((x) => x.props.testID === `egg-frame-${f.angle}` && typeof x.type === "string");
+    const style = Object.assign({}, ...[n.props.style].flat(2));
+    return style.opacity === 1;
+  });
+
+afterEach(() => {
+  frameCallbacks.length = 0;
+});
 
 describe("the loading screen", () => {
   it("covers start-up from the first frame, and hands the splash its cue once laid out", () => {
@@ -84,5 +97,52 @@ describe("the loading screen", () => {
   it("needs its provider", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     expect(() => render(<Screen initial />)).toThrow(/LoadingScreenProvider/);
+  });
+
+  it("keeps the egg rolling through re-renders: a new hold label never restarts its clock", () => {
+    const r = render(
+      <LoadingScreenProvider loading>
+        <Screen initial label="Signing you in" />
+      </LoadingScreenProvider>,
+    );
+    const step = 5;
+    act(() => {
+      tickFrames(2000);
+      tickFrames(2000 + step * EGG_STEP_MS + 1);
+    });
+    // start-up finishes and the screen's own load takes over under a new label
+    act(() =>
+      r.update(
+        <LoadingScreenProvider loading={false}>
+          <Screen initial label="Loading your account" />
+        </LoadingScreenProvider>,
+      ),
+    );
+    expect(label(r)).toBe("Loading your account");
+    expect(eggFrame(r)).toBe(EGG_LOOP[step]!.frame);
+    // and the display keeps counting from where it was, not from zero
+    act(() => tickFrames(2000 + (step + 1) * EGG_STEP_MS + 1));
+    act(() =>
+      r.update(
+        <LoadingScreenProvider loading={false} label="Loading">
+          <Screen initial label="Loading your account" />
+        </LoadingScreenProvider>,
+      ),
+    );
+    expect(eggFrame(r)).toBe(EGG_LOOP[step + 1]!.frame);
+    for (const c of frameCallbacks) expect(c.seen.size, "the frame callback was re-registered").toBe(1);
+  });
+
+  it("is the only thing a screen reader sees while loading, then gives the screen back", () => {
+    const r = render(
+      <LoadingScreenProvider loading={false}>
+        <Screen initial />
+      </LoadingScreenProvider>,
+    );
+    const content = () => r.root.find((n) => n.props.importantForAccessibility !== undefined && n.props.style?.flex === 1 && typeof n.type === "string");
+    expect(overlay(r)[0]!.props.accessibilityViewIsModal).toBe(true);
+    expect(content().props).toMatchObject({ importantForAccessibility: "no-hide-descendants", accessibilityElementsHidden: true });
+    act(() => setScreenLoading(false));
+    expect(content().props).toMatchObject({ importantForAccessibility: "auto", accessibilityElementsHidden: false });
   });
 });

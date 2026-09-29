@@ -1,5 +1,6 @@
-import { useEffect } from "react";
-import { useFrameCallback, useSharedValue, type SharedValue } from "react-native-reanimated";
+import { useCallback, useEffect, useState } from "react";
+import { useFrameCallback, useSharedValue, type FrameInfo, type SharedValue } from "react-native-reanimated";
+import { scheduleOnRN } from "react-native-worklets";
 
 /**
  * Sprite timing for the apps' motion: the web's `steps()` animations
@@ -14,7 +15,7 @@ export type SteppedTimeline = {
   stepMs: number;
   /** steps played once before the loop (an entrance) */
   intro: number;
-  /** steps in the loop that repeats after it */
+  /** steps in the loop that repeats after it; 1 holds the intro's end (a one-shot) */
   loop: number;
 };
 
@@ -29,22 +30,44 @@ export function stepAt(elapsedMs: number, { stepMs, intro, loop }: SteppedTimeli
  * The current step of a timeline as a shared value, advanced on the UI
  * thread from the display's frame clock. It writes only when the step
  * changes, so styles derived from it re-run once per step, not per frame.
- * `running: false` (Reduce Motion, or the screen gone) holds step 0 and
- * stops the frame callback.
+ *
+ * Time counts from a start held in a shared value, never from the frame
+ * callback's own first frame: a callback re-registered for any reason can
+ * never rewind the clock. Only a new timeline (or `running` turning on)
+ * starts it over. A one-shot timeline (`loop: 1`) stops its frame callback
+ * once it has played. `running: false` (Reduce Motion, or the screen gone)
+ * holds step 0 and stops it.
  */
 export function useSteppedClock(timeline: SteppedTimeline, running: boolean): SharedValue<number> {
-  const step = useSharedValue(0);
   const { stepMs, intro, loop } = timeline;
-  const clock = useFrameCallback((frame) => {
-    "worklet";
-    const next = stepAt(frame.timeSinceFirstFrame, { stepMs, intro, loop });
-    if (next !== step.value) step.value = next;
-  }, false);
+  const step = useSharedValue(0);
+  const start = useSharedValue(-1);
+  const [played, setPlayed] = useState(false);
+
+  const tick = useCallback(
+    (frame: FrameInfo) => {
+      "worklet";
+      if (start.value < 0) start.value = frame.timestamp;
+      const next = stepAt(frame.timestamp - start.value, { stepMs, intro, loop });
+      if (next !== step.value) step.value = next;
+      if (loop === 1 && next >= intro) scheduleOnRN(setPlayed, true);
+    },
+    [stepMs, intro, loop, start, step],
+  );
+  const clock = useFrameCallback(tick, false);
+
+  // A new timeline, or the clock switched on again, starts from the top.
   useEffect(() => {
+    start.value = -1;
     step.value = 0;
-    clock.setActive(running);
+    setPlayed(false);
+  }, [stepMs, intro, loop, running, start, step]);
+
+  const active = running && !played;
+  useEffect(() => {
+    clock.setActive(active);
     return () => clock.setActive(false);
-    // (clock and step are stable across renders)
-  }, [running]);
+  }, [clock, active]);
+
   return step;
 }

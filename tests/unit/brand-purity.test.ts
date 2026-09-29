@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 /**
  * The modules the native apps import straight from the web source (Metro
- * `watchFolders`, mobile/metro.config.js): the tokens, frames, robin art and
+ * `watchFolders`, mobile/metro.config.js): the tokens, frames, robin and egg art and
  * icon table in src/lib/brand, and Crystal's walk in src/lib/crystal. They run
  * in the browser, in Node (the generators), and under Hermes on iOS and
  * Android, so they must stay pure TypeScript: no package imports (Metro
@@ -40,6 +40,7 @@ describe("shared brand modules stay pure", () => {
         "src/lib/brand/tokens.ts",
         "src/lib/brand/pixel-frame.ts",
         "src/lib/brand/robin-art.ts",
+        "src/lib/brand/egg-art.ts",
         "src/lib/brand/icons.ts",
         "src/lib/crystal/roam.ts",
       ]),

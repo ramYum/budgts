@@ -14,7 +14,8 @@ function db(opts: { goalVisible?: boolean; insertError?: FakeResult["error"]; la
     }
     if (has(calls, "update") || has(calls, "delete")) return { data: opts.writeRows ?? [{ id: GOAL }] };
     if (has(calls, "eq", "id", REQ)) return { data: opts.landed ? { id: REQ } : null };
-    if (table === "savings_goals" && has(calls, "maybeSingle")) return { data: opts.goalVisible === false ? null : { id: GOAL } };
+    // The ownership read (src/lib/ownership.ts): RLS shows the caller only their own goals.
+    if (table === "savings_goals" && has(calls, "in")) return { data: opts.goalVisible === false ? [] : [{ id: GOAL }] };
     return { data: null };
   });
 }

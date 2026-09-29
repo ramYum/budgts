@@ -1,4 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+// These tests pin each command's own behaviour against a fake that answers only its own table. The ownership reads and
+// the deletion-lock check (src/lib/ownership.ts) have their own tests (src/lib/ownership.test.ts);
+// here every reference is the caller's own and nothing is locked.
+vi.mock("@/lib/ownership", async (orig) => ({
+  ...(await orig<typeof import("@/lib/ownership")>()),
+  referencesVisible: async () => ({ ok: true }),
+  missingOrLocked: async () => ({ ok: false, error: "missing" }),
+}));
 import type { SyncRunnerDeps } from "@/lib/plaid/sync-runner";
 
 vi.mock("server-only", () => ({}));

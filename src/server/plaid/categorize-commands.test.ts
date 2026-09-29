@@ -16,11 +16,18 @@ const TXN = "55555555-5555-4555-8555-555555555555";
 const CAT = "66666666-6666-4666-8666-666666666666";
 const ROW = "77777777-7777-4777-8777-777777777777";
 
-type Opts = { merchant?: string | null; txnVisible?: boolean; existingStd?: { id: string; is_archived: boolean } | null };
+type Opts = {
+  merchant?: string | null;
+  txnVisible?: boolean;
+  categoryVisible?: boolean;
+  existingStd?: { id: string; is_archived: boolean } | null;
+};
 
 function db(opts: Opts = {}): { supabase: never; log: FakeLog } {
   return fakeSupabase((table: string, calls: FakeCall[]): FakeResult => {
     if (table === "categories" && has(calls, "insert")) return { data: { id: "std-new" } };
+    // The ownership read (src/lib/ownership.ts): the caller sees CAT, never a foreign category.
+    if (table === "categories" && has(calls, "in")) return { data: opts.categoryVisible === false ? [] : [{ id: CAT }] };
     if (table === "categories" && has(calls, "maybeSingle")) return { data: opts.existingStd ?? null };
     if (table === "transactions" && has(calls, "maybeSingle")) {
       return { data: opts.txnVisible === false ? null : { merchant_entity_id: opts.merchant ?? null } };

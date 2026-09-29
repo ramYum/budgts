@@ -7,9 +7,17 @@ export type FakeResult = { data?: unknown; error?: { message: string; code?: str
 export type FakeCall = unknown[];
 export type FakeLog = { table: string; calls: FakeCall[] }[];
 
-export function fakeSupabase(answer: (table: string, calls: FakeCall[]) => FakeResult) {
+export function fakeSupabase(
+  answer: (table: string, calls: FakeCall[]) => FakeResult,
+  /** `rpc(name)`'s answer; by default `account_accepts_writes` says true (not locked). */
+  rpc: (name: string) => FakeResult = () => ({ data: true }),
+) {
   const log: FakeLog = [];
   const supabase = {
+    rpc: async (name: string) => {
+      const r = rpc(name);
+      return { data: r.data ?? null, error: r.error ?? null };
+    },
     from: (table: string) => {
       const calls: FakeCall[] = [];
       log.push({ table, calls });

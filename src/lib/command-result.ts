@@ -12,6 +12,12 @@ export type Invalid = { ok: false; error: "invalid"; fieldErrors: FieldErrors };
 /** An unexpected storage failure; `message` is the underlying error's text for the adapter to show or hide. */
 export type Failed = { ok: false; error: "failed"; message: string };
 
+/** A write that referenced an id the caller cannot see (another user's account, category or goal, or none at all). */
+export type MissingReference = { ok: false; error: "missing_reference" };
+
+/** An account deletion has taken the lock: the database refuses the caller's writes until it finishes. */
+export type Locked = { ok: false; error: "locked" };
+
 export function fieldErrorsOf(issues: readonly { path: readonly PropertyKey[]; message: string }[]): FieldErrors {
   const out: FieldErrors = {};
   for (const i of issues) out[String(i.path[0] ?? "form")] ??= i.message;

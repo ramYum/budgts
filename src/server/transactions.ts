@@ -3,6 +3,7 @@
 import { revalidateUserData } from "@/server/revalidate";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { LOCKED_MESSAGE } from "@/lib/ownership";
 import {
   createManualTransaction,
   deleteTransactionById,
@@ -17,6 +18,7 @@ export type TxnActionState = {
 
 const MISSING_ROW = "That transaction no longer exists. Refresh and try again.";
 const CONFLICT_ROW = "This transaction changed while you were editing it. Refresh and try again.";
+const MISSING_REFERENCE = "That account or category no longer exists. Refresh and try again.";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -36,7 +38,10 @@ export async function createTransaction(
 ): Promise<TxnActionState> {
   const { supabase, user } = await requireUser();
   const result = await createManualTransaction(supabase, user.id, Object.fromEntries(formData));
-  if (!result.ok) return result.error === "invalid" ? { fieldErrors: result.fieldErrors } : { error: result.message };
+  if (!result.ok) {
+    if (result.error === "invalid") return { fieldErrors: result.fieldErrors };
+    return { error: result.error === "missing_reference" ? MISSING_REFERENCE : result.message };
+  }
   revalidateUserData();
   return { ok: true };
 }
@@ -57,6 +62,8 @@ export async function updateTransaction(
     // see transaction-update.ts for the conditional-write mechanism.
     if (result.error === "missing") return { error: MISSING_ROW };
     if (result.error === "conflict") return { error: CONFLICT_ROW };
+    if (result.error === "missing_reference") return { error: MISSING_REFERENCE };
+    if (result.error === "locked") return { error: LOCKED_MESSAGE };
     return { error: result.message };
   }
   revalidateUserData();
@@ -67,7 +74,9 @@ export async function deleteTransaction(id: string): Promise<TxnActionState> {
   if (!id) return { error: "Missing transaction id" };
   const { supabase } = await requireUser();
   const result = await deleteTransactionById(supabase, id);
-  if (!result.ok) return { error: result.error === "missing" ? MISSING_ROW : result.message };
+  if (!result.ok) {
+    return { error: result.error === "missing" ? MISSING_ROW : result.error === "locked" ? LOCKED_MESSAGE : result.message };
+  }
   revalidateUserData();
   return { ok: true };
 }

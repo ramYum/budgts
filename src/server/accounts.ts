@@ -8,6 +8,7 @@ import {
   updateAccount as updateCommand,
 } from "@/lib/accounts/commands";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
+import { LOCKED_MESSAGE } from "@/lib/ownership";
 
 export type AccountActionState = { error?: string; fieldError?: string; ok?: boolean };
 
@@ -48,7 +49,7 @@ export async function updateAccount(
   const result = await updateCommand(supabase, id, Object.fromEntries(formData));
   if (!result.ok) {
     if (result.error === "invalid") return { fieldError: firstFieldError(result.fieldErrors) };
-    return { error: result.error === "missing" ? MISSING_ACCOUNT : result.message };
+    return { error: result.error === "missing" ? MISSING_ACCOUNT : result.error === "locked" ? LOCKED_MESSAGE : result.message };
   }
   revalidateUserData();
   return { ok: true };
@@ -64,7 +65,9 @@ export async function setAccountArchived(
 
   const { supabase } = await withUser();
   const result = await archiveCommand(supabase, id, archived);
-  if (!result.ok) return { error: result.error === "missing" ? MISSING_ACCOUNT : result.message };
+  if (!result.ok) {
+    return { error: result.error === "missing" ? MISSING_ACCOUNT : result.error === "locked" ? LOCKED_MESSAGE : result.message };
+  }
   revalidateUserData();
   return { ok: true };
 }

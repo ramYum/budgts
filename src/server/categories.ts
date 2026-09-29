@@ -8,6 +8,7 @@ import {
   setCategoryArchived as setCategoryArchivedCommand,
   updateCategory as updateCategoryCommand,
 } from "@/lib/categories/commands";
+import { LOCKED_MESSAGE } from "@/lib/ownership";
 
 export type CategoryActionState = {
   error?: string;
@@ -54,7 +55,7 @@ export async function updateCategory(
   const result = await updateCategoryCommand(supabase, id, Object.fromEntries(formData));
   if (!result.ok) {
     if (result.error === "invalid") return { fieldError: Object.values(result.fieldErrors)[0] ?? "Invalid category" };
-    return { error: result.error === "missing" ? GONE : result.message };
+    return { error: result.error === "missing" ? GONE : result.error === "locked" ? LOCKED_MESSAGE : result.message };
   }
   revalidateUserData();
   return { ok: true };
@@ -69,7 +70,9 @@ export async function setCategoryArchived(
   if (!id) return { error: "Missing category id" };
   const { supabase } = await withUser();
   const result = await setCategoryArchivedCommand(supabase, id, archived);
-  if (!result.ok) return { error: result.error === "missing" ? GONE : result.message };
+  if (!result.ok) {
+    return { error: result.error === "missing" ? GONE : result.error === "locked" ? LOCKED_MESSAGE : result.message };
+  }
   revalidateUserData();
   return { ok: true };
 }

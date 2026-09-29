@@ -6,10 +6,12 @@
 import { hubCounts } from "@/lib/hub-counts";
 import { MOBILE_API_VERSION } from "@/lib/mobile/reads";
 import { mobileError, mobileJson, mobileRoute } from "@/lib/mobile/route";
+import type { MobileHub } from "@/lib/mobile/screens";
 import { profileTimeZone } from "@/lib/mobile/time-zone";
 
 export const GET = mobileRoute(async ({ user, supabase }) => {
   const timeZone = await profileTimeZone(supabase, user.id);
   if (!timeZone) return mobileError("not_onboarded", 409);
-  return mobileJson({ version: MOBILE_API_VERSION, ...(await hubCounts(supabase, timeZone)) });
+  const hub: MobileHub = { version: MOBILE_API_VERSION, ...(await hubCounts(supabase, timeZone)) };
+  return mobileJson(hub);
 });

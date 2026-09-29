@@ -73,6 +73,52 @@ started. Reordering is how RLS gaps and float-money bugs get in.
    - One Playwright test through the new UI, happy path. Add a
      multi-device/sync assertion when the feature writes shared data.
 
+### Every screen serves two clients — loaders, commands, native routes
+
+The web pages and the native app (`/api/mobile/*`) read and write through the
+same code, so their numbers can never disagree (Stage 0 port, Stage 2B). A new
+screen, or a new read or mutation on an existing one, follows this shape:
+
+- **Loader** — `src/lib/<area>/load-<screen>.ts` (`loadHome`, `loadGoals`,
+  `loadInsights`, `loadBudgets`, `loadCategorySettings`,
+  `loadAccountsOverview`, `loadTour`, ...). Framework-free: no `next/*`
+  import. Takes the caller's Supabase client (the web's cookie client or the
+  native Bearer client; RLS scopes both), the user id, the user's time zone
+  (month and today come from `currentMonthKey` / `todayDateKey`, never
+  `new Date()` on the server), and `plaidEnabled`. Independent reads in one
+  `Promise.all`; transaction and history reads through `fetchAllRows` (or a
+  `.limit()`, a head-only count, `.single()`). It calls the pure money math in
+  `src/lib/budget/*` and computes nothing of its own. A read that feeds a
+  total either throws or is named in `degraded`: the web page may render
+  around a degraded side query, the native route answers 503 instead of a
+  partial number.
+- **Command** — `src/lib/<area>/commands.ts` (Plaid ones in
+  `src/server/plaid/commands.ts`). Validates with the shared Zod schema,
+  returns `{ ok: true } | invalid | missing | failed`
+  (`src/lib/command-result.ts`), never throws for an expected outcome, never
+  redirects or revalidates. A write that could run twice on a retry takes an
+  optional client `requestId` (a UUID used as the row key, or a `source_ref`)
+  so the retry returns the row that landed.
+- **Web adapter** — the page calls the loader; the Server Action calls the
+  command and keeps `revalidateUserData()` and the form wording.
+- **Native route** — `src/app/api/mobile/<screen>/route.ts` through
+  `mobileRoute` (Bearer only, identity from the verified token, never from the
+  request; `private, no-store`; a thrown error is a generic 503 logged through
+  `describePlaidError`). It validates query and body shape
+  (`readObject`, `MONTH_RE`, `UUID_RE`), maps command results with
+  `mobileCommandError` / `mobilePlaidReply`, and returns a view-model built
+  in `src/lib/mobile/*` (explicit fields, integer minor units, a `version`).
+  Adding a field keeps the version; removing or changing one bumps it.
+- **Derived figures** a card prints beside a chart (shares, deltas, progress)
+  live in a shared pure module (`src/lib/insights/figures.ts`), called by the
+  component and the view-model builder alike; never recomputed in either.
+- **Tests** — unit tests for the loader and command (fake PostgREST:
+  `tests/unit/helpers/fake-supabase.ts`), route tests (mocked loader or
+  command), a staging integration test proving the API equals the web
+  loader's output for the same user and that another user's ids are 404s
+  (`tests/integration/mobile-*.test.ts`), and a contract e2e
+  (`tests/e2e/mobile-*-api.spec.ts`). The existing web tests pass unchanged.
+
 ### E2E against Supabase — required posture
 
 The e2e suite drives one real Supabase project, whose auth server rate-limits

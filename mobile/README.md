@@ -73,6 +73,13 @@ Local build notes (this machine): Gradle's Java needs `JAVA_TOOL_OPTIONS=-Djavax
 interception, trusted through Windows' store), and a slow link can time out the Gradle wrapper download (fetch the zip into
 `~/.gradle/wrapper/dists/<version>/<hash>/` by hand).
 
+**Device checklist still to run (needs a real staging sign-in: a readable test inbox and/or test Google accounts, owner):**
+the email link with the app cold and again warm (the new link is the one used); an expired link, then "Send it again"
+with its countdown; Google with two accounts (the chooser appears; the same Supabase user as on the web); Google cancelled;
+the same Google return arriving twice on Android (one exchange); the first data screen loading over TLS; sign out and back
+in, and an app restart keeping the session; the keyboard on a short screen; and **the Google authorize URL recorded showing
+`code_challenge_method=s256`**, with every `code_challenge`, `code`, `state` and token value redacted.
+
 **Development warnings (checked 2026-09-29, Logcat `ReactNativeJS` and native React tags: cold start, a real sign-in
 attempt, Google opened and cancelled, both link paths, the dev screen).** What showed up, and what was done:
 

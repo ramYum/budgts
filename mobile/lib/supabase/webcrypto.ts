@@ -37,6 +37,21 @@ export function installWebCrypto(target: { crypto?: unknown }, impl: Impl): void
       },
     };
   }
-  if (target.crypto !== crypto) target.crypto = crypto;
+  if (target.crypto !== crypto) {
+    // An engine whose `crypto` global is read-only must not stop the app
+    // starting: supabase-js then falls back as before, and this says why, once.
+    try {
+      target.crypto = crypto;
+    } catch {
+      warnOnce("Web Crypto could not be installed: this engine's crypto global is read-only.");
+    }
+  }
+}
+
+let warned = false;
+function warnOnce(message: string) {
+  if (warned) return;
+  warned = true;
+  console.warn(message);
 }
 

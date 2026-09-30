@@ -1,18 +1,7 @@
-import { createElement, type ReactNode } from "react";
 import { act } from "react-test-renderer";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { byTestId, render, textContent, texts } from "../../test/render";
+import { byTestId, render, texts } from "../../test/render";
 
-vi.mock("react-native", async () => {
-  const base = (await import("../../test/native-hosts")).reactNativeMock();
-  const host = (name: string) => {
-    const C = ({ children, ...props }: { children?: ReactNode } & Record<string, unknown>) => createElement(name, props, children);
-    C.displayName = name;
-    return C;
-  };
-  return { ...base, Modal: host("Modal"), KeyboardAvoidingView: host("KeyboardAvoidingView") };
-});
-vi.mock("react-native-safe-area-context", () => ({ useSafeAreaInsets: () => ({ top: 24, bottom: 16, left: 0, right: 0 }) }));
 vi.mock("../../lib/auth/auth-context", () => ({ useAuth: () => ({ session: null }) }));
 const api = vi.hoisted(() => ({ authFetch: vi.fn() }));
 vi.mock("../../lib/auth/api", () => ({ authFetch: api.authFetch, NotAuthenticatedError: class NotAuthenticatedError extends Error {} }));
@@ -51,10 +40,10 @@ describe("AccountMapping (web account-mapping.tsx)", () => {
     const words = texts(r);
     expect(words).toContain("Each account can become a new Budgts account, feed one you already have, or be left out.");
     expect(words).toEqual(expect.arrayContaining(["Plaid Checking ••0000", "checking", "Plaid Saving ••1111", "savings", "Plaid Credit Card ••3333", "credit card"]));
-    expect(byTestId(r, "account-mapping-mode-0").props.accessibilityValue).toEqual({ text: "A new Budgts account" });
+    expect(byTestId(r, "account-mapping-mode-0").props.accessibilityLabel).toBe("Import as, A new Budgts account");
     expect(byTestId(r, "account-mapping-name-1").props.value).toBe("Plaid Saving ••1111");
-    expect(byTestId(r, "account-mapping-type-1").props.accessibilityValue).toEqual({ text: "Savings" });
-    expect(byTestId(r, "account-mapping-type-2").props.accessibilityValue).toEqual({ text: "Credit" });
+    expect(byTestId(r, "account-mapping-type-1").props.accessibilityLabel).toBe("New account type, Savings");
+    expect(byTestId(r, "account-mapping-type-2").props.accessibilityLabel).toBe("New account type, Credit");
     expect(byTestId(r, "account-mapping-name-0").props.maxLength).toBe(40);
     expect(texts(r)).toContain("Import transactions");
   });
@@ -64,11 +53,11 @@ describe("AccountMapping (web account-mapping.tsx)", () => {
     const onDone = vi.fn();
     const r = render(<AccountMapping plaidAccounts={[account(), savings, card]} choices={choices} onSave={onSave} onDone={onDone} />);
     await press(r, "account-mapping-mode-1");
-    await press(r, "account-mapping-mode-1-existing");
+    await press(r, "account-mapping-mode-1-option-existing");
     await press(r, "account-mapping-existing-1");
-    await press(r, "account-mapping-existing-1-acct-2");
+    await press(r, "account-mapping-existing-1-option-acct-2");
     await press(r, "account-mapping-mode-2");
-    await press(r, "account-mapping-mode-2-ignore");
+    await press(r, "account-mapping-mode-2-option-ignore");
     await act(async () => byTestId(r, "account-mapping-name-0").props.onChangeText("  Joint checking "));
     await press(r, "account-mapping-save");
     expect(onSave).toHaveBeenCalledWith([
@@ -82,7 +71,7 @@ describe("AccountMapping (web account-mapping.tsx)", () => {
   it("can't point at an existing account when there is none", async () => {
     const r = render(<AccountMapping plaidAccounts={[account()]} choices={{ ...choices, budgtsAccounts: [] }} onSave={vi.fn()} onDone={() => {}} />);
     await press(r, "account-mapping-mode-0");
-    expect(byTestId(r, "account-mapping-mode-0-existing").props.disabled).toBe(true);
+    expect(byTestId(r, "account-mapping-mode-0-option-existing").props.disabled).toBe(true);
   });
 
   it("shows a refused save and keeps the choices; a sync that didn't finish shows its warning with Done", async () => {
@@ -111,8 +100,8 @@ describe("AccountMappingSheet", () => {
     const onClose = vi.fn();
     const before = getVersion("transactions");
     const r = render(<AccountMappingSheet plaidItemId="item-row" plaidAccounts={[account()]} choices={choices} onDone={onDone} onClose={onClose} />);
-    expect(textContent(byTestId(r, "sheet-title"))).toBe("Choose which accounts to import");
-    await press(r, "sheet-close");
+    expect(byTestId(r, "overlay").props.accessibilityLabel).toBe("Choose which accounts to import");
+    await press(r, "overlay-close");
     expect(onClose).toHaveBeenCalledTimes(1);
     await press(r, "account-mapping-save");
     expect(api.authFetch.mock.calls[0]![0]).toBe("/api/mobile/plaid/accounts/map");
@@ -143,14 +132,14 @@ describe("ConnectBank (web connect-bank.tsx)", () => {
     const r = render(<ConnectBank link={link({ kind: "success", publicToken: "public-1", institution: { id: "ins_1", name: "First Platypus Bank" } })} />);
     expect(byTestId(r, "connect-bank").props.accessibilityLabel).toBe("Connect a bank");
     await press(r, "connect-bank");
-    expect(textContent(byTestId(r, "sheet-title"))).toBe("Choose which accounts to import");
+    expect(byTestId(r, "overlay").props.accessibilityLabel).toBe("Choose which accounts to import");
     expect(texts(r)).toContain("Plaid Checking ••0000");
     await press(r, "account-mapping-mode-0");
     // archived accounts are not offered, as on the web
-    expect(() => byTestId(r, "account-mapping-mode-0-existing")).not.toThrow();
-    await press(r, "account-mapping-mode-0-existing");
+    expect(() => byTestId(r, "account-mapping-mode-0-option-existing")).not.toThrow();
+    await press(r, "account-mapping-mode-0-option-existing");
     await press(r, "account-mapping-existing-0");
-    expect(() => byTestId(r, "account-mapping-existing-0-acct-9")).toThrow();
+    expect(() => byTestId(r, "account-mapping-existing-0-option-acct-9")).toThrow();
   });
 
   it("says so when the bank is already connected, and shows nothing more when Link is closed", async () => {

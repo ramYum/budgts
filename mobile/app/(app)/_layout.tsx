@@ -50,7 +50,6 @@ function Gate() {
       <Stack.Protected guard={onboarded}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="transaction" options={{ presentation: "modal" }} />
-        <Stack.Screen name="map-accounts" options={{ presentation: "modal" }} />
         <Stack.Screen name="delete-account" />
       </Stack.Protected>
     </Stack>

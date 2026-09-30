@@ -41,7 +41,7 @@ import {
   dust,
 } from "./keyframes";
 import { facingAt, hopArc, hopProgress, hopWing, peckOffset, placeAt, walkMoving } from "./motion";
-import { eventsOf, initialState, planUntil, replanAfterTap, standingAt, type Events, type RoamState, type Step } from "./roam-plan";
+import { eventsOf, initialState, planUntil, replanAfterTap, standingAt, trimSteps, type Events, type RoamState, type Step } from "./roam-plan";
 import { SpeechBubble } from "./speech-bubble";
 
 /** How far ahead her walk is worked out, and how long before its end the next stretch is added. */
@@ -210,9 +210,8 @@ export function CrystalPerch({ name, savingsRate, awake = true }: { name: string
     if (!current) return;
     const now = clock.value;
     const more = planUntil(current.pending, now + PLAN_MS, spanSV.value, Math.random);
-    // drop what has long finished; keep the last few so her pose holds
-    const keep = current.steps.filter((s, i) => s.state.at >= now - 2000 || i >= current.steps.length - 3);
-    publish([...keep, ...more.steps], more.pending, now);
+    // drop what has long finished, never the last hop or turn her pose is read from
+    publish([...trimSteps(current.steps, now), ...more.steps], more.pending, now);
   }, [clock, spanSV, publish]);
 
   const onCheer = useCallback((k: number) => {

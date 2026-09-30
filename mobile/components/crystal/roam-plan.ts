@@ -149,3 +149,20 @@ export function standingAt(hops: Hop[], t: number): number {
   for (const h of hops) if (h.at <= t) f = h.to;
   return f;
 }
+
+/**
+ * What the walk keeps of its past when it is extended: everything from the last two seconds (anything still moving),
+ * everything not yet due, and, whenever it happened, the last step before then that moved her (a hop) and the last that
+ * turned her: her place and facing are read from those, so dropping them would put her back in the middle, facing right.
+ */
+export function trimSteps(steps: Step[], now: number): Step[] {
+  const cutoff = now - 2000;
+  let lastHop = -1;
+  let lastFace = -1;
+  steps.forEach((s, i) => {
+    if (s.state.at > now) return;
+    if (s.events.hops.length > 0) lastHop = i;
+    if (s.events.faces.length > 0) lastFace = i;
+  });
+  return steps.filter((s, i) => s.state.at >= cutoff || i === lastHop || i === lastFace);
+}

@@ -13,11 +13,12 @@ const appRoot = __dirname;
 const webRoot = path.resolve(appRoot, "..");
 
 /**
- * The web folders the app reads: tokens, frames, robin and egg art and icons; Crystal's walk; the font files; the welcome
- * guide's words (src/components/tour/guide-copy.ts) and first-run gate (src/lib/tour/gate.ts, steps.ts). The app imports
- * only those pure files from the tour folders, never their React or server modules.
+ * The web folders the app reads: tokens, frames, robin and egg art and icons; Crystal's walk; the pure display figures
+ * both sides print; the font files; the welcome guide's words (src/components/tour/guide-copy.ts) and first-run gate
+ * (src/lib/tour/gate.ts, steps.ts). The app imports only those pure files from the tour folders, never their React or
+ * server modules.
  */
-const SHARED = ["src/lib/brand", "src/lib/crystal", "src/app/fonts", "src/lib/tour", "src/components/tour"].map((dir) => path.join(webRoot, dir));
+const SHARED = ["src/lib/brand", "src/lib/crystal", "src/lib/figures", "src/app/fonts", "src/lib/tour", "src/components/tour"].map((dir) => path.join(webRoot, dir));
 
 const config = getDefaultConfig(appRoot);
 

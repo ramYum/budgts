@@ -5,8 +5,8 @@ import { describe, expect, it } from "vitest";
 /**
  * The modules the native apps import straight from the web source (Metro
  * `watchFolders`, mobile/metro.config.js): the tokens, frames, robin and egg art and
- * icon table in src/lib/brand, Crystal's walk in src/lib/crystal, and the welcome
- * guide's words and first-run gate (the pure files of src/components/tour and src/lib/tour). They run
+ * icon table in src/lib/brand, Crystal's walk in src/lib/crystal, the display figures in src/lib/figures, and the
+ * welcome guide's words and first-run gate (the pure files of src/components/tour and src/lib/tour). They run
  * in the browser, in Node (the generators), and under Hermes on iOS and
  * Android, so they must stay pure TypeScript: no package imports (Metro
  * resolves only mobile/node_modules, never the web app's), no React, no Next,
@@ -14,7 +14,7 @@ import { describe, expect, it } from "vitest";
  */
 
 const root = join(__dirname, "..", "..");
-const SHARED_DIRS = ["src/lib/brand", "src/lib/crystal"];
+const SHARED_DIRS = ["src/lib/brand", "src/lib/crystal", "src/lib/figures"];
 /** Pure files the app imports from folders that also hold web-only modules (React components, server loaders). */
 const SHARED_FILES = ["src/components/tour/guide-copy.ts", "src/lib/tour/gate.ts", "src/lib/tour/steps.ts"];
 
@@ -59,6 +59,7 @@ describe("shared brand modules stay pure", () => {
         "src/lib/brand/egg-art.ts",
         "src/lib/brand/icons.ts",
         "src/lib/crystal/roam.ts",
+        "src/lib/figures/budget-trend.ts",
       ]),
     );
     // the app's own lists of what it shares (mobile/lib/brand/shared.ts, mobile/lib/tour/shared.ts) name only these

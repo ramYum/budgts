@@ -1,190 +1,149 @@
-import { useCallback, useState } from "react";
-import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { authFetch } from "../../../../lib/auth/api";
 import { useAuth } from "../../../../lib/auth/auth-context";
-import { useVersion } from "../../../../lib/api/invalidate";
+import { invalidate, useVersion } from "../../../../lib/api/invalidate";
 import { loadResource, mutate } from "../../../../lib/api/load";
 import { jsonInit } from "../../../../lib/api/request";
 import { useResource } from "../../../../lib/api/use-resource";
-import { shiftMonth } from "../../../../lib/dates";
-import { formatMoney } from "../../../../lib/home/format";
-import { parseBudgets, type MobileBudgetCategory } from "../../../../lib/budgets/budgets-api";
-import { useProfile, useUserDates } from "../../../../lib/profile/profile-context";
-import { colors, fonts, radii } from "../../../../lib/theme";
-import { ErrorBlock, Field, Loading, MonthNav } from "../../../../components/parts";
-import { OutlineButton, PrimaryButton, TextLink } from "../../../../components/ui";
+import { parseBudgets, type MobileBudgets } from "../../../../lib/budgets/budgets-api";
+import { budgetsLink, readBudgetsParams } from "../../../../lib/budgets/params";
+import { useUserDates } from "../../../../lib/profile/profile-context";
+import { CategorySheet, NewBudgetSheet, type SaveBudget } from "../../../../components/budgets/budget-sheets";
+import { BudgetsView, type BudgetsRange } from "../../../../components/budgets/budgets-view";
+import { LoadFailure } from "../../../../components/feedback/states";
+import { ScreenSkeleton } from "../../../../components/feedback/skeleton";
+import { Screen } from "../../../../components/shell/screen";
 
-const STATE_COLOR: Record<MobileBudgetCategory["state"], string> = { under: colors.pos, near: colors.fillNear, over: colors.neg };
+/** The web's budget messages (src/server/budgets.ts). */
+const NOTHING_TO_COPY = "There were no budgets last month to copy.";
+const MISSING_CATEGORY = "That category no longer exists. Refresh and try again.";
 
 /**
- * Budgets: this month's budget vs actual per expense category, from the same authoritative dashboard math as Home and
- * Activity's needs-category flag. Tapping a row opens an inline amount editor (empty or 0 clears the budget); "Copy last
- * month" fills every category at once and says plainly when there is nothing to copy.
+ * Budgets (web /budgets): budget vs actual per expense category for a month, or every category's all-time spending, from
+ * `GET /api/mobile/budgets` (the same `loadBudgets` the web page renders). It takes the web page's params (`m`, `range`,
+ * `edit`; lib/budgets/params.ts). Stepping the month returns to This month, as the web's month links do.
  */
 export default function BudgetsScreen() {
-  const { session } = useAuth();
-  const { state: profile } = useProfile();
+  const router = useRouter();
+  const { session, signOut } = useAuth();
   const { month: thisMonth } = useUserDates();
-  const [month, setMonth] = useState(thisMonth);
+  const raw = useLocalSearchParams<{ m?: string; range?: string; edit?: string }>();
+  const initial = readBudgetsParams(raw, thisMonth);
+  const [month, setMonth] = useState(initial.month);
+  const [range, setRange] = useState<BudgetsRange>(initial.range);
+  const [detail, setDetail] = useState<{ id: string; editing: boolean } | null>(initial.edit ? { id: initial.edit, editing: true } : null);
+  const [adding, setAdding] = useState(false);
+
+  // A later link into the tab (Home's "Set budget") applies its params as a web navigation to /budgets?… would.
+  const linked = `${raw.m ?? ""}|${raw.range ?? ""}|${raw.edit ?? ""}`;
+  const firstLink = useRef(linked);
+  useEffect(() => {
+    if (linked === firstLink.current) return;
+    firstLink.current = linked;
+    const next = readBudgetsParams(raw, thisMonth);
+    setMonth(next.month);
+    setRange(next.range);
+    setDetail(next.edit ? { id: next.edit, editing: true } : null);
+  }, [linked]);
+
   const version = useVersion("budgets");
-  const key = `${month}|${version}`;
-
-  const { state, notice, reload, refresh, refreshing } = useResource(key, (s) =>
-    loadResource(() => authFetch(`/api/mobile/budgets?month=${month}`, s), parseBudgets),
+  const { state, reload } = useResource(`${month}|${range}|${version}`, (s) =>
+    loadResource(() => authFetch(`/api/mobile/budgets?month=${month}&range=${range}`, s), parseBudgets),
   );
-  const currency = profile.status === "ready" ? profile.profile.currency : state.status === "ready" ? state.data.currency : "USD";
 
-  const [editing, setEditing] = useState<MobileBudgetCategory | null>(null);
-  const [amount, setAmount] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Only the data for the month and range on screen; while a save reloads it, the last of it, so an open sheet keeps
+  // its figures and updates in place (the web revalidates under the open sheet the same way). With none, the web's
+  // loading page (the skeleton) or its failure page stands in for the whole page.
+  const last = useRef<MobileBudgets | null>(null);
+  if (state.status === "ready") last.current = state.data;
+  const shown = state.status === "ready" ? state.data : state.status === "loading" ? last.current : null;
+  const data = shown && shown.range === range && shown.month === month ? shown : null;
+  const monthData = data?.range === "month" ? data : null;
+
+  // Pull to refresh reloads (the figures stay up meanwhile); a failure shows the failure page, never the old figures
+  // as if they were current.
+  const [pulling, setPulling] = useState(false);
+  useEffect(() => {
+    if (state.status !== "loading") setPulling(false);
+  }, [state.status]);
+
   const [copying, setCopying] = useState(false);
-
-  const openEditor = (c: MobileBudgetCategory) => {
-    setEditing(c);
-    setAmount(c.budget > 0 ? (c.budget / 100).toFixed(2) : "");
-    setError(null);
-  };
-
-  const saveAmount = useCallback(async () => {
-    if (!editing) return;
-    setSaving(true);
-    setError(null);
-    const out = await mutate(() =>
-      authFetch("/api/mobile/budgets", session, jsonInit("PUT", { categoryId: editing.id, month, amount })),
-    );
-    setSaving(false);
-    if (out.status === "ok") {
-      setEditing(null);
-      await reload();
-    } else if (out.status === "invalid") {
-      setError(Object.values(out.fieldErrors)[0] ?? "Enter a valid amount");
-    } else {
-      setError(out.status === "error" ? out.message : "Something went wrong. Please try again.");
-    }
-  }, [editing, month, amount, session, reload]);
-
+  const [copyError, setCopyError] = useState<string | null>(null);
   const copyLastMonth = useCallback(async () => {
     setCopying(true);
+    setCopyError(null);
     const out = await mutate(() => authFetch("/api/mobile/budgets/copy", session, jsonInit("POST", { month })));
     setCopying(false);
-    if (out.status === "ok") return reload();
-    if (out.status === "nothing_to_copy") return Alert.alert("Nothing to copy", "Last month had no budgets set.");
-    Alert.alert("Couldn't copy last month", out.status === "error" ? out.message : "Something went wrong. Please try again.");
-  }, [month, session, reload]);
+    if (out.status === "ok") return invalidate("budgets", "home");
+    setCopyError(
+      out.status === "nothing_to_copy" ? NOTHING_TO_COPY : out.status === "error" ? out.message : "Something went wrong. Please try again.",
+    );
+  }, [month, session]);
+
+  const saveBudget = useCallback<SaveBudget>(
+    async (categoryId, amount) => {
+      const out = await mutate(() => authFetch("/api/mobile/budgets", session, jsonInit("PUT", { categoryId, month, amount })));
+      if (out.status === "ok") {
+        invalidate("budgets", "home");
+        return null;
+      }
+      if (out.status === "invalid") return Object.values(out.fieldErrors)[0] ?? "Invalid budget";
+      if (out.status === "missing") return MISSING_CATEGORY;
+      return out.status === "error" ? out.message : "Something went wrong. Please try again.";
+    },
+    [month, session],
+  );
+
+  const bar = detail && monthData ? monthData.categories.find((c) => c.id === detail.id) : undefined;
 
   return (
-    <SafeAreaView style={styles.safe} edges={[]}>
-      <View style={styles.header}>
-        <Text style={styles.title} accessibilityRole="header">
-          Budgets
-        </Text>
-      </View>
-      <View style={styles.monthWrap}>
-        <MonthNav month={month} onPrev={() => setMonth((m) => shiftMonth(m, -1))} onNext={() => setMonth((m) => shiftMonth(m, 1))} />
-      </View>
-
-      {state.status === "loading" ? (
-        <Loading label="Loading your budgets" />
-      ) : state.status === "error" ? (
-        <ErrorBlock title="Can't show your budgets" message={state.message} onRetry={() => void reload()} />
+    <Screen
+      refreshing={pulling}
+      onRefresh={() => {
+        setPulling(true);
+        void reload();
+      }}
+    >
+      {data === null ? (
+        state.status === "error" ? (
+          <LoadFailure kind={state.kind} onRetry={() => void reload()} onHome={() => router.navigate("/")} onSignOut={() => void signOut()} />
+        ) : (
+          <ScreenSkeleton />
+        )
       ) : (
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} tintColor={colors.accent} />}
-        >
-          {notice ? <Text style={styles.notice}>{notice}</Text> : null}
-
-          <View style={styles.summary}>
-            <Text style={styles.summaryAmount}>{formatMoney(state.data.leftToSpend, currency)}</Text>
-            <Text style={styles.summaryLabel}>
-              left of {formatMoney(state.data.budgeted, currency)} budgeted · {formatMoney(state.data.spent, currency)} spent
-            </Text>
-          </View>
-
-          <OutlineButton testID="budgets-copy-last" onPress={() => void copyLastMonth()} loading={copying}>
-            Copy last month&apos;s budgets
-          </OutlineButton>
-
-          {state.data.categories.length === 0 ? (
-            <Text style={styles.empty}>No categories with spending or a budget yet this month.</Text>
-          ) : (
-            state.data.categories.map((c) => (
-              <View key={c.id} style={styles.row}>
-                <View style={styles.rowMain}>
-                  <View style={styles.rowHeader}>
-                    <View style={[styles.dot, { backgroundColor: c.color }]} />
-                    <Text style={styles.rowName}>{c.name}</Text>
-                  </View>
-                  <View style={styles.bar}>
-                    <View style={[styles.barFill, { width: `${Math.min(c.pctUsed, 1) * 100}%`, backgroundColor: STATE_COLOR[c.state] }]} />
-                  </View>
-                  <Text style={styles.rowAmounts}>
-                    {formatMoney(c.actual, currency)} of {c.budget > 0 ? formatMoney(c.budget, currency) : "no budget set"}
-                  </Text>
-                </View>
-                <TextLink testID={`budget-edit-${c.id}`} onPress={() => openEditor(c)}>
-                  Edit
-                </TextLink>
-              </View>
-            ))
-          )}
-        </ScrollView>
+        <BudgetsView
+          month={month}
+          range={range}
+          data={data}
+          onMonth={(m) => {
+            setMonth(m);
+            setRange("month");
+            setCopyError(null);
+          }}
+          onRange={setRange}
+          onOpen={(id, editing) => setDetail({ id, editing })}
+          onNew={() => setAdding(true)}
+          copy={{ pending: copying, error: copyError, onCopy: () => void copyLastMonth() }}
+        />
       )}
-
-      {editing ? (
-        <View style={styles.editor}>
-          <Text style={styles.editorTitle}>{editing.name}</Text>
-          <Field
-            label={`Monthly budget (${currency})`}
-            testID="budget-amount"
-            value={amount}
-            onChangeText={setAmount}
-            keyboardType="decimal-pad"
-            placeholder="0.00"
-            error={error ?? undefined}
-          />
-          <View style={styles.editorActions}>
-            <PrimaryButton testID="budget-save" onPress={() => void saveAmount()} loading={saving}>
-              Save
-            </PrimaryButton>
-            <OutlineButton testID="budget-cancel" onPress={() => setEditing(null)} disabled={saving}>
-              Cancel
-            </OutlineButton>
-          </View>
-        </View>
+      {bar && monthData && detail ? (
+        <CategorySheet
+          key={`${detail.id}:${detail.editing}`}
+          bar={bar}
+          currency={monthData.currency}
+          startEditing={detail.editing}
+          onSave={saveBudget}
+          onSeeTransactions={() => {
+            setDetail(null);
+            router.navigate(budgetsLink.activity(month, bar.id));
+          }}
+          onClose={() => setDetail(null)}
+        />
       ) : null}
-    </SafeAreaView>
+      {adding && monthData ? (
+        <NewBudgetSheet categories={monthData.unbudgetedCategories} onSave={saveBudget} onClose={() => setAdding(false)} />
+      ) : null}
+    </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.bg },
-  header: { paddingHorizontal: 20, paddingTop: 8 },
-  title: { fontFamily: fonts.bold, fontSize: 26, color: colors.text },
-  monthWrap: { paddingHorizontal: 20 },
-  scroll: { padding: 20, gap: 14, paddingBottom: 40 },
-  notice: { fontFamily: fonts.medium, fontSize: 13, color: colors.neg },
-  summary: { alignItems: "center", gap: 4, paddingVertical: 8 },
-  summaryAmount: { fontFamily: fonts.bold, fontSize: 30, color: colors.text },
-  summaryLabel: { fontFamily: fonts.regular, fontSize: 13, color: colors.muted, textAlign: "center" },
-  empty: { fontFamily: fonts.regular, fontSize: 14, color: colors.muted, textAlign: "center", paddingVertical: 20 },
-  row: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8 },
-  rowMain: { flex: 1, gap: 6 },
-  rowHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
-  dot: { width: 10, height: 10, borderRadius: 5 },
-  rowName: { fontFamily: fonts.medium, fontSize: 15, color: colors.text },
-  bar: { height: 8, borderRadius: 4, backgroundColor: colors.border, overflow: "hidden" },
-  barFill: { height: "100%", borderRadius: 4 },
-  rowAmounts: { fontFamily: fonts.regular, fontSize: 12, color: colors.muted },
-  editor: {
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    backgroundColor: colors.surface,
-    padding: 20,
-    gap: 12,
-  },
-  editorTitle: { fontFamily: fonts.semibold, fontSize: 16, color: colors.text },
-  editorActions: { flexDirection: "row", gap: 10 },
-});

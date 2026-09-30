@@ -7,8 +7,9 @@ import { COLOR, EGG_FRAMES } from "./shared";
 /**
  * The native splash is the loading screen's first frame: the same resting
  * egg, the same size, on the same paper (app.json → expo-splash-screen; the
- * images come from tools/generate-app-icons.mjs). And the launcher icons are
- * today's Crystal on paper.
+ * images come from tools/generate-app-icons.mjs). And the launcher icon is
+ * the sign-in badge on an ink tile (src/lib/brand/app-icon-art.ts), as one
+ * opaque square for iOS and as layers for Android's adaptive icon.
  */
 
 const appRoot = join(__dirname, "..", "..");
@@ -46,11 +47,17 @@ describe("native splash", () => {
 });
 
 describe("launcher icons", () => {
-  it("are today's art on paper, with a themed (monochrome) Android icon", () => {
+  it("are the badge icon: one opaque 1024 square, and Android's background, foreground and themed layers", () => {
     expect(pngSize(expo.icon)).toEqual({ width: 1024, height: 1024 });
+    // an opaque PNG: colour type 2 (RGB) or 3 (palette) with no transparency chunk
+    const icon = readFileSync(join(appRoot, expo.icon));
+    expect([2, 3]).toContain(icon[25]);
+    expect(icon.includes(Buffer.from("tRNS"))).toBe(false);
     const adaptive = expo.android.adaptiveIcon;
-    expect(adaptive.backgroundColor.toLowerCase()).toBe(COLOR.paper);
-    for (const file of [adaptive.foregroundImage, adaptive.monochromeImage]) expect(existsSync(join(appRoot, file)), file).toBe(true);
-    expect(adaptive.backgroundImage).toBeUndefined();
+    expect(adaptive.backgroundColor.toLowerCase()).toBe(COLOR.charcoal); // the ink the background layer bleeds
+    for (const file of [adaptive.backgroundImage, adaptive.foregroundImage, adaptive.monochromeImage]) {
+      expect(existsSync(join(appRoot, file)), file).toBe(true);
+      expect(pngSize(file), file).toEqual({ width: 1024, height: 1024 });
+    }
   });
 });

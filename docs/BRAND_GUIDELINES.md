@@ -100,11 +100,17 @@ The frame generator's palette mirrors these tokens;
   sound; the marks rest hidden while animated), `curious` ("?", used for
   errors and a negative month), `sleepy` (eyes shut, "z", used for empty lists
   and offline).
-- **App icons:** generated from the same art by `node tools/generate-app-icons.mjs`:
-  the web icons, and the native apps' store icon (opaque paper), Android's
-  adaptive foreground (inside the 66dp safe circle, on a paper background)
-  and its themed monochrome icon (her darks only: outline, cap, back, wing,
-  tail).
+- **App icons:** generated from the same art by `node tools/generate-app-icons.mjs`.
+  The website's are Crystal on paper. The native apps' launcher icon is the
+  sign-in badge (the logo approved for Google's consent screen) on an ink
+  tile (`src/lib/brand/app-icon-art.ts`): a paper disc with grid-paper dots
+  and two silver sparkles, Crystal standing on a white stepped card of five
+  progress cells (four lit), the ink flooding out from the badge's ring to the
+  tile's edge so the icon holds its own on light and dark wallpapers. One
+  44-cell grid, Crystal unchanged, a clear cell of paper around every mark.
+  iOS gets one opaque 1024 square; Android an adaptive icon (the ground, card
+  and sparkles in the background layer, Crystal and her cells in the
+  foreground, inside the safe circle) and a themed icon of Crystal's darks.
 - **Crystal's egg** (`src/lib/brand/egg-art.ts`, native apps only): a
   speckled pixel egg in Crystal's own palette (her charcoal outline, belly
   white and shade, a white glint, speckles in her head and crown browns),

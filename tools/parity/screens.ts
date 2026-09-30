@@ -115,6 +115,15 @@ export const TESTIDS = {
     "goal-card", // one per goal
     "goals-empty", // Crystal's "No goals yet" card
   ],
+  insights: [
+    "insights-money-left", // the Money left card
+    "insights-savings-rate", // the savings rate card
+    "insights-waffle", // its 10x10 waffle
+    "insights-suggestion", // "Where you could save"
+    "insights-breakdown", // the breakdown card (Spending / Income)
+    "insights-total", // its total
+    "insights-income-row", // one per income source
+  ],
 } as const;
 
 /** Hub rows and tabs derive their ids in one place, shared with the web components and the native atoms. */

@@ -54,7 +54,8 @@ export type MobileBudgetsAllTime = {
 
 export type MobileBudgets = MobileBudgetsMonth | MobileBudgetsAllTime;
 
-function parseSuggestion(v: unknown): BudgetSuggestion | null {
+/** The server's `Suggestion` (src/lib/insights/suggestion.ts), shared by Budgets and Insights. */
+export function parseSuggestion(v: unknown): BudgetSuggestion | null {
   if (v === null) return null;
   const s = obj(v, "suggestion");
   const kind = oneOf(s.kind, "suggestion.kind", ["unbudgeted", "mover"] as const);

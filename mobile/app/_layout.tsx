@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Stack, useGlobalSearchParams } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
@@ -15,8 +15,9 @@ import { registerSupabaseAutoRefresh } from "../lib/supabase/auto-refresh";
 // very same place; then it fades over it and the egg rolls. `fade` is an
 // iOS switch (off by default there); Android's splash always fades out on
 // hide, over `duration` (expo-splash-screen's exit animation, 400ms unless set).
+const SPLASH_FADE_MS = 200;
 SplashScreen.preventAutoHideAsync();
-SplashScreen.setOptions({ fade: true, duration: 200 });
+SplashScreen.setOptions({ fade: true, duration: SPLASH_FADE_MS });
 
 function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
   const { session, loading } = useAuth();
@@ -24,18 +25,22 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
   const { clock } = useGlobalSearchParams<{ clock?: string }>();
   const ready = fontsReady && !loading;
 
+  // The egg stands still, exactly as the splash shows it, until the splash
+  // is told to go; it starts rolling once the splash has faded off it.
   const splashHidden = useRef(false);
+  const [splashGone, setSplashGone] = useState(false);
   const hideSplash = useCallback(() => {
     if (splashHidden.current) return;
     splashHidden.current = true;
     SplashScreen.hide();
+    setSplashGone(true);
   }, []);
 
   // Until the session read and the brand fonts are ready the loading screen
   // covers everything: no flash of the sign-in screen for a signed-in user,
   // nor of a system font.
   return (
-    <LoadingScreenProvider loading={!ready} onLayout={hideSplash}>
+    <LoadingScreenProvider loading={!ready} onLayout={hideSplash} motionAfterMs={splashGone ? SPLASH_FADE_MS : null}>
       <ParityClockProvider frozenAtMs={__DEV__ ? parseClockParam(clock) : null}>
       {ready ? (
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: ROLE.bg } }}>

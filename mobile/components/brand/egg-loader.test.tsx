@@ -135,6 +135,16 @@ describe("<EggLoader>", () => {
     expect(styleOf(byId(r, `egg-frame-${REST.angle}`)).animationName).toBe(before);
   });
 
+  it("holds the egg still while the splash covers it, then rolls from rest once the splash has faded off", () => {
+    const r = render(<EggLoader motionAfterMs={null} />);
+    for (const f of EGG_FRAMES) expect(styleOf(byId(r, `egg-frame-${f.angle}`)).animationName, `${f.angle}°`).toBeUndefined();
+    expect(styleOf(byId(r, `egg-frame-${REST.angle}`)).opacity).toBe(1);
+    act(() => r.update(<EggLoader motionAfterMs={200} />));
+    for (const f of EGG_FRAMES) expect(styleOf(byId(r, `egg-frame-${f.angle}`)).animationDelay, `${f.angle}°`).toBe("200ms");
+    expect(styleOf(byId(r, "egg-ground-recent")).animationDelay).toBe("200ms"); // the trail in step with the egg
+    expect(styleOf(byId(r, "egg-ground-cover")).animationDelay).toBe("0ms"); // the row builds as the splash fades
+  });
+
   it("under Reduce Motion: the standing egg on a full, still row; nothing animates", () => {
     reducedMotion.value = true;
     const r = render(<EggLoader />);

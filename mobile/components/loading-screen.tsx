@@ -33,6 +33,7 @@ export function LoadingScreenProvider({
   loading,
   label = "Loading",
   onLayout,
+  motionAfterMs = 0,
   children,
 }: {
   /** the provider owner's own loading (the root layout's start-up) */
@@ -40,6 +41,8 @@ export function LoadingScreenProvider({
   label?: string;
   /** the loader's first layout: the native splash hides here, over the same egg */
   onLayout?: (e: LayoutChangeEvent) => void;
+  /** when the egg may start rolling, in ms from now; null holds it still (while the native splash still covers it) */
+  motionAfterMs?: number | null;
   children: ReactNode;
 }) {
   const [holds, setHolds] = useState<ReadonlyMap<string, string>>(new Map());
@@ -94,7 +97,7 @@ export function LoadingScreenProvider({
           pointerEvents={active ? "auto" : "none"}
           accessibilityViewIsModal={active}
         >
-          <EggLoader label={current} onLayout={onLayout} />
+          <EggLoader label={current} onLayout={onLayout} motionAfterMs={motionAfterMs} />
         </Animated.View>
       ) : null}
     </LoadingScreenContext.Provider>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildMobileHome, MOBILE_HOME_VERSION } from "./home";
+import { buildMobileHome, goalsPct, MOBILE_HOME_VERSION } from "./home";
 import { testHome } from "./test-home";
 
 describe("buildMobileHome", () => {
@@ -67,9 +67,17 @@ describe("buildMobileHome", () => {
   });
 
   it("summarises savings, or says null when there are no active goals", () => {
-    expect(home.savings).toEqual({ activeCount: 1, totalSaved: 25000, totalTarget: 100000 });
+    expect(home.savings).toEqual({ activeCount: 1, totalSaved: 25000, totalTarget: 100000, pct: 25 });
     const none = buildMobileHome(testHome({ savings: { totalTarget: 0, totalSaved: 0, activeCount: 0, completeCount: 0 } }));
     expect(none.savings).toBeNull();
+  });
+
+  it("carries the goals' progress the web card prints: unrounded, and 0 without a target", () => {
+    expect(goalsPct({ totalSaved: 1, totalTarget: 3 })).toBeCloseTo(33.333, 3);
+    expect(goalsPct({ totalSaved: 150, totalTarget: 100 })).toBe(150);
+    expect(goalsPct({ totalSaved: 500, totalTarget: 0 })).toBe(0);
+    const noTarget = buildMobileHome(testHome({ savings: { totalTarget: 0, totalSaved: 500, activeCount: 1, completeCount: 0 } }));
+    expect(noTarget.savings?.pct).toBe(0);
   });
 
   it("exposes recent activity without any raw row fields", () => {

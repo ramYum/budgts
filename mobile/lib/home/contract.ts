@@ -52,7 +52,8 @@ export type MobileHome = {
   savingsRate: number | null;
   categories: HomeCategory[];
   recent: HomeActivity[];
-  savings: { activeCount: number; totalSaved: number; totalTarget: number } | null;
+  /** `pct`: the goals' progress (saved ÷ target × 100, unrounded; 0 without a target), computed by the server. */
+  savings: { activeCount: number; totalSaved: number; totalTarget: number; pct: number } | null;
   /** "Get set up": whether any bank connection exists; `null` when bank connections are switched off. */
   bankConnected: boolean | null;
   /** Home's "What can I change?" card; `null` when there is nothing worth suggesting. */
@@ -77,6 +78,10 @@ const isStr = (v: unknown): v is string => typeof v === "string";
 function int(o: Record<string, unknown>, key: string): number {
   const v = o[key];
   return isInt(v) ? v : fail(`${key} is not an integer`);
+}
+function finite(o: Record<string, unknown>, key: string): number {
+  const v = o[key];
+  return typeof v === "number" && Number.isFinite(v) ? v : fail(`${key} is not a number`);
 }
 function str(o: Record<string, unknown>, key: string): string {
   const v = o[key];
@@ -151,6 +156,7 @@ export function parseMobileHome(input: unknown): MobileHome {
       activeCount: int(input.savings, "activeCount"),
       totalSaved: int(input.savings, "totalSaved"),
       totalTarget: int(input.savings, "totalTarget"),
+      pct: finite(input.savings, "pct"),
     };
   }
 

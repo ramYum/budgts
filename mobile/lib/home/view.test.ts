@@ -10,7 +10,7 @@ import {
   heroLine,
   homeBlocks,
   keptPct,
-  savingsProgress,
+  savingsBadge,
   showsOverAlert,
   subtitle,
   whereNote,
@@ -82,9 +82,10 @@ describe("Home presentation", () => {
     expect(showsOverAlert(home({ budgeted: 5000, income: 0, spent: 0 }))).toBe(false);
   });
 
-  it("prints goal progress from the two totals, and no badge without a target", () => {
-    expect(savingsProgress({ activeCount: 2, totalSaved: 42000, totalTarget: 100000 })).toEqual({ pct: 42, badge: "42%" });
-    expect(savingsProgress({ activeCount: 1, totalSaved: 500, totalTarget: 0 })).toEqual({ pct: 0, badge: null });
+  it("rounds the server's goal progress for the badge, and shows none without a target", () => {
+    expect(savingsBadge({ activeCount: 2, totalSaved: 42000, totalTarget: 100000, pct: 42 })).toBe("42%");
+    expect(savingsBadge({ activeCount: 1, totalSaved: 1, totalTarget: 3, pct: 33.333 })).toBe("33%");
+    expect(savingsBadge({ activeCount: 1, totalSaved: 500, totalTarget: 0, pct: 0 })).toBeNull();
   });
 
   it("reads each Where it went row's state", () => {
@@ -98,7 +99,7 @@ describe("Home presentation", () => {
 describe("homeBlocks: the web's reveal numbers", () => {
   it("a full month with a suggestion, goals and an over-income plan", () => {
     const suggestion = { kind: "mover", categoryId: "c", name: "Food", amount: 1, delta: 1 } as const;
-    const savings = { activeCount: 1, totalSaved: 1, totalTarget: 2 };
+    const savings = { activeCount: 1, totalSaved: 1, totalTarget: 2, pct: 50 };
     expect(homeBlocks(home({ budgeted: 400000, suggestion, savings }))).toEqual({
       overAlert: 1,
       hero: 2,

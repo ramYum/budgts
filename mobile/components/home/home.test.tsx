@@ -40,7 +40,7 @@ const full = (over: Partial<MobileHome> = {}): MobileHome => ({
     { id: "t2", description: "", amount: 320000, direction: "credit", occurredAt: "2026-09-15T12:00:00.000Z", isTransfer: false, category: null },
     { id: "t3", description: "To savings", amount: 5000, direction: "debit", occurredAt: "2026-09-14T12:00:00.000Z", isTransfer: true, category: null },
   ],
-  savings: { activeCount: 2, totalSaved: 42000, totalTarget: 100000 },
+  savings: { activeCount: 2, totalSaved: 42000, totalTarget: 100000, pct: 42 },
   bankConnected: true,
   suggestion: { kind: "mover", categoryId: "over", name: "Dining", amount: 15000, delta: 4200 },
   ...over,
@@ -52,17 +52,16 @@ const categories: MobileCategory[] = [
   { id: "c", name: "Dining", kind: "expense", color: "#000" },
 ];
 
-function view(home: MobileHome, over: Partial<Parameters<typeof HomeView>[0]> = {}) {
+function view(home: MobileHome, over: { categories?: MobileCategory[] | null } = {}) {
   const props = {
     home,
-    categories,
+    categories: over.categories === undefined ? categories : over.categories,
     name: "Alex",
     hour: 14,
-    go: vi.fn(),
-    onMonth: vi.fn(),
-    onAddIncome: vi.fn(),
-    onAddTransaction: vi.fn(),
-    ...over,
+    go: vi.fn<(path: string) => void>(),
+    onMonth: vi.fn<(month: string) => void>(),
+    onAddIncome: vi.fn<() => void>(),
+    onAddTransaction: vi.fn<() => void>(),
   };
   return { r: render(<HomeView {...props} />), props };
 }
@@ -175,7 +174,7 @@ describe("Where it went", () => {
     rows[0]!.props.onPress();
     byTestId(r, "home-where-set-budget").props.onPress();
     rows[1]!.props.onAccessibilityAction({ nativeEvent: { actionName: "setBudget" } });
-    expect(props.go.mock.calls.map((c: string[]) => c[0])).toEqual([
+    expect(props.go.mock.calls.map((c) => c[0])).toEqual([
       "/activity?m=2026-09&category=over",
       "/budgets?m=2026-09&edit=unplanned",
       "/budgets?m=2026-09&edit=unplanned",
@@ -262,7 +261,7 @@ describe("Recent activity", () => {
     const { r, props } = view(full());
     for (const id of ["home-where", "home-savings", "home-recent"])
       byTestId(r, id).findAll((n) => typeof n.type === "string" && n.props.testID === "section-head-action")[0]!.props.onPress();
-    expect(props.go.mock.calls.map((c: string[]) => c[0])).toEqual(["/budgets?m=2026-09", "/goals", "/activity"]);
+    expect(props.go.mock.calls.map((c) => c[0])).toEqual(["/budgets?m=2026-09", "/goals", "/activity"]);
   });
 });
 

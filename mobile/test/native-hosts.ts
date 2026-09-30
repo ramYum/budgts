@@ -7,6 +7,8 @@ import { createElement, useRef, type ReactNode } from "react";
  * test by native-mocks.setup.ts (vitest.config.mts setupFiles).
  */
 export const RATIO = 2.625; // a Pixel 6 / 7: 412 × 915 at 420 dpi
+/** The window the stand-in reports (useWindowDimensions); tests may narrow it. */
+export const windowSize = { width: 412, height: 915 };
 
 function host(name: string) {
   const C = ({ children, ...props }: { children?: ReactNode } & Record<string, unknown>) =>
@@ -22,6 +24,7 @@ export const reactNativeMock = () => ({
   Pressable: host("Pressable"),
   ActivityIndicator: host("ActivityIndicator"),
   PixelRatio: { get: () => RATIO },
+  useWindowDimensions: () => ({ ...windowSize, scale: RATIO, fontScale: 1 }),
   StyleSheet: { create: <T,>(s: T) => s, hairlineWidth: 1 / RATIO },
   Platform: { OS: "android", select: (o: Record<string, unknown>) => o.android ?? o.default },
 });
@@ -85,6 +88,11 @@ export const reanimatedMock = () => {
   };
 };
 
+/** Every function a worklet handed back to the JS thread (scheduleOnRN), in order. */
+export const scheduledOnRN: unknown[] = [];
 export const workletsMock = () => ({
-  scheduleOnRN: <A extends unknown[]>(fn: (...args: A) => void, ...args: A) => fn(...args),
+  scheduleOnRN: <A extends unknown[]>(fn: (...args: A) => void, ...args: A) => {
+    scheduledOnRN.push(fn);
+    fn(...args);
+  },
 });

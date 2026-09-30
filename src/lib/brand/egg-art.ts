@@ -2,9 +2,11 @@
  * (mobile/components/brand/egg-loader.tsx) and the native splash image
  * (tools/generate-app-icons.mjs). docs/BRAND_GUIDELINES.md → Motion.
  *
- * A speckled egg, standing on its blunt end, tips over and rolls end over end
- * along a row of the brand's square progress cells, rocks to rest on its
- * side, and rolls back. Every rotation is its own pre-drawn frame,
+ * A speckled egg, standing on its blunt end (its rows 5,7,9,9,11,11,13,13,13,
+ * 13,13,11,9,7,5 cells wide, outline included), rolls end over end along a row
+ * of the brand's square progress cells and back: half a turn each way, or a
+ * quarter turn in a narrow window (EGG_PATHS, eggPathFor). Every rotation is
+ * its own pre-drawn frame,
  * never a rotated image: the shell is rasterised from one egg curve at each
  * angle, cleaned of spurs and notches, then given Crystal's 1-cell charcoal
  * outline, a shade side away from the light (upper left, fixed while the egg
@@ -313,52 +315,66 @@ const hold = (pose: Pose, steps: number): Pose[] => Array.from({ length: steps }
  * everyone draws. It is the native splash's egg. */
 const REST = -90;
 
-/** The loop, as turns (degrees, clockwise = rolling right), one per step. It
- * rolls from the first step: end over end half a turn right (onto its
- * pointed end), a whole turn back left past the middle, and half a turn right
- * home, where it stands for a beat before the next lap. A beat at each turn
- * as its motion reverses. Every step but those beats is a roll. */
-const LOOP_POSES: Pose[] = [
-  REST,
-  ...rollTurns(REST, REST + 180),
-  REST + 180,
-  ...rollTurns(REST + 180, REST - 180),
-  REST - 180,
-  ...rollTurns(REST - 180, REST),
-  ...hold(REST, 2),
-];
+/** A lap that rolls a `turn` (degrees) each way from standing, as turns
+ * (clockwise = rolling right), one per step. It rolls from the first step:
+ * the turn to the right, a beat as its motion reverses, twice the turn back
+ * left past the middle, a beat, the turn right home, where it stands for
+ * three steps before the next lap. Every other step is a roll. */
+function lapPoses(turn: number): Pose[] {
+  return [
+    REST,
+    ...rollTurns(REST, REST + turn),
+    REST + turn,
+    ...rollTurns(REST + turn, REST - turn),
+    REST - turn,
+    ...rollTurns(REST - turn, REST),
+    ...hold(REST, 2),
+  ];
+}
 
-/** Every distinct frame the loop draws, the resting frame first. */
+/** The laps, longest first, each with its row of cells: half a turn each way
+ * (over the pointed end, then back over both ends; a 16-cell row), and a
+ * quarter turn each way onto its sides for narrow windows (a 12-cell row).
+ * Each row is about as long as its egg reaches, so the turnarounds stand on it. */
+const LAPS = [
+  { id: "half", turn: 180, cells: 16 },
+  { id: "quarter", turn: 90, cells: 12 },
+] as const;
+
+/** Every distinct frame the laps draw, the resting frame first. */
 export const EGG_FRAMES: EggFrame[] = (() => {
   const angles: number[] = [];
-  for (const a of LOOP_POSES.map(norm)) if (!angles.includes(a)) angles.push(a);
+  for (const lap of LAPS) for (const a of lapPoses(lap.turn).map(norm)) if (!angles.includes(a)) angles.push(a);
   return angles.map(frameAt);
 })();
 
 const frameIndex = (deg: number) => EGG_FRAMES.findIndex((f) => f.angle === norm(deg));
 
-/** The ground: a row of the brand's square progress cells the egg stands on,
- * in cells, centred under the resting egg (which the splash centres on the
- * screen) and long enough for the whole roll. */
-export const EGG_GROUND = (() => {
+/** A row of the brand's square progress cells the egg stands on, in cells,
+ * centred under the resting egg (which the splash centres on the screen). */
+export type EggGround = { cell: number; gap: number; count: number; drop: number; width: number; left: number };
+
+function groundOf(count: number): EggGround {
   const cell = 2;
   const gap = 1;
-  const count = 14;
-  const drop = DROP;
   const width = count * (cell + gap) - gap;
-  const rest = EGG_FRAMES[0]!;
-  const left = (rest.w - width) / 2;
-  return { cell, gap, count, drop, width, left };
-})();
+  return { cell, gap, count, drop: DROP, width, left: (EGG_FRAMES[0]!.w - width) / 2 };
+}
 
-/** The loop, one entry per step, from rest back to rest. */
-export const EGG_LOOP: EggStep[] = (() => {
+/** Where a step's egg touches the row: its lowest row's extent, in cells from the resting frame's left edge. */
+export function eggFoot(step: { frame: number; x: number }): [from: number, to: number] {
+  const f = EGG_FRAMES[step.frame]!;
+  const bottom = f.runs.filter((r) => r.y === f.h - 1);
+  return [step.x + Math.min(...bottom.map((r) => r.x)), step.x + Math.max(...bottom.map((r) => r.x + r.w))];
+}
+
+function lapSteps(poses: Pose[], ground: EggGround): EggStep[] {
   const rest = EGG_FRAMES[0]!;
   let X = 0; // the contact point's travel, in cells, from rest
   let prev = contact(REST);
   let prevDeg = REST;
-  const pitch = EGG_GROUND.cell + EGG_GROUND.gap;
-  const steps = LOOP_POSES.map((deg) => {
+  const pitch = ground.cell + ground.gap;
+  const steps = poses.map((deg) => {
     const c = contact(deg);
     if (deg !== prevDeg) {
       let ds = Math.abs(c.s - prev.s);
@@ -371,7 +387,7 @@ export const EGG_LOOP: EggStep[] = (() => {
     const f = EGG_FRAMES[frame]!;
     const x = Math.round(rest.contactX + X - f.contactX);
     // the cell under the contact point as drawn (the frame on whole cells)
-    const lit = Math.floor((x + f.contactX - EGG_GROUND.left) / pitch);
+    const lit = Math.floor((x + f.contactX - ground.left) / pitch);
     return { frame, x, lit, trail: [] as number[] };
   });
   // the cells it left in the last TRAIL_STEPS steps, most recent first (the
@@ -382,19 +398,36 @@ export const EGG_LOOP: EggStep[] = (() => {
     const [footFrom, footTo] = eggFoot(s);
     for (let k = 1; k <= TRAIL_STEPS; k++) {
       const c = steps[(i - k + steps.length) % steps.length]!.lit;
-      const cx = EGG_GROUND.left + c * pitch;
-      const underFoot = cx < footTo && cx + EGG_GROUND.cell > footFrom;
+      const cx = ground.left + c * pitch;
+      const underFoot = cx < footTo && cx + ground.cell > footFrom;
       if (c !== s.lit && !underFoot && !s.trail.includes(c) && s.trail.length < TRAIL) s.trail.push(c);
     }
   });
   return steps;
-})();
+}
 
-/** Where a step's egg touches the row: its lowest row's extent, in cells from the resting frame's left edge. */
-export function eggFoot(step: { frame: number; x: number }): [from: number, to: number] {
-  const f = EGG_FRAMES[step.frame]!;
-  const bottom = f.runs.filter((r) => r.y === f.h - 1);
-  return [step.x + Math.min(...bottom.map((r) => r.x)), step.x + Math.max(...bottom.map((r) => r.x + r.w))];
+/** One way to roll: its lap, its row, and how far anything reaches from the
+ * middle of the screen (the resting egg's centre), in cells: the egg's body
+ * at its farthest and the row's ends. */
+export type EggPath = { id: string; loop: EggStep[]; ground: EggGround; reach: number };
+
+/** The paths, longest first. */
+export const EGG_PATHS: EggPath[] = LAPS.map(({ id, turn, cells }) => {
+  const ground = groundOf(cells);
+  const loop = lapSteps(lapPoses(turn), ground);
+  const mid = EGG_FRAMES[0]!.w / 2;
+  const body = Math.max(...loop.map((s) => Math.max(mid - s.x, s.x + EGG_FRAMES[s.frame]!.w - mid)));
+  return { id, loop, ground, reach: Math.max(body, ground.width / 2) };
+});
+
+/** The least paper kept between the egg and a window's edge, in px. */
+export const EGG_MARGIN = 16;
+
+/** The longest path that fits a window `width` px wide at `scale` px per
+ * cell with EGG_MARGIN to spare each side; the shortest if none does. Every
+ * path starts and ends on the same resting frame, the splash's egg. */
+export function eggPathFor(width: number, scale: number): EggPath {
+  return EGG_PATHS.find((p) => p.reach * scale + EGG_MARGIN <= width / 2) ?? EGG_PATHS[EGG_PATHS.length - 1]!;
 }
 
 /** One step of the loop lasts this long: sprite timing, like the robin's hops. */

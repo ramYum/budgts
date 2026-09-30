@@ -42,6 +42,7 @@ export function useSteppedClock(timeline: SteppedTimeline, running: boolean): Sh
   const { stepMs, intro, loop } = timeline;
   const step = useSharedValue(0);
   const start = useSharedValue(-1);
+  const told = useSharedValue(false); // a one-shot's end reported to React, once
   const [played, setPlayed] = useState(false);
 
   const tick = useCallback(
@@ -50,9 +51,12 @@ export function useSteppedClock(timeline: SteppedTimeline, running: boolean): Sh
       if (start.value < 0) start.value = frame.timestamp;
       const next = stepAt(frame.timestamp - start.value, { stepMs, intro, loop });
       if (next !== step.value) step.value = next;
-      if (loop === 1 && next >= intro) scheduleOnRN(setPlayed, true);
+      if (loop === 1 && next >= intro && !told.value) {
+        told.value = true;
+        scheduleOnRN(setPlayed, true);
+      }
     },
-    [stepMs, intro, loop, start, step],
+    [stepMs, intro, loop, start, step, told],
   );
   const clock = useFrameCallback(tick, false);
 
@@ -60,8 +64,9 @@ export function useSteppedClock(timeline: SteppedTimeline, running: boolean): Sh
   useEffect(() => {
     start.value = -1;
     step.value = 0;
+    told.value = false;
     setPlayed(false);
-  }, [stepMs, intro, loop, running, start, step]);
+  }, [stepMs, intro, loop, running, start, step, told]);
 
   const active = running && !played;
   useEffect(() => {

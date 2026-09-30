@@ -1,8 +1,8 @@
 import { act, create, type ReactTestInstance, type ReactTestRenderer } from "react-test-renderer";
 import { afterEach, describe, expect, it } from "vitest";
-import { EGG_FRAMES, EGG_GROUND, EGG_GROUND_PALETTE, EGG_LOOP, EGG_STEP_MS, ROLE } from "../../lib/brand/shared";
+import { EGG_FRAMES, EGG_GROUND_PALETTE, EGG_MARGIN, EGG_PATHS, EGG_STEP_MS, ROLE, eggPathFor } from "../../lib/brand/shared";
 import { pathPoints } from "../../lib/brand/snap";
-import { frameCallbacks, RATIO, reducedMotion, tickFrames } from "../../test/native-hosts";
+import { frameCallbacks, RATIO, reducedMotion, tickFrames, windowSize } from "../../test/native-hosts";
 import { EGG_SCALE, EggLoader } from "./egg-loader";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -21,6 +21,8 @@ const translateX = (n: ReactTestInstance) =>
   ((flat(n.props.style).transform as { translateX: number }[] | undefined) ?? [{ translateX: 0 }])[0]!.translateX;
 const onDeviceGrid = (v: number) => Math.abs(v * RATIO - Math.round(v * RATIO)) < 1e-9;
 const REST = EGG_FRAMES[0]!;
+// the stand-in window is a 412dp phone: the half-turn lap
+const { loop: EGG_LOOP, ground: EGG_GROUND } = eggPathFor(412, 6);
 const pitchPx = (EGG_GROUND.cell + EGG_GROUND.gap) * EGG_SCALE;
 /** the one frame showing, and where */
 function shown(r: ReactTestRenderer) {
@@ -32,6 +34,7 @@ function shown(r: ReactTestRenderer) {
 afterEach(() => {
   reducedMotion.value = false;
   frameCallbacks.length = 0;
+  windowSize.width = 412;
 });
 
 describe("<EggLoader>", () => {
@@ -117,5 +120,32 @@ describe("<EggLoader>", () => {
     expect(frameCallbacks.every((c) => !c.active)).toBe(true);
     expect(shown(r).frame).toBe(0);
     expect(flat(byId(r, "egg-ground-recent").props.style).opacity).toBe(0);
+  });
+
+  it("fits its lap to the window: the quarter turn and its own row at 320dp, the egg kept off the edges", () => {
+    windowSize.width = 320;
+    const quarter = EGG_PATHS.find((p) => p.id === "quarter")!;
+    const r = render(<EggLoader />);
+    expect(flat(byId(r, "egg-ground").props.style)).toMatchObject({ width: quarter.ground.width * EGG_SCALE, left: quarter.ground.left * EGG_SCALE });
+    // the stage is centred: its left edge sits at (320 - width) / 2; every step keeps the margin
+    const stageLeft = (320 - REST.w * EGG_SCALE) / 2;
+    for (const s of quarter.loop) {
+      const f = EGG_FRAMES[s.frame]!;
+      expect(stageLeft + s.x * EGG_SCALE).toBeGreaterThanOrEqual(EGG_MARGIN);
+      expect(stageLeft + (s.x + f.w) * EGG_SCALE).toBeLessThanOrEqual(320 - EGG_MARGIN);
+    }
+    // it still opens on the splash's egg
+    expect(shown(r)).toEqual({ frame: 0, x: expect.closeTo(0) });
+  });
+
+  it("rolls the half turn on 360dp phones and wider, within the margin", () => {
+    for (const w of [360, 412]) {
+      windowSize.width = w;
+      const r = render(<EggLoader />);
+      const half = EGG_PATHS.find((p) => p.id === "half")!;
+      expect(flat(byId(r, "egg-ground").props.style).width).toBe(half.ground.width * EGG_SCALE);
+      expect(half.reach * EGG_SCALE + EGG_MARGIN).toBeLessThanOrEqual(w / 2);
+      act(() => r.unmount());
+    }
   });
 });

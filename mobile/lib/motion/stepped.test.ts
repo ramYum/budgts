@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
 import { afterEach, describe, expect, it } from "vitest";
-import { frameCallbacks, tickFrames } from "../../test/native-hosts";
+import { frameCallbacks, scheduledOnRN, tickFrames } from "../../test/native-hosts";
 import { stepAt, useSteppedClock, type SteppedTimeline } from "./stepped";
 
 describe("stepAt: sprite timing", () => {
@@ -97,5 +97,30 @@ describe("useSteppedClock", () => {
     mount(createElement(Clock, { timeline: { stepMs: 20, intro: 0, loop: 4 }, running: false }));
     expect(frameCallbacks[0]!.active).toBe(false);
     expect(seen!.value).toBe(0);
+  });
+});
+
+describe("useSteppedClock: a one-shot's end", () => {
+  (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  function Clock() {
+    useSteppedClock({ stepMs: 20, intro: 5, loop: 1 }, true);
+    return null;
+  }
+  afterEach(() => {
+    frameCallbacks.length = 0;
+    scheduledOnRN.length = 0;
+  });
+
+  it("is reported to React exactly once, however many frames tick before the callback stops", () => {
+    scheduledOnRN.length = 0;
+    act(() => {
+      create(createElement(Clock));
+    });
+    act(() => {
+      // all within one act: React has not yet switched the callback off
+      for (let t = 0; t <= 400; t += 16) tickFrames(t);
+    });
+    expect(scheduledOnRN).toHaveLength(1);
+    expect(frameCallbacks[0]!.active).toBe(false);
   });
 });

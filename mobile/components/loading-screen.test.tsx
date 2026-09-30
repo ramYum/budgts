@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { EGG_FRAMES, EGG_LOOP, EGG_STEP_MS } from "../lib/brand/shared";
+import { EGG_FRAMES, EGG_STEP_MS, eggPathFor } from "../lib/brand/shared";
 import { frameCallbacks, tickFrames } from "../test/native-hosts";
 import { LoadingScreenProvider, useLoadingScreen } from "./loading-screen";
 
@@ -25,6 +25,8 @@ function Screen({ initial, label: words = "Loading your account" }: { initial: b
   useLoadingScreen(loading, words);
   return null;
 }
+// the stand-in window is a 412dp phone: the half-turn lap
+const EGG_LOOP = eggPathFor(412, 6).loop;
 /** the egg frame showing (the stand-in styles are read on render) */
 const eggFrame = (r: ReactTestRenderer) =>
   EGG_FRAMES.findIndex((f) => {

@@ -1,17 +1,33 @@
 import { memo, useMemo } from "react";
-import { PixelRatio, View, type LayoutChangeEvent } from "react-native";
+import { PixelRatio, useWindowDimensions, View, type LayoutChangeEvent } from "react-native";
 import Animated, { useAnimatedStyle, useReducedMotion, type SharedValue } from "react-native-reanimated";
 import Svg, { Path } from "react-native-svg";
-import { EGG_FRAMES, EGG_GROUND, EGG_GROUND_PALETTE, EGG_LOOP, EGG_STEP_MS, MOTION, ROLE, type EggFrame } from "../../lib/brand/shared";
+import {
+  EGG_FRAMES,
+  EGG_GROUND_PALETTE,
+  EGG_STEP_MS,
+  MOTION,
+  ROLE,
+  eggPathFor,
+  type EggFrame,
+  type EggGround,
+  type EggStep,
+} from "../../lib/brand/shared";
 import { snap, snapPath } from "../../lib/brand/snap";
 import { useSteppedClock } from "../../lib/motion/stepped";
 
 /**
  * The loading screen: Crystal's egg rolling end over end along a row of the
- * brand's square progress cells (the art and the loop: src/lib/brand/egg-art.ts;
+ * brand's square progress cells (the art and the laps: src/lib/brand/egg-art.ts;
  * docs/BRAND_GUIDELINES.md → Motion). It opens exactly as the native splash
  * left off (the same resting egg, the same size, the middle of the screen),
  * the cells step in beneath it left to right, and it rolls from the first step.
+ *
+ * The lap fits the window: half a turn each way where that keeps 16px of
+ * paper to both edges (360dp phones and up), a quarter turn each way in
+ * narrower ones (an iPhone SE with Display Zoom, Android at its largest
+ * display size). The loader fills the window, so the window's width is its
+ * width. Every lap starts and ends on the splash's resting frame.
  *
  * Indeterminate on purpose: the cells it rolls off fade ink, then grey, then
  * back to the track behind it, a chase, never a bar that fills (a full bar
@@ -23,11 +39,6 @@ import { useSteppedClock } from "../../lib/motion/stepped";
 export const EGG_SCALE = 6;
 
 const REST = EGG_FRAMES[0]!;
-const PITCH = EGG_GROUND.cell + EGG_GROUND.gap;
-/** the ground row's top, below the resting egg's box */
-const GROUND_TOP = (REST.h + EGG_GROUND.drop) * EGG_SCALE;
-const SWEEP = { stepMs: MOTION.cellsSweepMs / EGG_GROUND.count, intro: EGG_GROUND.count, loop: 1 };
-const LOOP = { stepMs: EGG_STEP_MS, intro: 0, loop: EGG_LOOP.length };
 
 /** The frame as one path per colour, in art cells (one-cell-tall runs). */
 function framePaths(frame: EggFrame): [fill: string, d: string][] {
@@ -40,16 +51,22 @@ function framePaths(frame: EggFrame): [fill: string, d: string][] {
 export const EggLoader = memo(function EggLoader({ label = "Loading", onLayout }: { label?: string; onLayout?: (e: LayoutChangeEvent) => void }) {
   const reduceMotion = useReducedMotion();
   const ratio = PixelRatio.get();
-  const loopStep = useSteppedClock(LOOP, !reduceMotion);
-  const sweepStep = useSteppedClock(SWEEP, !reduceMotion);
+  const { width } = useWindowDimensions();
+  const path = eggPathFor(width, EGG_SCALE);
+  const { loop, ground } = path;
+
+  const loopClock = useMemo(() => ({ stepMs: EGG_STEP_MS, intro: 0, loop: loop.length }), [loop]);
+  const sweepClock = useMemo(() => ({ stepMs: MOTION.cellsSweepMs / ground.count, intro: ground.count, loop: 1 }), [ground]);
+  const loopStep = useSteppedClock(loopClock, !reduceMotion);
+  const sweepStep = useSteppedClock(sweepClock, !reduceMotion);
 
   // Every position on the device-pixel grid, worked out once, so the art never lands between pixels.
   const px = useMemo(
     () => ({
-      frameX: EGG_LOOP.map((s) => snap(s.x * EGG_SCALE, ratio)),
-      cellX: Array.from({ length: EGG_GROUND.count + 1 }, (_, i) => snap(i * PITCH * EGG_SCALE, ratio)),
+      frameX: loop.map((s) => snap(s.x * EGG_SCALE, ratio)),
+      cellX: Array.from({ length: ground.count + 1 }, (_, i) => snap(i * (ground.cell + ground.gap) * EGG_SCALE, ratio)),
     }),
-    [ratio],
+    [loop, ground, ratio],
   );
 
   return (
@@ -68,9 +85,9 @@ export const EggLoader = memo(function EggLoader({ label = "Loading", onLayout }
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
       >
-        <Ground ratio={ratio} cellX={px.cellX} loopStep={loopStep} sweepStep={sweepStep} still={reduceMotion} />
+        <Ground key={path.id} ground={ground} loop={loop} ratio={ratio} cellX={px.cellX} loopStep={loopStep} sweepStep={sweepStep} still={reduceMotion} />
         {EGG_FRAMES.map((frame, i) => (
-          <FrameLayer key={frame.angle} index={i} frame={frame} ratio={ratio} frameX={px.frameX} loopStep={loopStep} />
+          <FrameLayer key={frame.angle} index={i} frame={frame} ratio={ratio} loop={loop} frameX={px.frameX} loopStep={loopStep} />
         ))}
       </View>
     </View>
@@ -82,20 +99,22 @@ const FrameLayer = memo(function FrameLayer({
   index,
   frame,
   ratio,
+  loop,
   frameX,
   loopStep,
 }: {
   index: number;
   frame: EggFrame;
   ratio: number;
+  loop: EggStep[];
   frameX: number[];
   loopStep: SharedValue<number>;
 }) {
   const paths = useMemo(() => framePaths(frame).map(([fill, d]) => [fill, snapPath(d, { unit: EGG_SCALE, ratio })] as const), [frame, ratio]);
   const top = (REST.h - frame.h) * EGG_SCALE; // every frame stands on the resting egg's ground line
   const style = useAnimatedStyle(() => {
-    const step = EGG_LOOP[loopStep.value]!;
-    return { opacity: step.frame === index ? 1 : 0, transform: [{ translateX: frameX[loopStep.value]! }] };
+    const i = Math.min(loopStep.value, loop.length - 1);
+    return { opacity: loop[i]!.frame === index ? 1 : 0, transform: [{ translateX: frameX[i]! }] };
   });
   return (
     <Animated.View testID={`egg-frame-${frame.angle}`} style={[{ position: "absolute", left: 0, top }, style]}>
@@ -110,39 +129,47 @@ const FrameLayer = memo(function FrameLayer({
 
 /** The row of cells: the track, the two cells the egg just rolled off (ink, then grey), and the cover the sweep draws back. */
 function Ground({
+  ground,
+  loop,
   ratio,
   cellX,
   loopStep,
   sweepStep,
   still,
 }: {
+  ground: EggGround;
+  loop: EggStep[];
   ratio: number;
   cellX: number[];
   loopStep: SharedValue<number>;
   sweepStep: SharedValue<number>;
   still: boolean;
 }) {
-  const size = snap(EGG_GROUND.cell * EGG_SCALE, ratio);
-  const width = EGG_GROUND.width * EGG_SCALE;
+  const pitch = ground.cell + ground.gap;
+  const size = snap(ground.cell * EGG_SCALE, ratio);
+  const width = ground.width * EGG_SCALE;
   const track = useMemo(() => {
     let d = "";
-    for (let i = 0; i < EGG_GROUND.count; i++) d += `M${i * PITCH} 0h${EGG_GROUND.cell}v${EGG_GROUND.cell}h-${EGG_GROUND.cell}z`;
+    for (let i = 0; i < ground.count; i++) d += `M${i * pitch} 0h${ground.cell}v${ground.cell}h-${ground.cell}z`;
     return snapPath(d, { unit: EGG_SCALE, ratio });
-  }, [ratio]);
+  }, [ground, pitch, ratio]);
 
   const trailCell = (k: number) => {
     "worklet";
-    const t = still ? undefined : EGG_LOOP[loopStep.value]!.trail[k];
+    const t = still ? undefined : loop[Math.min(loopStep.value, loop.length - 1)]!.trail[k];
     return { opacity: t === undefined ? 0 : 1, transform: [{ translateX: cellX[t ?? 0]! }] };
   };
   const recent = useAnimatedStyle(() => trailCell(0));
   const older = useAnimatedStyle(() => trailCell(1));
   // paper over the cells not yet arrived; it slides off one cell at a time
-  const cover = useAnimatedStyle(() => ({ transform: [{ translateX: cellX[still ? EGG_GROUND.count : sweepStep.value]! }] }));
+  const cover = useAnimatedStyle(() => ({ transform: [{ translateX: cellX[still ? ground.count : Math.min(sweepStep.value, ground.count)]! }] }));
 
   const cell = { position: "absolute", top: 0, left: 0, width: size, height: size } as const;
   return (
-    <View testID="egg-ground" style={{ position: "absolute", left: EGG_GROUND.left * EGG_SCALE, top: GROUND_TOP, width, height: size }}>
+    <View
+      testID="egg-ground"
+      style={{ position: "absolute", left: ground.left * EGG_SCALE, top: (REST.h + ground.drop) * EGG_SCALE, width, height: size }}
+    >
       <Svg width={width} height={size}>
         <Path d={track} fill={EGG_GROUND_PALETTE.track} />
       </Svg>

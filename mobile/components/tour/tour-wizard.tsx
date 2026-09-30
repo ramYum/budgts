@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { AccessibilityInfo, BackHandler, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ROLE, SPACE } from "../../lib/brand/shared";
+import { DirectionContext, type Direction } from "./motion";
 
 export type StepNav = {
   index: number;
@@ -20,7 +21,6 @@ export type WizardStep = {
   render: (nav: StepNav) => ReactNode;
 };
 
-export type Direction = "none" | "next" | "back";
 type Position = { index: number; dir: Direction };
 
 /** Move by `delta` within [0, last], remembering the direction (web tour-wizard.tsx `move`). */
@@ -39,7 +39,7 @@ export function move(p: Position, delta: number, last: number): Position {
  * it does what back does anywhere else), and each step is announced to TalkBack / VoiceOver like the web's live region.
  */
 export function TourWizard({ steps, offset = 0, total = steps.length }: { steps: WizardStep[]; offset?: number; total?: number }) {
-  const [{ index }, setPosition] = useState<Position>({ index: 0, dir: "none" });
+  const [{ index, dir }, setPosition] = useState<Position>({ index: 0, dir: "none" });
   const insets = useSafeAreaInsets();
   const last = steps.length - 1;
   const step = steps[Math.min(index, last)]!;
@@ -85,9 +85,9 @@ export function TourWizard({ steps, offset = 0, total = steps.length }: { steps:
       }}
       keyboardShouldPersistTaps="handled"
     >
-      {/* keyed on the step, so each card mounts fresh (the web's `key={step.id}`); the direction drives the A4 entrance */}
+      {/* keyed on the step, so each card mounts fresh and plays its entrance from the way the guide moved */}
       <View key={step.id} testID={`tour-step-${step.id}`} style={{ width: "100%", alignItems: "center" }}>
-        {step.render(nav)}
+        <DirectionContext.Provider value={dir}>{step.render(nav)}</DirectionContext.Provider>
       </View>
     </ScrollView>
   );

@@ -7,7 +7,7 @@ import { byTestId, flat, hosts, render, textContent, texts } from "../../test/re
 import { Text } from "../brand/text";
 import { OnboardingView } from "./onboarding-view";
 import { GuideScene } from "./scenes";
-import { Progress, TourCard } from "./tour-card";
+import { HEADING_SPACE, Progress, TourCard } from "./tour-card";
 import { TourView } from "./tour-view";
 
 const native = vi.hoisted(() => ({
@@ -52,8 +52,13 @@ describe("TourCard (web tour-card.tsx)", () => {
 
   it("sets the heading at the web's 26px / 1.15 and hides the scene from screen readers", () => {
     const r = render(card());
-    expect(flat(byTestId(r, "tour-heading").props.style)).toMatchObject({ fontSize: 26, lineHeight: 29.9, textAlign: "center" });
-    expect(byTestId(r, "tour-heading").props.accessibilityRole).toBe("header");
+    const words = r.root.findAll((n) => typeof n.type === "string" && n.props.testID === "tour-heading-word");
+    expect(words.map((w) => textContent(w))).toEqual(["Hi,", "I'm", "Crystal."]);
+    expect(flat(words[0]!.props.style)).toMatchObject({ fontSize: 26, lineHeight: 29.9, letterSpacing: -0.65 });
+    // one view per word, wrapped and centred like the web's inline-block words, a space apart
+    expect(flat(byTestId(r, "tour-heading").props.style)).toMatchObject({ flexWrap: "wrap", justifyContent: "center", columnGap: HEADING_SPACE });
+    // read as one header, not word by word
+    expect(byTestId(r, "tour-heading").props).toMatchObject({ accessible: true, accessibilityRole: "header", accessibilityLabel: "Hi, I'm Crystal." });
     expect(byTestId(r, "tour-scene").props.importantForAccessibility).toBe("no-hide-descendants");
     expect(texts(r)).toContain("CRYSTAL");
   });
@@ -78,7 +83,7 @@ describe("OnboardingView (web onboarding-wizard-content.tsx)", () => {
   it("walks Crystal's cards in the server's order with the guide's own words, counting the whole guide", () => {
     const r = view();
     expect(step(r)).toBe("tour-step-crystal");
-    expect(textContent(byTestId(r, "tour-heading"))).toBe(GUIDE_COPY.crystal.heading);
+    expect(byTestId(r, "tour-heading").props.accessibilityLabel).toBe(GUIDE_COPY.crystal.heading);
     expect(native.announced).toEqual(["Step 1 of 9: Meet Crystal"]);
     press(r, "tour-primary");
     expect(step(r)).toBe("tour-step-welcome");

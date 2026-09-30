@@ -10,6 +10,7 @@ import { useAuth } from "../../lib/auth/auth-context";
 import { callbackDecision, type CallbackDecision } from "../../lib/auth/callback-decision";
 import { completeSessionFromUrl, type CompleteSessionResult } from "../../lib/auth/complete-session-from-url";
 import { isAuthCallbackUrl } from "../../lib/auth/parse-callback-url";
+import { takeSignInProblem, wasRejected } from "../../lib/auth/reauth-guard";
 import { ROLE } from "../../lib/brand/shared";
 
 /**
@@ -54,8 +55,10 @@ export default function AuthCallbackScreen() {
   const decided = useRef(false);
   useEffect(() => {
     if (decided.current) return;
-    const next = callbackDecision(outcome, userId, takeReturnAfterSignIn);
+    const next = callbackDecision(outcome, userId, takeReturnAfterSignIn, wasRejected);
     if (next.kind === "wait") return;
+    // sign-in gets the reason as its parameter; the guard's copy is spent
+    if (next.kind === "sign-in" && next.problem === "other_account") takeSignInProblem();
     decided.current = true;
     setDecision(next);
   }, [outcome, userId]);

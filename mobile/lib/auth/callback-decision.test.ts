@@ -98,3 +98,27 @@ describe("an old or foreign link while signed in changes nothing", () => {
     expect(a.exchangeCodeForSession).not.toHaveBeenCalled();
   });
 });
+
+describe("a re-sign-in that came back as a different account", () => {
+  const bobRejected = (id: string | null | undefined) => id === "bob";
+
+  it("never goes on as the other account: it waits for the sign-out, then shows sign-in with the reason", () => {
+    const take = vi.fn(() => "/settings/delete-account?step=confirm");
+    // the refused session never reached the app; alice's is still on screen while the phone signs out
+    expect(callbackDecision({ ok: true, userId: "bob" }, "alice", take, bobRejected)).toEqual({ kind: "wait" });
+    expect(callbackDecision({ ok: true, userId: "bob" }, null, take, bobRejected)).toEqual({ kind: "sign-in", problem: "other_account" });
+    expect(take).not.toHaveBeenCalled();
+  });
+
+  it("the same account goes on to confirm as before", () => {
+    returnAfterSignIn(CONFIRM, "alice");
+    expect(callbackDecision({ ok: true, userId: "alice" }, "alice", takeReturnAfterSignIn, bobRejected)).toEqual({ kind: "go", href: CONFIRM });
+  });
+});
+
+describe("completeSession names who the exchange signed in", () => {
+  it("from the exchange's own answer", async () => {
+    const a = auth(async () => ({ data: { user: { id: "bob" } }, error: null }));
+    expect(await completeSession("budgts://auth/callback?code=c", a)).toEqual({ ok: true, userId: "bob" });
+  });
+});

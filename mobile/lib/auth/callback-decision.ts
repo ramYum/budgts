@@ -12,6 +12,9 @@ import type { CompleteSessionResult } from "./complete-session";
  *   this app started can be exchanged, parse-callback-url.ts) and says so, with a way back: where the fresh sign-in was
  *   meant to return, else Home. Never a sign-out, never a dead end.
  *
+ * - A re-sign-in that came back as a different account (lib/auth/reauth-guard.ts refused it and is signing the phone
+ *   out): once signed out, sign-in with the reason. Never on as the other account.
+ *
  * `takeReturn` is lib/account/delete-screen.ts `takeReturnAfterSignIn`: one-shot, so call this once per outcome.
  */
 export type CallbackDecision =
@@ -26,8 +29,11 @@ export function callbackDecision(
   /** the signed-in user when the answer came, or null */
   userId: string | null,
   takeReturn: (userId: string) => string | null,
+  /** reauth-guard.ts `wasRejected` */
+  rejected: (userId: string | null | undefined) => boolean = () => false,
 ): CallbackDecision {
   if (!outcome) return { kind: "wait" };
+  if (outcome.ok && rejected(outcome.userId)) return userId ? { kind: "wait" } : { kind: "sign-in", problem: "other_account" };
   if (outcome.ok) return userId ? { kind: "go", href: takeReturn(userId) ?? "/" } : { kind: "wait" };
   if (!userId) return { kind: "sign-in", problem: outcome.problem };
   return { kind: "problem", problem: outcome.problem, back: takeReturn(userId) ?? "/" };
@@ -41,4 +47,5 @@ export const SIGNED_IN_LINK_PROBLEM: Record<AuthLinkProblem, string> = {
   invalid: "That sign-in link didn't work. Nothing changed, and you're still signed in. Ask for a new one.",
   not_this_app: "This sign-in link can't be used here. Nothing changed, and you're still signed in.",
   network: "Couldn't reach Budgts, so the sign-in didn't finish. Nothing changed, and you're still signed in.",
+  other_account: "That sign-in was for a different account, so nothing was deleted and you've been signed out. Sign in again with the account you want to delete.",
 };

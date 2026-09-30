@@ -20,6 +20,7 @@ import { useAuth } from "../../../lib/auth/auth-context";
 import { buildAuthCallbackUrl } from "../../../lib/auth/callback-url";
 import { completeSessionFromUrl } from "../../../lib/auth/complete-session-from-url";
 import { signInWithGoogle } from "../../../lib/auth/google";
+import { expectReauthAs } from "../../../lib/auth/reauth-guard";
 import { legalUrl } from "../../../lib/legal";
 import { ACCOUNT_DELETED_PATH, DELETE_ACCOUNT_CONFIRM_PATH, DELETE_ACCOUNT_PATH } from "../../../lib/shared";
 import { supabase } from "../../../lib/supabase/client";
@@ -81,6 +82,7 @@ export default function DeleteAccountScreen() {
         void signOut();
       },
       sendReauthLink: async () => {
+        if (session) expectReauthAs(session.user.id);
         const result = await requestReauthLink(screen.email, {
           apiBaseUrl: API_BASE,
           signInWithOtp: (args) => supabase.auth.signInWithOtp(args),
@@ -89,6 +91,7 @@ export default function DeleteAccountScreen() {
         return result;
       },
       reauthWithGoogle: async () => {
+        if (session) expectReauthAs(session.user.id);
         const result = await signInWithGoogle({
           redirectTo: buildAuthCallbackUrl(ExpoLinking.createURL),
           signInWithOAuth: (args) => supabase.auth.signInWithOAuth(args),

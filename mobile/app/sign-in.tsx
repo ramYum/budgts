@@ -22,6 +22,7 @@ import { Button, Field, Rule } from "../components/brand/controls";
 import { PixelFrame } from "../components/brand/pixel-frame";
 import { Text } from "../components/brand/text";
 import { SentState } from "../components/sign-in/sent-state";
+import { takeSignInProblem } from "../lib/auth/reauth-guard";
 
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL;
 const APPLE_FLAG = appleSignInEnabled(process.env.EXPO_PUBLIC_APPLE_SIGN_IN);
@@ -96,9 +97,11 @@ export default function SignInScreen() {
       .catch(() => setAppleAvailable(false));
   }, []);
 
-  // Seeded into state (not read straight from params) so a new attempt clears it.
+  // Seeded into state (not read straight from params) so a new attempt clears it. A re-sign-in refused for being
+  // another account (lib/auth/reauth-guard.ts) signs the phone out and lands here without a parameter: its reason too.
   useEffect(() => {
-    if (isProblem(params.problem)) setError(LINK_PROBLEM_MESSAGE[params.problem]);
+    const problem = isProblem(params.problem) ? params.problem : takeSignInProblem();
+    if (problem) setError(LINK_PROBLEM_MESSAGE[problem]);
   }, [params.problem]);
 
   async function sendLink(address: string) {

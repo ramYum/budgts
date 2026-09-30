@@ -86,6 +86,8 @@ export const reanimatedMock = () => {
     withDelay: <T,>(_ms: number, animation: T) => animation,
     // CSS animation timing functions: a plain description the tests can read back
     steps: (n: number, modifier = "jump-end") => ({ steps: n, modifier }),
+    cubicBezier: (x1: number, y1: number, x2: number, y2: number) => ({ cubicBezier: [x1, y1, x2, y2] }),
+    createAnimatedComponent: <T,>(c: T) => c,
     withTiming: <T,>(to: T, _config?: unknown, done?: (finished: boolean) => void) => {
       done?.(true);
       return to;

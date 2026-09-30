@@ -10,6 +10,9 @@ import { pressStyle } from "../kit/press";
 
 export const HEADER_HEIGHT = 56;
 
+/** The web header's `bg-bg/90`: the page colour at 90%, so content scrolling under it shows faintly through. */
+export const HEADER_TRANSLUCENT_BG = `rgba(${[1, 3, 5].map((i) => parseInt(ROLE.bg.slice(i, i + 2), 16)).join(", ")}, 0.9)`;
+
 /** The header bell (web `NeedsCategoryBell`): bank rows Budgts could not categorise; tapping it opens Activity's "Needs a category". */
 export function NeedsCategoryBell({ count, onPress }: { count: number; onPress: () => void }) {
   const { label, badge } = bellLabel(count);
@@ -51,15 +54,18 @@ export function AppHeader({
   needsCategoryCount,
   onHome,
   onBell,
+  translucent = false,
 }: {
   /** null: bank connections are off (or the status has not arrived), so no bell */
   needsCategoryCount: number | null;
   onHome: () => void;
   onBell: () => void;
+  /** over a screen that scrolls under it (the web's sticky header); otherwise solid page grey */
+  translucent?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   return (
-    <View testID="app-header" style={{ paddingTop: insets.top, backgroundColor: ROLE.bg }}>
+    <View testID="app-header" style={{ paddingTop: insets.top, backgroundColor: translucent ? HEADER_TRANSLUCENT_BG : ROLE.bg }}>
       <View style={{ height: HEADER_HEIGHT, paddingHorizontal: 24, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
         <Pressable testID="header-home" accessibilityRole="link" accessibilityLabel="Budgts home" onPress={onHome} style={({ pressed }) => pressStyle(pressed)}>
           <Logo size={22} />

@@ -2,6 +2,7 @@ import { Pressable, View } from "react-native";
 import Animated, { steps, useReducedMotion } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { COLOR, ROLE, type IconName } from "../../lib/brand/shared";
+import { useMotionTiming } from "../../lib/motion/parity-clock";
 import { Icon } from "../brand/icon";
 import { Text } from "../brand/text";
 import { pressStyle } from "../kit/press";
@@ -32,6 +33,7 @@ export const contentBottomPad = (insetBottom: number) => Math.max(0, 112 - TAB_B
 /** The active tab's marker (`.pip`): a 16×4 red bar on the top edge that snaps in, `pip-in 220ms steps(3, end)`. */
 function Pip() {
   const reduced = useReducedMotion();
+  const timing = useMotionTiming(0);
   return (
     <Animated.View
       testID="tab-pip"
@@ -45,6 +47,7 @@ function Pip() {
               animationDuration: "220ms",
               animationTimingFunction: steps(3, "jump-end"),
               animationFillMode: "backwards",
+              ...timing,
             },
       ]}
     />

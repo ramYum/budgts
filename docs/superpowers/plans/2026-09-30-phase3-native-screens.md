@@ -535,3 +535,12 @@ Test ids the parity tool can match (web `data-testid` of the same name to be add
 | `not-found`, `not-found-home`, `not-found-help` | not found |
 
 Native deep links for captures (Expo Router paths): `budgts:///`, `budgts:///budgets`, `budgts:///activity`, `budgts:///more`, `budgts:///settings`, `budgts:///accounts`, `budgts:///connected-banks`. The dev-only `?fail=`, `?hold=` and `?clock=` hooks (P4) land with F5 (`mobile/lib/dev/fault.ts`) and F4 (`mobile/lib/motion/parity-clock.ts`).
+
+### F4 as built (the lanes' motion API)
+
+- `components/kit/progress-bar.tsx` `<ProgressBar pct tone="under|near|over|growth" start cellHeight cells testID>`: geometry `lib/ui/cells.ts` (`cellLayout`, `cellsPath`), one SVG per bar; the sweep is a `steps(n, "jump-start")` width animation on a clip window whose every step edge falls in a gap (tested), the over flash is `cell-alarm` on `steps(1)`.
+- `components/motion/reveal.tsx` `<Reveal i style testID>` and `usePlay()`: a block below the fold waits (opacity 0, descendants' entrances off) until it is 10% up the screen, then rises in 640ms. Any new animated component must read `usePlay()` and `useReducedMotion()`.
+- `components/motion/rolling-amount.tsx` `<RollingAmount value currency variant color testID>`: per-digit reels clipped to the digits' ink band (Geist) or line box (Dogica), spin-in 1.4s at 45ms a column after 120ms, later values glide 900ms.
+- `lib/motion/css.ts`: `EASE_OUT`, `PAGE_ENTER`, `RISE_IN`, `CELL_ALARM` and the delay helpers, straight from `globals.css`.
+- `lib/motion/parity-clock.tsx` (P4 hook): development builds read `?clock=<ms>` in the root layout; `useMotionTiming(delayMs)` returns `animationDelay` + `animationPlayState`, paused at the frozen instant. Every animation must take its delay from `useMotionTiming`.
+- `<Screen>` makes its header translucent (`bg` at 90%, the web's `bg-bg/90`) with the content scrolling under it, and plays `page-enter` on arrival; Android stack transitions are off (the web has none), iOS keeps its slide for swipe-back. The web's `backdrop-blur-xl` is not reproduced: it needs `expo-blur` (a native module, one more dev-client rebuild). Decision deferred to the Home parity check.

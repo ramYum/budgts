@@ -1,9 +1,10 @@
+import { Platform } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import { ROLE } from "../../lib/brand/shared";
 import { useStatus } from "../../lib/status/status-context";
 import { AppHeader } from "./app-header";
 
-function ShellHeader() {
+function ShellHeader({ translucent }: { translucent: boolean }) {
   const router = useRouter();
   const status = useStatus();
   return (
@@ -11,6 +12,7 @@ function ShellHeader() {
       needsCategoryCount={status?.needsCategoryCount ?? null}
       onHome={() => router.navigate("/")}
       onBell={() => router.navigate("/activity")}
+      translucent={translucent}
     />
   );
 }
@@ -21,5 +23,14 @@ function ShellHeader() {
  * More (Settings, Accounts, Help…) keeps More lit, like the web's bottom nav.
  */
 export function TabStack() {
-  return <Stack screenOptions={{ header: () => <ShellHeader />, contentStyle: { backgroundColor: ROLE.bg } }} />;
+  return (
+    <Stack
+      screenOptions={{
+        header: ({ options }) => <ShellHeader translucent={options.headerTransparent === true} />,
+        contentStyle: { backgroundColor: ROLE.bg },
+        // A new screen arrives the web's way (the page-enter rise, in <Screen>); iOS keeps its slide for swipe-back.
+        animation: Platform.OS === "ios" ? "default" : "none",
+      }}
+    />
+  );
 }

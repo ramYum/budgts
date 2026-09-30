@@ -1,4 +1,5 @@
 import { View, type TextStyle } from "react-native";
+import { savingsPct } from "../../../src/lib/figures/savings-pct";
 import { ROLE } from "../../lib/brand/shared";
 import { formatTargetDate, type MobileGoal, type MobileGoals } from "../../lib/goals/goals-api";
 import { formatMoney } from "../../lib/home/format";
@@ -6,7 +7,7 @@ import { Button, IconTile, TextButton } from "../brand/controls";
 import { PixelFrame } from "../brand/pixel-frame";
 import { Robin } from "../brand/robin";
 import { Text } from "../brand/text";
-import { figureVariant } from "../budgets/budgets-view";
+import { figureVariant } from "../kit/figure";
 import { PageHeader } from "../kit/page-header";
 import { ProgressBar } from "../kit/progress-bar";
 import { RowMenu } from "../kit/row-menu";
@@ -36,14 +37,14 @@ export function GoalCard({
 }) {
   return (
     <Reveal i={index + 2}>
-      <PixelFrame testID={`goal-${g.id}`} frame="px-card" style={{ padding: 8 }}>
+      <PixelFrame testID="goal-card" frame="px-card" style={{ padding: 8 }}>
         <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 12 }}>
           <IconTile name="goals" tone={g.complete ? "growth" : "gray"} />
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text variant="listName" color={ROLE.ink} numberOfLines={1}>
               {g.name}
             </Text>
-            <Text testID={`goal-${g.id}-to-go`} variant="body" color={ROLE.muted} style={[SM, tnum(14)]}>
+            <Text variant="body" color={ROLE.muted} style={[SM, tnum(14)]}>
               {g.complete ? "Reached" : `${formatMoney(g.remaining, currency)} to go`}
               {g.targetDate ? ` · by ${formatTargetDate(g.targetDate).replace(/ /g, " ")}` : ""}
             </Text>
@@ -51,7 +52,7 @@ export function GoalCard({
           <Badge tone="growth">{`${g.pct}%`}</Badge>
         </View>
 
-        <Text testID={`goal-${g.id}-saved`} variant="body" color={ROLE.muted} style={[{ marginTop: 20 }, tnum(15)]}>
+        <Text variant="body" color={ROLE.muted} style={[{ marginTop: 20 }, tnum(15)]}>
           <Text variant="bodyStrong" color={ROLE.ink}>
             {formatMoney(g.saved, currency)}
           </Text>
@@ -62,15 +63,14 @@ export function GoalCard({
         </View>
 
         <View style={{ marginTop: 20, flexDirection: "row", alignItems: "center", gap: 12 }}>
-          <Button testID={`goal-${g.id}-add`} variant="secondary" icon="plus" onPress={() => onAction("add", g)}>
+          <Button variant="secondary" icon="plus" onPress={() => onAction("add", g)}>
             Add money
           </Button>
-          <TextButton testID={`goal-${g.id}-withdraw`} onPress={() => onAction("withdraw", g)}>
+          <TextButton onPress={() => onAction("withdraw", g)}>
             Withdraw
           </TextButton>
           <View style={{ marginLeft: "auto", marginRight: -8 }}>
             <RowMenu
-              testID={`goal-${g.id}-menu`}
               label={`More for ${g.name}`}
               items={[
                 { label: "Edit", icon: "edit", onSelect: () => onAction("edit", g) },
@@ -108,18 +108,16 @@ function NoGoals() {
 /**
  * Savings goals (web goals-view.tsx, phone layout): the header with its back arrow and "Add", then either the empty
  * card or the Total saved hero and a card per goal (growth cells cascading three steps apart). Every figure is the
- * server's (`/api/mobile/goals`); `savedPct` is the hero's whole-percent share of the total target.
+ * server's (`/api/mobile/goals`); the hero's share of the target is the web's own `savingsPct`.
  */
 export function GoalsView({
   data,
-  savedPct,
   archiving,
   onBack,
   onNew,
   onAction,
 }: {
   data: MobileGoals;
-  savedPct: number;
   /** the goal whose archive is in flight */
   archiving: string | null;
   onBack: () => void;
@@ -128,13 +126,14 @@ export function GoalsView({
 }) {
   const { summary, currency, goals } = data;
   const saved = formatMoney(summary.totalSaved, currency);
+  const savedPct = savingsPct(summary.totalSaved, summary.totalTarget);
   return (
-    <View testID="goals-view" style={{ paddingBottom: 8 }}>
+    <View style={{ paddingBottom: 8 }}>
       <PageHeader
         title="Savings goals"
         onBack={onBack}
         action={
-          <Button testID="goals-add" icon="plus" accessibilityLabel="Add goal" onPress={onNew}>
+          <Button icon="plus" accessibilityLabel="Add goal" onPress={onNew}>
             Add
           </Button>
         }
@@ -167,7 +166,7 @@ export function GoalsView({
 
           <View style={{ marginTop: 40, gap: 12 }}>
             <SectionHead title="Goals" count={goals.length} />
-            <View testID="goals-list" style={{ gap: 16 }}>
+            <View style={{ gap: 16 }}>
               {goals.map((g, i) => (
                 <GoalCard key={g.id} g={g} currency={currency} index={i} archiving={archiving === g.id} onAction={onAction} />
               ))}

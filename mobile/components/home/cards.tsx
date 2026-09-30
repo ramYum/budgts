@@ -2,7 +2,7 @@ import { Pressable, View } from "react-native";
 import { COLOR, ROLE } from "../../lib/brand/shared";
 import type { HomeSuggestion, MobileHome } from "../../lib/home/contract";
 import { formatMoney } from "../../lib/home/format";
-import { savingsProgress } from "../../lib/home/view";
+import { savingsBarPct, savingsPct } from "../../../src/lib/figures/savings-pct";
 import { IconTile } from "../brand/controls";
 import { Icon } from "../brand/icon";
 import { PixelFrame } from "../brand/pixel-frame";
@@ -73,7 +73,9 @@ export function ChangeCard({ suggestion, month, currency, go }: { suggestion: Ho
 
 /** "Savings" (web `savingsCard`): what the active goals hold, rolling in, and their progress toward the targets. */
 export function SavingsCard({ savings, currency, go }: { savings: NonNullable<MobileHome["savings"]>; currency: string; go: (path: string) => void }) {
-  const { pct, badge } = savingsProgress(savings);
+  // the web card's own figures (src/lib/figures/savings-pct.ts): the badge shows only with a target
+  const badge = savings.totalTarget > 0 ? `${savingsPct(savings.totalSaved, savings.totalTarget)}%` : null;
+  const pct = savingsBarPct(savings.totalSaved, savings.totalTarget);
   return (
     <View testID="home-savings" style={{ gap: 12 }}>
       <SectionHead title="Savings" action="Goals" onAction={() => go("/goals")} />

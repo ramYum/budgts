@@ -59,13 +59,6 @@ export const keptPct = (savingsRate: number | null) => (savingsRate === null ? 0
 /** The budgets add up to more than has come in (and the month isn't empty): the dismissible warning above the hero. */
 export const showsOverAlert = (h: Pick<MobileHome, "budgeted" | "income" | "spent">) => h.budgeted > h.income && !isQuiet(h);
 
-/** Savings goals' progress for the badge and cells, as the web card prints it from the same two server totals. */
-export function savingsProgress(s: NonNullable<MobileHome["savings"]>): { pct: number; badge: string | null } {
-  if (s.totalTarget <= 0) return { pct: 0, badge: null };
-  const pct = (s.totalSaved / s.totalTarget) * 100;
-  return { pct, badge: `${Math.round(pct)}%` };
-}
-
 /** One "Where it went" row's bottom line, left side. */
 export type WhereNote = "unplanned" | "over" | "left" | "no-budget";
 

@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NeedsCategory, type NeedsCategoryItem } from "./needs-category";
@@ -251,7 +251,8 @@ describe("NeedsCategory", () => {
     await user.click(within(dialog).getByRole("button", { name: "Add & use" }));
 
     expect(createCategory).toHaveBeenCalledTimes(1);
-    expect(categorizeBankTransaction).toHaveBeenCalledTimes(1);
+    // categorizing follows the create's answer in a later tick; under a loaded full-suite run it can land after the click
+    await waitFor(() => expect(categorizeBankTransaction).toHaveBeenCalledTimes(1));
     const fd = categorizeBankTransaction.mock.calls[0][1] as FormData;
     expect(fd.get("categoryId")).toBe("new-cat-id");
     expect(fd.get("standardCategoryName")).toBeNull();

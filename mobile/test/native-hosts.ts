@@ -22,6 +22,7 @@ export const reactNativeMock = () => ({
   Text: host("Text"),
   TextInput: Object.assign(host("TextInput"), { State: { currentlyFocusedInput: () => null } }),
   Modal: host("Modal"),
+  AccessibilityInfo: { announceForAccessibility: (message: string) => void announcements.push(message), isReduceMotionEnabled: async () => reducedMotion.value },
   Linking: { addEventListener: () => ({ remove: () => {} }), getInitialURL: async () => null, openURL: async () => {} },
   KeyboardAvoidingView: host("KeyboardAvoidingView"),
   Keyboard: { addListener: () => ({ remove: () => {} }), dismiss: () => {} },
@@ -54,6 +55,8 @@ export const svgMock = () => ({
  * plain style props the tests read back. `reducedMotion.value` stands in for the OS setting.
  */
 export const reducedMotion = { value: false };
+/** What a component asked the screen reader to say (AccessibilityInfo.announceForAccessibility), in order. */
+export const announcements: string[] = [];
 export const reanimatedMock = () => {
   const AnimatedView = host("Animated.View");
   return {
@@ -72,6 +75,12 @@ export const reanimatedMock = () => {
     // CSS animation timing functions: a plain description the tests can read back
     steps: (n: number, modifier = "jump-end") => ({ steps: n, modifier }),
     cubicBezier: (x1: number, y1: number, x2: number, y2: number) => ({ cubicBezier: [x1, y1, x2, y2] }),
+    // UI-thread timing for shared-value animations (Crystal's roam): inert here, the plans are tested as plain functions
+    Easing: { linear: (x: number) => x, steps: (n: number) => (x: number) => Math.floor(x * n) / n, bezier: () => (x: number) => x, out: (f: (x: number) => number) => f, in: (f: (x: number) => number) => f },
+    cancelAnimation: () => {},
+    useAnimatedReaction: () => {},
+    withSequence: <T,>(...animations: T[]) => animations[animations.length - 1],
+    withRepeat: <T,>(animation: T) => animation,
     createAnimatedComponent: <T,>(c: T) => c,
     withTiming: <T,>(to: T, _config?: unknown, done?: (finished: boolean) => void) => {
       done?.(true);

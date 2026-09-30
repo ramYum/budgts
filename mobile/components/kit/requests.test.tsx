@@ -65,3 +65,15 @@ describe("lane requests, batch 2", () => {
     expect(open).toHaveBeenCalled();
   });
 });
+
+describe("Select plaidHint (web Needs a category)", () => {
+  it("a short guess sits inside the field, a long one on its own line", async () => {
+    const { Select } = await import("./select");
+    const { texts } = await import("../../test/render");
+    const opts = [{ value: "a", label: "Groceries" }];
+    expect(texts(render(<Select hideLabel label="Category for Acme" value={null} options={opts} onChange={() => {}} plaidHint="Other" />))).toContain("Plaid: Other");
+    const long = texts(render(<Select hideLabel label="Category for Acme" value={null} options={opts} onChange={() => {}} plaidHint="Food and drink" />));
+    expect(long).toContain("Plaid suggests: Food and drink");
+    expect(long).not.toContain("Plaid: Food and drink");
+  });
+});

@@ -24,6 +24,7 @@ export function Select<T extends string>({
   invalid = false,
   disabled = false,
   hideLabel = false,
+  plaidHint,
   testID,
 }: {
   /** the label above the field, the sheet's title and what a screen reader hears */
@@ -36,6 +37,11 @@ export function Select<T extends string>({
   disabled?: boolean;
   /** no visible label: a field its row already explains (web `aria-label` on the select) */
   hideLabel?: boolean;
+  /**
+   * Plaid's own guess at the category (web Needs a category): up to 12 characters it sits inside the field before the
+   * chevron ("Plaid: Other"); a longer one gets its own line under the field ("Plaid suggests: Food and drink").
+   */
+  plaidHint?: string | null;
   /** a test id for the field; its options get `<testID>-option-<value>` */
   testID?: string;
 }) {
@@ -43,6 +49,7 @@ export function Select<T extends string>({
   const field = useRef<View>(null);
   const revealInSheet = useSheetFocus();
   const chosen = options.find((o) => o.value === value) ?? null;
+  const hintInside = !!plaidHint && plaidHint.length <= 12;
   const state = disabled ? "" : invalid ? "[data-invalid='true']" : open ? ":focus-within" : "";
 
   return (
@@ -73,10 +80,20 @@ export function Select<T extends string>({
             <Text variant="input" color={disabled ? ROLE.muted : chosen ? ROLE.ink : PLACEHOLDER} numberOfLines={1} style={{ flex: 1 }}>
               {chosen?.label ?? placeholder}
             </Text>
+            {hintInside ? (
+              <Text variant="small" color={ROLE.muted} style={{ marginRight: 8 }}>
+                {`Plaid: ${plaidHint}`}
+              </Text>
+            ) : null}
             <Icon name="chevron-down" color={COLOR.graphite} />
           </PixelFrame>
         )}
       </Pressable>
+      {plaidHint && !hintInside ? (
+        <Text variant="small" color={ROLE.muted} style={{ marginTop: 2 }}>
+          {`Plaid suggests: ${plaidHint}`}
+        </Text>
+      ) : null}
       {open ? (
         <Overlay title={label} onClose={() => setOpen(false)}>
           <View accessibilityRole="radiogroup" accessibilityLabel={label}>

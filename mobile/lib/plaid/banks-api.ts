@@ -45,7 +45,8 @@ export type ConnectedBank = {
 
 const STATUSES = ["active", "login_required", "pending_expiration", "revoked", "error"] as const;
 
-function parseUnmapped(v: unknown, i: number): UnmappedAccount {
+/** One Plaid account as the mapping sheet needs it: the exchange reply's `accounts[]` and a bank's `unmappedAccounts[]` share it. */
+export function parseUnmapped(v: unknown, i: number): UnmappedAccount {
   const a = obj(v, `unmappedAccounts[${i}]`);
   return {
     plaidAccountId: str(a.plaidAccountId, "plaidAccountId"),
@@ -78,9 +79,15 @@ function parseAccount(v: unknown, i: number): BankAccount {
   };
 }
 
-export function parseBanks(body: unknown): ConnectedBank[] {
+export type BanksData = {
+  /** false when bank connections are off on this deployment (the web shows "not available yet" instead) */
+  enabled: boolean;
+  banks: ConnectedBank[];
+};
+
+export function parseBanks(body: unknown): BanksData {
   const b = obj(body, "banks");
-  return list(b.banks, "banks", (v, i) => {
+  const banks = list(b.banks, "banks", (v, i) => {
     const item = obj(v, `banks[${i}]`);
     return {
       id: str(item.id, "id"),
@@ -92,6 +99,7 @@ export function parseBanks(body: unknown): ConnectedBank[] {
       unmappedAccounts: list(item.unmappedAccounts, "unmappedAccounts", parseUnmapped),
     };
   });
+  return { enabled: bool(b.enabled, "enabled"), banks };
 }
 
 /** A status the UI must surface, not hide — no silent failure states. */

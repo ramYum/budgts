@@ -14,13 +14,19 @@ const bank = (over: Record<string, unknown> = {}) => ({
 
 describe("parseBanks", () => {
   it("accepts the server contract, tolerating fields it does not know", () => {
-    const banks = parseBanks({ version: 1, banks: [{ ...bank(), newField: true }], extra: 1 });
-    expect(banks).toEqual([bank()]);
+    const data = parseBanks({ version: 1, enabled: true, banks: [{ ...bank(), newField: true }], budgtsAccounts: [{ id: "a1", name: "Everyday", extra: 1 }], extra: 1 });
+    expect(data).toEqual({ enabled: true, banks: [bank()] });
+  });
+
+  it("reads bank connections switched off on the deployment", () => {
+    expect(parseBanks({ version: 1, enabled: false, banks: [], budgtsAccounts: [] })).toEqual({ enabled: false, banks: [] });
   });
 
   it("keeps account rows and unmapped accounts with their own fields", () => {
-    const banks = parseBanks({
+    const { banks } = parseBanks({
       version: 1,
+      enabled: true,
+      budgtsAccounts: [],
       banks: [
         bank({
           accounts: [
@@ -57,10 +63,14 @@ describe("parseBanks", () => {
     ["banks that are not a list", "nope"],
   ])("rejects %s", (_name, over) => {
     if (typeof over === "string") {
-      expect(() => parseBanks({ version: 1, banks: over })).toThrow();
+      expect(() => parseBanks({ version: 1, enabled: true, budgtsAccounts: [], banks: over })).toThrow();
     } else {
-      expect(() => parseBanks({ version: 1, banks: [bank(over)] })).toThrow();
+      expect(() => parseBanks({ version: 1, enabled: true, budgtsAccounts: [], banks: [bank(over)] })).toThrow();
     }
+  });
+
+  it("rejects a reply without the enabled flag", () => {
+    expect(() => parseBanks({ version: 1, budgtsAccounts: [], banks: [] })).toThrow();
   });
 });
 

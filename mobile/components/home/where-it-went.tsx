@@ -105,7 +105,7 @@ function NoSpending({ categories }: { categories: MobileCategory[] | null }) {
   return (
     <PixelFrame testID="home-where-empty" frame="px-card" style={{ padding: 8 }}>
       <View style={{ alignSelf: "flex-start" }}>
-        <Robin mood="sleepy" scale={2} />
+        <Robin mood="sleepy" size={51} />
       </View>
       <Text variant="listName" color={ROLE.ink} style={{ marginTop: 16 }}>
         No spending yet this month

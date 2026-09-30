@@ -4,8 +4,7 @@ import { COLOR, ROLE } from "../../lib/brand/shared";
 import { useMotionTiming } from "../../lib/motion/parity-clock";
 import { PixelFrame } from "../brand/pixel-frame";
 import { Text } from "../brand/text";
-import { BIRD } from "./crystal-art";
-import { SAY } from "./keyframes";
+import { BIRD, SAY } from "./keyframes";
 
 /** A longer line wraps at 136px on a phone, so it never runs off screen. */
 export const BUBBLE_MAX = 136;

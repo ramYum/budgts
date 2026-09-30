@@ -113,11 +113,11 @@ describe("useHome", () => {
     expect(h.last().pulling).toBe(false);
   });
 
-  it("a new month loads in place: the shown month stays until the next lands", async () => {
+  it("a new month loads afresh, as the web's loading page", async () => {
     const h = mount(null);
     await settle();
     act(() => h.r.update(createElement(h.Probe, { m: "2026-08" })));
-    expect(h.last().state.status).toBe("ready");
+    expect(h.last().state.status).toBe("loading");
     await settle();
     expect(calls).toEqual(["/api/mobile/home", "/api/mobile/home?month=2026-08"]);
   });

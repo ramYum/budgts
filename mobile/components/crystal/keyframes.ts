@@ -1,14 +1,19 @@
 import { cubicBezier as cssBezier, steps } from "react-native-reanimated";
+import { robinSize } from "../../lib/brand/robin-paths";
 
 /**
- * Crystal's one-shot and looping keyframes, straight from globals.css
- * (`crystal-*`, `robin-*`), as Reanimated 4 CSS animations: the same stops,
- * durations, delays and per-stop easing, run on the UI thread.
+ * The perch's keyframes, straight from globals.css (`crystal-*`), as
+ * Reanimated 4 CSS animations: the same stops, durations, delays and per-stop
+ * easing, run on the UI thread. Her own loops (chirp, blink, flicker) are the
+ * brand Robin's; the flaps and chirp-back below play on her layers through its
+ * `choreography`.
  */
+
+/** Crystal on Home is 44px tall: two px per art cell (52 × 44). */
+export const BIRD = robinSize(2);
 
 const EASE_IN = cssBezier(0.55, 0, 1, 0.45);
 const EASE_OUT = cssBezier(0, 0.55, 0.45, 1);
-const HOLD = steps(1, "jump-end");
 
 /** `crystal-arrive` (900ms, 120ms in): she drops from 64px above, bounces once, settles. */
 export const ARRIVE = {
@@ -40,7 +45,6 @@ export const LAND = {
 function held(stops: [number, number][]) {
   return Object.fromEntries(stops.map(([at, opacity]) => [`${at}%`, { opacity }]));
 }
-export { HOLD };
 
 /** `crystal-arrive-flap` (640ms, 120ms in): three wing beats on the way down. */
 export const ARRIVE_FLAP = held([[0, 1], [12, 0], [24, 1], [36, 0], [48, 1], [60, 0], [100, 0]]);
@@ -64,32 +68,6 @@ export const REACT_BEAK = held([[0, 1], [12, 0], [30, 1], [40, 0], [58, 1], [100
 export const REACT_BEAK_OPEN = held([[0, 0], [12, 1], [30, 0], [40, 1], [58, 0], [100, 0]]);
 export const REACT_CHIRP = held([[0, 0], [12, 1], [34, 0], [40, 1], [70, 0], [100, 0]]);
 export const REACT_BEAK_MS = 600;
-
-/** The robin's own loops (globals.css `robin-*`): a chirp every 4s, a blink then a double blink every 4.8s, the "?" flickering. */
-export const LOOP_BEAK = held([[0, 1], [40, 0], [44, 1], [49, 0], [53, 1], [100, 1]]);
-export const LOOP_BEAK_OPEN = held([[0, 0], [40, 1], [44, 0], [49, 1], [53, 0], [100, 0]]);
-export const LOOP_CHIRP = held([[0, 0], [40, 1], [46, 0], [49, 1], [60, 0], [100, 0]]);
-export const CHIRP_MS = 4000;
-export const FLICKER = held([[0, 1], [55, 1], [62, 0], [70, 1], [100, 1]]);
-export const FLICKER_MS = 3200;
-export const BLINK = Object.fromEntries(
-  (
-    [
-      [0, 1],
-      [30, 1],
-      [32, 0.1],
-      [34, 1],
-      [84, 1],
-      [85.5, 0.1],
-      [87, 1],
-      [90, 1],
-      [91.5, 0.1],
-      [93, 1],
-      [100, 1],
-    ] as const
-  ).map(([at, y]) => [`${at}%`, { transform: [{ scaleY: y }] }]),
-);
-export const BLINK_MS = 4800;
 
 /** `crystal-dust` (560ms ease-out): a puff at her feet drifts out and up. */
 export function dust(dx: number) {

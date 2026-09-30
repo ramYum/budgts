@@ -9,7 +9,9 @@ import { SpendingTrendCard } from "../charts/spending-trend-card";
 import { SectionHead } from "../kit/section-head";
 import { ChangeCard, RecentActivity, SavingsCard } from "./cards";
 import { GetSetUp } from "./setup";
-import { HomeHeader } from "./home-header";
+import { PageHeader } from "../kit/page-header";
+import { MonthNav } from "../kit/month-nav";
+import { Greeting, GreetingSubtitle } from "./greeting";
 import { MoneyLeftCard } from "./money-left";
 import { BudgetOverAlert, useOverAlertDismissed } from "./over-alert";
 import { RefreshNotice } from "./refresh-notice";
@@ -98,11 +100,15 @@ export function HomeView({
           <RefreshNotice message={notice} onRetry={onRefresh} />
         </View>
       ) : null}
-      <HomeHeader hour={hour} name={name} subtitle={subtitle(home)} month={home.month} onMonth={onMonth} />
+      <PageHeader
+        title={<Greeting hour={hour} name={name} />}
+        subtitle={<GreetingSubtitle text={subtitle(home)} />}
+        month={<MonthNav month={home.month} onChange={onMonth} />}
+      />
 
-      {/* the web's margins collapse here: 20px under the header before the warning, 48px (Crystal's ledge) above the hero */}
+      {/* the web's margins collapse here: the header's 20px before the warning, 48px (Crystal's ledge) above the hero in all */}
       {alert && i.overAlert !== null ? (
-        <Reveal i={i.overAlert} style={{ marginTop: 20 }}>
+        <Reveal i={i.overAlert}>
           <BudgetOverAlert
             month={home.month}
             budgeted={home.budgeted}
@@ -113,7 +119,7 @@ export function HomeView({
         </Reveal>
       ) : null}
 
-      <Reveal i={i.hero} style={{ marginTop: 48 }}>
+      <Reveal i={i.hero} style={{ marginTop: alert ? 48 : 28 }}>
         <MoneyLeftCard home={home} name={name} awake={awake} onAddIncome={onAddIncome} />
       </Reveal>
 

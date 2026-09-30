@@ -9,14 +9,16 @@ export const homePath = (month: string | null) => (month ? `/api/mobile/home?mon
 
 /**
  * Home's data: every figure computed by the server (`loadHome`, the web Home's own reads and math), validated against the
- * contract. A new month, a save or a bank sync (`invalidate("home")`) reloads in place (`useResource`): the numbers stay
- * until the new ones land; only the user's own pull shows the pull indicator, and a pull that fails keeps the numbers with
+ * contract. A new month loads afresh (the skeleton, as the web's loading page); a save or a bank sync (`invalidate("home")`)
+ * reloads in place (`useResource`'s version): the numbers stay until the new ones land; only the user's own pull shows the pull indicator, and a pull that fails keeps the numbers with
  * a `notice`.
  */
 export function useHome(month: string | null) {
   const version = useVersion("home");
-  const { state, notice, reload, refresh, refreshing } = useResource(`home:${month ?? "current"}:${version}`, (session) =>
-    loadResource(() => authFetch(homePath(month), session), parseMobileHome),
+  const { state, notice, reload, refresh, refreshing } = useResource(
+    `home:${month ?? "current"}`,
+    (session) => loadResource(() => authFetch(homePath(month), session), parseMobileHome),
+    { version },
   );
   return { state, notice, reload, pulling: refreshing, pull: refresh };
 }

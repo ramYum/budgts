@@ -5,7 +5,7 @@ import type { MobileCategory } from "../../lib/categories/categories-api";
 import type { HomeCategory, MobileHome } from "../../lib/home/contract";
 import { HomeView } from "./home-view";
 import { resetOverAlertDismissals } from "./over-alert";
-import { TITLE_WORD_GAP } from "./home-header";
+import { TITLE_WORD_GAP } from "./greeting";
 
 const cat = (over: Partial<HomeCategory>): HomeCategory => ({
   id: "c1",
@@ -86,7 +86,7 @@ afterEach(() => resetOverAlertDismissals());
 describe("Home header", () => {
   it("greets by name word by word, with the web's subtitle and the month", () => {
     const { r } = view(full());
-    const title = byTestId(r, "page-title");
+    const title = byTestId(r, "page-title").findAll((n) => typeof n.type === "string" && n.props.accessibilityLabel !== undefined)[0]!;
     expect(title.props.accessibilityLabel).toBe("Good afternoon, Alex.");
     expect(title.props.accessibilityRole).toBe("header");
     expect(flat(title.props.style).columnGap).toBe(TITLE_WORD_GAP);

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { AccessibilityInfo, Pressable, View, type LayoutChangeEvent } from "react-native";
+import { AccessibilityInfo, Pressable, View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from "react-native";
 import Animated, {
   Easing,
   cancelAnimation,
@@ -18,8 +18,28 @@ import { Robin } from "../brand/robin";
 import { Text } from "../brand/text";
 import { usePlay } from "../motion/reveal";
 import { useScrollWatch } from "../motion/scroll-context";
-import { BIRD, CrystalArt } from "./crystal-art";
-import { ARRIVE, ARRIVE_AT, ARRIVE_MS, BURST_MS, DUST_MS, LAND, REACT, REACT_MS, TOKEN, TOKEN_MS, burst, dust } from "./keyframes";
+import {
+  ARRIVE,
+  ARRIVE_AT,
+  ARRIVE_FLAP,
+  ARRIVE_FLAP_MS,
+  ARRIVE_MS,
+  BIRD,
+  BURST_MS,
+  DUST_MS,
+  LAND,
+  REACT,
+  REACT_BEAK,
+  REACT_BEAK_MS,
+  REACT_BEAK_OPEN,
+  REACT_CHIRP,
+  REACT_FLAP,
+  REACT_MS,
+  TOKEN,
+  TOKEN_MS,
+  burst,
+  dust,
+} from "./keyframes";
 import { facingAt, hopArc, hopProgress, hopWing, peckOffset, placeAt, walkMoving } from "./motion";
 import { eventsOf, initialState, planUntil, replanAfterTap, standingAt, type Events, type RoamState, type Step } from "./roam-plan";
 import { SpeechBubble } from "./speech-bubble";
@@ -95,6 +115,13 @@ function Once({
     </Animated.View>
   );
 }
+
+/** The perch's moves on her layers (web `.crystal-arrive .robin-wing-up`, `.crystal-react .robin-*`), held steps. */
+const ARRIVE_WING = { kf: ARRIVE_FLAP, ms: ARRIVE_FLAP_MS, delay: ARRIVE_AT };
+const REACT_WING = { kf: REACT_FLAP, ms: REACT_MS };
+const REACT_BEAK_MOVE = { kf: REACT_BEAK, ms: REACT_BEAK_MS };
+const REACT_BEAK_OPEN_MOVE = { kf: REACT_BEAK_OPEN, ms: REACT_BEAK_MS };
+const REACT_CHIRP_MOVE = { kf: REACT_CHIRP, ms: REACT_BEAK_MS };
 
 type Speech = { id: number; kind: "tap" | "cheer"; text: string; side: "left" | "right" };
 
@@ -279,6 +306,7 @@ export function CrystalPerch({ name, savingsRate, awake = true }: { name: string
     return { transform: [{ translateX: d }, { translateY: d }] };
   });
   const wingStyle = useAnimatedStyle(() => ({ opacity: hopWing(hopProgress(events.value.hops, drawT.value)) }));
+  const chirpBack = taps > 0 && mood === "happy";
   const tokenSide = useAnimatedStyle(() => ({ transform: [{ translateX: facingAt(events.value.faces, drawT.value) < 0 ? 3 : 37 }] }));
 
   const hit = (
@@ -297,7 +325,20 @@ export function CrystalPerch({ name, savingsRate, awake = true }: { name: string
                 <Animated.View style={flipStyle}>
                   <Animated.View style={peckStyle}>
                     <ReactJump key={taps} reacting={taps > 0}>
-                      <CrystalArt mood={mood} arriving={taps === 0} reacting={taps > 0} hopWing={wingStyle} />
+                      <Robin
+                        scale={2}
+                        mood={mood}
+                        choreography={{
+                          // the arrival's wing beats; after a tap, its flaps and chirp back (the robin is keyed per tap)
+                          wingUp: taps === 0 ? [ARRIVE_WING] : [REACT_WING],
+                          // only a chirping (happy) robin has the beak and marks the chirp back plays on
+                          beak: chirpBack ? REACT_BEAK_MOVE : undefined,
+                          beakOpen: chirpBack ? REACT_BEAK_OPEN_MOVE : undefined,
+                          extra: chirpBack ? REACT_CHIRP_MOVE : undefined,
+                          // the walk's hop wing: a UI-thread style, which Robin's layer applies as any view style
+                          wingStyle: wingStyle as StyleProp<ViewStyle>,
+                        }}
+                      />
                     </ReactJump>
                   </Animated.View>
                 </Animated.View>

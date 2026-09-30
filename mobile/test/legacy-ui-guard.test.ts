@@ -12,7 +12,6 @@ import { describe, expect, it } from "vitest";
  */
 const LEGACY_ALLOWED = [
   "app/(app)/(tabs)/(activity)/activity.tsx",
-  "app/(app)/(tabs)/(budgets)/budgets.tsx",
   "app/(app)/(tabs)/(home)/index.tsx",
   "app/(app)/(tabs)/(more)/accounts.tsx",
   "app/(app)/(tabs)/(more)/connected-banks.tsx",

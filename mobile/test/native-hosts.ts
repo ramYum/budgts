@@ -37,6 +37,10 @@ export const svgMock = () => ({
   Svg: host("Svg"),
   Path: host("Path"),
   G: host("G"),
+  Rect: host("Rect"),
+  Defs: host("Defs"),
+  LinearGradient: host("LinearGradient"),
+  Stop: host("Stop"),
 });
 
 /**

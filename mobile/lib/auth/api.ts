@@ -1,4 +1,5 @@
 import type { Session } from "@supabase/supabase-js";
+import { devFault, faultResponse } from "../dev/fault";
 
 export class NotAuthenticatedError extends Error {
   constructor() {
@@ -24,6 +25,10 @@ export async function authFetch(
   if (!apiBaseUrl) {
     throw new Error("EXPO_PUBLIC_API_BASE_URL must be set (see .env.example)");
   }
+
+  // Development builds: parity captures can fail or hold one endpoint (lib/dev/fault.ts); null in release.
+  const fault = devFault(path);
+  if (fault) return faultResponse(fault);
 
   const headers = new Headers(init.headers);
   headers.set("Authorization", `Bearer ${session.access_token}`);

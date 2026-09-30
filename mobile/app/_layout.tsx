@@ -6,6 +6,7 @@ import { StatusBar } from "expo-status-bar";
 import { LoadingScreenProvider } from "../components/loading-screen";
 import { AuthProvider, useAuth } from "../lib/auth/auth-context";
 import { FONT_SOURCES } from "../lib/brand/fonts";
+import { setDevFaults } from "../lib/dev/fault";
 import { ParityClockProvider, parseClockParam } from "../lib/motion/parity-clock";
 import { ROLE } from "../lib/brand/shared";
 import { registerSupabaseAutoRefresh } from "../lib/supabase/auto-refresh";
@@ -21,7 +22,11 @@ SplashScreen.setOptions({ fade: true, duration: 200 });
 function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
   const { session, loading } = useAuth();
   // Development builds: `?clock=<ms>` freezes motion for parity captures (lib/motion/parity-clock.tsx).
-  const { clock } = useGlobalSearchParams<{ clock?: string }>();
+  const { clock, fail, hold } = useGlobalSearchParams<{ clock?: string; fail?: string; hold?: string }>();
+  // Development builds: `?fail=` / `?hold=` fault one endpoint for parity captures (lib/dev/fault.ts).
+  useEffect(() => {
+    if (__DEV__) setDevFaults({ fail, hold });
+  }, [fail, hold]);
   const ready = fontsReady && !loading;
 
   const splashHidden = useRef(false);

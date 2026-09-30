@@ -2,7 +2,8 @@
  * P5: compares two capture sets (web vs native, or web vs web for a zero-pixel proof or a determinism run) and writes
  * `<report>/report.html` (side A | side B | diff per screen/state, plus the geometry table) and `<report>/report.json`.
  * Exits non-zero on any breach:
- *   geometry — every id present on both sides, |Δx|,|Δy|,|Δw|,|Δh| ≤ 1 pt (relative to each side's screen root);
+ *   geometry — every contract id (screens.ts TESTIDS) on both sides, |Δx|,|Δy|,|Δw|,|Δh| ≤ 1 pt from each side's screen
+ *              root; ids outside the contract and `screen-root` (the crop rect) are ignored;
  *   colours  — each id tagged in screens.ts has the token hex exactly at its sample point, on both sides;
  *   pixels   — pixelmatch (threshold 0.1) over the shared crop, at most budgets.json[screen][state] of the pixels
  *              (default `default`); `--max-diff-pixels N` replaces the budget with an absolute count (0 for a proof).
@@ -14,9 +15,9 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFi
 import { basename, join, relative, resolve } from "node:path";
 import { PNG } from "pngjs";
 import { ROLE } from "../../src/lib/brand/tokens";
-import { SCREENS } from "./screens";
+import { SCREENS, inContract } from "./screens";
 import type { CaptureMeta } from "./capture-web";
-import { compareGeometry, cropRgba, pixelHex, relativeBoxes, sharedSize, toPixels, type GeometryRow } from "./compare-lib";
+import { compareGeometry, contractBoxes, cropRgba, pixelHex, relativeBoxes, sharedSize, toPixels, type GeometryRow } from "./compare-lib";
 
 const args = process.argv.slice(2);
 const opt = (name: string) => {
@@ -111,7 +112,10 @@ async function compareOne(device: string, name: string): Promise<Result> {
   const pixelsOk = MAX_DIFF_PIXELS !== null ? diffPixels <= MAX_DIFF_PIXELS : ratio <= budgetRatio;
   const geometry = PIXELS_ONLY
     ? []
-    : compareGeometry(relativeBoxes(a.meta.boxes, a.meta.root), relativeBoxes(b.meta.boxes, b.meta.root));
+    : compareGeometry(
+        contractBoxes(relativeBoxes(a.meta.boxes, a.meta.root), inContract),
+        contractBoxes(relativeBoxes(b.meta.boxes, b.meta.root), inContract),
+      );
   const colors = PIXELS_ONLY ? [] : colorChecks(a.meta.screen, a, b);
   const ok = pixelsOk && geometry.every((g) => g.ok) && colors.every((c) => c.ok);
   const rel = (p: string) => relative(REPORT, p).replace(/\\/g, "/");

@@ -35,3 +35,33 @@ describe("pixels", () => {
     expect(sharedSize({ x: 0, y: 0, w: 1082, h: 2402 }, { x: 0, y: 0, w: 1080, h: 2337 })).toMatchObject({ w: 1080, h: 2337 });
   });
 });
+
+describe("the id contract", () => {
+  it("matches contract ids only: screen-root is the crop rect, other ids are ignored", async () => {
+    const { inContract } = await import("../../../tools/parity/screens");
+    const { contractBoxes } = await import("../../../tools/parity/compare-lib");
+    expect(inContract("screen-root")).toBe(false);
+    expect(inContract("more-view")).toBe(false);
+    expect(inContract("money-left-card")).toBe(false);
+    expect(inContract("hub-settings-profile")).toBe(true);
+    expect(inContract("bank-3f2a-name")).toBe(true);
+    expect(inContract("tour-step-auto-sort")).toBe(true);
+    expect(inContract("txn-row")).toBe(true);
+
+    const web = [box("screen-content", 0, 0), box("txn-row", 0, 50), box("txn-row#2", 0, 90), box("money-left-card", 0, 0)];
+    const native = [box("screen-root", 0, 0), box("screen-content", 0, 0), box("txn-row", 0, 50), box("more-view", 0, 0)];
+    const rows = compareGeometry(contractBoxes(web, inContract), contractBoxes(native, inContract));
+    expect(rows.map((r) => [r.key, r.ok])).toEqual([
+      ["screen-content", true],
+      ["txn-row", true],
+      ["txn-row#2", false], // a contract id on one side only still fails
+    ]);
+  });
+
+  it("escapes the literal parts of a placeholder entry", async () => {
+    const { contractPattern } = await import("../../../tools/parity/screens");
+    expect(contractPattern("hub-<route>-label").test("hub-goals-label")).toBe(true);
+    expect(contractPattern("hub-<route>-label").test("hub--label")).toBe(false);
+    expect(contractPattern("sheet").test("sheets")).toBe(false);
+  });
+});

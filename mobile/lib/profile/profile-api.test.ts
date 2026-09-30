@@ -13,8 +13,22 @@ const PROFILE = {
   month: null,
   today: null,
   supportedCurrencies: ["USD", "EUR"],
+  tourSeen: false,
+  displayName: "A",
+  signInMethods: ["Email link"],
+  timeZoneLabel: null,
+  currencyName: "US Dollar",
 };
-const ONBOARDED = { ...PROFILE, onboarded: true, timeZone: "America/Chicago", month: "2026-09", today: "2026-09-27" };
+const ONBOARDED = {
+  ...PROFILE,
+  onboarded: true,
+  timeZone: "America/Chicago",
+  month: "2026-09",
+  today: "2026-09-27",
+  tourSeen: true,
+  signInMethods: ["Email link", "Google"],
+  timeZoneLabel: "Chicago · Central Daylight Time",
+};
 
 describe("parseProfile", () => {
   it("accepts the server contract", () => {
@@ -23,6 +37,17 @@ describe("parseProfile", () => {
 
   it("carries the server's month and today for an onboarded user", () => {
     expect(parseProfile(ONBOARDED)).toEqual(ONBOARDED);
+  });
+
+  it("carries the tour gate and the Profile screen's lines as the server sends them", () => {
+    const p = parseProfile(ONBOARDED);
+    expect(p.tourSeen).toBe(true);
+    expect(p.displayName).toBe("A");
+    expect(p.signInMethods).toEqual(["Email link", "Google"]);
+    expect(p.timeZoneLabel).toBe("Chicago · Central Daylight Time");
+    expect(p.currencyName).toBe("US Dollar");
+    // an email with no usable handle has an empty name (the web shows the email's letter instead)
+    expect(parseProfile({ ...PROFILE, displayName: "" }).displayName).toBe("");
   });
 
   it("allows a null email (some providers hide it)", () => {
@@ -38,6 +63,13 @@ describe("parseProfile", () => {
     ["an onboarded user without the server's dates", { ...ONBOARDED, month: null }],
     ["a malformed month", { ...ONBOARDED, month: "September" }],
     ["a non-string zone", { ...ONBOARDED, timeZone: 5 }],
+    ["a missing tour gate (never guessed as seen)", { ...PROFILE, tourSeen: undefined }],
+    ["a non-boolean tour gate", { ...PROFILE, tourSeen: "yes" }],
+    ["a missing display name", { ...PROFILE, displayName: undefined }],
+    ["no sign-in methods", { ...PROFILE, signInMethods: [] }],
+    ["an empty sign-in method", { ...PROFILE, signInMethods: [""] }],
+    ["a non-string zone label", { ...ONBOARDED, timeZoneLabel: 5 }],
+    ["a missing currency name", { ...PROFILE, currencyName: undefined }],
   ])("rejects %s", (_name, body) => {
     expect(() => parseProfile(body)).toThrow();
   });

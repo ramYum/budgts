@@ -15,6 +15,17 @@ export type MobileProfile = {
   month: string | null;
   today: string | null;
   supportedCurrencies: string[];
+  /** The welcome guide's gate: finished or skipped (`profiles.tour_seen_at`); the app plays the guide until it is true. */
+  tourSeen: boolean;
+  /** The Profile screen's lines, from the same functions the web Profile page uses (never re-derived here): */
+  /** "Alex" from alex.lee@…; empty when the email has no usable handle. */
+  displayName: string;
+  /** "Email link", "Google", … in the session's own order; never empty. */
+  signInMethods: string[];
+  /** "New York · Eastern Daylight Time"; null before onboarding stores a zone. */
+  timeZoneLabel: string | null;
+  /** "US Dollar". */
+  currencyName: string;
 };
 
 export function parseProfile(body: unknown): MobileProfile {
@@ -27,7 +38,7 @@ export function parseProfile(body: unknown): MobileProfile {
   if (!Array.isArray(list) || list.length === 0 || !list.every((c) => typeof c === "string")) {
     throw new Error("profile: supportedCurrencies");
   }
-  const optional = (key: "timeZone" | "month" | "today", pattern?: RegExp): string | null => {
+  const optional = (key: "timeZone" | "month" | "today" | "timeZoneLabel", pattern?: RegExp): string | null => {
     const v = b[key];
     if (v === null) return null;
     if (typeof v !== "string" || (pattern && !pattern.test(v))) throw new Error(`profile: ${key}`);
@@ -36,6 +47,13 @@ export function parseProfile(body: unknown): MobileProfile {
   const month = optional("month", /^\d{4}-\d{2}$/);
   const today = optional("today", /^\d{4}-\d{2}-\d{2}$/);
   if (b.onboarded === true && (month === null || today === null)) throw new Error("profile: dates");
+  if (typeof b.tourSeen !== "boolean") throw new Error("profile: tourSeen");
+  if (typeof b.displayName !== "string") throw new Error("profile: displayName");
+  const methods = b.signInMethods;
+  if (!Array.isArray(methods) || methods.length === 0 || !methods.every((m) => typeof m === "string" && m.length > 0)) {
+    throw new Error("profile: signInMethods");
+  }
+  if (typeof b.currencyName !== "string" || !b.currencyName) throw new Error("profile: currencyName");
   return {
     email: b.email as string | null,
     currency: b.currency,
@@ -44,6 +62,11 @@ export function parseProfile(body: unknown): MobileProfile {
     month,
     today,
     supportedCurrencies: list as string[],
+    tourSeen: b.tourSeen,
+    displayName: b.displayName,
+    signInMethods: methods as string[],
+    timeZoneLabel: optional("timeZoneLabel"),
+    currencyName: b.currencyName,
   };
 }
 

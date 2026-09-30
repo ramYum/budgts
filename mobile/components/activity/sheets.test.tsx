@@ -5,8 +5,9 @@ import type { MutationOutcome } from "../../lib/api/load";
 import type { MobileCategory } from "../../lib/categories/categories-api";
 import type { MobileTransaction } from "../../lib/transactions/transactions-api";
 import { byTestId, flat, render, textContent, texts } from "../../test/render";
+import { PixelFrame } from "../brand/pixel-frame";
 import { TransactionForm, transferToggleDraft } from "./transaction-form";
-import { AddTransactionSheet, EditTransactionSheet, TransactionDetailSheet, fullDateLabel } from "./transaction-sheets";
+import { AddIncomeSheet, AddTransactionSheet, EditTransactionSheet, TransactionDetailSheet, fullDateLabel } from "./transaction-sheets";
 
 const picker = vi.hoisted(() => ({ opened: [] as { value: Date; onChange: (e: { type: string }, d?: Date) => void }[] }));
 vi.mock("@react-native-community/datetimepicker", () => ({
@@ -142,6 +143,60 @@ describe("TransactionForm (web transaction-form.tsx)", () => {
     await press(r, "txn-form-cancel");
     expect(onDone).toHaveBeenCalledWith(false);
     expect(save).not.toHaveBeenCalled();
+  });
+});
+
+describe("a direction-locked form (web transaction-form.tsx initialDirection + lockDirection: Home's Add income)", () => {
+  it("shows the direction as the web's read-only px-band line, narrows categories to income, and saves money in", async () => {
+    const { r, save } = form({ initialDirection: "credit", lockDirection: true, submitLabel: "Add" });
+    expect(() => find(r, "txn-form-direction")).toThrow();
+    const band = r.root.find((n) => n.type === PixelFrame && n.props.testID === "txn-form-direction-locked");
+    expect(band.props.frame).toBe("px-band");
+    expect(textContent(band)).toBe("Money in");
+    const words = r.root.find((n) => (n.type as unknown) === "Text" && textContent(n) === "Money in");
+    expect(flat(words.props.style)).toMatchObject({ fontSize: 16, lineHeight: 24, color: "#3d3d3d" });
+    // income categories only, no "(income)" mark, the first one chosen (the web's defaultValue)
+    expect(find(r, "txn-form-category").props.accessibilityLabel).toBe("Category, Salary");
+    act(() => find(r, "txn-form-category").props.onPress());
+    expect(() => find(r, "txn-form-category-option-c-food")).toThrow();
+    expect(textContent(find(r, "txn-form-category-option-c-pay"))).not.toContain("(income)");
+    act(() => find(r, "txn-form-amount").props.onChangeText("2500"));
+    await press(r, "txn-form-save");
+    expect((save.mock.calls[0] as unknown as [Record<string, unknown>])[0]).toMatchObject({ direction: "credit", categoryId: "c-pay", amount: "2500" });
+  });
+
+  it("locked to money out: 'Money out', and every category", () => {
+    const { r } = form({ initialDirection: "debit", lockDirection: true });
+    expect(textContent(r.root.find((n) => n.type === PixelFrame && n.props.testID === "txn-form-direction-locked"))).toBe("Money out");
+    act(() => find(r, "txn-form-category").props.onPress());
+    expect(find(r, "txn-form-category-option-c-food")).toBeTruthy();
+  });
+
+  it("an unlocked credit start preselects money in but leaves the picker", () => {
+    const { r } = form({ initialDirection: "credit" });
+    expect(find(r, "txn-form-direction").props.accessibilityLabel).toBe("Direction, Money in");
+    expect(find(r, "txn-form-category").props.accessibilityLabel).toBe("Category, Salary (income)");
+  });
+
+  it("editing ignores the lock: the row's own direction, every category", () => {
+    const { r } = form({ initial: txn(), initialDirection: "credit", lockDirection: true, submitLabel: "Save changes" });
+    expect(find(r, "txn-form-direction").props.accessibilityLabel).toBe("Direction, Money out");
+    expect(find(r, "txn-form-category").props.accessibilityLabel).toBe("Category, Groceries");
+  });
+});
+
+describe("AddIncomeSheet (web income-tile.tsx)", () => {
+  it("is the form under 'Add income', locked to money in, saving through the create command with 'Add'", async () => {
+    const cmds = commands();
+    const onClose = vi.fn();
+    const r = render(<AddIncomeSheet data={ready} defaultDate="2026-09-30" commands={cmds} onClose={onClose} />);
+    expect(textContent(find(r, "sheet-title"))).toBe("Add income");
+    expect(textContent(r.root.find((n) => n.type === PixelFrame && n.props.testID === "txn-form-direction-locked"))).toBe("Money in");
+    expect(texts(find(r, "txn-form-save"))).toContain("Add");
+    act(() => find(r, "txn-form-amount").props.onChangeText("100"));
+    await press(r, "txn-form-save");
+    expect(cmds.create).toHaveBeenCalledWith(expect.objectContaining({ direction: "credit", categoryId: "c-pay", date: "2026-09-30" }), expect.any(String));
+    expect(onClose).toHaveBeenCalled();
   });
 });
 

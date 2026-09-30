@@ -127,9 +127,9 @@ export function TransactionDetailSheet({
 }
 
 /** The accounts and categories the form lists, or its loading / failed state inside the sheet. */
-type FormData = { accounts: LoadState<AccountsData>; categories: LoadState<MobileCategory[]>; onRetry: () => void };
+export type TransactionFormData = { accounts: LoadState<AccountsData>; categories: LoadState<MobileCategory[]>; onRetry: () => void };
 
-function FormGate({ data, children }: { data: FormData; children: (accounts: AccountsData, categories: MobileCategory[]) => ReactNode }) {
+function FormGate({ data, children }: { data: TransactionFormData; children: (accounts: AccountsData, categories: MobileCategory[]) => ReactNode }) {
   const { accounts, categories } = data;
   if (accounts.status === "error" || categories.status === "error") {
     const message = accounts.status === "error" ? accounts.message : categories.status === "error" ? categories.message : "";
@@ -161,7 +161,7 @@ export function AddTransactionSheet({
   commands,
   onClose,
 }: {
-  data: FormData;
+  data: TransactionFormData;
   defaultDate: string;
   commands: TransactionCommands;
   onClose: () => void;
@@ -184,6 +184,38 @@ export function AddTransactionSheet({
   );
 }
 
+/** "Add income" (web `income-tile.tsx`, Home): the form locked to money in, income categories only, "Add" to save. */
+export function AddIncomeSheet({
+  data,
+  defaultDate,
+  commands,
+  onClose,
+}: {
+  data: TransactionFormData;
+  defaultDate: string;
+  commands: TransactionCommands;
+  onClose: () => void;
+}) {
+  return (
+    <Overlay title="Add income" onClose={onClose}>
+      <FormGate data={data}>
+        {(accounts, categories) => (
+          <TransactionForm
+            accounts={accounts.accounts}
+            categories={categories}
+            defaultDate={defaultDate}
+            initialDirection="credit"
+            lockDirection
+            submitLabel="Add"
+            save={(draft, requestId) => commands.create(draft, requestId)}
+            onDone={onClose}
+          />
+        )}
+      </FormGate>
+    </Overlay>
+  );
+}
+
 /** "Edit transaction" (web list's edit sheet): the form with "Save changes", then Delete transaction after a confirm. */
 export function EditTransactionSheet({
   transaction,
@@ -193,7 +225,7 @@ export function EditTransactionSheet({
   confirm = confirmDelete,
 }: {
   transaction: MobileTransaction;
-  data: FormData;
+  data: TransactionFormData;
   commands: TransactionCommands;
   onClose: () => void;
   confirm?: (onYes: () => void) => void;

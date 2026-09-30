@@ -504,3 +504,34 @@ Calendar with six parallel lanes: about **8–10 working days** to Android parit
 - `get-started.tsx`'s doc comment cites "Get Started with no forced tour" as the approved direction; the owner's 2026-09-30 rule (the PWA is approved: onboarding → welcome guide) supersedes it. The spec §7 already lists "onboarding and the welcome guide" for mobile v1.
 - The PWA's More page has "Install app" (`install-app.tsx`); it is a PWA install prompt with no native meaning and is omitted natively.
 - Paywall / subscription UI is native-only by design (spec §9, Phase 4) and is removed from Phase 3 so the app matches the PWA until Phase 4 builds it in this design.
+
+---
+
+## Wave 0 as built: shared contracts (for the lanes and the parity agent)
+
+Deviations from the plan text above, decided while building (the plan's intent is unchanged):
+
+- **Atoms live in `mobile/components/kit/`**, not `components/ui/`: a `components/ui/` folder beside the legacy `components/ui.tsx` makes `../components/ui` ambiguous to the resolver and to the legacy guard. `IconTile` stays in `components/brand/controls.tsx` (now sized); `categoryIcon` moved to `src/lib/brand/category-icon.ts`, shared with the web.
+- **`Select` moves from F2 to F6** (it opens in the sheet F6 builds).
+- **Motion uses Reanimated 4 CSS animations** (`animationName` keyframes, `animationDuration`, `steps(n, "jump-end")` for the web's `steps(n, end)`), a direct port of the web's `@keyframes`; `useReducedMotion()` drops the animation and leaves the rest frame. The test host mock returns `steps()` as `{ steps, modifier }`.
+- **Routes:** each tab is a route group with its own stack under the shared header: `app/(app)/(tabs)/(home)/index.tsx` → `/`, `(budgets)/budgets.tsx` → `/budgets`, `(activity)/activity.tsx` → `/activity`, `(more)/more.tsx` → `/more`. Screens reached through More live in `(more)/` (`settings/index.tsx` → `/settings`, `accounts.tsx`, `connected-banks.tsx`; later `settings/profile.tsx`, `goals.tsx`, `insights.tsx`, `help/…`, `about.tsx`), so More stays lit. Modals (`transaction`, `map-accounts`) and full-screen flows (`delete-account`, onboarding, tour) stay in `app/(app)/`.
+- **Every tab screen renders its body in `<Screen>`** (`components/shell/screen.tsx`): banners, 24px gutter, 8px top, the web's 112px bottom clearance minus the bar, pull to refresh. The header comes from the stack (`components/shell/tab-stack.tsx`).
+- **Button pending state** is the web's (disabled frame, muted label; pass the pending label), never a spinner.
+
+Test ids the parity tool can match (web `data-testid` of the same name to be added by P2):
+
+| id | what |
+| --- | --- |
+| `screen-root` | the scrolling body of every signed-in screen (crop rect) and of `+not-found` |
+| `app-header`, `header-home`, `needs-category-bell`, `needs-category-count` | header, lockup, bell, bell badge |
+| `bottom-tabs`, `tab-home`, `tab-budgets`, `tab-activity`, `tab-more`, `tab-pip` | tab bar, tabs, active marker |
+| `status-banners`, `deletion-banner`, `review-excluded`, `review-advisory` | banners |
+| `page-header`, `page-header-title`, `page-back` | page header |
+| `month-nav`, `month-nav-label`, `month-nav-prev`, `month-nav-next` | month switcher |
+| `segmented`, `segmented-<value>` | segmented control (screens pass their own id) |
+| `more-view`, `more-play-guide`, `more-goals`, `more-accounts`, `more-insights`, `more-banks`, `more-settings`, `more-help`, `more-about` | More |
+| `settings-view`, `settings-profile`, `settings-security`, `settings-delete-account`, `settings-categories`, `settings-budgets`, `settings-goals`, `settings-connected-banks`, `settings-accounts`, `settings-appearance`, `settings-help`, `settings-about`, `settings-export`, `settings-export-button`, `settings-sign-out` | Settings |
+| `<row-id>-label`, `<row-id>-value` | a hub row's label and value |
+| `not-found`, `not-found-home`, `not-found-help` | not found |
+
+Native deep links for captures (Expo Router paths): `budgts:///`, `budgts:///budgets`, `budgts:///activity`, `budgts:///more`, `budgts:///settings`, `budgts:///accounts`, `budgts:///connected-banks`. The dev-only `?fail=`, `?hold=` and `?clock=` hooks (P4) land with F5 (`mobile/lib/dev/fault.ts`) and F4 (`mobile/lib/motion/parity-clock.ts`).

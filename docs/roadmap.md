@@ -46,6 +46,10 @@ BUDGTS
 ├── V1.5      Recurring & transfer intelligence ................. 🔄  (status verified 2026-09-25)
 │   ├── Recurring transaction detection .......................... 🔄  engine + `recurring_series` (0016) +
 │   │                                                                   /api/plaid/recurring-scan merged; no UI yet
+│   │     Known limitation, fix before V1.5 is shown to users (review 2026-09-30): a group is scanned only when one
+│   │     of its rows is newly CREATED (candidacy is keyed on `created_at`), so a row that becomes eligible later
+│   │     (pending -> posted, event role or category resolved, a duplicate flag cleared) waits until another row
+│   │     lands in its group; for a monthly bill, up to a month.
 │   ├── Subscription detection ................................... 🔄  classification layer only, no UI
 │   ├── Bill detection (upcoming / missed) ....................... 🔄  classification layer only, no UI
 │   ├── User confirmation / muting

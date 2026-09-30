@@ -97,9 +97,14 @@ async function waitForDeleteToBlockOn(table: string, timeoutMs = 15_000): Promis
  */
 async function watchForLockCycle(a: number, b: number, settled: Promise<unknown>): Promise<boolean> {
   let done = false;
-  void settled.finally(() => {
-    done = true;
-  });
+  settled.then(
+    () => {
+      done = true;
+    },
+    () => {
+      done = true;
+    },
+  );
   while (!done) {
     const [row] = await pg<{ cycle: boolean }[]>`
       select (${b}::int = any(pg_blocking_pids(${a}::int)) and ${a}::int = any(pg_blocking_pids(${b}::int))) as cycle`;

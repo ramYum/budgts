@@ -1205,7 +1205,7 @@ implementation goes to `budgts-architect`.
       touches a transactions row; it watches the cycle through `pg_blocking_pids()`, and the writer's
       `deadlock_timeout` of 30 s makes the deletion always the victim. The Path A twin
       (`account-deletion-concurrency.test.ts`) had the same flaw and got the same rewrite, except that the writer
-      holds a `budgets` row: GoTrue's `auth.users` cascade fires its FK triggers in name (OID) order and reaches
+      holds a `budgets` row: GoTrue's `auth.users` cascade fires its FK triggers in trigger-name order (the text order of the names) and reaches
       `accounts` before `transactions` but `budgets` after, and the test asserts that order first.
   - **Landed 2026-09-28.** Owner: "1. Move it into launch branch 2. Push 3. Rebuild staging".
     `phase-m/mobile-launch` fast-forwarded to `e26fcfe` and pushed, then `e8b4ed3` (the Expo env template: the

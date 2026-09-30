@@ -203,7 +203,15 @@ export function createRecurringStore(db: RecurringDb): RecurringStore {
     },
 
     async markScanned(userId, at) {
-      await db.update(profiles).set({ recurringLastScanAt: new Date(at) }).where(eq(profiles.id, userId));
+      // Monotonic: two overlapping scans for one user (the daily job and a
+      // first-sync pass) can finish out of order, and the one that started
+      // earlier must not move the watermark back.
+      await db
+        .update(profiles)
+        .set({
+          recurringLastScanAt: sql`greatest(coalesce(${profiles.recurringLastScanAt}, '-infinity'::timestamptz), ${at}::timestamptz)`,
+        })
+        .where(eq(profiles.id, userId));
     },
 
     async currentTime() {

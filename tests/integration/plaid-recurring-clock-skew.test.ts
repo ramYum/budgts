@@ -111,14 +111,28 @@ describe("recurring scan window vs app-server clock skew (DB-integration)", () =
           (${userId}, ${checkingId}, ${MONTHLY.amount}, ${MONTHLY.direction}, ${daysAgo(0)}, 'itest in-flight',
            'bank', ${`itest-${crypto.randomUUID()}`}, ${merchant}, ${MONTHLY.eventRole}, ${MONTHLY.primary},
            'confirmed', false)`;
-      // ...a scan runs to completion while it is still uncommitted (invisible)...
-      await runRecurringDetectionForUser({ userId, watermark: null, store });
+      // ...a scan runs to completion while it is still uncommitted (invisible)... (Both scans run with the app
+      // clock ahead, so this test fails for the in-flight reason alone whatever the host clock's own skew is: an
+      // app-clock watermark then lands after the committed rows, and only the overlap brings the late row back.)
+      await withAppClockSkew(SKEW_MS, () => runRecurringDetectionForUser({ userId, watermark: null, store }));
       expect((await readSeries(merchant))!.observation_count).toBe(3);
     });
     // ...and it commits with created_at EARLIER than the watermark that scan saved.
 
     const watermark = await loadRecurringWatermark(db, userId);
-    await runRecurringDetectionForUser({ userId, watermark, store });
+    await withAppClockSkew(SKEW_MS, () => runRecurringDetectionForUser({ userId, watermark, store }));
     expect((await readSeries(merchant))!.observation_count).toBe(4);
+  });
+
+  it("the saved watermark never moves backwards when overlapping scans finish out of order", async () => {
+    const later = "2099-01-01T12:00:00.000Z"; // after any real scan this file ran
+    const earlier = "2099-01-01T11:00:00.000Z";
+    await store.markScanned(userId, later); // the scan that started later finishes first...
+    await store.markScanned(userId, earlier); // ...then the one that started earlier finishes
+    expect(await loadRecurringWatermark(db, userId)).toBe(later);
+
+    const next = "2099-01-01T13:00:00.000Z";
+    await store.markScanned(userId, next); // a genuinely newer scan still advances it
+    expect(await loadRecurringWatermark(db, userId)).toBe(next);
   });
 });

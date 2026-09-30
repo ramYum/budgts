@@ -1,0 +1,35 @@
+# First run (Phase 3 Lane A, web /onboarding → /tour): a signed-in account with no currency yet (parity user `firstrun`,
+# or a fresh native-only signup). Crystal's cards, Skip to the currency card, Start budgeting, then the welcome guide
+# continues from those cards (its progress cells carry on), Skip marks it seen and Home opens. The device's time zone
+# rides along with the currency. Chain after sign-in.yaml.
+appId: com.budgts.app
+---
+- assertVisible:
+    id: "tour-step-crystal"
+- assertVisible: "Hi, I'm Crystal."
+- tapOn:
+    id: "tour-primary"
+- assertVisible:
+    id: "tour-step-welcome"
+- tapOn:
+    id: "tour-skip" # onboarding's Skip jumps to the currency card; it never leaves the flow
+- assertVisible:
+    id: "tour-step-currency"
+- tapOn:
+    id: "onboarding-currency"
+- tapOn:
+    id: "onboarding-currency-option-USD"
+- tapOn:
+    id: "tour-primary" # Start budgeting
+- extendedWaitUntil:
+    visible:
+      id: "tour-progress"
+    timeout: 10000
+- assertNotVisible:
+    id: "tour-step-crystal" # right after Get Started the intro cards are not repeated
+- tapOn:
+    id: "tour-skip"
+- extendedWaitUntil:
+    visible:
+      id: "tab-home"
+    timeout: 10000

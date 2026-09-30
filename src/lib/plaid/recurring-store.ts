@@ -205,6 +205,18 @@ export function createRecurringStore(db: RecurringDb): RecurringStore {
     async markScanned(userId, at) {
       await db.update(profiles).set({ recurringLastScanAt: new Date(at) }).where(eq(profiles.id, userId));
     },
+
+    async currentTime() {
+      // clock_timestamp(), not now(): now() is frozen at the start of the
+      // enclosing transaction; this must be the instant of the call. Epoch
+      // milliseconds, floored, so the reading never depends on DateStyle and
+      // never lands after the true instant (a row in the dropped sub-ms
+      // fraction falls to the next scan, never out of both).
+      const [row] = await db.execute<{ ms: string }>(
+        sql`select floor(extract(epoch from clock_timestamp()) * 1000)::bigint::text as ms`,
+      );
+      return new Date(Number(row.ms)).toISOString();
+    },
   };
 }
 

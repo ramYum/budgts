@@ -176,7 +176,7 @@ export function WhereItWent({
         <PixelFrame testID="home-where-no-budgets" frame="px-card" style={{ padding: 12 }}>
           <Text variant="body" color={ROLE.muted}>
             Set a budget on the{" "}
-            <Text variant="listName" color={ROLE.ink} accessibilityRole="link" onPress={() => go("/budgets")} style={{ textDecorationLine: "underline" }}>
+            <Text variant="listName" color={ROLE.ink} accessibilityRole="link" onPress={() => go({ pathname: "/budgets" })} style={{ textDecorationLine: "underline" }}>
               Budgets
             </Text>{" "}
             screen to see how you&apos;re tracking.

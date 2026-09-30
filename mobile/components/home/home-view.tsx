@@ -111,7 +111,7 @@ export function HomeView({
             budgeted={home.budgeted}
             income={home.income}
             currency={home.currency}
-            onReview={() => go("/budgets")}
+            onReview={() => go({ pathname: "/budgets" })}
           />
         </Reveal>
       ) : null}

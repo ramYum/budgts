@@ -150,7 +150,7 @@ describe("the budgets-over-income warning", () => {
       "This month's budgets add up to $4,000.00, more than the $3,200.00 you've brought in so far. Review your budgets.",
     );
     byTestId(r, "home-over-alert-review").props.onPress();
-    expect(props.go).toHaveBeenCalledWith("/budgets");
+    expect(props.go).toHaveBeenCalledWith({ pathname: "/budgets" });
     act(() => byTestId(r, "home-over-alert-dismiss").props.onPress());
     expect(r.root.findAll((n) => n.props.testID === "home-over-alert")).toHaveLength(0);
     // coming back to Home keeps it dismissed; another month still warns
@@ -211,7 +211,7 @@ describe("Where it went", () => {
     const { r, props } = view(full({ categories: [], budgeted: 0 }));
     expect(textContent(byTestId(r, "home-where-no-budgets"))).toBe("Set a budget on the Budgets screen to see how you're tracking.");
     hosts(byTestId(r, "home-where-no-budgets"), "Text").find((t) => t.props.accessibilityRole === "link")!.props.onPress();
-    expect(props.go).toHaveBeenCalledWith("/budgets");
+    expect(props.go).toHaveBeenCalledWith({ pathname: "/budgets" });
   });
 });
 
@@ -273,7 +273,7 @@ describe("Recent activity", () => {
     const { r, props } = view(full());
     for (const id of ["home-where", "home-savings", "home-recent"])
       byTestId(r, id).findAll((n) => typeof n.type === "string" && n.props.testID === "section-link")[0]!.props.onPress();
-    expect(props.go.mock.calls.map((c) => c[0])).toEqual([{ pathname: "/budgets", params: { m: "2026-09" } }, "/goals", "/activity"]);
+    expect(props.go.mock.calls.map((c) => c[0])).toEqual([{ pathname: "/budgets", params: { m: "2026-09" } }, { pathname: "/goals" }, { pathname: "/activity" }]);
   });
 });
 
@@ -345,7 +345,7 @@ describe("Get set up", () => {
     byTestId(r, "home-setup-connect").props.onPress();
     byTestId(r, "home-setup-add-income").props.onPress();
     byTestId(r, "home-setup-set-budget").props.onPress();
-    expect(props.go.mock.calls.map((c) => c[0])).toEqual(["/connected-banks", { pathname: "/budgets", params: { m: "2026-09" } }]);
+    expect(props.go.mock.calls.map((c) => c[0])).toEqual([{ pathname: "/connected-banks" }, { pathname: "/budgets", params: { m: "2026-09" } }]);
     expect(props.onAddIncome).toHaveBeenCalledOnce();
   });
 

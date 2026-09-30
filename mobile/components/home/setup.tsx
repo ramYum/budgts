@@ -74,7 +74,7 @@ export function GetSetUp({
           body="Purchases import on their own."
           done={home.bankConnected}
           action={
-            <Button testID="home-setup-connect" onPress={() => go("/connected-banks")}>
+            <Button testID="home-setup-connect" onPress={() => go({ pathname: "/connected-banks" })}>
               Connect
             </Button>
           }

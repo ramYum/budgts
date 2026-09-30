@@ -76,7 +76,7 @@ export function SavingsCard({ savings, currency, go }: { savings: NonNullable<Mo
   const pct = savingsBarPct(savings.totalSaved, savings.totalTarget);
   return (
     <View testID="home-savings" style={{ gap: 12 }}>
-      <SectionHead title="Savings" action="Goals" onAction={() => go("/goals")} />
+      <SectionHead title="Savings" action="Goals" onAction={() => go({ pathname: "/goals" })} />
       <PixelFrame frame="px-card" style={{ padding: 8 }}>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
           <RollingAmount value={savings.totalSaved} currency={currency} variant="tNumLg" />
@@ -111,7 +111,7 @@ export function RecentActivity({
   const { recent, currency } = home;
   return (
     <View testID="home-recent" style={{ gap: 12 }}>
-      <SectionHead title="Recent activity" action="See all" onAction={() => go("/activity")} />
+      <SectionHead title="Recent activity" action="See all" onAction={() => go({ pathname: "/activity" })} />
       {recent.length === 0 ? (
         <PixelFrame testID="home-recent-empty" frame="px-card" style={{ padding: 8 }}>
           <View style={{ alignSelf: "flex-start" }}>

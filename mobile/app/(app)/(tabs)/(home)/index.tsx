@@ -3,12 +3,12 @@ import { AppState } from "react-native";
 import { useIsFocused, useRouter, type Href } from "expo-router";
 import { LoadFailure } from "../../../../components/feedback/states";
 import { ScreenSkeleton } from "../../../../components/feedback/skeleton";
+import { HomeAddSheets, type HomeSheet } from "../../../../components/home/add-sheets";
 import { HomeView } from "../../../../components/home/home-view";
 import { Screen } from "../../../../components/shell/screen";
 import { useAuth } from "../../../../lib/auth/auth-context";
 import { useHome } from "../../../../lib/home/use-home";
 import { displayName } from "../../../../lib/shared";
-import { emptyDraft } from "../../../../lib/transactions/form";
 import { useRealtimeRefresh } from "../../../../lib/realtime/use-realtime-refresh";
 
 /**
@@ -35,6 +35,8 @@ export default function HomeScreen() {
   // Home's links are the web's navigations: into another tab they switch to it and apply the params (a Budgets or Activity
   // link never stacks a second copy of that screen, with its own load and realtime channel)
   const go = (href: Href) => router.navigate(href);
+  // the add sheets open over Home, as Activity's do (web AddIncome / AddTransaction overlays)
+  const [sheet, setSheet] = useState<HomeSheet | null>(null);
 
   return (
     <Screen refreshing={pulling} onRefresh={() => void pull()}>
@@ -49,19 +51,14 @@ export default function HomeScreen() {
           hour={new Date().getHours()}
           go={go}
           onMonth={setMonth}
-          // The add sheets arrive with Lane D (D2); until then both open the transaction form, income set to money in.
-          onAddIncome={() =>
-            router.push({
-              pathname: "/transaction",
-              params: { draft: JSON.stringify({ ...emptyDraft(state.data.today, null), direction: "credit" }) },
-            })
-          }
-          onAddTransaction={() => router.push("/transaction")}
+          onAddIncome={() => setSheet("income")}
+          onAddTransaction={() => setSheet("add")}
           notice={notice}
           onRefresh={() => void pull()}
           awake={focused && appActive}
         />
       )}
+      {sheet && state.status === "ready" ? <HomeAddSheets sheet={sheet} defaultDate={state.data.today} onClose={() => setSheet(null)} /> : null}
     </Screen>
   );
 }

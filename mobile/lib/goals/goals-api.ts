@@ -55,8 +55,3 @@ export function parseGoals(body: unknown): MobileGoals {
     }),
   };
 }
-
-/** "2027-04-01" → "Apr 2027" (web goals-view.tsx `formatTargetDate`: a calendar date, read in UTC). */
-export function formatTargetDate(date: string, locale?: string): string {
-  return new Date(`${date}T00:00:00Z`).toLocaleDateString(locale, { month: "short", year: "numeric", timeZone: "UTC" });
-}

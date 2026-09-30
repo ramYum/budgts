@@ -1,7 +1,7 @@
 import { Pressable, View, type TextStyle } from "react-native";
 import { COLOR, ROLE, type TypeRoleName } from "../../lib/brand/shared";
 import type { MobileBudgetCategory, MobileBudgets, MobileBudgetsAllTime, MobileBudgetsMonth } from "../../lib/budgets/budgets-api";
-import { formatMoney } from "../../lib/home/format";
+import { formatMoney } from "../../lib/shared";
 import { Button } from "../brand/controls";
 import { Icon } from "../brand/icon";
 import { PixelFrame } from "../brand/pixel-frame";

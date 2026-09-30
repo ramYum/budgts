@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatTargetDate, parseGoals } from "./goals-api";
+import { parseGoals } from "./goals-api";
 
 const goal = (over: Record<string, unknown> = {}) => ({
   id: "g1",
@@ -43,12 +43,5 @@ describe("parseGoals (server buildMobileGoals)", () => {
     ["a non-boolean complete", { goals: [goal({ complete: "no" })] }],
   ])("rejects %s", (_n, over) => {
     expect(() => parseGoals(body(over))).toThrow();
-  });
-});
-
-describe("formatTargetDate (web goals-view.tsx)", () => {
-  it("reads the calendar date in UTC, month and year", () => {
-    expect(formatTargetDate("2027-04-01", "en-US")).toBe("Apr 2027");
-    expect(formatTargetDate("2026-12-31", "en-US")).toBe("Dec 2026");
   });
 });

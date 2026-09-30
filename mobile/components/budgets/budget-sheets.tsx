@@ -3,7 +3,7 @@ import { View } from "react-native";
 import { budgetTrendPct } from "../../../src/lib/figures/budget-trend";
 import { COLOR, ROLE } from "../../lib/brand/shared";
 import type { MobileBudgetCategory } from "../../lib/budgets/budgets-api";
-import { formatMoney } from "../../lib/home/format";
+import { formatMoney } from "../../lib/shared";
 import { Button, Field } from "../brand/controls";
 import { PixelFrame } from "../brand/pixel-frame";
 import { Text } from "../brand/text";

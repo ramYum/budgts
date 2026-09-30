@@ -129,7 +129,7 @@ mobile/
     home/ activity/ budgets/ goals/ insights/ settings/ banks/                (per lane)
   lib/
     ui/cells.ts                         C  .px-bar geometry (F4)
-    motion/stepped.ts                   existing (egg loader)
+    motion/css.ts                       the web's keyframes, easing and delays as Reanimated CSS animations (F4)
     motion/parity-clock.ts              C  dev-only frozen clock (P4)
     dev/fault.ts                        C  dev-only fault/hold injection (P4)
     status/use-status.ts                C  (F3)
@@ -375,7 +375,7 @@ Exists today: `tools/screenshot.mjs` (single-page PNG), `playwright.config.ts` (
 
 - [ ] Install Maestro CLI (free; Java 17 is present). One AVD `parity-412` (1080×2400, 420dpi → 412×915dp). The emulator is shared: a lock file `.tmp/parity/emulator.lock` serialises lanes.
 - [ ] Dev build points at the local web: `EXPO_PUBLIC_API_BASE_URL=http://10.0.2.2:3100` (Android host alias), Metro on 8082+ (never 8081).
-- [ ] Deep links per screen (`budgts://budgets`, …) and `__DEV__`-only params: `?fail=<endpoint>` (authFetch returns 503 for that path → error state), `?hold=<endpoint>` (request never resolves → skeleton), `?clock=<ms>` (ParityClock provider pins every Reanimated timeline / `useSteppedClock` to `ms`). All three compile out of release (`if (!__DEV__) return`), with a unit test proving they are inert when `__DEV__` is false.
+- [ ] Deep links per screen (`budgts://budgets`, …) and `__DEV__`-only params: `?fail=<endpoint>` (authFetch returns 503 for that path → error state), `?hold=<endpoint>` (request never resolves → skeleton), `?clock=<ms>` (every CSS animation pauses at `ms` through `useMotionTiming`). All three compile out of release (`if (!__DEV__) return`), with a unit test proving they are inert when `__DEV__` is false.
 - [ ] Reduce motion on: `adb shell settings put global transition_animation_scale 0` etc. (RN reports reduce motion) for set 1; offline: `adb shell cmd connectivity airplane-mode enable`.
 - [ ] Maestro flow `tools/parity/capture.yaml`: open the sign-in deep link with the user's token_hash, open the screen link, `takeScreenshot`, then `maestro hierarchy` → JSON (Android `resource-id` = RN `testID`, bounds in px ÷ density = dp).
 
@@ -405,7 +405,7 @@ Lane rules: each lane owns only the files listed; shared atoms change only throu
 ### Lane B — Home. Owns `app/(app)/(tabs)/index.tsx`, `components/home/**`, `components/crystal/**`, `lib/home/*` (view mapping only).
 
 - **B1 Layout + figures** ← `dashboard-view.tsx`: Greeting (`local-time.tsx` `Greeting`, name from profile, "today" from server), MonthNav, Money left hero (`RollingAmount`, `figureSize` step-down, savings rate line), Add income (`income-tile.tsx`), BudgetOverAlert, "Where it went" rows + category chips, Savings, Recent activity, Add transaction button (opens D2's sheet), `Reveal` cascade indices as on the web. Data: `MobileHome` only.
-- **B2 CrystalPerch** ← `crystal-perch.tsx` + `src/lib/crystal/roam.ts` (imported): flutter-down landing (`wingUp`), squash + dust, hi + month note (`crystalLines`/`crystalCheers`: move these two pure functions from the `.tsx` into `src/lib/crystal/lines.ts`, zero-pixel web change), roam 2–4 hops of 36px, 4.5–8.5s rests, pecks, turn at ends, "+$" while saving, cheers at most every 8s, tap: jump/flap/chirp/hearts/sparkles + next line, bubble toward card middle, pauses off-screen / app backgrounded, motion off = sits middle with note. One Reanimated worklet timeline driven by `useSteppedClock`, no JS-thread timers per frame.
+- **B2 CrystalPerch** ← `crystal-perch.tsx` + `src/lib/crystal/roam.ts` (imported): flutter-down landing (`wingUp`), squash + dust, hi + month note (`crystalLines`/`crystalCheers`: move these two pure functions from the `.tsx` into `src/lib/crystal/lines.ts`, zero-pixel web change), roam 2–4 hops of 36px, 4.5–8.5s rests, pecks, turn at ends, "+$" while saving, cheers at most every 8s, tap: jump/flap/chirp/hearts/sparkles + next line, bubble toward card middle, pauses off-screen / app backgrounded, motion off = sits middle with note. Fixed-timeline parts (arrival, squash, dust, blink, chirp, flap, hearts) are Reanimated CSS keyframe animations with `steps()`, each taking its delay from `useMotionTiming`; the randomised roam (hop count, rest length, peck, turn) is the one place UI-thread shared-value animations (`withTiming` / `withSequence` / `withDelay`, easing `Easing.steps`) are acceptable, because its sequence is chosen at run time from `src/lib/crystal/roam.ts`; no JS-thread timers per frame, and under a frozen parity clock it sits at the resting frame the web freezes to.
 - **B3 Setup + charts**: "Get set up" steps (Connect your bank → tour/Connected banks, Add this month's income, Give categories a budget), "Spending · 6 months" + "Where your money goes" (F7).
 - **B4 States**: skeleton (Home `loading.tsx` shape), empty, full, over, error, offline; pull-to-refresh; realtime refresh.
 - Maestro: `home.yaml` (month nav, tap Crystal, open over-budget alert → Budgets).
@@ -488,7 +488,7 @@ Calendar with six parallel lanes: about **8–10 working days** to Android parit
 
 - 🔴 **Base not ready:** `phase-m/stage2` integration is mid-merge (conflict in `docs/roadmap.md` at planning time). Phase 3 cannot branch until it is committed and green.
 - 🔴 **Staging API for the device:** the dev build must reach the 2B endpoints. Plan uses the local web on port 3100 with `.env.staging` (`10.0.2.2:3100`), no push needed; the staging Vercel deployment lacks 2B until the owner approves a push.
-- 🟡 **Reanimated performance:** Crystal, cells sweeps and reels on many rows at once. Mitigation: one SVG per bar, worklet-driven stepped clocks (`useSteppedClock`), no per-frame JS, pause off-screen/background; measure on a low-end AVD (API 30, 2GB) as part of the performance score.
+- 🟡 **Reanimated performance:** Crystal, cells sweeps and reels on many rows at once. Mitigation: one SVG per bar, stepped motion as Reanimated CSS keyframe animations with `steps()` (they run on the UI thread from the first frame even while start-up JS is busy, which a frame callback switched on from an effect does not: the reason `useSteppedClock` was deleted in `2dbad44`), no per-frame JS, pause off-screen/background; measure on a low-end AVD (API 30, 2GB) as part of the performance score.
 - 🟡 **SVG crispness:** fractional dp at 2.625 density blurs cells and pixel frames. Mitigation: every rect through `lib/brand/snap.ts`, `crispEdges`, cell x positions snapped per device pixel (tested in F4).
 - 🟡 **Fonts:** Dogica must stay on its 8px grid and Geist tabular figures must match Chrome's metrics; Android adds font padding. Mitigation: `includeFontPadding: false`, `textStyle()` from 2A, geometry check on every text id.
 - 🟡 **Text rendering differences** (Chrome vs Skia anti-aliasing, kerning) make a 0-pixel diff impossible; per-screen budgets must be tight enough to catch layout drift. Geometry ±1pt is the real gate.
@@ -559,9 +559,37 @@ Native deep links for captures (Expo Router paths): `budgts:///`, `budgts:///bud
 - `components/kit/select.tsx` `<Select label value options onChange placeholder invalid disabled testID>`: the web's framed select; opens a sheet of options (`<testID>-option-<value>`), the chosen one ticked.
 - The test setup now mocks `react-native-safe-area-context` for every test (insets 0; a test can mock it itself).
 
+### Stepped motion, one way (merged `phase-m/p3-egg`, 2026-09-30)
+
+- `mobile/lib/motion/stepped.ts` (`useSteppedClock`) is deleted: a frame callback switched on from an effect starts late when start-up JS is busy. Stepped (sprite) motion is a Reanimated CSS keyframe animation with `steps(n, "jump-end")`, delay from `useMotionTiming` (so `?clock=` freezes it).
+- UI-thread shared-value animations (`withTiming`, `withSequence`, `withDelay`) only where the sequence is decided at run time (Crystal's randomised roam); never JS timers per frame.
+- The splash now holds on every activity (`mobile/patches/expo-splash-screen+57.0.9.patch`, applied by `patch-package` in `postinstall`) over `expo.backgroundColor` `#F4F4F4`.
+- **The next dev-client rebuild (after F7):** `npm ci` in `mobile/` (postinstall applies the patch), then `npx expo prebuild --platform android`, then `gradlew assembleDebug`. It also carries `expo-blur`.
+
+### Shared web helpers (audit, 2026-09-30): import these, delete your copies
+
+One list of web folders the app may read: `mobile/metro.shared.js` `SHARED` (used by `metro.config.js`; `tests/unit/brand-purity.test.ts` discovers every web file the app imports, follows its relative imports, and fails if one is outside `SHARED`, isn't `.ts`, imports a package or an `@/` alias, or touches a DOM/Node/React API). Never `src/lib/budget` or `src/lib/plaid`: figures come from the server.
+
+The app's gateways: `mobile/lib/brand/shared.ts` (brand) and `mobile/lib/shared.ts` (everything below).
+
+| Helper | Web source (moved to a pure module where it wasn't) | Replaces |
+| --- | --- | --- |
+| `formatMoney`, `formatSavingsRate`, `parseMoney`, `isMinor` | `src/lib/display/money.ts` (moved from `src/lib/budget/money.ts`) | `mobile/lib/home/format.ts` (deleted); any lane copy; D-2 form parsing should use `parseMoney` |
+| `formatRelativeDay` (Today / Yesterday / "Sep 20"), `formatDayShort`, `formatDayHeading` ("Tue, Sep 29"), `formatFullDate`, `formatTargetDate` ("Apr 2027"), `formatMonthLabel` ("September 2026"), `formatMonthName` (chart months), `shiftMonthKey`, `formatSyncedAgo` | `src/lib/display/dates.ts` (extracted from transaction-list, local-time, needs-category, goals-view, month-nav, spending-overview, connected-banks) | `formatActivityDay`, `shiftMonth`, `shiftDate` (deleted from `mobile/lib`); B's and D-1's day labels |
+| `greetingForHour`, `relativeDayLabel`, `shiftDateKey`, `dateKeyAt`, `localDateKey` | `src/lib/display/local-date.ts` (moved from `src/lib/local-date.ts`) | B's `greetingForHour` copy |
+| `displayName` | `src/lib/display/display-name.ts` (moved from `src/lib/user`) | B's copy |
+| `figureSizeOf` → kit `figureVariant` | `src/lib/brand/figure-size.ts` | D-2's `figureVariant` stand-in |
+| `DELETE_ACCOUNT_PATH`, `ACCOUNT_DELETED_PATH`, `REAUTH_WINDOW_MINUTES`, `CONFIRM_WORD`, `confirmWordMatches`, `outcomeFromResponse`, `deletedDestination`, `DeleteOutcome` | `src/lib/account/screen.ts` (already pure) | C's deletion constants, DELETE check, deleted-screen destination; `mobile/lib/account/delete-account.ts`'s own outcome mapping (C5 to fold in) |
+| `CATEGORY_KINDS`, `CATEGORY_COLORS` (the first colour is `CATEGORY_COLORS[0]`) | `src/lib/categories/options.ts` (already pure) | C's first-colour copy |
+| `hubTestId`, `tabTestId` | `src/lib/brand/test-ids.ts` | — |
+| Tour steps, gate, guide copy | `src/lib/tour/steps.ts`, `gate.ts`; `src/components/tour/guide-copy.ts` (A: make its `@/lib/tour/steps` import relative `../../lib/tour/steps.ts`) | A's copies |
+| `LOCKED_MESSAGE` | `mobile/lib/api/load.ts` (kept equal to `src/lib/ownership.ts` by `tests/unit/mobile-locked-message.test.ts`; `ownership.ts` isn't pure) | — |
+
+Not shared, on purpose: the budget trend, `savingsProgress` and every other figure: the screens read them from their `/api/mobile/*` payload (B already moved goals progress to the server).
+
 ### D4 as built (Budgets: the route contract other lanes link to)
 
 - **Route:** `/budgets` (`app/(app)/(tabs)/(budgets)/budgets.tsx`), the web's `/budgets?m=&range=&edit=`, read by `mobile/lib/budgets/params.ts` exactly as `src/app/(app)/(dashboard)/budgets/page.tsx` reads them: `m` (`YYYY-MM`, else the user's current month), `range` (`all` for All time, anything else This month), `edit` (a category uuid: its sheet opens straight in "Monthly budget" edit mode; This month only, as on the web). An invalid value is ignored.
 - **Linking in:** `router.navigate(budgetsLink.edit(month, categoryId))` → `{ pathname: "/budgets", params: { m, edit } }` (Home's "Set budget", Lane B). A later link while the tab is open applies its params as a web navigation would (month, range, the sheet).
 - **Linking out:** the category sheet's "See transactions" → `router.navigate(budgetsLink.activity(month, categoryId))` → `/activity?m=&category=` (D1's contract above).
-- **Shared display figure:** "vs. last month" is `budgetTrendPct` in `src/lib/figures/budget-trend.ts`, moved verbatim out of the web `budgets-view.tsx` (zero-pixel: the web sheet captured before and after for the `full` and `over` users, Dining out and Groceries, 0 changed pixels at threshold 0). `src/lib/figures` is a Metro `watchFolders` entry and a pure-module folder (`tests/unit/brand-purity.test.ts`).
+- **Shared display figure:** "vs. last month" is `budgetTrendPct` in `src/lib/figures/budget-trend.ts`, moved verbatim out of the web `budgets-view.tsx` (zero-pixel: the web sheet captured before and after for the `full` and `over` users, Dining out and Groceries, 0 changed pixels at threshold 0). `src/lib/figures` (also `savings-pct.ts`: `savingsPct` / `savingsBarPct`, Goals and Home) is in `SHARED` (mobile/metro.shared.js); brand-purity follows the imports.

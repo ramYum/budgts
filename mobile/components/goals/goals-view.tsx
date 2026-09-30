@@ -1,8 +1,8 @@
 import { View, type TextStyle } from "react-native";
 import { savingsPct } from "../../../src/lib/figures/savings-pct";
 import { ROLE } from "../../lib/brand/shared";
-import { formatTargetDate, type MobileGoal, type MobileGoals } from "../../lib/goals/goals-api";
-import { formatMoney } from "../../lib/home/format";
+import type { MobileGoal, MobileGoals } from "../../lib/goals/goals-api";
+import { formatMoney, formatTargetDate } from "../../lib/shared";
 import { Button, IconTile, TextButton } from "../brand/controls";
 import { PixelFrame } from "../brand/pixel-frame";
 import { Robin } from "../brand/robin";

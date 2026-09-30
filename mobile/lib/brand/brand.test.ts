@@ -113,17 +113,29 @@ describe("the app's fonts", () => {
 });
 
 describe("Metro", () => {
+  // metro.shared.js, not metro.config.js: loading Expo's Metro config takes seconds, and this is all the app adds to it.
   it("watches the shared web folders and resolves packages from the app only", async () => {
-    const config = (await import("../../metro.config.js")).default as {
+    const shared = (await import("../../metro.shared.js")).default as {
+      SHARED: string[];
       watchFolders: string[];
-      resolver: { nodeModulesPaths: string[]; blockList: RegExp[] };
+      nodeModulesPaths: string[];
+      BLOCKED: RegExp[];
     };
     const web = join(mobileRoot, "..");
-    expect(config.watchFolders).toEqual(["src/lib/brand", "src/lib/crystal", "src/lib/figures", "src/app/fonts"].map((d) => join(web, d)));
-    expect(config.resolver.nodeModulesPaths).toEqual([join(mobileRoot, "node_modules")]);
-    const blocked = (p: string) => config.resolver.blockList.some((re) => re.test(p));
+    expect(shared.SHARED).toEqual(expect.arrayContaining(["src/lib/brand", "src/lib/crystal", "src/app/fonts", "src/lib/display"]));
+    expect(shared.SHARED).not.toEqual(expect.arrayContaining(["src/lib/budget"]));
+    expect(shared.SHARED).not.toEqual(expect.arrayContaining(["src/lib/plaid"]));
+    expect(shared.watchFolders).toEqual(shared.SHARED.map((d) => join(web, d)));
+    expect(shared.nodeModulesPaths).toEqual([join(mobileRoot, "node_modules")]);
+    const blocked = (p: string) => shared.BLOCKED.some((re) => re.test(p));
     expect(blocked(join(web, "node_modules", "react", "index.js"))).toBe(true);
     expect(blocked(join(mobileRoot, "node_modules", "react", "index.js"))).toBe(false);
     expect(blocked(join(web, "src", "lib", "brand", "tokens.ts"))).toBe(false);
+  });
+
+  it("metro.config.js builds on that list and nothing else", () => {
+    const src = readFileSync(join(mobileRoot, "metro.config.js"), "utf8");
+    expect(src).toContain('require("./metro.shared")');
+    expect(src).not.toMatch(/src\/lib/);
   });
 });

@@ -7,7 +7,7 @@ import { Text } from "../brand/text";
 import { Overlay, useSheetFocus } from "./overlay";
 import { pressStyle } from "./press";
 
-export type SelectOption<T extends string> = { value: T; label: string };
+export type SelectOption<T extends string> = { value: T; label: string; disabled?: boolean };
 
 /**
  * A labelled choice (web `Select` under a `labelClass` label): the field's
@@ -23,8 +23,10 @@ export function Select<T extends string>({
   placeholder = "Choose…",
   invalid = false,
   disabled = false,
+  hideLabel = false,
   testID = "select",
 }: {
+  /** the label above the field, the sheet's title and what a screen reader hears */
   label: string;
   value: T | null;
   options: SelectOption<T>[];
@@ -32,6 +34,8 @@ export function Select<T extends string>({
   placeholder?: string;
   invalid?: boolean;
   disabled?: boolean;
+  /** no visible label: a field its row already explains (web `aria-label` on the select) */
+  hideLabel?: boolean;
   testID?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -42,9 +46,11 @@ export function Select<T extends string>({
 
   return (
     <View style={{ gap: 6 }}>
-      <Text variant="formLabel" color={COLOR.graphite}>
-        {label}
-      </Text>
+      {hideLabel ? null : (
+        <Text variant="formLabel" color={COLOR.graphite}>
+          {label}
+        </Text>
+      )}
       <Pressable
         ref={field}
         testID={testID}
@@ -80,8 +86,9 @@ export function Select<T extends string>({
                   key={o.value}
                   testID={`${testID}-option-${o.value}`}
                   accessibilityRole="radio"
-                  accessibilityState={{ selected: on }}
+                  accessibilityState={{ selected: on, disabled: !!o.disabled }}
                   accessibilityLabel={o.label}
+                  disabled={o.disabled}
                   onPress={() => {
                     setOpen(false);
                     if (!on) onChange(o.value);
@@ -92,7 +99,7 @@ export function Select<T extends string>({
                     pressStyle(pressed),
                   ]}
                 >
-                  <Text variant={on ? "bodyStrong" : "body"} color={ROLE.ink} style={{ flex: 1 }}>
+                  <Text variant={on ? "bodyStrong" : "body"} color={o.disabled ? ROLE.muted : ROLE.ink} style={{ flex: 1 }}>
                     {o.label}
                   </Text>
                   {on ? <Icon name="check" color={ROLE.ink} /> : null}

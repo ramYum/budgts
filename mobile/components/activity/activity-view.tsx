@@ -80,7 +80,7 @@ function NoTransactions() {
       <Text variant="listName" color={ROLE.ink} style={{ marginTop: 8 }}>
         No transactions this month yet.
       </Text>
-      <Text variant="body" color={ROLE.muted} style={SMALL}>
+      <Text variant="small" color={ROLE.muted}>
         Add your first with{" "}
         <Text variant="bodyStrong" color={ROLE.ink} style={SMALL}>
           Add

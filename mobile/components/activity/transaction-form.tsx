@@ -1,8 +1,6 @@
 import { useRef, useState } from "react";
-import { Pressable, TextInput, View } from "react-native";
-import Svg, { Path } from "react-native-svg";
-import { COLOR, PLACEHOLDER, ROLE } from "../../lib/brand/shared";
-import { textStyle } from "../../lib/brand/type";
+import { Pressable, View } from "react-native";
+import { COLOR, ROLE } from "../../lib/brand/shared";
 import type { MobileAccount } from "../../lib/accounts/accounts-api";
 import type { MutationOutcome } from "../../lib/api/load";
 import type { MobileCategory } from "../../lib/categories/categories-api";
@@ -15,73 +13,20 @@ import {
 } from "../../lib/transactions/form";
 import type { Direction, MobileTransaction } from "../../lib/transactions/transactions-api";
 import { Button, Field } from "../brand/controls";
-import { PixelFrame } from "../brand/pixel-frame";
 import { Text } from "../brand/text";
-import { useSheetFocus } from "../kit/overlay";
+import { Checkbox } from "../kit/checkbox";
+import { DateField } from "../kit/date-field";
 import { Select } from "../kit/select";
-import { DateField } from "./date-field";
 
-const SMALL = { fontSize: 14, lineHeight: 20 } as const;
 const NONE = "";
 
 /** A field's error line under it (web `text-sm text-neg`). */
 export function FieldError({ children, testID }: { children?: string | null; testID?: string }) {
   if (!children) return null;
   return (
-    <Text testID={testID} variant="body" color={ROLE.neg} accessibilityRole="alert" style={SMALL}>
+    <Text testID={testID} variant="small" color={ROLE.neg} accessibilityRole="alert">
       {children}
     </Text>
-  );
-}
-
-/** The note (web textarea, 2 rows, in the field frame): a 2-line input that grows no further than the web's. */
-function NoteField({ value, onChangeText, testID }: { value: string; onChangeText: (v: string) => void; testID: string }) {
-  const [focused, setFocused] = useState(false);
-  const input = useRef<TextInput>(null);
-  const revealInSheet = useSheetFocus();
-  return (
-    <View style={{ gap: 6 }}>
-      <Text variant="formLabel" color={COLOR.graphite}>
-        Note (optional)
-      </Text>
-      <PixelFrame frame="px-field" state={focused ? ":focus-within" : ""} style={{ paddingHorizontal: 8, paddingVertical: 4 }}>
-        <TextInput
-          ref={input}
-          testID={testID}
-          value={value}
-          onChangeText={onChangeText}
-          multiline
-          numberOfLines={2}
-          maxLength={1000}
-          accessibilityLabel="Note (optional)"
-          placeholderTextColor={PLACEHOLDER}
-          cursorColor={ROLE.ink}
-          selectionColor={COLOR.signal}
-          onFocus={() => {
-            setFocused(true);
-            revealInSheet?.(input.current);
-          }}
-          onBlur={() => setFocused(false)}
-          style={[textStyle("input"), { minHeight: 48, padding: 0, color: ROLE.ink, textAlignVertical: "top", includeFontPadding: false }]}
-        />
-      </PixelFrame>
-    </View>
-  );
-}
-
-/** The web's plain checkbox with `accent-color: ink`: a 16px white box with a 1px #767676 edge, filled ink with a white tick. */
-function Checkbox({ checked }: { checked: boolean }) {
-  return (
-    <View
-      testID="txn-transfer-box"
-      style={{ width: 16, height: 16, borderRadius: 2, borderWidth: checked ? 0 : 1, borderColor: "#767676", backgroundColor: checked ? ROLE.ink : COLOR.white }}
-    >
-      {checked ? (
-        <Svg width={16} height={16}>
-          <Path d="M3.5 8L6.5 11L12.5 5" fill="none" stroke={COLOR.white} strokeWidth={2} />
-        </Svg>
-      ) : null}
-    </View>
   );
 }
 
@@ -239,20 +184,32 @@ export function TransactionForm({
       </View>
 
       <View style={{ gap: 6 }}>
-        <NoteField testID="txn-form-note" value={draft.note} onChangeText={(note) => set({ note })} />
+        <Field
+          testID="txn-form-note"
+          label="Note (optional)"
+          rows={2}
+          value={draft.note}
+          onChangeText={(note) => set({ note })}
+          maxLength={1000}
+          invalid={!!errors.note}
+        />
         <FieldError>{errors.note}</FieldError>
       </View>
 
+      {/* the web's <label>: the words toggle the box too */}
       <Pressable
-        testID="txn-form-transfer"
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked: draft.isTransfer }}
-        accessibilityLabel="Transfer between my own accounts (excluded from spend & income)"
+        accessible={false}
         onPress={() => set({ isTransfer: !draft.isTransfer })}
         style={{ minHeight: 44, flexDirection: "row", alignItems: "center", gap: 10 }}
       >
-        <Checkbox checked={draft.isTransfer} />
-        <Text variant="body" color={COLOR.graphite} style={[SMALL, { flexShrink: 1 }]}>
+        <Checkbox
+          testID="txn-form-transfer"
+          tone="ink"
+          checked={draft.isTransfer}
+          onChange={(isTransfer) => set({ isTransfer })}
+          accessibilityLabel="Transfer between my own accounts (excluded from spend & income)"
+        />
+        <Text variant="small" color={COLOR.graphite} style={{ flexShrink: 1 }}>
           {"Transfer between my own accounts (excluded from spend & income)"}
         </Text>
       </Pressable>

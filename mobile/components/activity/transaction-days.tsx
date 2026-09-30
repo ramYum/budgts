@@ -7,7 +7,6 @@ import { Text } from "../brand/text";
 import { CategoryIcon } from "../kit/tiles";
 import { pressStyle } from "../kit/press";
 
-const SMALL = { fontSize: 14, lineHeight: 20 } as const;
 const TNUM = { fontVariant: ["tabular-nums" as const] };
 
 function TransactionRow({
@@ -45,7 +44,7 @@ function TransactionRow({
             >
               {title}
             </Text>
-            <Text testID="txn-meta" variant="body" color={meta.warn ? ROLE.warn : ROLE.muted} numberOfLines={1} style={SMALL}>
+            <Text testID="txn-meta" variant="small" color={meta.warn ? ROLE.warn : ROLE.muted} numberOfLines={1}>
               {meta.text}
             </Text>
           </View>

@@ -1,4 +1,4 @@
-import { formatMoney } from "../home/format";
+import { formatDayHeading, formatMoney } from "../shared";
 import type { MobileTransaction } from "./transactions-api";
 
 /**
@@ -64,10 +64,8 @@ export function signedTotal(minor: number, currency: string): string {
   return `${minor > 0 ? "+" : minor < 0 ? "−" : ""}${formatMoney(Math.abs(minor), currency)}`;
 }
 
-/** "Tue, Sep 29" for a `YYYY-MM-DD` day, read in UTC like the stored day. */
-export function dayLabel(day: string, locale?: string): string {
-  return new Date(day).toLocaleDateString(locale, { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
-}
+/** "Tue, Sep 29" for a `YYYY-MM-DD` day (the web's own heading formatter). */
+export const dayLabel = (day: string, locale?: string): string => formatDayHeading(day, locale);
 
 /** The row's title: its description, else its category, else "Transaction". */
 export function rowTitle(t: MobileTransaction): string {

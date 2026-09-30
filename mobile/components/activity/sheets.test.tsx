@@ -5,9 +5,14 @@ import type { MutationOutcome } from "../../lib/api/load";
 import type { MobileCategory } from "../../lib/categories/categories-api";
 import type { MobileTransaction } from "../../lib/transactions/transactions-api";
 import { byTestId, flat, render, textContent, texts } from "../../test/render";
-import { dateFieldLabel, monthGrid } from "./date-field";
 import { TransactionForm, transferToggleDraft } from "./transaction-form";
 import { AddTransactionSheet, EditTransactionSheet, TransactionDetailSheet, fullDateLabel } from "./transaction-sheets";
+
+const picker = vi.hoisted(() => ({ opened: [] as { value: Date; onChange: (e: { type: string }, d?: Date) => void }[] }));
+vi.mock("@react-native-community/datetimepicker", () => ({
+  default: () => null,
+  DateTimePickerAndroid: { open: (o: (typeof picker.opened)[number]) => picker.opened.push(o) },
+}));
 
 vi.mock("react-native-safe-area-context", () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
 
@@ -52,15 +57,7 @@ function form(over: Partial<Parameters<typeof TransactionForm>[0]> = {}) {
 }
 
 describe("dates", () => {
-  it("lays out a month Sunday first (September 2026 starts on a Tuesday)", () => {
-    const g = monthGrid("2026-09");
-    expect(g[0]).toEqual([null, null, "2026-09-01", "2026-09-02", "2026-09-03", "2026-09-04", "2026-09-05"]);
-    expect(g.flat().filter(Boolean)).toHaveLength(30);
-    expect(g.every((w) => w.length === 7)).toBe(true);
-  });
-
-  it("shows a day as the browser's date field does, and the sheet's long date, without shifting a day", () => {
-    expect(dateFieldLabel("2026-09-29", "en-US")).toBe("09/29/2026");
+  it("shows the sheet's long date with the web's formatter, without shifting a day", () => {
     expect(fullDateLabel("2026-09-29T12:00:00+00:00", "en-US")).toBe("Tuesday, September 29, 2026");
   });
 });
@@ -71,7 +68,7 @@ describe("TransactionForm (web transaction-form.tsx)", () => {
     expect(find(r, "txn-form-account").props.accessibilityLabel).toBe("Account, Everyday checking");
     expect(find(r, "txn-form-direction").props.accessibilityLabel).toBe("Direction, Money out");
     expect(find(r, "txn-form-category").props.accessibilityLabel).toBe("Category, Uncategorized");
-    expect(textContent(find(r, "txn-form-date-value"))).toBe(dateFieldLabel("2026-09-29"));
+    expect(find(r, "txn-form-date").props.accessibilityLabel).toBe("Date, 09/29/2026");
     expect(texts(find(r, "txn-form-save"))).toContain("Add transaction");
   });
 
@@ -117,12 +114,19 @@ describe("TransactionForm (web transaction-form.tsx)", () => {
     expect(textContent(find(r, "txn-form-date-error"))).toBe("Pick a real date");
   });
 
-  it("picks a date from the month sheet", () => {
+  it("picks a date in the platform's date dialog (kit DateField)", () => {
     const { r } = form();
     act(() => find(r, "txn-form-date").props.onPress());
-    act(() => find(r, "txn-form-date-calendar-prev").props.onPress());
-    act(() => find(r, "txn-form-date-calendar-2026-08-14").props.onPress());
-    expect(textContent(find(r, "txn-form-date-value"))).toBe(dateFieldLabel("2026-08-14"));
+    act(() => picker.opened.at(-1)!.onChange({ type: "set" }, new Date(2026, 7, 14)));
+    expect(find(r, "txn-form-date").props.accessibilityLabel).toBe("Date, 08/14/2026");
+  });
+
+  it("a 2-line note and the transfer box, as the web's textarea and checkbox", async () => {
+    const { r } = form();
+    expect(find(r, "txn-form-note").props.multiline).toBe(true);
+    expect(find(r, "txn-form-transfer").props.accessibilityState).toMatchObject({ checked: false });
+    act(() => find(r, "txn-form-transfer").props.onPress());
+    expect(find(r, "txn-form-transfer").props.accessibilityState).toMatchObject({ checked: true });
   });
 
   it("edits a row as it is, keeping its account listed even when it can no longer take entries, with no request id", async () => {
@@ -211,7 +215,7 @@ describe("Add and Edit sheets", () => {
     expect(onRetry).toHaveBeenCalled();
     const r = render(<AddTransactionSheet data={ready} defaultDate="2026-09-15" commands={commands()} onClose={vi.fn()} />);
     expect(texts(r.root)).toContain("Add transaction");
-    expect(textContent(find(r, "txn-form-date-value"))).toBe(dateFieldLabel("2026-09-15"));
+    expect(find(r, "txn-form-date").props.accessibilityLabel).toBe("Date, 09/15/2026");
   });
 
   it("Edit deletes only after the confirm, then closes", async () => {

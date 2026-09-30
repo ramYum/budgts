@@ -269,7 +269,7 @@ describe("Needs a category actions (web needs-category.tsx)", () => {
     const { r } = view({ extras: one({ suggestedCategoryId: "dining" }), onCategorize });
     expect(textContent(byTestId(r, "needs-category"))).toContain("Looks like");
     expect(byTestId(r, "needs-category-picker").props.accessibilityLabel).toBe("Category for Merchant m1, Choose another");
-    expect(hostsWith(r, "needs-category-hint")).toHaveLength(0);
+    expect(textContent(byTestId(r, "needs-category"))).not.toContain("Plaid");
     await act(async () => byTestId(r, "needs-category-suggestion").props.onPress());
     expect(onCategorize).toHaveBeenCalledWith("m1-1", { categoryId: "dining" });
     expect(hostsWith(r, "needs-category")).toHaveLength(0); // hidden before the server answers
@@ -280,7 +280,11 @@ describe("Needs a category actions (web needs-category.tsx)", () => {
   it("without a suggestion: 'Choose a category' and Plaid's own guess as a hint", () => {
     const { r } = view({ extras: one({ plaidCategoryPrimary: "FOOD_AND_DRINK" }) });
     expect(byTestId(r, "needs-category-picker").props.accessibilityLabel).toBe("Category for Merchant m1, Choose a category");
-    expect(textContent(byTestId(r, "needs-category-hint"))).toBe("Plaid suggests: Food and drink");
+    // longer than 12 characters: its own line; a short guess sits inside the field (kit Select plaidHint)
+    expect(textContent(byTestId(r, "needs-category"))).toContain("Plaid suggests: Food and drink");
+    const short = view({ extras: one({ plaidCategoryPrimary: "OTHER" }) }).r;
+    expect(textContent(byTestId(short, "needs-category"))).toContain("Plaid: Other");
+    expect(textContent(byTestId(short, "needs-category"))).not.toContain("Plaid suggests");
   });
 
   it("the picker lists the categories, then the standard ones to restore under a heading", async () => {
@@ -325,13 +329,13 @@ describe("Needs a category actions (web needs-category.tsx)", () => {
     expect(textContent(byTestId(r, "needs-category"))).toContain("Missing one? Choose + New category.");
     act(() => byTestId(r, "needs-category-picker").props.onPress());
     act(() => byTestId(r, "needs-category-picker-option-__new__").props.onPress());
-    expect(byTestId(r, "sheet").props.accessibilityLabel).toBe("New category for Merchant m1");
+    expect(byTestId(r, "category-sheet").props.accessibilityLabel).toBe("New category for Merchant m1");
     expect(onCategorize).not.toHaveBeenCalled();
     act(() => byTestId(r, "category-name").props.onChangeText("Coffee"));
     await act(async () => byTestId(r, "category-save").props.onPress());
     expect(onCreateCategory).toHaveBeenCalledWith(expect.objectContaining({ name: "Coffee", kind: "expense" }), "11111111-1111-4111-8111-111111111111");
     expect(onCategorize).toHaveBeenCalledWith("m1-1", { categoryId: "new-cat" });
-    expect(hostsWith(r, "sheet")).toHaveLength(0);
+    expect(hostsWith(r, "category-sheet")).toHaveLength(0);
   });
 
   it("cancelling the new category leaves the group as it was", async () => {
@@ -340,7 +344,7 @@ describe("Needs a category actions (web needs-category.tsx)", () => {
     act(() => byTestId(r, "needs-category-picker").props.onPress());
     act(() => byTestId(r, "needs-category-picker-option-__new__").props.onPress());
     await act(async () => byTestId(r, "category-cancel").props.onPress());
-    expect(hostsWith(r, "sheet")).toHaveLength(0);
+    expect(hostsWith(r, "category-sheet")).toHaveLength(0);
     expect(onCategorize).not.toHaveBeenCalled();
     expect(hostsWith(r, "needs-category-group")).toHaveLength(1);
   });

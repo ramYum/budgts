@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Pressable, View } from "react-native";
 import { COLOR, ROLE } from "../../lib/brand/shared";
-import { formatMoney } from "../../lib/home/format";
+import { formatDayShort, formatMoney } from "../../lib/shared";
 import type { MutationOutcome } from "../../lib/api/load";
 import type { NeedsCategoryGroup } from "../../lib/transactions/activity-api";
 import type { CategoryFields, CategoryWrite } from "../../lib/categories/manage";
@@ -20,10 +20,7 @@ export const FIRST = 3;
 const SMALL = { fontSize: 14, lineHeight: 20 } as const;
 const TNUM = { fontVariant: ["tabular-nums" as const] };
 
-/** A stored day as "Sep 16", read in UTC like the Activity list. */
-function shortDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
-}
+const shortDate = (iso: string) => formatDayShort(iso);
 
 /** A group's net: spending reads "−$12.00", money back reads "+$3.00" (web `formatNet`). */
 export function formatNet(netAmount: number, currency: string): string {
@@ -51,7 +48,7 @@ function GroupTransactions({ group, currency }: { group: NeedsCategoryGroup; cur
         style={{ alignSelf: "flex-start" }}
       >
         {({ pressed }) => (
-          <Text variant="body" color={pressed ? ROLE.ink : ROLE.muted} style={SMALL}>
+          <Text variant="small" color={pressed ? ROLE.ink : ROLE.muted}>
             {open ? "▾" : "▸"} Show {group.count} transactions
           </Text>
         )}
@@ -60,10 +57,10 @@ function GroupTransactions({ group, currency }: { group: NeedsCategoryGroup; cur
         <View style={{ marginTop: 8, gap: 6, borderLeftWidth: 2, borderLeftColor: ROLE.hairline, paddingLeft: 12 }}>
           {group.transactions.map((t) => (
             <View key={t.id} style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
-              <Text variant="body" color={ROLE.muted} style={[SMALL, { flexShrink: 1, minWidth: 0 }]}>
+              <Text variant="small" color={ROLE.muted} style={{ flexShrink: 1, minWidth: 0 }}>
                 {t.description || "Transaction"}
               </Text>
-              <Text variant="body" color={ROLE.muted} style={[SMALL, TNUM, { flexShrink: 0 }]}>
+              <Text variant="small" color={ROLE.muted} style={[TNUM, { flexShrink: 0 }]}>
                 {shortDate(t.occurredAt)} · {t.direction === "debit" ? "−" : "+"}
                 {formatMoney(t.amount, currency)}
               </Text>
@@ -198,7 +195,7 @@ export function NeedsCategory({
         </View>
       </View>
 
-      <Text variant="body" color={ROLE.muted} style={[SMALL, { marginTop: 4 }]}>
+      <Text variant="small" color={ROLE.muted} style={{ marginTop: 4 }}>
         Pick once and it applies to every purchase from that merchant. Missing one? Choose{" "}
         <Text variant="listName" color={COLOR.graphite} style={SMALL}>
           + New category
@@ -225,7 +222,7 @@ export function NeedsCategory({
                   <Text testID="needs-category-label" variant="listName" color={ROLE.ink}>
                     {group.label}
                   </Text>
-                  <Text variant="body" color={ROLE.muted} numberOfLines={1} style={SMALL}>
+                  <Text variant="small" color={ROLE.muted} numberOfLines={1}>
                     {groupMeta(group)}
                   </Text>
                 </View>
@@ -236,7 +233,7 @@ export function NeedsCategory({
 
               {suggestedName ? (
                 <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
-                  <Text variant="body" color={ROLE.muted} style={SMALL}>
+                  <Text variant="small" color={ROLE.muted}>
                     Looks like
                   </Text>
                   <Pressable
@@ -269,14 +266,9 @@ export function NeedsCategory({
                 value={null}
                 placeholder={suggestedName ? "Choose another" : "Choose a category"}
                 options={options}
+                plaidHint={pfc}
                 onChange={(v) => (v === NEW_CATEGORY ? setAddingFor(group) : void pick(group, v))}
               />
-
-              {pfc ? (
-                <Text testID="needs-category-hint" variant="body" color={ROLE.muted} style={[SMALL, { marginTop: -4 }]}>
-                  {`Plaid suggests: ${pfc}`}
-                </Text>
-              ) : null}
 
               {group.count > 1 ? <GroupTransactions group={group} currency={currency} /> : null}
             </View>
@@ -305,7 +297,7 @@ export function NeedsCategory({
       ) : null}
 
       {error ? (
-        <Text testID="needs-category-error" variant="body" color={ROLE.neg} accessibilityRole="alert" style={[SMALL, { marginTop: 12 }]}>
+        <Text testID="needs-category-error" variant="small" color={ROLE.neg} accessibilityRole="alert" style={{ marginTop: 12 }}>
           {error}
         </Text>
       ) : null}

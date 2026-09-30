@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { Alert, View } from "react-native";
 import { COLOR, ROLE } from "../../lib/brand/shared";
+import { formatFullDate } from "../../lib/shared";
 import type { AccountsData } from "../../lib/accounts/accounts-api";
 import type { LoadState, MutationOutcome } from "../../lib/api/load";
 import type { MobileCategory } from "../../lib/categories/categories-api";
@@ -15,12 +16,9 @@ import { Overlay } from "../kit/overlay";
 import { CategoryIcon } from "../kit/tiles";
 import { FieldError, TransactionForm } from "./transaction-form";
 
-const SMALL = { fontSize: 14, lineHeight: 20 } as const;
 
-/** "Tuesday, September 29, 2026" for a stored day (web `fullDateLabel`, in UTC). */
-export function fullDateLabel(iso: string, locale?: string): string {
-  return new Date(iso).toLocaleDateString(locale, { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
-}
+/** "Tuesday, September 29, 2026" (the web's own formatter). */
+export const fullDateLabel = (iso: string, locale?: string): string => formatFullDate(iso, locale);
 
 /** The web's `confirm("Delete this transaction?")`, as the platform's dialog. */
 export function confirmDelete(onYes: () => void) {
@@ -98,7 +96,7 @@ export function TransactionDetailSheet({
             {rowTitle(t)}
           </Text>
           {t.note ? (
-            <Text variant="body" color={ROLE.muted} style={SMALL}>
+            <Text variant="small" color={ROLE.muted}>
               {t.note}
             </Text>
           ) : null}

@@ -4,6 +4,7 @@ import { formatMoney, formatSavingsRate } from "@/lib/display/money";
 import type { DashboardBar, DashboardView as DV } from "@/lib/budget/dashboard";
 import type { MonthSpend } from "@/lib/budget/spend-trend";
 import type { GoalsSummary } from "@/lib/budget/savings";
+import { savingsBarPct, savingsPct } from "@/lib/figures/savings-pct";
 import { pickSuggestion } from "@/lib/insights/suggestion";
 import { displayName } from "@/lib/display/display-name";
 import { BudgetOverAlert } from "./budget-over-alert";
@@ -336,12 +337,12 @@ export function DashboardView({
               <RollingAmount value={savings.totalSaved} currency={currency} />
             </p>
             {savings.totalTarget > 0 ? (
-              <Badge tone="growth">{Math.round((savings.totalSaved / savings.totalTarget) * 100)}%</Badge>
+              <Badge tone="growth">{savingsPct(savings.totalSaved, savings.totalTarget)}%</Badge>
             ) : null}
           </div>
           <ProgressBar
             className="mt-4"
-            pct={savings.totalTarget > 0 ? (savings.totalSaved / savings.totalTarget) * 100 : 0}
+            pct={savingsBarPct(savings.totalSaved, savings.totalTarget)}
             tone="growth"
           />
           <p className="tnum mt-4 text-sm leading-5 text-muted">

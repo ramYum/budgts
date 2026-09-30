@@ -10,7 +10,8 @@ import { accountLabel, buildMapEntries, emptyMapRows, type MapEntry, type MapMod
 import { Button } from "../brand/controls";
 import { PixelFrame } from "../brand/pixel-frame";
 import { Text } from "../brand/text";
-import { Sheet, SelectField } from "./interim-sheet";
+import { Overlay } from "../kit/overlay";
+import { Select } from "../kit/select";
 import { SMALL } from "./type";
 
 /** The mapping sheet's title, the web's (`connect-bank.tsx`, `connected-banks.tsx`). */
@@ -94,7 +95,7 @@ export function AccountMapping({
                 </Text>
               </View>
 
-              <SelectField
+              <Select
                 label="Import as"
                 testID={`account-mapping-mode-${i}`}
                 value={r.mode}
@@ -120,21 +121,24 @@ export function AccountMapping({
                       ]}
                     />
                   </PixelFrame>
-                  <SelectField
-                    testID={`account-mapping-type-${i}`}
-                    accessibilityLabel="New account type"
-                    style={{ width: 112 }}
-                    value={r.type}
-                    options={accountTypes.map((t) => ({ value: t, label: typeLabel(t) }))}
-                    onChange={(type) => update(i, { type })}
-                  />
+                  <View style={{ width: 112 }}>
+                    <Select
+                      label="New account type"
+                      hideLabel
+                      testID={`account-mapping-type-${i}`}
+                      value={r.type}
+                      options={accountTypes.map((t) => ({ value: t, label: typeLabel(t) }))}
+                      onChange={(type) => update(i, { type })}
+                    />
+                  </View>
                 </View>
               ) : null}
 
               {r.mode === "existing" ? (
-                <SelectField
+                <Select
+                  label="Existing account"
+                  hideLabel
                   testID={`account-mapping-existing-${i}`}
-                  accessibilityLabel="Existing account"
                   value={r.existingAccountId}
                   options={budgtsAccounts.map((b) => ({ value: b.id, label: b.name }))}
                   onChange={(existingAccountId) => update(i, { existingAccountId })}
@@ -186,8 +190,8 @@ export function AccountMappingSheet({ plaidItemId, plaidAccounts, choices, onDon
     return out;
   };
   return (
-    <Sheet title={MAPPING_TITLE} onClose={onClose}>
+    <Overlay title={MAPPING_TITLE} onClose={onClose}>
       <AccountMapping plaidAccounts={plaidAccounts} choices={choices} onSave={onSave} onDone={onDone} />
-    </Sheet>
+    </Overlay>
   );
 }

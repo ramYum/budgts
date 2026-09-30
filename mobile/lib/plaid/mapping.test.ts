@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { accountLabel, buildMapEntries, emptyMapRows, guessType } from "./mapping";
+import { accountLabel, buildMapEntries, emptyMapRows, guessType, mappingChoices } from "./mapping";
 import type { UnmappedAccount } from "./banks-api";
 
 const unmapped = (over: Partial<UnmappedAccount> = {}): UnmappedAccount => ({
@@ -55,5 +55,22 @@ describe("emptyMapRows / buildMapEntries", () => {
     expect(buildMapEntries([unmapped()], [{ mode: "ignore", name: "", type: "checking", existingAccountId: "" }])).toEqual([
       { plaidAccountId: "pa1", mode: "ignore" },
     ]);
+  });
+});
+
+describe("mappingChoices", () => {
+  it("offers every account that isn't archived, in the server's order, and the server's account types", () => {
+    const accounts = [
+      { id: "a1", name: "Everyday checking", type: "checking", source: "manual" as const, archived: false, selectable: true },
+      { id: "a2", name: "Old wallet", type: "cash", source: "manual" as const, archived: true, selectable: false },
+      { id: "a3", name: "Plaid Checking", type: "checking", source: "plaid" as const, archived: false, selectable: false },
+    ];
+    expect(mappingChoices({ accounts, accountTypes: ["checking", "cash"] })).toEqual({
+      budgtsAccounts: [
+        { id: "a1", name: "Everyday checking" },
+        { id: "a3", name: "Plaid Checking" },
+      ],
+      accountTypes: ["checking", "cash"],
+    });
   });
 });

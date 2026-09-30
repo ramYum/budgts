@@ -9,6 +9,7 @@ import { loadResource } from "../../../../lib/api/load";
 import { jsonInit } from "../../../../lib/api/request";
 import { useResource } from "../../../../lib/api/use-resource";
 import { parseBanks, statusNeedsAttention, type BankAccount, type BankStatus, type ConnectedBank } from "../../../../lib/plaid/banks-api";
+import type { UnmappedAccount } from "../../../../lib/plaid/banks-api";
 import { connectBank, reconnectBank } from "../../../../lib/plaid/link-flow";
 import { createPlaidLinkClient, currentPlatform } from "../../../../lib/plaid/plaid-link-native";
 import { colors, fonts, radii } from "../../../../lib/theme";
@@ -33,7 +34,7 @@ export default function ConnectedBanksScreen() {
   const { session } = useAuth();
   const version = useVersion("accounts");
   const { state, notice, reload, refresh, refreshing } = useResource(`banks-${version}`, (s) =>
-    loadResource(() => authFetch("/api/mobile/plaid/banks", s), parseBanks),
+    loadResource(() => authFetch("/api/mobile/plaid/banks", s), (b) => parseBanks(b).banks),
   );
 
   const [connecting, setConnecting] = useState(false);
@@ -58,8 +59,8 @@ export default function ConnectedBanksScreen() {
             session,
             jsonInit("POST", { public_token: publicToken, institution: institution ? { institution_id: institution.id, name: institution.name } : undefined }),
           );
-          const j = (await res.json()) as { plaidItemId?: string; accounts?: { plaidAccountId: string; name: string | null }[]; error?: string; itemId?: string };
-          if (res.status === 409 && j.error === "already-linked") return { status: "already_linked", itemId: j.itemId ?? "" };
+          const j = (await res.json()) as { plaidItemId?: string; accounts?: UnmappedAccount[]; error?: string; itemId?: string };
+          if (res.status === 409 && j.error === "already-linked") return { status: "already_linked" };
           if (res.ok && j.plaidItemId && j.accounts) return { status: "ok", plaidItemId: j.plaidItemId, accounts: j.accounts };
           return { status: "error", message: "Couldn't finish connecting the bank. Try again." };
         },

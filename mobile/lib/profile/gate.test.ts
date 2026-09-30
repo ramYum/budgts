@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { profileFailure, shellRoute } from "./gate";
+import { firstRunHelpOpen, howItWorksHref, profileFailure, shellRoute } from "./gate";
 
 describe("shellRoute (the web's firstRunRedirect)", () => {
   it("holds a user without a currency on Get Started, whatever the tour flag says", () => {
@@ -24,5 +24,18 @@ describe("profileFailure", () => {
     expect(profileFailure("contract")).toEqual({ kind: "contract", detail: true, canRetry: true });
     expect(profileFailure("time_zone")).toEqual({ kind: "rejected", detail: true, canRetry: true });
     expect(profileFailure("profile_missing")).toEqual({ kind: "rejected", detail: true, canRetry: false });
+  });
+});
+
+describe("How Budgts Works from the welcome guide", () => {
+  it("opens Help's page on a replay, and its own first-run route while the guide gates the app", () => {
+    expect(howItWorksHref(true)).toBe("/help/how-it-works");
+    expect(howItWorksHref(false)).toBe("/guide/how-it-works");
+  });
+
+  it("keeps the first-run route open only while the guide is the gate", () => {
+    expect(firstRunHelpOpen("tour")).toBe(true);
+    expect(firstRunHelpOpen("onboarding")).toBe(false);
+    expect(firstRunHelpOpen("app")).toBe(false);
   });
 });

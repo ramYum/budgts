@@ -4,7 +4,7 @@ import { useLoadingScreen } from "../../components/loading-screen";
 import { FirstRunFailure } from "../../components/tour/first-run-failure";
 import { useAuth } from "../../lib/auth/auth-context";
 import { ROLE } from "../../lib/brand/shared";
-import { profileFailure, shellRoute } from "../../lib/profile/gate";
+import { firstRunHelpOpen, profileFailure, shellRoute } from "../../lib/profile/gate";
 import { ProfileProvider, useProfile } from "../../lib/profile/profile-context";
 import { StatusProvider } from "../../lib/status/status-context";
 
@@ -49,6 +49,10 @@ function Gate() {
         </Stack.Protected>
         <Stack.Protected guard={route !== "onboarding"}>
           <Stack.Screen name="tour" />
+        </Stack.Protected>
+        {/* How Budgts works from the guide's last card, while Help (inside the app) isn't open yet */}
+        <Stack.Protected guard={firstRunHelpOpen(route)}>
+          <Stack.Screen name="guide/how-it-works" />
         </Stack.Protected>
         <Stack.Protected guard={route === "onboarding"}>
           <Stack.Screen name="onboarding" />

@@ -145,6 +145,7 @@ describe("TourView (web tour-wizard-content.tsx)", () => {
         currency="USD"
         bank={(label) => <Text variant="body">{label}</Text>}
         onFinish={vi.fn(async () => null)}
+        onHowItWorks={() => {}}
         {...over}
       />,
     );
@@ -171,7 +172,7 @@ describe("TourView (web tour-wizard-content.tsx)", () => {
     expect(step(r)).toBe("tour-step-bank");
   });
 
-  it("ends on the web's last card: See my finances, and How Budgts Works as a link only once Help is open", async () => {
+  it("ends on the web's last card: See my finances, and How Budgts Works always a link", async () => {
     const onFinish = vi.fn(async () => null);
     const r = view({ stepIds: ["money-left", "plan", "done"], offset: 6, onFinish });
     press(r, "tour-skip"); // not a jump here: Skip finishes
@@ -181,11 +182,10 @@ describe("TourView (web tour-wizard-content.tsx)", () => {
     expect(step(r)).toBe("tour-step-done");
     expect(() => byTestId(r, "tour-skip")).toThrow();
     expect(textContent(byTestId(r, "tour-footnote"))).toBe("Replay this guide, or read How Budgts Works, anytime from Help.");
-    expect(byTestId(r, "tour-how-it-works").props.accessibilityRole).toBeUndefined();
     const open = vi.fn();
-    const replay = view({ stepIds: ["done"], offset: 0, totalVisible: 1, onHowItWorks: open });
-    expect(byTestId(replay, "tour-how-it-works").props.accessibilityRole).toBe("link");
-    byTestId(replay, "tour-how-it-works").props.onPress();
+    const done = view({ stepIds: ["done"], offset: 0, totalVisible: 1, onHowItWorks: open });
+    expect(byTestId(done, "tour-how-it-works").props.accessibilityRole).toBe("link");
+    byTestId(done, "tour-how-it-works").props.onPress();
     expect(open).toHaveBeenCalledOnce();
   });
 });

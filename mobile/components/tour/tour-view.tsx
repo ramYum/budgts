@@ -33,8 +33,8 @@ export function TourView({
   /** the bank card's "Connect a bank" (label from the guide's words) */
   bank: (label: string) => ReactNode;
   onFinish: () => Promise<string | null>;
-  /** opens How Budgts Works; absent while the guide gates the app (Help isn't open yet), when the words stay plain */
-  onHowItWorks?: () => void;
+  /** opens How Budgts Works (Help's page on a replay, its first-run route while the guide gates the app) */
+  onHowItWorks: () => void;
 }) {
   const [fixedStepIds] = useState(stepIds);
   const [finishing, setFinishing] = useState(false);
@@ -111,7 +111,7 @@ export function TourView({
                   <RNText
                     testID="tour-how-it-works"
                     onPress={onHowItWorks}
-                    accessibilityRole={onHowItWorks ? "link" : undefined}
+                    accessibilityRole="link"
                     style={{ fontFamily: textStyle("tLabel").fontFamily, color: ROLE.neg }}
                   >
                     How Budgts Works

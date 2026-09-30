@@ -10,6 +10,7 @@ import { useResource } from "../../lib/api/use-resource";
 import { authFetch } from "../../lib/auth/api";
 import { useAuth } from "../../lib/auth/auth-context";
 import { ROLE } from "../../lib/brand/shared";
+import { howItWorksHref } from "../../lib/profile/gate";
 import { useProfile } from "../../lib/profile/profile-context";
 import { parseTourCards } from "../../lib/tour/tour-api";
 
@@ -55,7 +56,7 @@ export default function TourScreen() {
       currency={state.data.currency}
       bank={(label) => <ConnectBank label={label} fullWidth />}
       onFinish={finish}
-      onHowItWorks={tourSeen ? () => router.push("/help/how-it-works") : undefined}
+      onHowItWorks={() => router.push(howItWorksHref(tourSeen))}
     />
   );
 }

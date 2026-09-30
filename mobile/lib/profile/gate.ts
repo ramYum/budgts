@@ -39,3 +39,17 @@ export function profileFailure(kind: ProfileErrorKind): { kind: LoadErrorKind; d
       return { kind: "rejected", detail: true, canRetry: false };
   }
 }
+
+/**
+ * Where the welcome guide's "How Budgts Works" link opens. Once the guide is seen (a replay from More), Help's own page,
+ * inside the app. While the guide still gates the app, Help isn't open yet, so the same page opens on its own
+ * first-run route, above the guide, with back returning to the card the user left.
+ */
+export function howItWorksHref(tourSeen: boolean): "/help/how-it-works" | "/guide/how-it-works" {
+  return tourSeen ? "/help/how-it-works" : "/guide/how-it-works";
+}
+
+/** The first-run How Budgts Works route is open while the gate shows the welcome guide, and only then. */
+export function firstRunHelpOpen(route: ShellRoute): boolean {
+  return route === "tour";
+}

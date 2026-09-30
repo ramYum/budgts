@@ -1197,10 +1197,14 @@ implementation goes to `budgts-architect`.
       0 s and -1 s failed exactly the 16, +1 s passed 30/30; the pure detector passed at every month-end date
       tried. The scan window now comes from the database clock, with a 15-minute overlap on the watermark for sync
       transactions still open during a scan; `tests/integration/plaid-recurring-clock-skew.test.ts` pins it.
-    - The Path B concurrency test's "a deadlock must actually happen" condition was flaky: it read
-      `pg_stat_database.deadlocks` 1.5 s after the fact, but that counter is flushed from the victim backend
-      asynchronously (an idle backend waits ~10 s). It now watches the lock cycle itself through
-      `pg_blocking_pids()`, and the writer's `deadlock_timeout` of 30 s makes the deletion always the victim.
+    - The Path B concurrency test's "a deadlock must actually happen" condition was flaky because the cycle
+      often never formed: it held one of two transactions rows and guessed the deletion's scan order from ctid,
+      but the planner often visited them in index order (seen on staging 2026-09-30: the deletion blocked on the
+      held row first in both hold orders). It also read `pg_stat_database.deadlocks` after a fixed 1.5 s. It now
+      holds the user's `accounts` row, which the deletion reaches only after taking every transactions row, then
+      touches a transactions row; it watches the cycle through `pg_blocking_pids()`, and the writer's
+      `deadlock_timeout` of 30 s makes the deletion always the victim. The Path A twin
+      (`account-deletion-concurrency.test.ts`) has the same construction and still fails now and then.
   - **Landed 2026-09-28.** Owner: "1. Move it into launch branch 2. Push 3. Rebuild staging".
     `phase-m/mobile-launch` fast-forwarded to `e26fcfe` and pushed, then `e8b4ed3` (the Expo env template: the
     README's `.env.example` only ever lived in the untracked `Budgts-mobile-archive` folder, because the root

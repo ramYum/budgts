@@ -1,0 +1,22 @@
+# Needs a category (Lane D3): Activity -> the first merchant group -> pick a category -> the group leaves the card.
+# Needs a user with uncategorized bank rows (the parity `banks` user on staging). Unexecuted until the emulator is free;
+# see .maestro/README.md.
+appId: com.budgts.app
+---
+- launchApp
+- tapOn:
+    id: "tab-activity"
+- assertVisible:
+    id: "needs-category"
+- copyTextFrom:
+    id: "needs-category-label"
+- tapOn:
+    id: "needs-category-picker"
+    index: 0
+- tapOn:
+    id: "needs-category-picker-option-.*"
+    index: 0
+- assertNotVisible: ${maestro.copiedText}
+- tapOn:
+    id: "needs-category-rescan"
+- assertVisible: "Re-scan"

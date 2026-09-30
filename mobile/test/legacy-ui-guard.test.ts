@@ -11,10 +11,8 @@ import { describe, expect, it } from "vitest";
  * legacy modules are deleted.
  */
 const LEGACY_ALLOWED = [
-  "app/(app)/(tabs)/(activity)/activity.tsx",
   "app/(app)/(tabs)/(budgets)/budgets.tsx",
   "app/(app)/(tabs)/(home)/index.tsx",
-  "app/(app)/transaction.tsx",
   "components/parts.tsx",
   "components/ui.tsx",
 ];

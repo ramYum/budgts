@@ -45,7 +45,6 @@ function Gate() {
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: ROLE.bg } }}>
         <Stack.Protected guard={route === "app"}>
           <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="transaction" options={{ presentation: "modal" }} />
         </Stack.Protected>
         <Stack.Protected guard={route !== "onboarding"}>
           <Stack.Screen name="tour" />

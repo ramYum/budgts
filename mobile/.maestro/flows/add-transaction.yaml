@@ -1,5 +1,6 @@
-# Manual transaction: Activity -> Add -> fill -> Save -> appears in the list. Assumes a signed-in, onboarded session
-# with at least one account. Unexecuted — see .maestro/README.md.
+# Manual transaction (Lane D2): Activity -> Add -> the "Add transaction" sheet -> fill -> Save -> it appears in the list.
+# Assumes a signed-in, onboarded session with at least one account. Run it on a small (360x640) AVD too: with the keyboard
+# up, the focused field must stay visible (Review Focus 4). Unexecuted until the emulator is free; see .maestro/README.md.
 appId: com.budgts.app
 ---
 - launchApp
@@ -7,12 +8,24 @@ appId: com.budgts.app
     id: "tab-activity"
 - tapOn:
     id: "activity-add"
+- assertVisible:
+    id: "txn-form"
 - tapOn:
-    id: "txn-amount"
+    id: "txn-form-amount"
 - inputText: "12.34"
+- assertVisible:
+    id: "txn-form-amount"
 - tapOn:
-    id: "txn-description"
+    id: "txn-form-description"
 - inputText: "Maestro test transaction"
+- assertVisible:
+    id: "txn-form-description"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "txn-form-save"
 - tapOn:
-    id: "txn-save"
+    id: "txn-form-save"
+- assertNotVisible:
+    id: "txn-form"
 - assertVisible: "Maestro test transaction"

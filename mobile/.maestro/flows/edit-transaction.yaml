@@ -1,0 +1,42 @@
+# Edit and delete (Lane D2): open the row added by add-transaction.yaml -> the "Transaction" sheet -> Mark as transfer ->
+# Edit -> change the description -> Save changes -> Delete transaction after the confirm. Unexecuted until the emulator is
+# free; see .maestro/README.md.
+appId: com.budgts.app
+---
+- launchApp
+- tapOn:
+    id: "tab-activity"
+- tapOn: "Maestro test transaction"
+- assertVisible:
+    id: "txn-detail-facts"
+- tapOn:
+    id: "txn-detail-transfer"
+- assertVisible: "Remove transfer"
+- tapOn:
+    id: "txn-detail-transfer"
+- assertVisible: "Mark as transfer"
+- tapOn:
+    id: "txn-detail-edit"
+- assertVisible:
+    id: "txn-delete"
+- tapOn:
+    id: "txn-form-description"
+- eraseText
+- inputText: "Maestro edited transaction"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "txn-form-save"
+- tapOn:
+    id: "txn-form-save"
+- assertVisible: "Maestro edited transaction"
+- tapOn: "Maestro edited transaction"
+- tapOn:
+    id: "txn-detail-edit"
+- scrollUntilVisible:
+    element:
+      id: "txn-delete"
+- tapOn:
+    id: "txn-delete"
+- tapOn: "Delete"
+- assertNotVisible: "Maestro edited transaction"

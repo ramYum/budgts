@@ -82,30 +82,65 @@ export async function mapAccountsFor(
     if (!target) return { ok: false, error: "invalid", message: "That account is no longer available. Refresh and choose again." };
   }
 
+  // Each Plaid account's current link, read before any write. An account that already imports into an open Budgts
+  // account is never re-created or repointed: a repeated request (a double tap, a retry after a lost reply) is a no-op,
+  // and anything else is refused. Only a link with no account, or one whose account is gone or archived (a paused
+  // account the connect switch offers again), is mapped here.
+  const ids = [...new Set(entries.map((e) => e.plaidAccountId))];
+  const { data: linkRows, error: readErr } = await supabase
+    .from("plaid_accounts")
+    .select("plaid_account_id, account_id")
+    .eq("plaid_item_id", plaidItemId)
+    .in("plaid_account_id", ids);
+  if (readErr) return { ok: false, error: "failed", message: "Could not save the account mapping. Try again." };
+  const current = new Map(((linkRows ?? []) as { plaid_account_id: string; account_id: string | null }[]).map((l) => [l.plaid_account_id, l.account_id]));
+
+  const plan: { entry: AccountMapEntryInput; was: string | null }[] = [];
   for (const entry of entries) {
+    if (!current.has(entry.plaidAccountId)) {
+      return { ok: false, error: "not_found", message: "That bank account no longer exists. Try connecting again." };
+    }
+    const was = current.get(entry.plaidAccountId) ?? null;
+    if (was && (await readOwnOpenAccount(supabase, was))) {
+      const repeat = entry.mode === "new" || (entry.mode === "existing" && entry.existingAccountId === was);
+      if (repeat) continue;
+      return { ok: false, error: "invalid", message: "That account is already imported. Refresh to see where it goes." };
+    }
+    plan.push({ entry, was });
+  }
+  if (plan.length === 0) return { ok: true };
+
+  for (const { entry, was } of plan) {
     let accountId: string | null = null;
     let linkState: "mapped" | "ignored" = "ignored";
+    let created: string | null = null;
 
     if (entry.mode === "new") {
-      const { data: created, error } = await supabase
+      const { data, error } = await supabase
         .from("accounts")
         .insert({ user_id: userId, name: entry.name, type: entry.type ?? "checking", source: "plaid" })
         .select("id")
         .single();
-      if (error || !created) return { ok: false, error: "failed", message: "Could not create the account. Try again." };
-      accountId = created.id;
+      if (error || !data) return { ok: false, error: "failed", message: "Could not create the account. Try again." };
+      accountId = created = data.id as string;
       linkState = "mapped";
     } else if (entry.mode === "existing") {
       accountId = entry.existingAccountId ?? null;
       linkState = "mapped";
     }
 
-    const { error: linkErr } = await supabase
+    // Guarded on the link still being what was read: a concurrent duplicate that got there first wins.
+    const update = supabase
       .from("plaid_accounts")
       .update({ account_id: accountId, link_state: linkState })
       .eq("plaid_item_id", plaidItemId)
       .eq("plaid_account_id", entry.plaidAccountId);
+    const { data: linked, error: linkErr } = await (was === null ? update.is("account_id", null) : update.eq("account_id", was)).select("id");
     if (linkErr) return { ok: false, error: "failed", message: "Could not save the account mapping. Try again." };
+    if ((linked ?? []).length === 0 && created) {
+      // Lost the race: the account this request created was never linked and holds nothing, so it goes.
+      await supabase.from("accounts").delete().eq("id", created);
+    }
   }
 
   // First sync — so transactions are on screen when the user lands back.

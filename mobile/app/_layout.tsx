@@ -37,8 +37,9 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: ROLE.bg } }}>
           <Stack.Protected guard={!session}>
             <Stack.Screen name="sign-in" />
-            <Stack.Screen name="auth/callback" />
           </Stack.Protected>
+          {/* Signed in too: a fresh sign-in before deleting the account returns here (app/auth/callback.tsx). */}
+          <Stack.Screen name="auth/callback" />
           <Stack.Protected guard={!!session}>
             <Stack.Screen name="(app)" />
           </Stack.Protected>

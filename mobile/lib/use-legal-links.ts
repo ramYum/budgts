@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchLegalLive, settingsLegalLinks, type LegalLink } from "./legal";
+import { fetchLegalLive, legalLinks, type LegalLink } from "./legal";
 
 /** Whether the web says its legal pages are live (`GET /api/legal`, asked once per mount). See lib/legal.ts. */
 export function useLegalLive(baseUrl: string | undefined): boolean {
@@ -16,7 +16,7 @@ export function useLegalLive(baseUrl: string | undefined): boolean {
   return live;
 }
 
-/** Settings' legal links: none until the pages are live, then the three links. */
+/** About's legal rows: none until the pages are live, then the three links. */
 export function useLegalLinks(baseUrl: string | undefined): LegalLink[] {
-  return settingsLegalLinks(baseUrl, useLegalLive(baseUrl));
+  return legalLinks(baseUrl, useLegalLive(baseUrl));
 }

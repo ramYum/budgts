@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { fetchLegalLive, legalUrl, settingsLegalLinks } from "./legal";
+import { fetchLegalLive, legalUrl, legalLinks } from "./legal";
 
 describe("legalUrl", () => {
   it("builds the hosted page URL from the API base", () => {
@@ -46,17 +46,22 @@ describe("fetchLegalLive: the web's switch is the app's switch", () => {
   });
 });
 
-describe("settingsLegalLinks", () => {
+describe("legalLinks", () => {
   it("shows no legal links while the web's pages are off (a tap would dead-end on a 404)", () => {
-    expect(settingsLegalLinks("https://budgts.com", false)).toEqual([]);
+    expect(legalLinks("https://budgts.com", false)).toEqual([]);
   });
 
   it("once live, lists each page with its URL, and none without a base URL", () => {
-    expect(settingsLegalLinks("https://budgts.com", true).map((l) => l.url)).toEqual([
+    expect(legalLinks("https://budgts.com", true).map((l) => l.url)).toEqual([
       "https://budgts.com/privacy",
       "https://budgts.com/terms",
       "https://budgts.com/support",
     ]);
-    expect(settingsLegalLinks(undefined, true)).toEqual([]);
+    expect(legalLinks("https://budgts.com", true).map((l) => [l.label, l.icon, l.testID])).toEqual([
+      ["Privacy policy", "document", "hub-privacy"],
+      ["Terms of service", "document", "hub-terms"],
+      ["Support", "mail", "hub-support"],
+    ]);
+    expect(legalLinks(undefined, true)).toEqual([]);
   });
 });

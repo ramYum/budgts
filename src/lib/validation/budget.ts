@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { parseMoney } from "@/lib/budget/money";
+import { parseMoney } from "@/lib/display/money";
 
 const MONTH_RE = /^\d{4}-\d{2}$/;
 

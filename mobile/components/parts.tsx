@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View, type TextInputProps } from "react-native";
 import { colors, fonts, radii } from "../lib/theme";
-import { formatMonthLabel } from "../lib/home/format";
+import { formatMonthLabel } from "../lib/shared";
 import { OutlineButton, PrimaryButton } from "./ui";
 
 /** Previous / next month with the current month's name between — the Activity and Budgets header. */

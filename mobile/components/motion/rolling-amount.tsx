@@ -3,7 +3,7 @@ import { View } from "react-native";
 import Animated, { useReducedMotion } from "react-native-reanimated";
 import { ROLE, type TypeRoleName } from "../../lib/brand/shared";
 import { isPixelRole, textStyle } from "../../lib/brand/type";
-import { formatMoney } from "../../lib/home/format";
+import { formatMoney } from "../../lib/shared";
 import { EASE_OUT, ROLL_GLIDE_MS, ROLL_IN_MS, rollDelayMs } from "../../lib/motion/css";
 import { useMotionTiming } from "../../lib/motion/parity-clock";
 import { Text } from "../brand/text";

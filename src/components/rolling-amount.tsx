@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { formatMoney } from "@/lib/budget/money";
+import { formatMoney } from "@/lib/display/money";
 
 // One column's reel: 0–9 twice, one per line, so the low digits can spin a
 // full lap before they land.

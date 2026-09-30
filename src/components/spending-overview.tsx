@@ -1,19 +1,16 @@
 import type { ReactNode } from "react";
-import { formatMoney } from "@/lib/budget/money";
+import { formatMoney } from "@/lib/display/money";
 import type { DashboardBar } from "@/lib/budget/dashboard";
 import type { MonthSpend } from "@/lib/budget/spend-trend";
 import { spendingBreakdown, trendChange } from "@/lib/insights/figures";
 import { RollingAmount } from "./rolling-amount";
+import { formatMonthName } from "@/lib/display/dates";
 
 // Pixel charts: plain server-rendered markup, no chart library and no client
 // JS. Every mark is a square cell on whole pixels; cells step in on first
 // paint (globals.css `.cell`). Values are always also printed as text (labels,
 // legend, aria), so no number is readable only from a mark.
 
-function monthLabel(month: string, style: "short" | "long"): string {
-  const [y, m] = month.split("-").map(Number);
-  return new Date(Date.UTC(y!, m! - 1, 1)).toLocaleDateString("en-US", { month: style, timeZone: "UTC" });
-}
 
 /** "$1,671" for a chart tag: whole units, cut (not rounded) so the tag never
  * claims more than was spent. Display only; minor units stay the source. */
@@ -50,11 +47,11 @@ export function SpendingTrendCard({
   title?: string;
 }) {
   const { total, delta, previousMonth } = trendChange(trend);
-  const prevName = previousMonth ? monthLabel(previousMonth, "long") : "";
+  const prevName = previousMonth ? formatMonthName(previousMonth, "long") : "";
   const max = Math.max(0, ...trend.map((t) => t.spend));
   const data = trend.map((t, i) => ({
     ...t,
-    label: monthLabel(t.month, "short"),
+    label: formatMonthName(t.month, "short"),
     current: i === trend.length - 1,
     lit: max > 0 && t.spend > 0 ? Math.max(1, Math.round((t.spend / max) * ROWS)) : 0,
   }));

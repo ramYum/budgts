@@ -19,7 +19,7 @@ import { bearerToken } from "@/lib/auth/get-request-user";
 import { loadProfile, saveTimeZone } from "@/lib/profile/onboarding";
 import { timeZoneLabel } from "@/lib/time-zone-label";
 import { loadTourSeen } from "@/lib/tour/load-tour";
-import { displayName } from "@/lib/user/display-name";
+import { displayName } from "@/lib/display/display-name";
 import { providersOfVerifiedToken, signInMethods } from "@/lib/user/sign-in-methods";
 
 export const GET = mobileRoute(async ({ user, supabase }, request) => {

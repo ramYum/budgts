@@ -1,4 +1,4 @@
-import { formatMoney } from "../home/format";
+import { formatMoney } from "../shared";
 import type { EntitlementView } from "./contract";
 import type { FlowState } from "./purchase-flow";
 

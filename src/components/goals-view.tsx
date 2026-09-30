@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { formatMoney } from "@/lib/budget/money";
+import { formatMoney } from "@/lib/display/money";
 import type { GoalProgress, GoalsSummary } from "@/lib/budget/savings";
 import {
   addContribution,
@@ -18,6 +18,7 @@ import { Icon } from "./icon";
 import { PageHeader } from "./page-header";
 import { RowMenu } from "./row-menu";
 import { Badge, Button, IconTile, ProgressBar, SectionHead, TextButton, figureSize } from "./ui";
+import { formatTargetDate } from "@/lib/display/dates";
 
 type OverlayState =
   | null
@@ -33,15 +34,6 @@ function toInitial(g: GoalProgress): GoalInitial {
   };
 }
 
-/** "2027-04-01" -> "Apr 2027" (a calendar date, so read in UTC); short
- * enough to share the "to go" line on a narrow card. */
-function formatTargetDate(date: string): string {
-  return new Date(`${date}T00:00:00Z`).toLocaleDateString(undefined, {
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC",
-  });
-}
 
 function GoalCard({
   g,

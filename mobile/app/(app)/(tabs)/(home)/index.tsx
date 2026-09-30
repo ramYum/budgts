@@ -9,12 +9,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../../../lib/auth/auth-context";
 import type { HomeActivity, HomeCategory, MobileHome } from "../../../../lib/home/contract";
-import {
-  formatActivityDay,
-  formatMoney,
-  formatMonthLabel,
-  formatSavingsRate,
-} from "../../../../lib/home/format";
+import { formatMoney, formatMonthLabel, formatRelativeDay, formatSavingsRate } from "../../../../lib/shared";
 import { useHome } from "../../../../lib/home/use-home";
 import { colors, fonts, radii } from "../../../../lib/theme";
 import { PrimaryButton } from "../../../../components/ui";
@@ -218,7 +213,7 @@ function ActivityRow({
           {item.description || "Transaction"}
         </Text>
         <Text style={styles.muted} numberOfLines={1}>
-          {formatActivityDay(item.occurredAt, today)}
+          {formatRelativeDay(item.occurredAt, today)}
           {item.isTransfer ? " · Transfer" : item.category ? ` · ${item.category.name}` : ""}
         </Text>
       </View>

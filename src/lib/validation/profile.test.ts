@@ -16,7 +16,7 @@ describe("currencySchema", () => {
   });
 
   it("only offers currencies the money layer can represent (2 minor-unit decimals)", () => {
-    // src/lib/budget/money.ts hardcodes a 2-decimal exponent. A 0- or 3-decimal
+    // src/lib/display/money.ts hardcodes a 2-decimal exponent. A 0- or 3-decimal
     // currency in the picker would be stored/displayed at the wrong scale.
     for (const code of SUPPORTED_CURRENCIES) {
       const digits = new Intl.NumberFormat("en", {

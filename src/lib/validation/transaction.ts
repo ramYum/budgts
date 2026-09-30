@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { parseMoney } from "@/lib/budget/money";
+import { parseMoney } from "@/lib/display/money";
 
 export const DIRECTIONS = ["debit", "credit"] as const;
 export type Direction = (typeof DIRECTIONS)[number];

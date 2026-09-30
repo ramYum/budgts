@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { requireTimeZone } from "@/lib/current-profile";
 import { timeZoneLabel } from "@/lib/time-zone-label";
-import { displayName } from "@/lib/user/display-name";
+import { displayName } from "@/lib/display/display-name";
 import { signInMethods } from "@/lib/user/sign-in-methods";
 import { PageHeader } from "@/components/page-header";
 import { CopyButton } from "@/components/copy-button";

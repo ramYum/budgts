@@ -1,7 +1,6 @@
 import { Pressable, View } from "react-native";
 import { ROLE, type IconName } from "../../lib/brand/shared";
-import { shiftMonth } from "../../lib/dates";
-import { formatMonthLabel } from "../../lib/home/format";
+import { formatMonthLabel, shiftMonthKey } from "../../lib/shared";
 import { Icon } from "../brand/icon";
 import { PixelFrame } from "../brand/pixel-frame";
 import { Text } from "../brand/text";
@@ -37,8 +36,8 @@ export function MonthNav({
         {formatMonthLabel(month)}
       </Text>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-        <Step testID="month-prev" icon="chevron-left" label="Previous month" onPress={() => onChange(shiftMonth(month, -1))} />
-        <Step testID="month-next" icon="chevron-right" label="Next month" onPress={() => onChange(shiftMonth(month, 1))} />
+        <Step testID="month-prev" icon="chevron-left" label="Previous month" onPress={() => onChange(shiftMonthKey(month, -1))} />
+        <Step testID="month-next" icon="chevron-right" label="Next month" onPress={() => onChange(shiftMonthKey(month, 1))} />
       </View>
     </View>
   );

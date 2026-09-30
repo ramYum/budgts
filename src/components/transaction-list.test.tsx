@@ -1,15 +1,15 @@
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { formatMoney } from "@/lib/budget/money";
+import { formatMoney } from "@/lib/display/money";
 import { TransactionList, type TxnListItem } from "./transaction-list";
 
 const deleteTransaction = vi.fn();
 const updateTransaction = vi.fn();
 
 // Counts formatting calls, to tell whether the rows re-rendered.
-vi.mock("@/lib/budget/money", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/budget/money")>();
+vi.mock("@/lib/display/money", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/display/money")>();
   return { ...actual, formatMoney: vi.fn(actual.formatMoney) };
 });
 

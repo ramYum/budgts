@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect } from "react";
 import type { SavingsActionState } from "@/server/savings";
-import { localDateKey } from "@/lib/local-date";
+import { localDateKey } from "@/lib/display/local-date";
 import { Button, fieldClass as field, labelClass as label } from "./ui";
 
 

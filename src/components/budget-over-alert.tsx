@@ -2,7 +2,7 @@
 
 import { useCallback, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { formatMoney } from "@/lib/budget/money";
+import { formatMoney } from "@/lib/display/money";
 import { Icon } from "./icon";
 
 /**

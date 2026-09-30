@@ -8,7 +8,7 @@
  * transfer-in). We split that into `amount` (integer minor units, > 0) +
  * `direction`.
  */
-import { parseMoney } from "@/lib/budget/money";
+import { parseMoney } from "@/lib/display/money";
 import { UnknownPfcPrimaryError } from "./category-map";
 import { resolveEventRole } from "./event-role";
 import type {

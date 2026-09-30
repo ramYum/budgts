@@ -1,7 +1,8 @@
 "use client";
 
 import { Fragment, useSyncExternalStore, type CSSProperties } from "react";
-import { dateKeyAt, greetingForHour, localDateKey, relativeDayLabel } from "@/lib/local-date";
+import { dateKeyAt, greetingForHour, localDateKey } from "@/lib/display/local-date";
+import { formatRelativeDay } from "@/lib/display/dates";
 
 // The wall clock isn't a subscribable store; a page reload/refresh re-reads it.
 const subscribe = () => () => {};
@@ -34,9 +35,6 @@ export function Greeting({ name }: { name?: string }) {
   );
 }
 
-function formatShort(iso: string) {
-  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
-}
 
 /** "Today" / "Yesterday" / "Sep 20" for a stored calendar date (noon UTC). */
 export function RelativeDay({ iso }: { iso: string }) {
@@ -45,5 +43,5 @@ export function RelativeDay({ iso }: { iso: string }) {
     () => localDateKey(),
     () => dateKeyAt(new Date(), 0),
   );
-  return <>{relativeDayLabel(iso, todayKey, formatShort)}</>;
+  return <>{formatRelativeDay(iso, todayKey)}</>;
 }

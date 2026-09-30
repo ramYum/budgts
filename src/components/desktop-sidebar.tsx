@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { displayName } from "@/lib/user/display-name";
+import { displayName } from "@/lib/display/display-name";
 import { Icon, type IconName } from "./icon";
 import { Logo } from "./logo";
 

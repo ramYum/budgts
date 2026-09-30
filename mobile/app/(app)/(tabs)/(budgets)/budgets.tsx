@@ -7,8 +7,7 @@ import { useVersion } from "../../../../lib/api/invalidate";
 import { loadResource, mutate } from "../../../../lib/api/load";
 import { jsonInit } from "../../../../lib/api/request";
 import { useResource } from "../../../../lib/api/use-resource";
-import { shiftMonth } from "../../../../lib/dates";
-import { formatMoney } from "../../../../lib/home/format";
+import { formatMoney, shiftMonthKey } from "../../../../lib/shared";
 import { parseBudgets, type MobileBudgetCategory } from "../../../../lib/budgets/budgets-api";
 import { useProfile, useUserDates } from "../../../../lib/profile/profile-context";
 import { colors, fonts, radii } from "../../../../lib/theme";
@@ -82,7 +81,7 @@ export default function BudgetsScreen() {
         </Text>
       </View>
       <View style={styles.monthWrap}>
-        <MonthNav month={month} onPrev={() => setMonth((m) => shiftMonth(m, -1))} onNext={() => setMonth((m) => shiftMonth(m, 1))} />
+        <MonthNav month={month} onPrev={() => setMonth((m) => shiftMonthKey(m, -1))} onNext={() => setMonth((m) => shiftMonthKey(m, 1))} />
       </View>
 
       {state.status === "loading" ? (

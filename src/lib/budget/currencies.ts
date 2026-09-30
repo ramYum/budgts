@@ -1,6 +1,6 @@
 /**
  * Currencies offered in the picker. Restricted to 2-decimal currencies because
- * `src/lib/budget/money.ts` hardcodes a 2-decimal minor-unit exponent. Adding a
+ * `src/lib/display/money.ts` hardcodes a 2-decimal minor-unit exponent. Adding a
  * 0-decimal (JPY, KRW) or 3-decimal (BHD, KWD) currency requires making that
  * exponent currency-aware first — see the guard test in
  * `src/lib/validation/profile.test.ts`.

@@ -1,6 +1,6 @@
 /**
  * The web's brand sources, imported as they are (never copied): Metro serves
- * them through `watchFolders` (metro.config.js). The one place the app reaches
+ * them through `watchFolders` (metro.shared.js). The one place the app reaches
  * outside mobile/; tests/unit/brand-purity.test.ts keeps these files pure
  * TypeScript that Hermes can run.
  */

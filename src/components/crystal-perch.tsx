@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useRef, useState, type CSSProperties } from "react";
-import { formatSavingsRate } from "@/lib/budget/money";
+import { formatSavingsRate } from "@/lib/display/money";
 import { ROAM, bubbleSide, hopLength, nextOuting, type Dir } from "@/lib/crystal/roam";
 import { Robin } from "./mascot";
 

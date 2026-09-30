@@ -6,8 +6,7 @@ import { authFetch } from "../../../../lib/auth/api";
 import { loadResource } from "../../../../lib/api/load";
 import { useResource } from "../../../../lib/api/use-resource";
 import { parseCategories } from "../../../../lib/categories/categories-api";
-import { shiftMonth } from "../../../../lib/dates";
-import { formatActivityDay, formatMoney, formatMonthLabel } from "../../../../lib/home/format";
+import { formatMoney, formatMonthLabel, formatRelativeDay, shiftMonthKey } from "../../../../lib/shared";
 import { useProfile, useUserDates } from "../../../../lib/profile/profile-context";
 import { colors, fonts, radii } from "../../../../lib/theme";
 import { draftFromTransaction } from "../../../../lib/transactions/form";
@@ -51,7 +50,7 @@ export default function ActivityScreen() {
       </View>
 
       <View style={styles.controls}>
-        <MonthNav month={month} onPrev={() => setMonth((m) => shiftMonth(m, -1))} onNext={() => setMonth((m) => shiftMonth(m, 1))} />
+        <MonthNav month={month} onPrev={() => setMonth((m) => shiftMonthKey(m, -1))} onNext={() => setMonth((m) => shiftMonthKey(m, 1))} />
         <TextInput
           testID="activity-search"
           style={styles.search}
@@ -122,7 +121,7 @@ export default function ActivityScreen() {
 
 function Row({ t, today, currency, onPress }: { t: MobileTransaction; today: string; currency: string; onPress: () => void }) {
   const credit = t.direction === "credit";
-  const sub = [t.category?.name ?? (t.isTransfer ? "Transfer" : null), t.account.name, formatActivityDay(t.occurredAt, today)].filter(Boolean).join(" · ");
+  const sub = [t.category?.name ?? (t.isTransfer ? "Transfer" : null), t.account.name, formatRelativeDay(t.occurredAt, today)].filter(Boolean).join(" · ");
   return (
     <Pressable testID={`txn-${t.id}`} accessibilityRole="button" onPress={onPress} style={styles.row}>
       <View style={styles.rowMain}>

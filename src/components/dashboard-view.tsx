@@ -1,11 +1,11 @@
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
-import { formatMoney, formatSavingsRate } from "@/lib/budget/money";
+import { formatMoney, formatSavingsRate } from "@/lib/display/money";
 import type { DashboardBar, DashboardView as DV } from "@/lib/budget/dashboard";
 import type { MonthSpend } from "@/lib/budget/spend-trend";
 import type { GoalsSummary } from "@/lib/budget/savings";
 import { pickSuggestion } from "@/lib/insights/suggestion";
-import { displayName } from "@/lib/user/display-name";
+import { displayName } from "@/lib/display/display-name";
 import { BudgetOverAlert } from "./budget-over-alert";
 import { MonthNav } from "./month-nav";
 import { AddIncome } from "./income-tile";

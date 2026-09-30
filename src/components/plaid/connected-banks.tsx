@@ -19,6 +19,7 @@ import { ReconnectButton } from "./reconnect-button";
 // The shapes are defined beside the shared read (connected-banks-read.ts), used by the web and the native API.
 export type { ConnectedBank, ConnectedBankAccount } from "@/lib/plaid/connected-banks-read";
 import type { ConnectedBank, ConnectedBankAccount } from "@/lib/plaid/connected-banks-read";
+import { formatSyncedAgo } from "@/lib/display/dates";
 
 const NEEDS_ATTENTION: ConnectedBank["status"][] = ["login_required", "pending_expiration", "revoked", "error"];
 
@@ -31,13 +32,7 @@ function whenLabel(iso: string, hydrated: boolean): string {
   if (!hydrated) {
     return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
   }
-  const then = new Date(iso).getTime();
-  const mins = Math.round((Date.now() - then) / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins} min ago`;
-  const hrs = Math.round(mins / 60);
-  if (hrs < 24) return `${hrs} hr ago`;
-  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return formatSyncedAgo(iso, Date.now());
 }
 
 const subscribeNever = () => () => {};

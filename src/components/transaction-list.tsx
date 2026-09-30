@@ -1,12 +1,13 @@
 "use client";
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
-import { formatMoney } from "@/lib/budget/money";
+import { formatMoney } from "@/lib/display/money";
 import { deleteTransaction, updateTransaction } from "@/server/transactions";
 import { Overlay } from "./overlay";
 import { Mascot } from "./mascot";
 import { Icon } from "./icon";
 import { Button, CategoryIcon, SegmentedControl } from "./ui";
+import { formatDayHeading, formatFullDate } from "@/lib/display/dates";
 import {
   TransactionForm,
   type AccountOption,
@@ -28,24 +29,6 @@ export type TxnListItem = {
   account: { name: string } | null;
 };
 
-function dayLabel(iso: string) {
-  return new Date(iso).toLocaleDateString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    timeZone: "UTC",
-  });
-}
-
-function fullDateLabel(iso: string) {
-  return new Date(iso).toLocaleDateString(undefined, {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC",
-  });
-}
 
 /** A day's net for its band: money in minus money out across that day's
  * listed rows. Display only; each row keeps its own amount. */
@@ -87,7 +70,7 @@ const TxnDays = memo(function TxnDays({
   return [...groups.entries()].map(([day, dayRows]) => (
     <section key={day} className="[&:first-child>h3]:pt-4">
       <h3 className="flex items-center justify-between gap-3 px-2 pb-1 pt-5 md:px-4 md:pt-6">
-        <span className="t-label-strong text-graphite">{dayLabel(day)}</span>
+        <span className="t-label-strong text-graphite">{formatDayHeading(day)}</span>
         <span className="t-label tnum text-muted">
           {signedTotal(dayTotals.get(day) ?? 0, currency)}
         </span>
@@ -338,7 +321,7 @@ export function TransactionList({
             </div>
           </div>
           <dl className="px-card px-rows mt-4 p-3 text-[15px] leading-6">
-            <Detail label="Date">{fullDateLabel(viewing.occurred_at)}</Detail>
+            <Detail label="Date">{formatFullDate(viewing.occurred_at)}</Detail>
             <Detail label="Category">
               {viewing.is_transfer ? "Transfer" : (viewing.category?.name ?? "Needs a category")}
             </Detail>

@@ -1,18 +1,12 @@
 import Link from "next/link";
-import { monthKey } from "@/lib/budget/month";
+import { formatMonthLabel, shiftMonthKey } from "@/lib/display/dates";
 import { Icon } from "./icon";
 
 /** September 2026 ‹ › : server component, links change the `?m=` param. */
 export function MonthNav({ base, month }: { base: string; month: string }) {
-  const [y, m] = month.split("-").map(Number);
-  const first = new Date(Date.UTC(y, m - 1, 1));
-  const prev = monthKey(new Date(Date.UTC(y, m - 2, 1)));
-  const next = monthKey(new Date(Date.UTC(y, m, 1)));
-  const label = first.toLocaleDateString(undefined, {
-    month: "long",
-    year: "numeric",
-    timeZone: "UTC",
-  });
+  const prev = shiftMonthKey(month, -1);
+  const next = shiftMonthKey(month, 1);
+  const label = formatMonthLabel(month);
 
   const step = "px-step press flex h-9 w-9 items-center justify-center text-ink";
 

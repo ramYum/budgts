@@ -10,7 +10,7 @@ import { loadResource, mutate, type MutationOutcome } from "../../lib/api/load";
 import { jsonInit } from "../../lib/api/request";
 import { useResource } from "../../lib/api/use-resource";
 import { parseCategories } from "../../lib/categories/categories-api";
-import { shiftDate } from "../../lib/dates";
+import { shiftDateKey } from "../../lib/shared";
 import { useUserDates } from "../../lib/profile/profile-context";
 import { colors, fonts } from "../../lib/theme";
 import { draftToPayload, emptyDraft, newRequestId, parseDraft, validateDraft, type TransactionDraft } from "../../lib/transactions/form";
@@ -134,13 +134,13 @@ export default function TransactionScreen() {
           <View style={styles.block}>
             <Text style={styles.label}>Date</Text>
             <View style={styles.dateRow}>
-              <Pressable testID="date-prev" accessibilityRole="button" accessibilityLabel="Previous day" hitSlop={10} onPress={() => set({ date: shiftDate(draft.date, -1) })}>
+              <Pressable testID="date-prev" accessibilityRole="button" accessibilityLabel="Previous day" hitSlop={10} onPress={() => set({ date: shiftDateKey(draft.date, -1) })}>
                 <Text style={styles.arrow}>‹</Text>
               </Pressable>
               <Text style={styles.date} testID="txn-date">
                 {draft.date}
               </Text>
-              <Pressable testID="date-next" accessibilityRole="button" accessibilityLabel="Next day" hitSlop={10} onPress={() => set({ date: shiftDate(draft.date, 1) })}>
+              <Pressable testID="date-next" accessibilityRole="button" accessibilityLabel="Next day" hitSlop={10} onPress={() => set({ date: shiftDateKey(draft.date, 1) })}>
                 <Text style={styles.arrow}>›</Text>
               </Pressable>
               <TextLink onPress={() => set({ date: today })}>Today</TextLink>

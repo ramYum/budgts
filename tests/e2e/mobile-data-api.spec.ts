@@ -8,7 +8,7 @@
  * its own throwaway users.
  */
 import { expect, test, type APIRequestContext } from "@playwright/test";
-import { formatMoney } from "../../src/lib/budget/money";
+import { formatMoney } from "../../src/lib/display/money";
 import {
   createTestUser,
   deleteTestUser,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { formatMoney } from "@/lib/budget/money";
+import { formatMoney } from "@/lib/display/money";
 import { categorizeBankTransaction, rescanUncategorized } from "@/server/plaid/actions";
 import { createCategory } from "@/server/categories";
 import { CategoryForm } from "@/components/category-form";
@@ -10,6 +10,7 @@ import { Icon } from "@/components/icon";
 import { Button, IconTile, TextButton, fieldClass } from "@/components/ui";
 import type { CategoryOption } from "@/components/transaction-form";
 import { groupUncategorized, type MerchantGroup, type UncategorizedTxn } from "@/lib/plaid/group-uncategorized";
+import { formatDayShort } from "@/lib/display/dates";
 
 export type NeedsCategoryItem = UncategorizedTxn;
 
@@ -19,10 +20,6 @@ const NEW_CATEGORY_VALUE = "__new__";
  * desktop side panel lists them all. */
 const FIRST = 3;
 
-/** Stored UTC calendar day — same as the Activity list, and identical on the server and in any browser time zone. */
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
-}
 
 /** "FOOD_AND_DRINK" -> "Food and drink" — Plaid's own guess, shown as a hint. */
 function humanizePfc(v: string | null): string | null {
@@ -152,8 +149,8 @@ export function NeedsCategory({
                   <p className="break-words text-[15px] font-medium leading-6 text-ink">{group.label}</p>
                   <p className="truncate text-sm leading-5 text-muted">
                     {group.count > 1
-                      ? `${group.count} purchases · latest ${formatDate(first.occurred_at)}`
-                      : `${formatDate(first.occurred_at)}${first.account_name ? ` · ${first.account_name}` : ""}${
+                      ? `${group.count} purchases · latest ${formatDayShort(first.occurred_at)}`
+                      : `${formatDayShort(first.occurred_at)}${first.account_name ? ` · ${first.account_name}` : ""}${
                           first.pending ? " · Pending" : ""
                         }`}
                   </p>
@@ -224,7 +221,7 @@ export function NeedsCategory({
                       <li key={t.id} className="flex items-start justify-between gap-3">
                         <span className="min-w-0 break-words">{t.description || "Transaction"}</span>
                         <span className="tnum shrink-0">
-                          {formatDate(t.occurred_at)} · {t.direction === "debit" ? "−" : "+"}
+                          {formatDayShort(t.occurred_at)} · {t.direction === "debit" ? "−" : "+"}
                           {formatMoney(t.amount, currency)}
                         </span>
                       </li>

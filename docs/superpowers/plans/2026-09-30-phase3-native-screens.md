@@ -565,3 +565,24 @@ Native deep links for captures (Expo Router paths): `budgts:///`, `budgts:///bud
 - UI-thread shared-value animations (`withTiming`, `withSequence`, `withDelay`) only where the sequence is decided at run time (Crystal's randomised roam); never JS timers per frame.
 - The splash now holds on every activity (`mobile/patches/expo-splash-screen+57.0.9.patch`, applied by `patch-package` in `postinstall`) over `expo.backgroundColor` `#F4F4F4`.
 - **The next dev-client rebuild (after F7):** `npm ci` in `mobile/` (postinstall applies the patch), then `npx expo prebuild --platform android`, then `gradlew assembleDebug`. It also carries `expo-blur`.
+
+### Shared web helpers (audit, 2026-09-30): import these, delete your copies
+
+One list of web folders the app may read: `mobile/metro.shared.js` `SHARED` (used by `metro.config.js`; `tests/unit/brand-purity.test.ts` discovers every web file the app imports, follows its relative imports, and fails if one is outside `SHARED`, isn't `.ts`, imports a package or an `@/` alias, or touches a DOM/Node/React API). Never `src/lib/budget` or `src/lib/plaid`: figures come from the server.
+
+The app's gateways: `mobile/lib/brand/shared.ts` (brand) and `mobile/lib/shared.ts` (everything below).
+
+| Helper | Web source (moved to a pure module where it wasn't) | Replaces |
+| --- | --- | --- |
+| `formatMoney`, `formatSavingsRate`, `parseMoney`, `isMinor` | `src/lib/display/money.ts` (moved from `src/lib/budget/money.ts`) | `mobile/lib/home/format.ts` (deleted); any lane copy; D-2 form parsing should use `parseMoney` |
+| `formatRelativeDay` (Today / Yesterday / "Sep 20"), `formatDayShort`, `formatDayHeading` ("Tue, Sep 29"), `formatFullDate`, `formatTargetDate` ("Apr 2027"), `formatMonthLabel` ("September 2026"), `formatMonthName` (chart months), `shiftMonthKey`, `formatSyncedAgo` | `src/lib/display/dates.ts` (extracted from transaction-list, local-time, needs-category, goals-view, month-nav, spending-overview, connected-banks) | `formatActivityDay`, `shiftMonth`, `shiftDate` (deleted from `mobile/lib`); B's and D-1's day labels |
+| `greetingForHour`, `relativeDayLabel`, `shiftDateKey`, `dateKeyAt`, `localDateKey` | `src/lib/display/local-date.ts` (moved from `src/lib/local-date.ts`) | B's `greetingForHour` copy |
+| `displayName` | `src/lib/display/display-name.ts` (moved from `src/lib/user`) | B's copy |
+| `figureSizeOf` → kit `figureVariant` | `src/lib/brand/figure-size.ts` | D-2's `figureVariant` stand-in |
+| `DELETE_ACCOUNT_PATH`, `ACCOUNT_DELETED_PATH`, `REAUTH_WINDOW_MINUTES`, `CONFIRM_WORD`, `confirmWordMatches`, `outcomeFromResponse`, `deletedDestination`, `DeleteOutcome` | `src/lib/account/screen.ts` (already pure) | C's deletion constants, DELETE check, deleted-screen destination; `mobile/lib/account/delete-account.ts`'s own outcome mapping (C5 to fold in) |
+| `CATEGORY_KINDS`, `CATEGORY_COLORS` (the first colour is `CATEGORY_COLORS[0]`) | `src/lib/categories/options.ts` (already pure) | C's first-colour copy |
+| `hubTestId`, `tabTestId` | `src/lib/brand/test-ids.ts` | — |
+| Tour steps, gate, guide copy | `src/lib/tour/steps.ts`, `gate.ts`; `src/components/tour/guide-copy.ts` (A: make its `@/lib/tour/steps` import relative `../../lib/tour/steps.ts`) | A's copies |
+| `LOCKED_MESSAGE` | `mobile/lib/api/load.ts` (kept equal to `src/lib/ownership.ts` by `tests/unit/mobile-locked-message.test.ts`; `ownership.ts` isn't pure) | — |
+
+Not shared, on purpose: the budget trend, `savingsProgress` and every other figure: the screens read them from their `/api/mobile/*` payload (B already moved goals progress to the server).

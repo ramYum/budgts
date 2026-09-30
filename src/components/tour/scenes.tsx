@@ -3,7 +3,7 @@ import { Icon, type IconName } from "@/components/icon";
 import { RollingAmount } from "@/components/rolling-amount";
 import { Robin } from "@/components/mascot";
 import { CategoryIcon, ProgressBar } from "@/components/ui";
-import { formatMoney } from "@/lib/budget/money";
+import { formatMoney } from "@/lib/display/money";
 import type { TourStepId } from "@/lib/tour/steps";
 import s from "./guide.module.css";
 

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { formatMoney, formatSavingsRate } from "@/lib/budget/money";
+import { formatMoney, formatSavingsRate } from "@/lib/display/money";
 import type { DashboardView as DV } from "@/lib/budget/dashboard";
 import type { MonthSpend } from "@/lib/budget/spend-trend";
 import { pickSuggestion } from "@/lib/insights/suggestion";

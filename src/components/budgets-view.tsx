@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { formatMoney } from "@/lib/budget/money";
+import { formatMoney } from "@/lib/display/money";
 import type { DashboardView as DV, DashboardCategory } from "@/lib/budget/dashboard";
 import type { AllTimeRow } from "@/lib/budgets/load-budgets";
 import { budgetProgress } from "@/lib/insights/figures";

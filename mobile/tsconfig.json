@@ -2,9 +2,6 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
-    "allowImportingTsExtensions": true,
-    "paths": {
-      "@/lib/tour/steps": ["../src/lib/tour/steps.ts"]
-    }
+    "allowImportingTsExtensions": true
   }
 }

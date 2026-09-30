@@ -90,7 +90,7 @@ describe("GET /api/mobile/transactions", () => {
   });
 
   it("passes a valid cursor and category through", async () => {
-    const cursor = { occurredAt: "2026-09-10T12:00:00.000Z", id: UUID };
+    const cursor = { occurredAt: "2026-09-10T12:00:00.000Z", createdAt: "2026-09-10T15:04:05.123456+00:00", id: UUID };
     await GET(get(`?month=2026-09&category=${UUID}&cursor=${encodeCursor(cursor)}`));
     expect(loadTransactionsPage.mock.calls[0][1]).toMatchObject({ categoryId: UUID, cursor });
   });

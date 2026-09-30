@@ -530,3 +530,47 @@ describe("while an account deletion holds the lock, writes answer 423 account_lo
     expect(await client`select id from public.savings_contributions where user_id = ${d.id}`).toHaveLength(0);
   });
 });
+
+describe("the Activity ledger pages in the web's order (real staging)", () => {
+  let e: Actor;
+
+  beforeAll(async () => {
+    e = await mintActor("ERIN-SCREENS", "UTC");
+    const accountId = await mainAccountId(e.id);
+    const food = await categoryIdByName(e.id, "Food / Groceries");
+    const at = midMonth(e.zone);
+    // Manual entries on one day share occurred_at (noon UTC). Three single inserts get three created_at values; the
+    // two-row insert shares one created_at (now() is per statement), so only the id orders that pair.
+    for (const d of ["first", "second", "third"]) {
+      await client`insert into public.transactions (user_id, account_id, category_id, amount, direction, occurred_at, description, source)
+        values (${e.id}, ${accountId}, ${food}, 100, 'debit', ${at}, ${`ERIN ${d}`}, 'manual')`;
+    }
+    await client`insert into public.transactions (user_id, account_id, category_id, amount, direction, occurred_at, description, source)
+      values (${e.id}, ${accountId}, ${food}, 100, 'debit', ${at}, 'ERIN pair a', 'manual'),
+             (${e.id}, ${accountId}, ${food}, 100, 'debit', ${at}, 'ERIN pair b', 'manual')`;
+  }, 60_000);
+
+  afterAll(async () => {
+    if (!e) return;
+    await admin.auth.admin.deleteUser(e.id, false).catch(() => {});
+    await cleanupUser(e.id).catch(() => {});
+  });
+
+  it("orders same-time rows by created_at then id, one page at a time, every row once", async () => {
+    const web = await client<{ id: string }[]>`select id from public.transactions where user_id = ${e.id}
+      order by occurred_at desc, created_at desc, id desc`;
+    const month = currentMonthKey(e.zone);
+    const seen: string[] = [];
+    let cursor: string | null = null;
+    do {
+      const q: string = `/api/mobile/transactions?month=${month}&limit=1${cursor ? `&cursor=${cursor}` : ""}`;
+      const res = await getTransactions(call(e.token, q));
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { items: { id: string }[]; nextCursor: string | null };
+      seen.push(...body.items.map((t) => t.id));
+      cursor = body.nextCursor;
+    } while (cursor && seen.length <= web.length);
+    expect(seen).toEqual(web.map((r) => r.id));
+    expect(seen).toHaveLength(5);
+  });
+});

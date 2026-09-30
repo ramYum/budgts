@@ -4,13 +4,10 @@ import { COLOR, ROLE, type IconName } from "../../lib/brand/shared";
 import type { DeleteOutcome } from "../../lib/account/delete-account";
 import {
   APPLE_MANAGE_URL,
-  CONFIRM_WORD,
   DELETION_SUBSCRIPTION_NOTICE,
   ERROR_COPY,
   GOOGLE_MANAGE_URL,
-  REAUTH_WINDOW_MINUTES,
   STAGE_TITLE,
-  confirmWordMatches,
   firstStage,
   stageAfter,
   type DeleteScreen,
@@ -18,6 +15,7 @@ import {
   type FlowStage,
   type ReauthLinkResult,
 } from "../../lib/account/delete-screen";
+import { CONFIRM_WORD, REAUTH_WINDOW_MINUTES, confirmWordMatches } from "../../lib/shared";
 import { Button, Field, IconTile, Rule, TextButton } from "../brand/controls";
 import { Icon } from "../brand/icon";
 import { PixelFrame } from "../brand/pixel-frame";

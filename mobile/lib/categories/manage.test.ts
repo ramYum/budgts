@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { CATEGORY_COLORS } from "../../../src/lib/categories/options";
+import { LOCKED_MESSAGE } from "../api/load";
 import {
-  LOCKED_MESSAGE,
-  NEW_CATEGORY_COLOR,
   categoryGroups,
   createBody,
   monthCountLine,
@@ -41,10 +39,8 @@ describe("the web page's groups and lines", () => {
     expect(monthCountLine(12)).toBe("12 transactions this month");
   });
 
-  it("gives a new category the web's first palette colour, and says the web's locked message", () => {
-    expect(NEW_CATEGORY_COLOR).toBe(CATEGORY_COLORS[0]);
-    expect(LOCKED_MESSAGE).toBe("Your account is being deleted, so changes are paused."); // src/lib/ownership.ts
-    expect(createBody({ name: "Pets", kind: "expense", color: NEW_CATEGORY_COLOR }, "id-1")).toEqual({ name: "Pets", kind: "expense", color: "#8b5cf6", requestId: "id-1" });
+  it("builds a create with its request id", () => {
+    expect(createBody({ name: "Pets", kind: "expense", color: "#8b5cf6" }, "id-1")).toEqual({ name: "Pets", kind: "expense", color: "#8b5cf6", requestId: "id-1" });
   });
 });
 

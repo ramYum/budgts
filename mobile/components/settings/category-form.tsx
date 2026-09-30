@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { View } from "react-native";
 import { ROLE } from "../../lib/brand/shared";
-import { NEW_CATEGORY_COLOR, type CategoryFields, type CategoryWrite, type CreatedCategory } from "../../lib/categories/manage";
+import { CATEGORY_COLORS } from "../../lib/shared";
+import { type CategoryFields, type CategoryWrite, type CreatedCategory } from "../../lib/categories/manage";
 import { Button, Field } from "../brand/controls";
 import { Text } from "../brand/text";
 import { Overlay } from "../kit/overlay";
@@ -46,7 +47,7 @@ export function CategoryForm({
     if (pending) return;
     setPending(true);
     setMessage(null);
-    const result = await save({ name, kind, color: initial?.color ?? NEW_CATEGORY_COLOR });
+    const result = await save({ name, kind, color: initial?.color ?? CATEGORY_COLORS[0] });
     setPending(false);
     if (result.ok) onDone(result.created);
     else setMessage(result.fieldError ?? result.error ?? null);
@@ -95,7 +96,6 @@ export function CategorySheet({
   save,
   newRequestId,
   onDone,
-  testID = "category-sheet",
 }: {
   title: string;
   submitLabel: string;
@@ -103,11 +103,10 @@ export function CategorySheet({
   save: (fields: CategoryFields, requestId: string | undefined) => Promise<CategoryWrite>;
   newRequestId?: () => string;
   onDone: (created?: CreatedCategory) => void;
-  testID?: string;
 }) {
   const [requestId] = useState(() => newRequestId?.());
   return (
-    <Overlay title={title} onClose={() => onDone()} testID={testID}>
+    <Overlay title={title} onClose={() => onDone()}>
       <CategoryForm initial={initial} submitLabel={submitLabel} save={(fields) => save(fields, requestId)} onDone={onDone} />
     </Overlay>
   );

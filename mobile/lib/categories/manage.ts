@@ -1,5 +1,6 @@
 import { apiRequest } from "../api/request";
 import { bool, int, list, obj, oneOf, str } from "../api/parse";
+import { LOCKED_MESSAGE } from "../api/load";
 
 /**
  * Settings → Categories over the mobile API: `GET /api/mobile/settings/categories` (server: src/lib/mobile/categories.ts,
@@ -56,10 +57,6 @@ export function monthCountLine(n: number): string {
   return n === 0 ? "Nothing this month" : `${n} ${n === 1 ? "transaction" : "transactions"} this month`;
 }
 
-/** The colour a new category gets: the palette's first (src/lib/categories/options.ts, pinned by test), as the web form's hidden field. */
-export const NEW_CATEGORY_COLOR = "#8b5cf6";
-
-export const LOCKED_MESSAGE = "Your account is being deleted, so changes are paused.";
 export const GONE_MESSAGE = "That category no longer exists. Refresh and try again.";
 const FAILED_MESSAGE = "Couldn't save the category. Try again.";
 const NETWORK_MESSAGE = "Couldn't reach Budgts. Check your connection and try again.";

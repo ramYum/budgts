@@ -9,8 +9,6 @@ import { DeleteAccountFlow, type DeleteFlowActions } from "../../../components/s
 import { StandaloneShell } from "../../../components/settings/standalone-shell";
 import { requestAccountDeletion } from "../../../lib/account/delete-account";
 import {
-  DELETE_ACCOUNT_CONFIRM_PATH,
-  DELETE_ACCOUNT_PATH,
   parseDeleteScreen,
   requestReauthLink,
   returnAfterSignIn,
@@ -23,6 +21,7 @@ import { buildAuthCallbackUrl } from "../../../lib/auth/callback-url";
 import { completeSessionFromUrl } from "../../../lib/auth/complete-session-from-url";
 import { signInWithGoogle } from "../../../lib/auth/google";
 import { legalUrl } from "../../../lib/legal";
+import { ACCOUNT_DELETED_PATH, DELETE_ACCOUNT_CONFIRM_PATH, DELETE_ACCOUNT_PATH } from "../../../lib/shared";
 import { supabase } from "../../../lib/supabase/client";
 
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL;
@@ -77,7 +76,7 @@ export default function DeleteAccountScreen() {
         if (screen.keepsRecords) params.set("keeps", "1");
         if (screen.supportEmail) params.set("legal", "1");
         const query = params.toString();
-        router.replace((query ? `/account-deleted?${query}` : "/account-deleted") as Href);
+        router.replace((query ? `${ACCOUNT_DELETED_PATH}?${query}` : ACCOUNT_DELETED_PATH) as Href);
         // The server has revoked the session already; this clears the device's copy.
         void signOut();
       },

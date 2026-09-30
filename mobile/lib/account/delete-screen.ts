@@ -7,24 +7,13 @@ import { emailLinkRedirect } from "../auth/sign-in-options";
  * to, the fresh sign-in, and the web's words. The endpoint (`POST /api/account/delete`, lib/account/delete-account.ts)
  * decides everything; this never deletes anything itself.
  *
- * The constants mirror src/lib/account/screen.ts and src/lib/billing/manage.ts, which Metro can't serve to the app (it
- * watches only the brand folders); delete-screen.test.ts pins them to the web's values, so they can't drift.
+ * The store constants mirror src/lib/billing/manage.ts, which isn't in the folders Metro shares (metro.shared.js);
+ * tests/unit/mobile-deletion-store-constants.test.ts pins them to the web's values, so they can't drift.
  */
-export const CONFIRM_WORD = "DELETE";
-export const REAUTH_WINDOW_MINUTES = 10;
 export const APPLE_MANAGE_URL = "https://apps.apple.com/account/subscriptions";
 export const GOOGLE_MANAGE_URL = "https://play.google.com/store/account/subscriptions?package=com.budgts.app";
 export const DELETION_SUBSCRIPTION_NOTICE =
   "Deleting your Budgts account does not automatically cancel your App Store or Google Play subscription.";
-
-/** The screen, as on the web: `/settings/delete-account`, and `?step=confirm` when a fresh sign-in returns to it. */
-export const DELETE_ACCOUNT_PATH = "/settings/delete-account";
-export const DELETE_ACCOUNT_CONFIRM_PATH = `${DELETE_ACCOUNT_PATH}?step=confirm`;
-
-/** Compared case-insensitively, surrounding spaces ignored (web `confirmWordMatches`). */
-export function confirmWordMatches(typed: string): boolean {
-  return typed.trim().toUpperCase() === CONFIRM_WORD;
-}
 
 export type DeleteScreen = {
   email: string;
@@ -81,11 +70,6 @@ export function stageAfter(outcome: Exclude<DeleteOutcome, { status: "deleted" }
     default:
       return { stage: "error", error: outcome.status };
   }
-}
-
-/** Where a completed deletion lands, signed out: `?store=1` when a store subscription may still be running. */
-export function deletedDestination(storeSubscriptionMayBeActive: boolean): string {
-  return storeSubscriptionMayBeActive ? "/account-deleted?store=1" : "/account-deleted";
 }
 
 export const STAGE_TITLE: Record<Exclude<FlowStage, "error">, string> = {

@@ -669,3 +669,16 @@ The root `vitest.config.mts` sets `testTimeout: 15_000` for every test: the Reac
 ### Header blur (2026-09-30, with the post-merge dev client)
 
 The signed-in header now lives in `<Screen>` (the tab stacks show no stack header): `AppHeader` at the web's `bg-bg/90` over an expo-blur `BlurView` of the content scrolling under it (`HEADER_BLUR`: intensity 100, Android `dimezisBlurViewSdk31Plus`, radius 100 ÷ 4 = 25 ≈ the web's `backdrop-blur-xl` 24px; Android 11 and older get the 90% colour only). Android blurs a `BlurTargetView` wrapping the scroll view. Needs the dev client built after F7 (expo-blur is native).
+
+### Lane A as built: first run, the welcome guide, Crystal and the sign-in stage
+
+**The gate contract** (`mobile/app/(app)/_layout.tsx`, `mobile/lib/profile/gate.ts`):
+- `shellRoute(profile)` is the web's own `firstRunRedirect` (`src/lib/tour/gate.ts`, imported) over `/api/mobile/profile`'s `onboarded` and `tourSeen`: `onboarding` until a currency is saved, then `tour` until the guide is finished or skipped, then `app`. A failed profile read never guesses: `profileFailure(kind)` picks the web's error / offline screen (Try again, except for a missing profile) plus Sign out.
+- Each part is a `Stack.Protected` set, so the stack only shows what the gate allows: `(tabs)` and `transaction` when `app`; `tour` whenever onboarded (it stays open for the replay from More, `/tour`); `onboarding` before a currency; `guide/how-it-works` only while the guide is the gate (`firstRunHelpOpen`). `settings/delete-account` is left undeclared on purpose (reachable before onboarding, as on the web).
+- Onboarding → tour: the currency save re-reads the profile in place (no loader); `justOnboarded` makes the tour continue from the onboarding cards (`?new=1`). Leaving the guide (`afterGuideNav`): `replace("/")` on the first run, `dismissTo("/")` on a replay (never a second set of tabs).
+
+**How Budgts Works from the last card**: on a replay, `dismissTo("/help/how-it-works")` (Lane C's page, back into the tabs); during the first run, `push("/guide/how-it-works")`, the same `HowItWorksView` on the bare canvas above the guide, back returning to the card left (`howItWorksNav`). **Native-only improvement:** the web bounces this link back to `/tour` during first run (its dashboard gate); the web stays unchanged in Phase 3.
+
+**Components:** `components/tour/*` (the card, wizard, nine scenes and their keyframes, `guide-keyframes.ts`); the one animated `Robin` (`components/brand/robin.tsx`: blink, chirp, flicker, `hopOnTap`, `size`, and `choreography` for Crystal on Home, Lane B); the sign-in stage (`components/brand/brand-stage.tsx`) and the sign-in entrance (`components/sign-in/entrance.tsx`: page-enter, then `.reveal` `--i` 2 and 3). The wizard's Android back listens only while the guide is focused (`useFocusEffect`).
+
+**For Foundation:** `RollingAmount` (`components/motion/rolling-amount.tsx`) gained an optional `letterSpacing` (a figure tracked other than its role; the welcome guide's Money Left uses the web's `.tnum` −0.01em = −0.32px on 32px), applied to every glyph, moving and still.

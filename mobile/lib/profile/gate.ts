@@ -40,13 +40,22 @@ export function profileFailure(kind: ProfileErrorKind): { kind: LoadErrorKind; d
   }
 }
 
+/** A navigation the guide makes: which router call, to where. */
+export type GuideNav = { method: "push" | "replace" | "dismissTo"; href: "/" | "/help/how-it-works" | "/guide/how-it-works" };
+
 /**
- * Where the welcome guide's "How Budgts Works" link opens. Once the guide is seen (a replay from More), Help's own page,
- * inside the app. While the guide still gates the app, Help isn't open yet, so the same page opens on its own
- * first-run route, above the guide, with back returning to the card the user left.
+ * Where the welcome guide's "How Budgts Works" link opens. On a replay (`replay`: the guide was already seen when it
+ * opened), the guide sits over the tabs, so Help's own page is reached by going back into them (`dismissTo`), never by
+ * stacking a second set of tabs. While the guide still gates the app, Help isn't open yet, so the same page opens on its
+ * own first-run route pushed above the guide, and back returns to the card the user left.
  */
-export function howItWorksHref(tourSeen: boolean): "/help/how-it-works" | "/guide/how-it-works" {
-  return tourSeen ? "/help/how-it-works" : "/guide/how-it-works";
+export function howItWorksNav(replay: boolean): GuideNav {
+  return replay ? { method: "dismissTo", href: "/help/how-it-works" } : { method: "push", href: "/guide/how-it-works" };
+}
+
+/** Leaving the guide for Home (Skip or its last card): back into the tabs on a replay, replacing the guide on the first run. */
+export function afterGuideNav(replay: boolean): GuideNav {
+  return replay ? { method: "dismissTo", href: "/" } : { method: "replace", href: "/" };
 }
 
 /** The first-run How Budgts Works route is open while the gate shows the welcome guide, and only then. */

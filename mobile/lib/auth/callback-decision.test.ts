@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { returnAfterSignIn, takeReturnAfterSignIn } from "../account/delete-screen";
+import { returnAfterSignIn, takeReturnAfterSignIn } from "./return-intent";
 import { callbackDecision } from "./callback-decision";
 import { completeSession, type SessionAuth } from "./complete-session";
 
@@ -100,7 +100,7 @@ describe("an old or foreign link while signed in changes nothing", () => {
 });
 
 describe("a re-sign-in that came back as a different account", () => {
-  const bobRejected = (id: string | null | undefined) => id === "bob";
+  const bobRejected = (id: string | null | undefined) => (id === "bob" ? ("other_account" as const) : null);
 
   it("never goes on as the other account: it waits for the sign-out, then shows sign-in with the reason", () => {
     const take = vi.fn(() => "/settings/delete-account?step=confirm");
@@ -131,6 +131,6 @@ describe("R1: a refused account that later signs in on purpose", () => {
     expect(guard.reauthVerdict("SIGNED_IN", "bob")).toBe("reject");
     guard.reauthVerdict("SIGNED_OUT", null);
     expect(guard.reauthVerdict("SIGNED_IN", "bob")).toBe("accept");
-    expect(callbackDecision({ ok: true, userId: "bob" }, "bob", () => null, guard.wasRejected)).toEqual({ kind: "go", href: "/" });
+    expect(callbackDecision({ ok: true, userId: "bob" }, "bob", () => null, guard.refusalOf)).toEqual({ kind: "go", href: "/" });
   });
 });

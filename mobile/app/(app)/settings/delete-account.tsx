@@ -11,7 +11,6 @@ import { requestAccountDeletion } from "../../../lib/account/delete-account";
 import {
   parseDeleteScreen,
   requestReauthLink,
-  returnAfterSignIn,
 } from "../../../lib/account/delete-screen";
 import { loadResource } from "../../../lib/api/load";
 import { useResource } from "../../../lib/api/use-resource";
@@ -21,6 +20,7 @@ import { buildAuthCallbackUrl } from "../../../lib/auth/callback-url";
 import { completeSessionFromUrl } from "../../../lib/auth/complete-session-from-url";
 import { signInWithGoogle } from "../../../lib/auth/google";
 import { expectReauthAs } from "../../../lib/auth/reauth-guard";
+import { returnAfterSignIn } from "../../../lib/auth/return-intent";
 import { legalUrl } from "../../../lib/legal";
 import { ACCOUNT_DELETED_PATH, DELETE_ACCOUNT_CONFIRM_PATH, DELETE_ACCOUNT_PATH } from "../../../lib/shared";
 import { supabase } from "../../../lib/supabase/client";
@@ -82,16 +82,16 @@ export default function DeleteAccountScreen() {
         void signOut();
       },
       sendReauthLink: async () => {
-        if (session) expectReauthAs(session.user.id);
+        if (session) await expectReauthAs(session.user.id);
         const result = await requestReauthLink(screen.email, {
           apiBaseUrl: API_BASE,
           signInWithOtp: (args) => supabase.auth.signInWithOtp(args),
         });
-        if (result.sent && session) returnAfterSignIn(DELETE_ACCOUNT_CONFIRM_PATH, session.user.id);
+        if (result.sent && session) await returnAfterSignIn(DELETE_ACCOUNT_CONFIRM_PATH, session.user.id);
         return result;
       },
       reauthWithGoogle: async () => {
-        if (session) expectReauthAs(session.user.id);
+        if (session) await expectReauthAs(session.user.id);
         const result = await signInWithGoogle({
           redirectTo: buildAuthCallbackUrl(ExpoLinking.createURL),
           signInWithOAuth: (args) => supabase.auth.signInWithOAuth(args),
@@ -103,8 +103,10 @@ export default function DeleteAccountScreen() {
       onKeep: toSettings,
       onConnectedBanks: () => router.push("/connected-banks"),
       onSignInAgain: () => {
-        if (session) returnAfterSignIn(DELETE_ACCOUNT_PATH, session.user.id);
-        void signOut();
+        void (async () => {
+          if (session) await returnAfterSignIn(DELETE_ACCOUNT_PATH, session.user.id);
+          await signOut();
+        })();
       },
       openUrl: (url) => void (url.startsWith("mailto:") ? Linking.openURL(url) : WebBrowser.openBrowserAsync(url)),
       deletionPageUrl: screen.supportEmail ? legalUrl(API_BASE, "accountDeletion") : null,

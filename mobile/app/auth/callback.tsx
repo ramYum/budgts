@@ -5,12 +5,12 @@ import * as Linking from "expo-linking";
 import { LinkProblem } from "../../components/auth/link-problem";
 import { useLoadingScreen } from "../../components/loading-screen";
 import { StandaloneShell } from "../../components/settings/standalone-shell";
-import { takeReturnAfterSignIn } from "../../lib/account/delete-screen";
 import { useAuth } from "../../lib/auth/auth-context";
 import { callbackDecision, type CallbackDecision } from "../../lib/auth/callback-decision";
 import { completeSessionFromUrl, type CompleteSessionResult } from "../../lib/auth/complete-session-from-url";
 import { isAuthCallbackUrl } from "../../lib/auth/parse-callback-url";
-import { takeSignInProblem, wasRejected } from "../../lib/auth/reauth-guard";
+import { refusalOf, takeSignInProblem } from "../../lib/auth/reauth-guard";
+import { takeReturnAfterSignIn } from "../../lib/auth/return-intent";
 import { ROLE } from "../../lib/brand/shared";
 
 /**
@@ -55,10 +55,10 @@ export default function AuthCallbackScreen() {
   const decided = useRef(false);
   useEffect(() => {
     if (decided.current) return;
-    const next = callbackDecision(outcome, userId, takeReturnAfterSignIn, wasRejected);
+    const next = callbackDecision(outcome, userId, takeReturnAfterSignIn, refusalOf);
     if (next.kind === "wait") return;
     // sign-in gets the reason as its parameter; the guard's copy is spent
-    if (next.kind === "sign-in" && next.problem === "other_account") takeSignInProblem();
+    if (next.kind === "sign-in" && refusalOf(outcome?.ok ? outcome.userId : null)) takeSignInProblem();
     decided.current = true;
     setDecision(next);
   }, [outcome, userId]);

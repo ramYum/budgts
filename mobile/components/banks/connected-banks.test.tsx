@@ -66,7 +66,7 @@ describe("Connected banks (web /connected-banks)", () => {
 
   it("with no bank: the web's empty card and Connect a bank", () => {
     const r = view([]);
-    expect(textContent(byTestId(r, "page-header-title"))).toBe("Connected banks");
+    expect(textContent(byTestId(r, "page-title"))).toBe("Connected banks");
     const words = texts(r);
     expect(words).toContain(
       "Connect a bank and Budgts imports its transactions for you, categories filled in, ready to check. Manual entry still works for cash and anything your bank can't reach.",
@@ -132,7 +132,7 @@ describe("Connected banks (web /connected-banks)", () => {
     await press(r, "connect-row-3");
     expect(a.commands.mapAccounts).toHaveBeenCalledWith("item-row", [{ plaidAccountId: "pa3", mode: "new", name: "Plaid Credit Card ••3333", type: "credit" }]);
     await press(r, "bank-item-row-choose");
-    expect(byTestId(r, "overlay").props.accessibilityLabel).toBe("Choose which accounts to import");
+    expect(byTestId(r, "sheet").props.accessibilityLabel).toBe("Choose which accounts to import");
   });
 
   it("shows a refused switch's reason under it", async () => {
@@ -181,15 +181,13 @@ describe("Connected banks (web /connected-banks)", () => {
     const a = actions();
     const r = view([bank()], a);
     await press(r, "bank-item-row-disconnect");
-    expect(byTestId(r, "overlay").props.accessibilityLabel).toBe("Disconnect First Platypus Bank?");
+    expect(byTestId(r, "sheet").props.accessibilityLabel).toBe("Disconnect First Platypus Bank?");
     expect(texts(r)).toContain(
       "Budgts stops syncing First Platypus Bank. The transactions it already imported stay in your history and keep counting toward budgets.",
     );
     expect(byTestId(r, "disconnect-submit").props.accessibilityLabel).toBe("Disconnect");
     await press(r, "disconnect-purge");
-    expect(byTestId(r, "disconnect-purge").props.accessibilityState).toEqual({ checked: true });
-    // the web's plain checkbox in its accent, not a pixel frame
-    expect(byTestId(r, "disconnect-purge-box").props.style).toMatchObject({ width: 16, height: 16, borderRadius: 2, backgroundColor: "#c93434" });
+    expect(byTestId(r, "disconnect-purge").props.accessibilityState).toMatchObject({ checked: true });
     expect(byTestId(r, "disconnect-submit").props.accessibilityLabel).toBe("Disconnect and delete");
     await press(r, "disconnect-purge");
     await press(r, "disconnect-submit");

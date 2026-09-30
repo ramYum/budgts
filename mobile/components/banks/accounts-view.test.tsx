@@ -38,7 +38,7 @@ const press = async (r: ReturnType<typeof render>, id: string) => {
 describe("Accounts (web /accounts)", () => {
   it("groups by bank with its state, then by hand, then archived, under the web's title, Add and lead line", () => {
     const r = view();
-    expect(textContent(byTestId(r, "page-header-title"))).toBe("Accounts");
+    expect(textContent(byTestId(r, "page-title"))).toBe("Accounts");
     expect(byTestId(r, "accounts-add").props.accessibilityLabel).toBe("Add account");
     const words = texts(r);
     expect(words).toContain("Accounts hold your transactions. Linked ones update on their own; add cash or anything else by hand.");
@@ -86,7 +86,7 @@ describe("Accounts (web /accounts)", () => {
     const c = commands();
     const r = view(c);
     await press(r, "accounts-add");
-    expect(byTestId(r, "overlay").props.accessibilityLabel).toBe("Add account");
+    expect(byTestId(r, "sheet").props.accessibilityLabel).toBe("Add account");
     await act(async () => byTestId(r, "account-form-name").props.onChangeText("Cash jar"));
     await press(r, "account-form-type");
     await press(r, "account-form-type-option-cash");
@@ -100,7 +100,7 @@ describe("Accounts (web /accounts)", () => {
     const c = commands({ update: vi.fn(async () => ({ status: "error" as const, message: "Name is required" })) });
     const r = view(c);
     await pick(r, "a1", "Edit");
-    expect(byTestId(r, "overlay").props.accessibilityLabel).toBe("Edit account");
+    expect(byTestId(r, "sheet").props.accessibilityLabel).toBe("Edit account");
     expect(byTestId(r, "account-form-name").props.value).toBe("Everyday checking");
     await act(async () => byTestId(r, "account-form-name").props.onChangeText(""));
     await press(r, "account-form-submit");

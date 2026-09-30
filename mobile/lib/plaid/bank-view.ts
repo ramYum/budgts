@@ -1,8 +1,9 @@
+import { formatSyncedAgo } from "../shared";
 import type { BankAccount, ConnectedBank } from "./banks-api";
 
 /**
  * How Connected banks words a bank and its accounts: the web's own helpers in
- * `src/components/plaid/connected-banks.tsx` (`bankName`, `whenLabel`,
+ * `src/components/plaid/connected-banks.tsx` (`bankName`,
  * `accountName`, the importing / not imported split), as pure functions.
  * Presentation only: every state they read comes from `/api/mobile/plaid/banks`.
  */
@@ -14,19 +15,9 @@ export function bankName(raw: string | null): { name: string; sandbox: boolean }
   return m ? { name: m[1]!, sandbox: true } : { name, sandbox: false };
 }
 
-/** "Synced …" wording after the web hydrates: just now, N min ago, N hr ago, then the month and day. */
-export function whenLabel(iso: string, now: number): string {
-  const then = new Date(iso).getTime();
-  const mins = Math.round((now - then) / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins} min ago`;
-  const hrs = Math.round(mins / 60);
-  if (hrs < 24) return `${hrs} hr ago`;
-  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
-
+/** "Synced 45 min ago" (the web's `formatSyncedAgo`, shared) or "Not synced yet". */
 export const syncedLabel = (bank: Pick<ConnectedBank, "lastSyncedAt">, now: number): string =>
-  bank.lastSyncedAt ? `Synced ${whenLabel(bank.lastSyncedAt, now)}` : "Not synced yet";
+  bank.lastSyncedAt ? `Synced ${formatSyncedAgo(bank.lastSyncedAt, now)}` : "Not synced yet";
 
 /** "Plaid Checking ••0000" (the web's `accountName`: the Plaid name, never the official name). */
 export const accountName = (a: Pick<BankAccount, "name" | "mask">): string => `${a.name ?? "Account"}${a.mask ? ` ••${a.mask}` : ""}`;

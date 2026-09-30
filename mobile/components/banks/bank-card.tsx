@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { Pressable, View } from "react-native";
-import Svg, { Path } from "react-native-svg";
 import Animated, { useReducedMotion } from "react-native-reanimated";
-import { COLOR, ROLE } from "../../lib/brand/shared";
+import { COLOR, FONT, ROLE } from "../../lib/brand/shared";
 import { invalidate } from "../../lib/api/invalidate";
 import { statusNeedsAttention, type BankAccount, type ConnectedBank } from "../../lib/plaid/banks-api";
 import type { BankCommands, CommandOutcome } from "../../lib/plaid/bank-commands";
@@ -15,11 +14,14 @@ import { Button, IconTile, Rule } from "../brand/controls";
 import { Icon } from "../brand/icon";
 import { PixelFrame } from "../brand/pixel-frame";
 import { Text } from "../brand/text";
+import { Checkbox } from "../kit/checkbox";
 import { Badge } from "../kit/tiles";
 import { SectionHead } from "../kit/section-head";
 import { AccountMappingSheet } from "./account-mapping";
 import { Overlay } from "../kit/overlay";
-import { SMALL } from "./type";
+
+/** A bold run inside small text (the web's `font-semibold` in `text-sm`). */
+const SEMIBOLD = { fontFamily: FONT.geist[600] };
 
 /** What a bank card needs to act: the server commands, the Link ports and client, and the mapping choices. */
 export type BankActions = {
@@ -85,7 +87,7 @@ export function BankCard({ bank, actions, now }: { bank: ConnectedBank; actions:
             {sandbox ? <Badge tone="gray">Sandbox</Badge> : null}
             <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
               <Icon name="sync" size={12} color={ROLE.muted} />
-              <Text testID={`${id}-synced`} variant="body" color={ROLE.muted} style={SMALL}>
+              <Text testID={`${id}-synced`} variant="small" color={ROLE.muted}>
                 {syncedLabel(bank, now)}
               </Text>
             </View>
@@ -123,7 +125,7 @@ export function BankCard({ bank, actions, now }: { bank: ConnectedBank; actions:
                     <Text variant="listName" color={ROLE.ink} numberOfLines={1}>
                       {accountName(a)}
                     </Text>
-                    <Text variant="body" color={ROLE.muted} numberOfLines={1} style={SMALL}>
+                    <Text variant="small" color={ROLE.muted} numberOfLines={1}>
                       {`Imports into ${a.mappedAccountName ?? "a Budgts account"}`}
                     </Text>
                   </View>
@@ -142,7 +144,7 @@ export function BankCard({ bank, actions, now }: { bank: ConnectedBank; actions:
             title="Not imported"
             count={notImporting.length}
             aside={
-              <Text variant="body" color={ROLE.muted} style={SMALL}>
+              <Text variant="small" color={ROLE.muted}>
                 Switch on to import
               </Text>
             }
@@ -159,7 +161,7 @@ export function BankCard({ bank, actions, now }: { bank: ConnectedBank; actions:
                         {accountName(a)}
                       </Text>
                       {note ? (
-                        <Text variant="body" color={ROLE.muted} numberOfLines={1} style={SMALL}>
+                        <Text variant="small" color={ROLE.muted} numberOfLines={1}>
                           {note}
                         </Text>
                       ) : null}
@@ -188,12 +190,12 @@ export function BankCard({ bank, actions, now }: { bank: ConnectedBank; actions:
           Disconnect
         </Button>
         {syncMsg ? (
-          <Text testID={`${id}-sync-message`} variant="body" color={ROLE.muted} style={SMALL} accessibilityLiveRegion="polite">
+          <Text testID={`${id}-sync-message`} variant="small" color={ROLE.muted} accessibilityLiveRegion="polite">
             {syncMsg}
           </Text>
         ) : null}
       </View>
-      <Text variant="body" color={ROLE.muted} style={[SMALL, { marginTop: 12 }]}>
+      <Text variant="small" color={ROLE.muted} style={{ marginTop: 12 }}>
         Disconnecting a bank keeps every transaction it already imported. They stay in Budgts as history.
       </Text>
 
@@ -260,7 +262,7 @@ function ReconnectButton({ itemId, actions, testID }: { itemId: string; actions:
         {phase === "starting" ? "Opening…" : phase === "finishing" ? "Finishing…" : "Reconnect"}
       </Button>
       {error ? (
-        <Text testID={`${testID}-error`} variant="body" color={ROLE.neg} style={SMALL} accessibilityRole="alert">
+        <Text testID={`${testID}-error`} variant="small" color={ROLE.neg} accessibilityRole="alert">
           {error}
         </Text>
       ) : null}
@@ -327,7 +329,7 @@ function useCommand(): [boolean, string | null, (run: () => Promise<CommandOutco
 
 function ErrorLine({ message, testID }: { message: string | null; testID?: string }) {
   return message ? (
-    <Text testID={testID} variant="body" color={ROLE.neg} style={SMALL} accessibilityRole="alert">
+    <Text testID={testID} variant="small" color={ROLE.neg} accessibilityRole="alert">
       {message}
     </Text>
   ) : null;
@@ -384,9 +386,9 @@ function SignCheckNotice({ count }: { count: number }) {
   return (
     <PixelFrame frame="px-band" style={{ paddingHorizontal: 6, paddingVertical: 6, flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
       <Icon name="pending" color={COLOR.graphite} />
-      <Text variant="body" color={ROLE.ink} style={[SMALL, { flex: 1 }]}>
+      <Text variant="small" color={ROLE.ink} style={{ flex: 1 }}>
         {"We're checking this account's transaction format. "}
-        <Text variant="bodyStrong" color={ROLE.ink} style={SMALL}>
+        <Text variant="small" color={ROLE.ink} style={SEMIBOLD}>
           {words.count}
         </Text>
         {` ${words.verb} once it's verified.`}
@@ -404,8 +406,8 @@ function AccountReviewNotice({ account, actions }: { account: BankAccount; actio
   if (account.excludedFromCalculations) {
     return (
       <PixelFrame testID={`excluded-${account.rowId}`} frame="px-badge-wash" style={{ padding: 8, gap: 8 }}>
-        <Text variant="body" color={ROLE.ink} style={SMALL}>
-          <Text variant="bodyStrong" color={COLOR.signalInk} style={SMALL}>
+        <Text variant="small" color={ROLE.ink}>
+          <Text variant="small" color={COLOR.signalInk} style={SEMIBOLD}>
             Excluded from totals.
           </Text>
           {
@@ -432,7 +434,7 @@ function AccountReviewNotice({ account, actions }: { account: BankAccount; actio
         <View style={{ marginVertical: -2 }}>
           <Icon name="warning" color={ROLE.warn} />
         </View>
-        <Text variant="body" color={ROLE.ink} style={[SMALL, { flex: 1 }]}>
+        <Text variant="small" color={ROLE.ink} style={{ flex: 1 }}>
           {account.reviewReason ?? ""}
         </Text>
       </View>
@@ -458,40 +460,10 @@ function AccountReviewNotice({ account, actions }: { account: BankAccount; actio
           </Button>
         ) : null}
       </View>
-      <Text variant="body" color={COLOR.graphite} style={SMALL}>
+      <Text variant="small" color={COLOR.graphite}>
         Excluding keeps every transaction visible in your history. It only stops this account from affecting Money Left, budgets, and spending totals.
       </Text>
     </PixelFrame>
-  );
-}
-
-/**
- * The disconnect sheet's "also delete" box as the approved web renders it: a
- * plain `<input type="checkbox">` at 16px with `accent-color: signal-ink`,
- * which Chrome draws as a white box with a 1px #767676 edge and 2px corners,
- * then filled in the accent with a white tick. Not a pixel frame: the web
- * shows none here. Geometry to be confirmed against the parity capture.
- */
-export const CHECKBOX_EDGE = "#767676";
-function Checkbox({ checked }: { checked: boolean }) {
-  return (
-    <View
-      testID="disconnect-purge-box"
-      style={{
-        width: 16,
-        height: 16,
-        borderRadius: 2,
-        borderWidth: checked ? 0 : 1,
-        borderColor: CHECKBOX_EDGE,
-        backgroundColor: checked ? COLOR.signalInk : COLOR.white,
-      }}
-    >
-      {checked ? (
-        <Svg width={16} height={16}>
-          <Path d="M3.5 8L6.5 11L12.5 5" fill="none" stroke={COLOR.white} strokeWidth={2} />
-        </Svg>
-      ) : null}
-    </View>
   );
 }
 
@@ -505,22 +477,23 @@ function DisconnectConfirm({ itemId, bankName: name, actions, onClose }: { itemI
         {`Budgts stops syncing ${name}. The transactions it already imported stay in your history and keep counting toward budgets.`}
       </Text>
 
-      <Pressable
-        testID="disconnect-purge"
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked: purge }}
-        accessibilityLabel={`Also delete the ${name} transactions Budgts imported. This can't be undone.`}
-        onPress={() => setPurge((p) => !p)}
-      >
-        <PixelFrame frame="px-badge-wash" style={{ padding: 8, flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
-          <View style={{ marginTop: 4 }}>
-            <Checkbox checked={purge} />
-          </View>
-          <Text variant="body" color={ROLE.ink} style={{ flex: 1 }}>
+      <PixelFrame frame="px-badge-wash" style={{ padding: 8, flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
+        <View style={{ marginTop: 4 }}>
+          <Checkbox
+            testID="disconnect-purge"
+            tone="accent"
+            checked={purge}
+            onChange={setPurge}
+            accessibilityLabel={`Also delete the ${name} transactions Budgts imported. This can't be undone.`}
+          />
+        </View>
+        {/* the web's <label> wraps the box and its sentence: tapping the sentence ticks it too */}
+        <Pressable style={{ flex: 1 }} onPress={() => setPurge((p) => !p)} accessible={false} importantForAccessibility="no">
+          <Text variant="body" color={ROLE.ink}>
             {`Also delete the ${name} transactions Budgts imported. This can't be undone.`}
           </Text>
-        </PixelFrame>
-      </Pressable>
+        </Pressable>
+      </PixelFrame>
 
       <ErrorLine message={error} testID="disconnect-error" />
 

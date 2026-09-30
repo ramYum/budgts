@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BankAccount } from "./banks-api";
-import { accountName, bankName, notImportedNote, resumesExisting, signCheckWords, splitAccounts, syncedLabel, whenLabel } from "./bank-view";
+import { accountName, bankName, notImportedNote, resumesExisting, signCheckWords, splitAccounts, syncedLabel } from "./bank-view";
 
 const acct = (over: Partial<BankAccount>): BankAccount => ({
   rowId: "r",
@@ -28,10 +28,6 @@ describe("bank card wording (web connected-banks.tsx)", () => {
 
   it("words the last sync like the web", () => {
     const now = Date.parse("2026-09-30T12:00:00Z");
-    expect(whenLabel("2026-09-30T11:59:40Z", now)).toBe("just now");
-    expect(whenLabel("2026-09-30T11:15:00Z", now)).toBe("45 min ago");
-    expect(whenLabel("2026-09-30T07:00:00Z", now)).toBe("5 hr ago");
-    expect(whenLabel("2026-09-20T07:00:00Z", now)).toBe(new Date("2026-09-20T07:00:00Z").toLocaleDateString(undefined, { month: "short", day: "numeric" }));
     expect(syncedLabel({ lastSyncedAt: null }, now)).toBe("Not synced yet");
     expect(syncedLabel({ lastSyncedAt: "2026-09-30T11:15:00Z" }, now)).toBe("Synced 45 min ago");
   });

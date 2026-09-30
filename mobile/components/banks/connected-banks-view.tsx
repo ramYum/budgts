@@ -8,7 +8,6 @@ import { Text } from "../brand/text";
 import { PageHeader } from "../kit/page-header";
 import { BankCard, type BankActions } from "./bank-card";
 import { ConnectBank } from "./connect-bank";
-import { SMALL } from "./type";
 
 /**
  * Connected banks (web `/connected-banks`: `BankConnections` and
@@ -56,7 +55,7 @@ export function ConnectedBanksView({
               <View style={{ marginVertical: -2 }}>
                 <Icon name="shield" color={COLOR.graphite} />
               </View>
-              <Text variant="body" color={ROLE.muted} style={[SMALL, { flex: 1 }]}>
+              <Text variant="small" color={ROLE.muted} style={{ flex: 1 }}>
                 Your data is secure. Budgts can only read your account and transaction data to help you budget. It can't send money, make payments, make purchases, or transfer funds.
               </Text>
             </View>

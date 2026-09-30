@@ -13,7 +13,6 @@ import { RowMenu } from "../kit/row-menu";
 import { SectionHead } from "../kit/section-head";
 import { Select } from "../kit/select";
 import { Badge } from "../kit/tiles";
-import { SMALL } from "./type";
 
 /** The web's type icons (`account-manager.tsx` TYPE_ICON). */
 const TYPE_ICON: Record<string, IconName> = { checking: "wallet", credit: "credit-card", savings: "coins", cash: "wallet" };
@@ -94,7 +93,7 @@ export function AccountsView({
         </Text>
         <View style={{ gap: 32 }}>
           {error ? (
-            <Text testID="accounts-error" variant="body" color={ROLE.neg} style={SMALL} accessibilityRole="alert">
+            <Text testID="accounts-error" variant="small" color={ROLE.neg} accessibilityRole="alert">
               {error}
             </Text>
           ) : null}
@@ -228,7 +227,7 @@ function AccountForm({
       <Field testID="account-form-name" label="Name" value={name} onChangeText={setName} maxLength={40} autoFocus returnKeyType="done" />
       <Select testID="account-form-type" label="Type" value={type} options={accountTypes.map((t) => ({ value: t, label: typeLabel(t) }))} onChange={setType} />
       {error ? (
-        <Text testID="account-form-error" variant="body" color={ROLE.neg} style={SMALL} accessibilityRole="alert">
+        <Text testID="account-form-error" variant="small" color={ROLE.neg} accessibilityRole="alert">
           {error}
         </Text>
       ) : null}

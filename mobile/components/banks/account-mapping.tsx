@@ -12,7 +12,6 @@ import { PixelFrame } from "../brand/pixel-frame";
 import { Text } from "../brand/text";
 import { Overlay } from "../kit/overlay";
 import { Select } from "../kit/select";
-import { SMALL } from "./type";
 
 /** The mapping sheet's title, the web's (`connect-bank.tsx`, `connected-banks.tsx`). */
 export const MAPPING_TITLE = "Choose which accounts to import";
@@ -59,7 +58,7 @@ export function AccountMapping({
   if (warning) {
     return (
       <View style={{ gap: 12 }} testID="account-mapping-warning">
-        <Text variant="body" color={ROLE.muted} style={SMALL}>
+        <Text variant="small" color={ROLE.muted}>
           {warning}
         </Text>
         <Button testID="account-mapping-done" onPress={onDone}>
@@ -77,7 +76,7 @@ export function AccountMapping({
 
   return (
     <View style={{ gap: 16 }} testID="account-mapping">
-      <Text variant="body" color={ROLE.muted} style={SMALL}>
+      <Text variant="small" color={ROLE.muted}>
         Each account can become a new Budgts account, feed one you already have, or be left out.
       </Text>
 
@@ -90,7 +89,7 @@ export function AccountMapping({
                 <Text variant="listName" color={ROLE.ink} numberOfLines={1} style={{ flexShrink: 1 }}>
                   {accountLabel(a)}
                 </Text>
-                <Text variant="body" color={ROLE.muted} style={[SMALL, { flexShrink: 0 }]}>
+                <Text variant="small" color={ROLE.muted} style={{ flexShrink: 0 }}>
                   {a.subtype ?? a.type ?? "account"}
                 </Text>
               </View>
@@ -150,7 +149,7 @@ export function AccountMapping({
       </View>
 
       {error ? (
-        <Text testID="account-mapping-error" variant="body" color={ROLE.neg} style={SMALL} accessibilityRole="alert">
+        <Text testID="account-mapping-error" variant="small" color={ROLE.neg} accessibilityRole="alert">
           {error}
         </Text>
       ) : null}

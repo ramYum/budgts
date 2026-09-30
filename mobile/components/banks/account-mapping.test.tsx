@@ -100,8 +100,8 @@ describe("AccountMappingSheet", () => {
     const onClose = vi.fn();
     const before = getVersion("transactions");
     const r = render(<AccountMappingSheet plaidItemId="item-row" plaidAccounts={[account()]} choices={choices} onDone={onDone} onClose={onClose} />);
-    expect(byTestId(r, "overlay").props.accessibilityLabel).toBe("Choose which accounts to import");
-    await press(r, "overlay-close");
+    expect(byTestId(r, "sheet").props.accessibilityLabel).toBe("Choose which accounts to import");
+    await press(r, "sheet-close");
     expect(onClose).toHaveBeenCalledTimes(1);
     await press(r, "account-mapping-save");
     expect(api.authFetch.mock.calls[0]![0]).toBe("/api/mobile/plaid/accounts/map");
@@ -132,7 +132,7 @@ describe("ConnectBank (web connect-bank.tsx)", () => {
     const r = render(<ConnectBank link={link({ kind: "success", publicToken: "public-1", institution: { id: "ins_1", name: "First Platypus Bank" } })} />);
     expect(byTestId(r, "connect-bank").props.accessibilityLabel).toBe("Connect a bank");
     await press(r, "connect-bank");
-    expect(byTestId(r, "overlay").props.accessibilityLabel).toBe("Choose which accounts to import");
+    expect(byTestId(r, "sheet").props.accessibilityLabel).toBe("Choose which accounts to import");
     expect(texts(r)).toContain("Plaid Checking ••0000");
     await press(r, "account-mapping-mode-0");
     // archived accounts are not offered, as on the web

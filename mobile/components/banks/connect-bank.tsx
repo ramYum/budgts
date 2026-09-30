@@ -15,7 +15,6 @@ import { createPlaidLinkClient, currentPlatform } from "../../lib/plaid/plaid-li
 import { Button } from "../brand/controls";
 import { Text } from "../brand/text";
 import { AccountMappingSheet } from "./account-mapping";
-import { SMALL } from "./type";
 
 type Phase = "idle" | "starting" | "linking" | "exchanging";
 type Mapping = { plaidItemId: string; accounts: UnmappedAccount[]; choices: MappingChoices };
@@ -112,12 +111,12 @@ export function ConnectBank({
       </Button>
 
       {error ? (
-        <Text testID={`${testID}-error`} variant="body" color={ROLE.neg} style={SMALL} accessibilityRole="alert">
+        <Text testID={`${testID}-error`} variant="small" color={ROLE.neg} accessibilityRole="alert">
           {error}
         </Text>
       ) : null}
       {notice ? (
-        <Text testID={`${testID}-notice`} variant="body" color={ROLE.muted} style={SMALL}>
+        <Text testID={`${testID}-notice`} variant="small" color={ROLE.muted}>
           {notice}
         </Text>
       ) : null}

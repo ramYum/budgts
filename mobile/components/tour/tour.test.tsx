@@ -8,6 +8,7 @@ import { Text } from "../brand/text";
 import { OnboardingView } from "./onboarding-view";
 import { GuideScene } from "./scenes";
 import { Progress, TourCard } from "./tour-card";
+import { TourView } from "./tour-view";
 
 const native = vi.hoisted(() => ({
   back: [] as (() => boolean)[],
@@ -126,6 +127,61 @@ describe("OnboardingView (web onboarding-wizard-content.tsx)", () => {
     expect(byTestId(r, "onboarding-error").props.accessibilityRole).toBe("alert");
     expect(byTestId(r, "tour-primary").props.accessibilityLabel).toBe(GUIDE_COPY.currency.cta);
     expect(byTestId(r, "tour-primary").props.disabled).toBeFalsy();
+  });
+});
+
+describe("TourView (web tour-wizard-content.tsx)", () => {
+  const view = (over: Partial<Parameters<typeof TourView>[0]> = {}) =>
+    render(
+      <TourView
+        stepIds={["bank", "auto-sort", "money-left", "plan", "done"]}
+        offset={4}
+        totalVisible={9}
+        currency="USD"
+        bank={(label) => <Text variant="body">{label}</Text>}
+        onFinish={vi.fn(async () => null)}
+        {...over}
+      />,
+    );
+
+  it("continues the progress from the onboarding cards", () => {
+    const r = view();
+    expect(byTestId(r, "tour-progress").props.accessibilityValue).toMatchObject({ now: 5, max: 9 });
+    expect(native.announced).toEqual(["Step 5 of 9: Connect your bank"]);
+  });
+
+  it("puts the connect action on the bank card, with a way on by hand", () => {
+    const r = view();
+    expect(texts(byTestId(r, "tour-media"))).toContain("Connect a bank");
+    press(r, "tour-by-hand");
+    expect(step(r)).toBe("tour-step-auto-sort");
+  });
+
+  it("Skip marks the guide seen from any card, and a failure is shown with the guide still open", async () => {
+    const onFinish = vi.fn(async () => "Something went wrong. Please try again.");
+    const r = view({ onFinish });
+    await act(async () => byTestId(r, "tour-skip").props.onPress());
+    expect(onFinish).toHaveBeenCalledOnce();
+    expect(textContent(byTestId(r, "tour-error"))).toBe("Something went wrong. Please try again.");
+    expect(step(r)).toBe("tour-step-bank");
+  });
+
+  it("ends on the web's last card: See my finances, and How Budgts Works as a link only once Help is open", async () => {
+    const onFinish = vi.fn(async () => null);
+    const r = view({ stepIds: ["money-left", "plan", "done"], offset: 6, onFinish });
+    press(r, "tour-skip"); // not a jump here: Skip finishes
+    expect(onFinish).toHaveBeenCalledOnce();
+    press(r, "tour-primary");
+    press(r, "tour-primary");
+    expect(step(r)).toBe("tour-step-done");
+    expect(() => byTestId(r, "tour-skip")).toThrow();
+    expect(textContent(byTestId(r, "tour-footnote"))).toBe("Replay this guide, or read How Budgts Works, anytime from Help.");
+    expect(byTestId(r, "tour-how-it-works").props.accessibilityRole).toBeUndefined();
+    const open = vi.fn();
+    const replay = view({ stepIds: ["done"], offset: 0, totalVisible: 1, onHowItWorks: open });
+    expect(byTestId(replay, "tour-how-it-works").props.accessibilityRole).toBe("link");
+    byTestId(replay, "tour-how-it-works").props.onPress();
+    expect(open).toHaveBeenCalledOnce();
   });
 });
 

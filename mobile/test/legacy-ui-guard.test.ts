@@ -16,7 +16,6 @@ const LEGACY_ALLOWED = [
   "app/(app)/(tabs)/(home)/index.tsx",
   "app/(app)/(tabs)/(more)/accounts.tsx",
   "app/(app)/(tabs)/(more)/connected-banks.tsx",
-  "app/(app)/_layout.tsx",
   "app/(app)/delete-account.tsx",
   "app/(app)/map-accounts.tsx",
   "app/(app)/transaction.tsx",

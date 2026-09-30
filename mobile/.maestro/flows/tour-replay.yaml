@@ -1,0 +1,16 @@
+# Replay the welcome guide from More (web More → "Play the welcome guide"): it starts with Crystal's intro, and Skip
+# returns to Home. Needs a signed-in account that has seen the guide (parity user `empty` or `full`).
+appId: com.budgts.app
+---
+- tapOn:
+    id: "tab-more"
+- tapOn:
+    id: "more-play-guide"
+- assertVisible:
+    id: "tour-step-crystal"
+- tapOn:
+    id: "tour-skip"
+- extendedWaitUntil:
+    visible:
+      id: "tab-home"
+    timeout: 10000

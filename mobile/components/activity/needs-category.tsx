@@ -1,11 +1,16 @@
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import { Pressable, View } from "react-native";
 import { COLOR, ROLE } from "../../lib/brand/shared";
 import { formatMoney } from "../../lib/home/format";
+import type { MutationOutcome } from "../../lib/api/load";
 import type { NeedsCategoryGroup } from "../../lib/transactions/activity-api";
-import { Button, IconTile } from "../brand/controls";
+import type { CategoryChoice } from "../../lib/transactions/use-transaction-commands";
+import { Button, IconTile, TextButton } from "../brand/controls";
+import { Icon } from "../brand/icon";
 import { PixelFrame } from "../brand/pixel-frame";
 import { Text } from "../brand/text";
+import { pressStyle } from "../kit/press";
+import { Select } from "../kit/select";
 
 /** Merchants shown before "Show N more" (the web's phone layout). */
 export const FIRST = 3;
@@ -68,30 +73,100 @@ function GroupTransactions({ group, currency }: { group: NeedsCategoryGroup; cur
   );
 }
 
+/** "FOOD_AND_DRINK" → "Food and drink": Plaid's own guess, shown as a hint (web `humanizePfc`). */
+export function humanizePfc(v: string | null): string | null {
+  if (!v) return null;
+  const s = v.toLowerCase().replace(/_/g, " ");
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+const STD_PREFIX = "std:";
+const STD_HEADING = "__std_heading";
+
+/** The picker's choices: the user's categories, then the standard ones they no longer have (web optgroup). */
+export function pickerOptions(categories: { id: string; name: string }[], missingStandard: string[]) {
+  return [
+    ...categories.map((c) => ({ value: c.id, label: c.name })),
+    ...(missingStandard.length > 0
+      ? [
+          { value: STD_HEADING, label: "Restore a default category", disabled: true },
+          ...missingStandard.map((name) => ({ value: `${STD_PREFIX}${name}`, label: name })),
+        ]
+      : []),
+  ];
+}
+
+/** A picker value as the categorize command's choice. */
+export function choiceOf(value: string): CategoryChoice {
+  return value.startsWith(STD_PREFIX) ? { standardCategoryName: value.slice(STD_PREFIX.length) } : { categoryId: value };
+}
+
+/** A failed pick's sentence: the server's own for a rejected choice, else the load layer's. */
+function failure(out: MutationOutcome): string {
+  if (out.status === "error") return out.message;
+  if (out.status === "invalid") return out.fieldErrors.form ?? "Couldn't use that category. Try again.";
+  return "Something went wrong. Please try again.";
+}
+
 /**
  * "Needs a category" (web `src/components/plaid/needs-category.tsx`): bank rows Budgts could not confidently categorize,
  * one group per merchant (grouped by the server), so one decision clears every purchase from that merchant. The lead card on
- * Activity; three merchants, then "Show N more". `renderActions` draws a group's picker (the categorize flow).
+ * Activity; three merchants, then "Show N more". A pick hides its group at once and sends the choice for the group's newest
+ * row; a failure brings the group back and says why. A suggestion is offered as a one-tap chip, never applied without it.
  */
 export function NeedsCategory({
   groups,
   currency,
-  headerAction,
-  renderActions,
+  categories,
+  missingStandard,
+  onCategorize,
+  onRescan,
 }: {
   groups: NeedsCategoryGroup[];
   currency: string;
-  headerAction?: ReactNode;
-  renderActions?: (group: NeedsCategoryGroup) => ReactNode;
+  categories: { id: string; name: string }[];
+  missingStandard: string[];
+  onCategorize: (anchorId: string, choice: CategoryChoice) => Promise<MutationOutcome>;
+  onRescan: () => Promise<MutationOutcome>;
 }) {
   const [expanded, setExpanded] = useState(false);
-  if (groups.length === 0) return null;
+  const [done, setDone] = useState<Set<string>>(new Set());
+  const [error, setError] = useState<string | null>(null);
+  const [rescanning, setRescanning] = useState(false);
 
-  const totalTxns = groups.reduce((n, g) => n + g.count, 0);
-  const shown = expanded ? groups : groups.slice(0, FIRST);
-  const hidden = groups.length - shown.length;
-  const a11y = `Needs a category, ${totalTxns} ${totalTxns === 1 ? "transaction" : "transactions"} from ${groups.length} ${
-    groups.length === 1 ? "merchant" : "merchants"
+  const visible = groups.filter((g) => !done.has(g.key));
+  if (visible.length === 0) return null;
+
+  const names = new Map(categories.map((c) => [c.id, c.name]));
+  const options = pickerOptions(categories, missingStandard);
+
+  async function pick(group: NeedsCategoryGroup, value: string) {
+    setError(null);
+    setDone((prev) => new Set(prev).add(group.key));
+    const out = await onCategorize(group.anchorId, choiceOf(value));
+    // gone already (404) is as good as done: the refresh drops it
+    if (out.status === "ok" || out.status === "missing") return;
+    setDone((prev) => {
+      const next = new Set(prev);
+      next.delete(group.key);
+      return next;
+    });
+    setError(failure(out));
+  }
+
+  async function rescan() {
+    setError(null);
+    setRescanning(true);
+    const out = await onRescan();
+    setRescanning(false);
+    if (out.status !== "ok") setError(failure(out));
+  }
+
+  const totalTxns = visible.reduce((n, g) => n + g.count, 0);
+  const shown = expanded ? visible : visible.slice(0, FIRST);
+  const hidden = visible.length - shown.length;
+  const a11y = `Needs a category, ${totalTxns} ${totalTxns === 1 ? "transaction" : "transactions"} from ${visible.length} ${
+    visible.length === 1 ? "merchant" : "merchants"
   }`;
 
   return (
@@ -106,7 +181,11 @@ export function NeedsCategory({
             {String(totalTxns)}
           </Text>
         </View>
-        {headerAction}
+        <View style={{ marginVertical: -6 }}>
+          <TextButton testID="needs-category-rescan" iconAfter="sync" disabled={rescanning} onPress={() => void rescan()}>
+            {rescanning ? "Re-scanning…" : "Re-scan"}
+          </TextButton>
+        </View>
       </View>
 
       <Text variant="body" color={ROLE.muted} style={[SMALL, { marginTop: 4 }]}>
@@ -118,39 +197,93 @@ export function NeedsCategory({
       </Text>
 
       <View style={{ marginTop: 8 }}>
-        {shown.map((group, i) => (
-          <View
-            key={group.key}
-            testID="needs-category-group"
-            style={[
-              { gap: 12, paddingTop: 16, paddingBottom: i === shown.length - 1 ? 0 : 16 },
-              i > 0 ? { borderTopWidth: 1, borderTopColor: COLOR.divider } : null,
-            ]}
-          >
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-              <IconTile name="tag" />
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text testID="needs-category-label" variant="listName" color={ROLE.ink}>
-                  {group.label}
-                </Text>
-                <Text variant="body" color={ROLE.muted} numberOfLines={1} style={SMALL}>
-                  {groupMeta(group)}
+        {shown.map((group, i) => {
+          const suggestedName = group.suggestedCategoryId ? (names.get(group.suggestedCategoryId) ?? null) : null;
+          const pfc = suggestedName ? null : humanizePfc(group.plaidCategoryPrimary);
+          return (
+            <View
+              key={group.key}
+              testID="needs-category-group"
+              style={[
+                { gap: 12, paddingTop: 16, paddingBottom: i === shown.length - 1 ? 0 : 16 },
+                i > 0 ? { borderTopWidth: 1, borderTopColor: COLOR.divider } : null,
+              ]}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                <IconTile name="tag" />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text testID="needs-category-label" variant="listName" color={ROLE.ink}>
+                    {group.label}
+                  </Text>
+                  <Text variant="body" color={ROLE.muted} numberOfLines={1} style={SMALL}>
+                    {groupMeta(group)}
+                  </Text>
+                </View>
+                <Text variant="bodyStrong" color={group.netAmount < 0 ? ROLE.pos : ROLE.ink} style={[TNUM, { flexShrink: 0 }]}>
+                  {formatNet(group.netAmount, currency)}
                 </Text>
               </View>
-              <Text variant="bodyStrong" color={group.netAmount < 0 ? ROLE.pos : ROLE.ink} style={[TNUM, { flexShrink: 0 }]}>
-                {formatNet(group.netAmount, currency)}
-              </Text>
+
+              {suggestedName ? (
+                <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+                  <Text variant="body" color={ROLE.muted} style={SMALL}>
+                    Looks like
+                  </Text>
+                  <Pressable
+                    testID="needs-category-suggestion"
+                    accessibilityRole="button"
+                    accessibilityLabel={`Use ${suggestedName}`}
+                    onPress={() => void pick(group, group.suggestedCategoryId!)}
+                    hitSlop={6}
+                  >
+                    {({ pressed }) => (
+                      <PixelFrame
+                        frame="px-chip"
+                        state={pressed ? ":hover" : ""}
+                        style={[{ height: 32, paddingHorizontal: 8, flexDirection: "row", alignItems: "center", gap: 6 }, pressStyle(pressed)]}
+                      >
+                        <Icon name="check" color={ROLE.ink} />
+                        <Text variant="listName" color={ROLE.ink}>
+                          {suggestedName}
+                        </Text>
+                      </PixelFrame>
+                    )}
+                  </Pressable>
+                </View>
+              ) : null}
+
+              <Select
+                testID="needs-category-picker"
+                label={`Category for ${group.label}`}
+                hideLabel
+                value={null}
+                placeholder={suggestedName ? "Choose another" : "Choose a category"}
+                options={options}
+                onChange={(v) => void pick(group, v)}
+              />
+
+              {pfc ? (
+                <Text testID="needs-category-hint" variant="body" color={ROLE.muted} style={[SMALL, { marginTop: -4 }]}>
+                  {`Plaid suggests: ${pfc}`}
+                </Text>
+              ) : null}
+
+              {group.count > 1 ? <GroupTransactions group={group} currency={currency} /> : null}
             </View>
-            {renderActions?.(group)}
-            {group.count > 1 ? <GroupTransactions group={group} currency={currency} /> : null}
-          </View>
-        ))}
+          );
+        })}
       </View>
 
       {hidden > 0 ? (
         <Button testID="needs-category-more" variant="secondary" iconAfter="chevron-down" style={{ marginTop: 16 }} onPress={() => setExpanded(true)}>
           {`Show ${hidden} more`}
         </Button>
+      ) : null}
+
+      {error ? (
+        <Text testID="needs-category-error" variant="body" color={ROLE.neg} accessibilityRole="alert" style={[SMALL, { marginTop: 12 }]}>
+          {error}
+        </Text>
       ) : null}
     </PixelFrame>
   );

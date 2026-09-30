@@ -1,14 +1,14 @@
 import { act } from "react-test-renderer";
 import { describe, expect, it, vi } from "vitest";
 import { COLOR, ROLE } from "../../lib/brand/shared";
-import type { LoadState } from "../../lib/api/load";
+import type { LoadState, MutationOutcome } from "../../lib/api/load";
 import type { ActivityExtras, NeedsCategoryGroup } from "../../lib/transactions/activity-api";
 import { SLICE } from "../../lib/transactions/activity-view";
 import type { MobileTransaction } from "../../lib/transactions/transactions-api";
 import type { LedgerState } from "../../lib/transactions/use-ledger";
 import { byTestId, flat, render, textContent, texts } from "../../test/render";
 import { ActivityView, type ActivityViewProps } from "./activity-view";
-import { formatNet, groupMeta } from "./needs-category";
+import { choiceOf, formatNet, groupMeta, humanizePfc, pickerOptions } from "./needs-category";
 import { AHEAD, withinReach } from "./show-more";
 
 // E1's ConnectBank runs native Plaid Link; here it only has to be the card's action.
@@ -77,6 +77,12 @@ function view(over: Partial<ActivityViewProps> = {}) {
     extras: extrasOf(),
     onRetryExtras: vi.fn(),
     kinds: new Map([["groceries", "expense"]]),
+    categories: [
+      { id: "groceries", name: "Groceries" },
+      { id: "dining", name: "Dining out" },
+    ],
+    onCategorize: vi.fn(async (): Promise<MutationOutcome> => ({ status: "ok" })),
+    onRescan: vi.fn(async (): Promise<MutationOutcome> => ({ status: "ok" })),
     onAdd: vi.fn(),
     onOpen: vi.fn(),
     ...over,
@@ -247,5 +253,73 @@ describe("failures", () => {
     const { r } = view({ notice: "Couldn't reach Budgts." });
     expect(textContent(byTestId(r, "activity-notice"))).toContain("Couldn't reach Budgts.");
     expect(rowTitles(r)).toEqual(["Shop a"]);
+  });
+});
+
+describe("Needs a category actions (web needs-category.tsx)", () => {
+  const one = (over: Partial<NeedsCategoryGroup> = {}) => extrasOf({ needsCategory: [group("m1", 2, over)], missingStandardCategories: ["Travel"] });
+  const hostsWith = (r: ReturnType<typeof render>, id: string) => r.root.findAll((n) => typeof n.type === "string" && n.props.testID === id);
+
+  it("offers a suggestion as a one-tap chip; a pick hides the group at once and sends it for the newest row", async () => {
+    let settle!: (o: MutationOutcome) => void;
+    const onCategorize = vi.fn(() => new Promise<MutationOutcome>((res) => (settle = res)));
+    const { r } = view({ extras: one({ suggestedCategoryId: "dining" }), onCategorize });
+    expect(textContent(byTestId(r, "needs-category"))).toContain("Looks like");
+    expect(byTestId(r, "needs-category-picker").props.accessibilityLabel).toBe("Category for Merchant m1, Choose another");
+    expect(hostsWith(r, "needs-category-hint")).toHaveLength(0);
+    await act(async () => byTestId(r, "needs-category-suggestion").props.onPress());
+    expect(onCategorize).toHaveBeenCalledWith("m1-1", { categoryId: "dining" });
+    expect(hostsWith(r, "needs-category")).toHaveLength(0); // hidden before the server answers
+    await act(async () => settle({ status: "ok" }));
+    expect(hostsWith(r, "needs-category")).toHaveLength(0);
+  });
+
+  it("without a suggestion: 'Choose a category' and Plaid's own guess as a hint", () => {
+    const { r } = view({ extras: one({ plaidCategoryPrimary: "FOOD_AND_DRINK" }) });
+    expect(byTestId(r, "needs-category-picker").props.accessibilityLabel).toBe("Category for Merchant m1, Choose a category");
+    expect(textContent(byTestId(r, "needs-category-hint"))).toBe("Plaid suggests: Food and drink");
+  });
+
+  it("the picker lists the categories, then the standard ones to restore under a heading", async () => {
+    const onCategorize = vi.fn(async (): Promise<MutationOutcome> => ({ status: "ok" }));
+    const { r } = view({ extras: one(), onCategorize });
+    act(() => byTestId(r, "needs-category-picker").props.onPress());
+    expect(textContent(byTestId(r, "needs-category-picker-option-dining"))).toContain("Dining out");
+    expect(byTestId(r, "needs-category-picker-option-__std_heading").props.accessibilityState).toMatchObject({ disabled: true });
+    await act(async () => byTestId(r, "needs-category-picker-option-std:Travel").props.onPress());
+    expect(onCategorize).toHaveBeenCalledWith("m1-1", { standardCategoryName: "Travel" });
+  });
+
+  it("a failed pick brings the group back and says why; a row already gone stays gone", async () => {
+    const failing = vi.fn(async (): Promise<MutationOutcome> => ({ status: "error", kind: "network", message: "Couldn't reach Budgts. Check your connection and try again." }));
+    const a = view({ extras: one({ suggestedCategoryId: "dining" }), onCategorize: failing }).r;
+    await act(async () => byTestId(a, "needs-category-suggestion").props.onPress());
+    expect(hostsWith(a, "needs-category-group")).toHaveLength(1);
+    expect(textContent(byTestId(a, "needs-category-error"))).toBe("Couldn't reach Budgts. Check your connection and try again.");
+
+    const gone = vi.fn(async (): Promise<MutationOutcome> => ({ status: "missing" }));
+    const b = view({ extras: one({ suggestedCategoryId: "dining" }), onCategorize: gone }).r;
+    await act(async () => byTestId(b, "needs-category-suggestion").props.onPress());
+    expect(hostsWith(b, "needs-category")).toHaveLength(0);
+  });
+
+  it("Re-scan shows it is working, and says why when it fails", async () => {
+    let settle!: (o: MutationOutcome) => void;
+    const onRescan = vi.fn(() => new Promise<MutationOutcome>((res) => (settle = res)));
+    const { r } = view({ extras: one(), onRescan });
+    expect(byTestId(r, "needs-category-rescan").props.accessibilityLabel).toBe("Re-scan");
+    await act(async () => void byTestId(r, "needs-category-rescan").props.onPress());
+    expect(byTestId(r, "needs-category-rescan").props.accessibilityLabel).toBe("Re-scanning…");
+    await act(async () => settle({ status: "error", kind: "locked", message: "Changes are paused." }));
+    expect(byTestId(r, "needs-category-rescan").props.accessibilityLabel).toBe("Re-scan");
+    expect(textContent(byTestId(r, "needs-category-error"))).toBe("Changes are paused.");
+  });
+
+  it("maps picks and Plaid's categories like the web", () => {
+    expect(choiceOf("std:Travel")).toEqual({ standardCategoryName: "Travel" });
+    expect(choiceOf("abc")).toEqual({ categoryId: "abc" });
+    expect(humanizePfc("GENERAL_MERCHANDISE")).toBe("General merchandise");
+    expect(humanizePfc(null)).toBeNull();
+    expect(pickerOptions([{ id: "a", name: "A" }], []).map((o) => o.value)).toEqual(["a"]);
   });
 });

@@ -125,6 +125,9 @@ export default function ActivityScreen() {
         extras={extras.state}
         onRetryExtras={() => void extras.reload()}
         kinds={kinds}
+        categories={cats ?? []}
+        onCategorize={commands.categorize}
+        onRescan={commands.rescan}
         onAdd={() => setSheet({ kind: "add" })}
         onOpen={(t) => setSheet({ kind: "view", t })}
       />

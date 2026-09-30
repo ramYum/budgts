@@ -1,8 +1,9 @@
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Pressable, View } from "react-native";
 import { COLOR, ROLE } from "../../lib/brand/shared";
-import type { LoadState } from "../../lib/api/load";
-import type { ActivityExtras, NeedsCategoryGroup } from "../../lib/transactions/activity-api";
+import type { LoadState, MutationOutcome } from "../../lib/api/load";
+import type { CategoryChoice } from "../../lib/transactions/use-transaction-commands";
+import type { ActivityExtras } from "../../lib/transactions/activity-api";
 import { KIND_OPTIONS, SLICE, dayTotals, filterActivity, type ActivityKind } from "../../lib/transactions/activity-view";
 import type { LedgerState } from "../../lib/transactions/use-ledger";
 import type { MobileTransaction } from "../../lib/transactions/transactions-api";
@@ -107,9 +108,10 @@ export type ActivityViewProps = {
   kinds: Map<string, "expense" | "income">;
   onAdd: () => void;
   onOpen: (t: MobileTransaction) => void;
-  /** a needs-category group's picker (the categorize flow) */
-  renderGroupActions?: (group: NeedsCategoryGroup) => ReactNode;
-  needsCategoryHeaderAction?: ReactNode;
+  /** the user's categories, for the needs-category picker */
+  categories: { id: string; name: string }[];
+  onCategorize: (anchorId: string, choice: CategoryChoice) => Promise<MutationOutcome>;
+  onRescan: () => Promise<MutationOutcome>;
 };
 
 /**
@@ -159,8 +161,10 @@ export function ActivityView(p: ActivityViewProps) {
           <NeedsCategory
             groups={extras.needsCategory}
             currency={p.currency}
-            renderActions={p.renderGroupActions}
-            headerAction={p.needsCategoryHeaderAction}
+            categories={p.categories}
+            missingStandard={extras.missingStandardCategories}
+            onCategorize={p.onCategorize}
+            onRescan={p.onRescan}
           />
         ) : null}
         {p.extras.status === "error" ? (

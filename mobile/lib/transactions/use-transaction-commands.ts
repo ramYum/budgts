@@ -9,7 +9,8 @@ import { draftToPayload, type TransactionDraft } from "./form";
 /**
  * The transaction commands the Activity sheets send, through the existing endpoints (rules: `src/lib/transactions/commands.ts`):
  * create (`POST /api/mobile/transactions`, with the form's request id so a retry lands once), edit and delete
- * (`PATCH` / `DELETE /api/mobile/transactions/:id`). A success refreshes Activity, Budgets and Home.
+ * (`PATCH` / `DELETE /api/mobile/transactions/:id`), and the "Needs a category" pick and Re-scan
+ * (`POST …/:id/categorize`, `POST …/rescan`). A success refreshes Activity, Budgets, Home and the header bell.
  */
 export function useTransactionCommands() {
   const { session } = useAuth();
@@ -29,8 +30,24 @@ export function useTransactionCommands() {
       update: async (id: string, draft: TransactionDraft) =>
         done(await mutate(() => authFetch(`/api/mobile/transactions/${id}`, sessionRef.current, jsonInit("PATCH", draftToPayload(draft))))),
       remove: async (id: string) => done(await mutate(() => authFetch(`/api/mobile/transactions/${id}`, sessionRef.current, { method: "DELETE" }))),
+      /** "Needs a category": one pick for a merchant group's anchor row; the server fills the merchant's other blank rows. */
+      categorize: async (anchorId: string, choice: CategoryChoice) =>
+        done(
+          await mutate(() =>
+            authFetch(
+              `/api/mobile/transactions/${anchorId}/categorize`,
+              sessionRef.current,
+              jsonInit("POST", "categoryId" in choice ? { categoryId: choice.categoryId } : { standardCategoryName: choice.standardCategoryName }),
+            ),
+          ),
+        ),
+      /** "Re-scan": the server re-runs its categorization evidence over the still-blank bank rows. */
+      rescan: async () => done(await mutate(() => authFetch("/api/mobile/transactions/rescan", sessionRef.current, jsonInit("POST", {})))),
     };
   }, []);
 }
+
+/** A picked existing category, or a standard one the user no longer has (restored as it is applied). */
+export type CategoryChoice = { categoryId: string } | { standardCategoryName: string };
 
 export type TransactionCommands = ReturnType<typeof useTransactionCommands>;

@@ -186,6 +186,8 @@ const commands = () => ({
   create: vi.fn(async (): Promise<MutationOutcome> => ({ status: "ok", id: "new" })),
   update: vi.fn(async (): Promise<MutationOutcome> => ({ status: "ok" })),
   remove: vi.fn(async (): Promise<MutationOutcome> => ({ status: "ok" })),
+  categorize: vi.fn(async (): Promise<MutationOutcome> => ({ status: "ok" })),
+  rescan: vi.fn(async (): Promise<MutationOutcome> => ({ status: "ok" })),
 });
 
 describe("Add and Edit sheets", () => {

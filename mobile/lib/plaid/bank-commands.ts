@@ -32,8 +32,9 @@ export async function runCommand(fetcher: () => Promise<Response>, m: Messages):
   if (r.status === 423) return { status: "error", message: LOCKED };
   if (r.status === 404) return { status: "error", message: m.missing };
   if (r.status === 409 && m.conflict) return { status: "error", message: m.conflict };
-  // an `invalid` reply carries the web's own sentence for it (mapAccounts: "Choose which Budgts account…")
-  if (r.code === "invalid" && r.fieldErrors?.form) return { status: "error", message: r.fieldErrors.form };
+  // an `invalid` reply carries the web's own sentence (mapAccounts: "Choose which Budgts account…"; a form's first field error)
+  const invalid = r.code === "invalid" ? (r.fieldErrors?.form ?? Object.values(r.fieldErrors ?? {})[0]) : undefined;
+  if (invalid) return { status: "error", message: invalid };
   return { status: "error", message: m.failed };
 }
 

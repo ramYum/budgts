@@ -18,7 +18,7 @@ const { width: ROBIN_WIDTH } = robinSize(SCALE);
 const SHADOW = { width: 56, height: 8 };
 
 /** `.pixel-corners`: a rectangle with 2px-stepped corners (globals.css), as a path. */
-function pixelCornersPath(w: number, h: number): string {
+export function pixelCornersPath(w: number, h: number): string {
   return [
     `M0 4H2V2H4V0H${w - 4}V2H${w - 2}V4H${w}`,
     `V${h - 4}H${w - 2}V${h - 2}H${w - 4}V${h}`,

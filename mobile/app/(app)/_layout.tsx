@@ -9,7 +9,7 @@ import { OutlineButton, PrimaryButton } from "../../components/ui";
 
 /**
  * The signed-in shell. It loads the profile first: a user who has not chosen a currency (a native-only signup) is held on
- * Get Started; everyone else gets the tabs. A failed profile load is a visible, retryable state — never a blank screen or a
+ * Get Started (Crystal's onboarding cards); everyone else gets the tabs. A failed profile load is a visible, retryable state — never a blank screen or a
  * guess about whether onboarding is done.
  */
 function Gate() {
@@ -45,7 +45,7 @@ function Gate() {
     <StatusProvider>
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
       <Stack.Protected guard={!onboarded}>
-        <Stack.Screen name="get-started" />
+        <Stack.Screen name="onboarding" />
       </Stack.Protected>
       <Stack.Protected guard={onboarded}>
         <Stack.Screen name="(tabs)" />

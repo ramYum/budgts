@@ -8,6 +8,7 @@ import { ChangeCard, RecentActivity, SavingsCard } from "./cards";
 import { HomeHeader } from "./home-header";
 import { MoneyLeftCard } from "./money-left";
 import { BudgetOverAlert, useOverAlertDismissed } from "./over-alert";
+import { RefreshNotice } from "./refresh-notice";
 import { WhereItWent } from "./where-it-went";
 
 /**
@@ -26,8 +27,13 @@ export function HomeView({
   onMonth,
   onAddIncome,
   onAddTransaction,
+  notice = null,
+  onRefresh,
 }: {
   home: MobileHome;
+  /** a refresh failed while these numbers were on screen */
+  notice?: string | null;
+  onRefresh?: () => void;
   /** the user's categories, for the chips of a month with no spending; null while they load */
   categories: MobileCategory[] | null;
   name: string;
@@ -56,6 +62,11 @@ export function HomeView({
 
   return (
     <View testID="home-view">
+      {notice && onRefresh ? (
+        <View style={{ marginBottom: 20 }}>
+          <RefreshNotice message={notice} onRetry={onRefresh} />
+        </View>
+      ) : null}
       <HomeHeader hour={hour} name={name} subtitle={subtitle(home)} month={home.month} onMonth={onMonth} />
 
       {/* the web's margins collapse here: 20px under the header before the warning, 48px (Crystal's ledge) above the hero */}

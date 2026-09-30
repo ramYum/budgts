@@ -272,3 +272,33 @@ describe("reading order", () => {
     expect(heads).toEqual(["Money left", "Where it went", "What can I change?", "Savings", "Recent activity"]);
   });
 });
+
+describe("a failed refresh", () => {
+  it("keeps the numbers and says so, with a way to refresh", () => {
+    const onRefresh = vi.fn();
+    const r = render(
+      <HomeView
+        home={full()}
+        categories={categories}
+        name="Alex"
+        hour={9}
+        go={() => {}}
+        onMonth={() => {}}
+        onAddIncome={() => {}}
+        onAddTransaction={() => {}}
+        notice="Couldn't reach Budgts. Check your connection and try again."
+        onRefresh={onRefresh}
+      />,
+    );
+    expect(textContent(byTestId(r, "home-refresh-notice"))).toBe(
+      "These numbers may be out of date. Couldn't reach Budgts. Check your connection and try again. Refresh.",
+    );
+    expect(byTestId(r, "home-money-left")).toBeTruthy();
+    byTestId(r, "home-refresh-notice-retry").props.onPress();
+    expect(onRefresh).toHaveBeenCalledOnce();
+  });
+
+  it("shows nothing extra when the last refresh landed", () => {
+    expect(view(full()).r.root.findAll((n) => n.props.testID === "home-refresh-notice")).toHaveLength(0);
+  });
+});

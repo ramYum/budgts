@@ -1,7 +1,7 @@
 import { act } from "react-test-renderer";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { COLOR, ROLE } from "../../lib/brand/shared";
-import { formatMoney } from "../../lib/home/format";
+import { formatMoney } from "../../lib/shared";
 import { GUIDE_COPY, type TourStepId } from "../../lib/tour/shared";
 import { byTestId, flat, hosts, render, textContent, texts } from "../../test/render";
 import { Text } from "../brand/text";

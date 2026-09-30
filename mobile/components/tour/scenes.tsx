@@ -4,7 +4,7 @@ import Animated, { steps } from "react-native-reanimated";
 import Svg, { Path } from "react-native-svg";
 import { COLOR, ROLE, type IconName } from "../../lib/brand/shared";
 import { textStyle } from "../../lib/brand/type";
-import { formatMoney } from "../../lib/home/format";
+import { formatMoney } from "../../lib/shared";
 import type { TourStepId } from "../../lib/tour/shared";
 import { pixelCornersPath } from "../brand/brand-stage";
 import { IconTile } from "../brand/controls";

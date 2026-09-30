@@ -1,4 +1,4 @@
-import type { TourStepId } from "@/lib/tour/steps";
+import type { TourStepId } from "../../lib/tour/steps.ts";
 
 /** The welcome guide's words, one entry per step, shared by /onboarding and
  * /tour (docs/specs/2026-09-25-welcome-guide-design.md). Crystal, the robin,

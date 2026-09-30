@@ -4,14 +4,23 @@ import { authFetch } from "../auth/api";
 import { useAuth } from "../auth/auth-context";
 import { jsonInit } from "../api/request";
 import { deviceTimeZone } from "../time-zone";
+import { completeTour as postCompleteTour, type CompleteTourResult } from "../tour/tour-api";
 import { loadProfile, saveCurrency, saveTimeZone, type ProfileState, type SaveCurrencyResult } from "./profile-api";
 
 type ProfileContextValue = {
   state: ProfileState;
   /** Re-reads the profile (shows `loading`). Used after onboarding and for "Try again". */
   reload: () => Promise<void>;
-  /** Saves the first-run currency and the device's time zone; on success (or "another device already did") reloads. */
+  /**
+   * Saves the first-run currency and the device's time zone. On success the profile is re-read in place (no loading
+   * flash), so the shell's gate moves straight on to the welcome guide; "another device already did" reloads.
+   */
   chooseCurrency: (currency: string) => Promise<SaveCurrencyResult>;
+  /** True once this device finished Get Started this session, until the guide is done: the tour skips the intro cards
+   * the user just saw and its progress continues from them (the web's `/tour?new=1`). */
+  justOnboarded: boolean;
+  /** The guide's last card or Skip: marks it seen on the server, then opens the app (the gate's `tourSeen`). */
+  completeTour: () => Promise<CompleteTourResult>;
 };
 
 const ProfileContext = createContext<ProfileContextValue | null>(null);
@@ -49,6 +58,7 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const [state, setState] = useState<ProfileState>({ status: "loading" });
+  const [justOnboarded, setJustOnboarded] = useState(false);
 
   const fetchProfile = useCallback(() => loadProfile(() => authFetch("/api/mobile/profile", sessionRef.current)), []);
 
@@ -93,13 +103,36 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
       const result = await saveCurrency(() =>
         authFetch("/api/mobile/onboarding", sessionRef.current, jsonInit("POST", { currency, time_zone: zone })),
       );
-      if (result.status === "saved" || result.status === "already_onboarded") await reload();
+      if (result.status === "saved") {
+        // Re-read in place: the onboarding card keeps "Saving…" until the gate swaps to the tour. A failed read shows
+        // the shell's error state with Try again; the currency is already saved, so nothing is lost.
+        const next = await fetchProfile();
+        if (alive.current) {
+          setJustOnboarded(true);
+          setState(next);
+        }
+      } else if (result.status === "already_onboarded") {
+        await reload();
+      }
       return result;
     },
-    [reload],
+    [fetchProfile, reload],
   );
 
-  const value = useMemo(() => ({ state, reload, chooseCurrency }), [state, reload, chooseCurrency]);
+  const completeTour = useCallback(async () => {
+    const result = await postCompleteTour(() => authFetch("/api/mobile/tour", sessionRef.current, jsonInit("POST", {})));
+    if (result.status === "done" && alive.current) {
+      // The server stamped it: the gate's flag follows what it confirmed (no second read needed).
+      setJustOnboarded(false);
+      setState((prev) => (prev.status === "ready" ? { status: "ready", profile: { ...prev.profile, tourSeen: true } } : prev));
+    }
+    return result;
+  }, []);
+
+  const value = useMemo(
+    () => ({ state, reload, chooseCurrency, justOnboarded, completeTour }),
+    [state, reload, chooseCurrency, justOnboarded, completeTour],
+  );
   return <ProfileContext.Provider value={value}>{children}</ProfileContext.Provider>;
 }
 

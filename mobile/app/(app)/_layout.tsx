@@ -1,16 +1,21 @@
-import { StyleSheet, Text, View } from "react-native";
+import { View } from "react-native";
 import { Stack } from "expo-router";
 import { useLoadingScreen } from "../../components/loading-screen";
+import { FirstRunFailure } from "../../components/tour/first-run-failure";
 import { useAuth } from "../../lib/auth/auth-context";
+import { ROLE } from "../../lib/brand/shared";
+import { firstRunHelpOpen, profileFailure, shellRoute } from "../../lib/profile/gate";
 import { ProfileProvider, useProfile } from "../../lib/profile/profile-context";
 import { StatusProvider } from "../../lib/status/status-context";
-import { colors, fonts, radii } from "../../lib/theme";
-import { OutlineButton, PrimaryButton } from "../../components/ui";
 
 /**
- * The signed-in shell. It loads the profile first: a user who has not chosen a currency (a native-only signup) is held on
- * Get Started; everyone else gets the tabs. A failed profile load is a visible, retryable state — never a blank screen or a
- * guess about whether onboarding is done.
+ * The signed-in shell. It loads the profile first, then applies the web's first-run gate (`shellRoute`, over
+ * src/lib/tour/gate.ts): Get Started until a currency is saved, then the welcome guide until it is finished or skipped,
+ * then the app. Each part of the app is its own protected set of screens, so the stack can only ever show the one the
+ * gate allows (the welcome guide stays open after it is seen, for a replay from More). Screens left undeclared are open
+ * whatever the gate says: `settings/delete-account` on purpose, reachable before onboarding as on the web. A failed
+ * profile read is a
+ * visible state with Try again and Sign out, never a blank screen or a guess about the gate.
  */
 function Gate() {
   const { state, reload } = useProfile();
@@ -18,41 +23,41 @@ function Gate() {
   // The egg loader covers the profile load (components/loading-screen.tsx), continuing from start-up.
   useLoadingScreen(state.status === "loading", "Loading your account");
 
-  if (state.status === "loading") return <View style={{ flex: 1, backgroundColor: colors.bg }} />;
+  if (state.status === "loading") return <View style={{ flex: 1, backgroundColor: ROLE.bg }} />;
 
   if (state.status === "error") {
-    const canRetry = state.kind !== "auth" && state.kind !== "profile_missing";
+    const f = profileFailure(state.kind);
     return (
-      <View style={styles.centered}>
-        <View style={styles.card} accessibilityRole="alert">
-          <Text style={styles.title}>Can&apos;t open your account</Text>
-          <Text style={styles.body}>{state.message}</Text>
-          {canRetry ? (
-            <PrimaryButton testID="shell-retry" onPress={() => void reload()}>
-              Try again
-            </PrimaryButton>
-          ) : null}
-          <OutlineButton testID="shell-sign-out" onPress={() => void signOut()}>
-            Sign out
-          </OutlineButton>
-        </View>
-      </View>
+      <FirstRunFailure
+        kind={f.kind}
+        detail={f.detail ? state.message : null}
+        canRetry={f.canRetry}
+        onRetry={() => void reload()}
+        onSignOut={() => void signOut()}
+      />
     );
   }
 
-  const onboarded = state.profile.onboarded;
+  const route = shellRoute(state.profile);
   return (
     <StatusProvider>
-    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
-      <Stack.Protected guard={!onboarded}>
-        <Stack.Screen name="get-started" />
-      </Stack.Protected>
-      <Stack.Protected guard={onboarded}>
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="transaction" options={{ presentation: "modal" }} />
-        <Stack.Screen name="settings/delete-account" />
-      </Stack.Protected>
-    </Stack>
+      {/* the first screen the gate allows is where the stack opens */}
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: ROLE.bg } }}>
+        <Stack.Protected guard={route === "app"}>
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="transaction" options={{ presentation: "modal" }} />
+        </Stack.Protected>
+        <Stack.Protected guard={route !== "onboarding"}>
+          <Stack.Screen name="tour" />
+        </Stack.Protected>
+        {/* How Budgts works from the guide's last card, while Help (inside the app) isn't open yet */}
+        <Stack.Protected guard={firstRunHelpOpen(route)}>
+          <Stack.Screen name="guide/how-it-works" />
+        </Stack.Protected>
+        <Stack.Protected guard={route === "onboarding"}>
+          <Stack.Screen name="onboarding" />
+        </Stack.Protected>
+      </Stack>
     </StatusProvider>
   );
 }
@@ -64,18 +69,3 @@ export default function AppLayout() {
     </ProfileProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  centered: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.bg, padding: 24 },
-  card: {
-    width: "100%",
-    backgroundColor: colors.surface,
-    borderRadius: radii.field,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 20,
-    gap: 12,
-  },
-  title: { fontFamily: fonts.semibold, fontSize: 18, color: colors.text },
-  body: { fontFamily: fonts.regular, fontSize: 14, color: colors.muted, lineHeight: 20 },
-});

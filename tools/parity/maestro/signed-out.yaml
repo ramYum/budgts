@@ -1,0 +1,5 @@
+# Parity capture: a clean, signed-out app (the account-deleted landing).
+appId: com.budgts.app
+---
+- launchApp:
+    clearState: true

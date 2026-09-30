@@ -1,4 +1,5 @@
 import type { Session } from "@supabase/supabase-js";
+import { devFaultResponse, installDevLinkListener } from "../dev/fault";
 
 export class NotAuthenticatedError extends Error {
   constructor() {
@@ -19,6 +20,11 @@ export async function authFetch(
   init: RequestInit = {},
 ): Promise<Response> {
   if (!session?.access_token) throw new NotAuthenticatedError();
+
+  // Dev builds only: the parity capture's `?fail=` / `?hold=` links (lib/dev/fault.ts). Inert in release.
+  installDevLinkListener();
+  const faulted = devFaultResponse(path);
+  if (faulted) return faulted;
 
   const apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
   if (!apiBaseUrl) {

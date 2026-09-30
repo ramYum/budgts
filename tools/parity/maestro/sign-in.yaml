@@ -1,0 +1,11 @@
+# Parity capture: a clean app, then the parity user's magic-link sign-in (tools/parity/capture-native.ts mints
+# TOKEN_HASH right before the run; it is single-use). Needs a dev build pointed at the local staging server.
+appId: com.budgts.app
+---
+- launchApp:
+    clearState: true
+- openLink: "budgts://auth/callback?token_hash=${TOKEN_HASH}&type=magiclink"
+- extendedWaitUntil:
+    visible:
+      id: "screen-root"
+    timeout: 45000

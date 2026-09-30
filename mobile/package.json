@@ -67,6 +67,13 @@
           "react-native-plaid-link-sdk"
         ]
       }
+    },
+    "autolinking": {
+      "android": {
+        "buildFromSource": [
+          "expo-splash-screen"
+        ]
+      }
     }
   }
 }

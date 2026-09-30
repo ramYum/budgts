@@ -18,9 +18,12 @@ const appRoot = join(__dirname, "..", "..");
 const expo = JSON.parse(readFileSync(join(appRoot, "app.json"), "utf8")).expo;
 
 describe("Android launch", () => {
-  it("never holds the window's first draw back (patched on install)", () => {
+  it("never holds the window's first draw back (patched on install, and built from that patched source)", () => {
     const pkg = JSON.parse(readFileSync(join(appRoot, "package.json"), "utf8"));
     expect(pkg.scripts.postinstall).toBe("patch-package");
+    // Expo ships its modules to Gradle prebuilt (node_modules/<pkg>/local-maven-repo): a patch to
+    // the Kotlin source changes nothing unless the module is built from source
+    expect(pkg.expo.autolinking.android.buildFromSource).toContain("expo-splash-screen");
     const version = JSON.parse(readFileSync(join(appRoot, "node_modules/expo-splash-screen/package.json"), "utf8")).version;
     // the patch is for exactly the installed version: patch-package refuses a mismatched one
     expect(existsSync(join(appRoot, `patches/expo-splash-screen+${version}.patch`))).toBe(true);

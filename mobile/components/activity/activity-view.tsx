@@ -11,7 +11,7 @@ import { Icon } from "../brand/icon";
 import { PixelFrame } from "../brand/pixel-frame";
 import { Robin } from "../brand/robin";
 import { Text } from "../brand/text";
-import { EmptyState } from "../kit/empty-state";
+import { Skeleton } from "../feedback/skeleton";
 import { MonthNav } from "../kit/month-nav";
 import { PageHeader } from "../kit/page-header";
 import { pressStyle } from "../kit/press";
@@ -97,10 +97,10 @@ export type ActivityViewProps = {
   /** the category the list is narrowed to (its name once the categories load), or null */
   category: { id: string; name: string } | null;
   onClearCategory: () => void;
+  /** the month once its first page is in (loading and a failed month are the screen's skeleton and failure states) */
   ledger: LedgerState;
   /** a failed pull to refresh: the list stays, this says why it isn't fresh */
   notice: string | null;
-  onRetry: () => void;
   onRetryRest: () => void;
   extras: LoadState<ActivityExtras>;
   onRetryExtras: () => void;
@@ -173,19 +173,6 @@ export function ActivityView(p: ActivityViewProps) {
 
         {showConnect ? <ConnectBankCard onConnect={p.onConnectBank} /> : null}
 
-        {p.ledger.status === "error" ? (
-          <EmptyState
-            testID="activity-error"
-            title="Couldn't load your transactions"
-            body={p.ledger.message}
-            action={
-              <Button testID="activity-retry" variant="secondary" onPress={p.onRetry}>
-                Try again
-              </Button>
-            }
-          />
-        ) : null}
-
         {items !== null && items.length === 0 ? <NoTransactions /> : null}
 
         {items !== null && items.length > 0 ? (
@@ -228,6 +215,13 @@ export function ActivityView(p: ActivityViewProps) {
               </>
             )}
           </>
+        ) : null}
+
+        {p.ledger.status === "ready" && p.ledger.cursor !== null && !p.ledger.restError ? (
+          <View testID="activity-rest-loading" accessibilityLabel="Loading the rest of the month" style={{ gap: 8 }}>
+            <Skeleton width="100%" height={56} />
+            <Skeleton width="100%" height={56} />
+          </View>
         ) : null}
 
         {p.ledger.status === "ready" && p.ledger.restError ? (

@@ -1,4 +1,4 @@
-import type { LoadState } from "../api/load";
+import type { LoadErrorKind, LoadState } from "../api/load";
 import { mergePages, type TransactionsPage } from "./transactions-api";
 
 type Settled<T> = Exclude<LoadState<T>, { status: "loading" }>;
@@ -9,7 +9,7 @@ export const LEDGER_PAGE = 100;
 export type FetchPage = (cursor: string | null) => Promise<Settled<TransactionsPage>>;
 
 export type LedgerProgress =
-  | { status: "error"; message: string }
+  | { status: "error"; kind: LoadErrorKind; message: string }
   /** `cursor` is where the next page starts; null once the month is complete. `restError` is a later page that failed. */
   | { status: "ready"; page: TransactionsPage; cursor: string | null; restError: string | null };
 
@@ -33,7 +33,7 @@ export async function loadLedger(
     if (!opts.isCurrent()) return null;
     let out: LedgerProgress;
     if (r.status === "error") {
-      out = page ? { status: "ready", page, cursor, restError: r.message } : { status: "error", message: r.message };
+      out = page ? { status: "ready", page, cursor, restError: r.message } : { status: "error", kind: r.kind, message: r.message };
     } else {
       page = page ? mergePages(page, r.data) : r.data;
       cursor = r.data.nextCursor;

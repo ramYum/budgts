@@ -67,7 +67,6 @@ function view(over: Partial<ActivityViewProps> = {}) {
     onClearCategory: vi.fn(),
     ledger: ready([txn("a")]),
     notice: null,
-    onRetry: vi.fn(),
     onRetryRest: vi.fn(),
     extras: extrasOf(),
     onRetryExtras: vi.fn(),
@@ -226,11 +225,10 @@ describe("panels (GET /api/mobile/activity)", () => {
 });
 
 describe("failures", () => {
-  it("a failed month shows why and Try again", () => {
-    const { r, props } = view({ ledger: { status: "error", message: "Couldn't reach Budgts. Check your connection and try again." } });
-    expect(textContent(byTestId(r, "activity-error"))).toContain("Couldn't load your transactions");
-    act(() => byTestId(r, "activity-retry").props.onPress());
-    expect(props.onRetry).toHaveBeenCalled();
+  it("while the rest of the month loads, a skeleton footer; nothing once it is all in", () => {
+    expect(has(view({ ledger: ready([txn("a")], { cursor: "c1" }) }).r, "activity-rest-loading")).toBe(1);
+    expect(has(view().r, "activity-rest-loading")).toBe(0);
+    expect(has(view({ ledger: ready([txn("a")], { cursor: "c1", restError: "x" }) }).r, "activity-rest-loading")).toBe(0);
   });
 
   it("a later page that failed keeps the rows and offers to load the rest", () => {

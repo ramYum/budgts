@@ -35,7 +35,7 @@ describe("loadLedger: every row of the month, page after page", () => {
 
   it("fails as a whole when the first page fails", async () => {
     const { fetchPage } = pages({ first: fail });
-    expect(await loadLedger(fetchPage, { isCurrent: () => true })).toEqual({ status: "error", message: fail.message });
+    expect(await loadLedger(fetchPage, { isCurrent: () => true })).toEqual({ status: "error", kind: "network", message: fail.message });
   });
 
   it("keeps the rows already loaded when a later page fails, with the cursor to resume from", async () => {

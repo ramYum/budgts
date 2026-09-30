@@ -8,3 +8,9 @@ vi.mock("react-native-worklets", async () => (await import("./native-hosts")).wo
 
 // Metro defines __DEV__; development builds are what the tests stand for.
 (globalThis as { __DEV__?: boolean }).__DEV__ = true;
+
+// Safe-area insets: none by default (a test mocks the module itself to set them).
+vi.mock("react-native-safe-area-context", async () => ({
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+  SafeAreaView: (await import("./native-hosts")).reactNativeMock().View,
+}));

@@ -1,4 +1,4 @@
-import { forwardRef, useState } from "react";
+import { forwardRef, useImperativeHandle, useRef, useState } from "react";
 import {
   Pressable,
   TextInput,
@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { COLOR, MOTION, PLACEHOLDER, ROLE, SPACE, type IconName } from "../../lib/brand/shared";
 import { textStyle } from "../../lib/brand/type";
+import { useSheetFocus } from "../kit/overlay";
 import { Icon } from "./icon";
 import { PixelFrame } from "./pixel-frame";
 import { Text } from "./text";
@@ -105,6 +106,10 @@ export const Field = forwardRef<TextInput, FieldProps>(function Field(
   ref,
 ) {
   const [focused, setFocused] = useState(false);
+  const input = useRef<TextInput>(null);
+  useImperativeHandle(ref, () => input.current as TextInput);
+  // In a bottom sheet, a focused field scrolls itself above the keyboard (kit/overlay.tsx).
+  const revealInSheet = useSheetFocus();
   const state = invalid ? "[data-invalid='true']" : focused ? ":focus-within" : "";
   return (
     <View style={{ gap: 6 }}>
@@ -113,7 +118,7 @@ export const Field = forwardRef<TextInput, FieldProps>(function Field(
       </Text>
       <PixelFrame frame="px-field" state={state} style={{ height: SPACE.field }}>
         <TextInput
-          ref={ref}
+          ref={input}
           {...rest}
           editable={editable}
           accessibilityLabel={label}
@@ -123,6 +128,7 @@ export const Field = forwardRef<TextInput, FieldProps>(function Field(
           selectionColor={COLOR.signal}
           onFocus={(e) => {
             setFocused(true);
+            revealInSheet?.(input.current);
             onFocus?.(e);
           }}
           onBlur={(e) => {

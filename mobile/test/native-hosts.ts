@@ -20,7 +20,10 @@ function host(name: string) {
 export const reactNativeMock = () => ({
   View: host("View"),
   Text: host("Text"),
-  TextInput: host("TextInput"),
+  TextInput: Object.assign(host("TextInput"), { State: { currentlyFocusedInput: () => null } }),
+  Modal: host("Modal"),
+  KeyboardAvoidingView: host("KeyboardAvoidingView"),
+  Keyboard: { addListener: () => ({ remove: () => {} }), dismiss: () => {} },
   Pressable: host("Pressable"),
   ScrollView: host("ScrollView"),
   RefreshControl: host("RefreshControl"),

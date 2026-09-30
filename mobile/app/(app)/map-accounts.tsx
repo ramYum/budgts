@@ -25,7 +25,7 @@ export default function MapAccountsScreen() {
   const { session } = useAuth();
   const { plaidItemId } = useLocalSearchParams<{ plaidItemId: string }>();
 
-  const banks = useResource("banks-for-mapping", (s) => loadResource(() => authFetch("/api/mobile/plaid/banks", s), parseBanks));
+  const banks = useResource("banks-for-mapping", (s) => loadResource(() => authFetch("/api/mobile/plaid/banks", s), (b) => parseBanks(b).banks));
   const accounts = useResource("accounts-for-mapping", (s) => loadResource(() => authFetch("/api/mobile/accounts", s), parseAccounts));
 
   const bank = banks.state.status === "ready" ? banks.state.data.find((b) => b.id === plaidItemId) : undefined;

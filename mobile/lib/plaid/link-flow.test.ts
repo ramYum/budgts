@@ -8,6 +8,7 @@ function fakeLink(outcome: Awaited<ReturnType<PlaidLinkClient["open"]>>, availab
 }
 
 const OK_TOKEN = { status: "ok" as const, linkToken: "link-token-1" };
+const PA1 = { plaidAccountId: "pa1", name: "Checking", officialName: null, mask: "0000", type: "depository", subtype: "checking", currentBalance: 10000, isoCurrencyCode: "USD" };
 
 describe("connectBank", () => {
   it("is unavailable when the native SDK cannot run here (e.g. Expo Go), without minting a token", async () => {
@@ -29,33 +30,40 @@ describe("connectBank", () => {
 
   it("passes the platform through to link-token minting so the server can add native Link params", async () => {
     const fetchLinkToken = vi.fn(async () => OK_TOKEN);
-    await connectBank({ link: fakeLink({ kind: "exit", errorMessage: null }), fetchLinkToken, exchange: vi.fn() }, "ios");
+    await connectBank({ link: fakeLink({ kind: "exit" }), fetchLinkToken, exchange: vi.fn() }, "ios");
     expect(fetchLinkToken).toHaveBeenCalledWith({ platform: "ios" });
   });
 
   it("reports cancelled on a plain exit with no error", async () => {
-    const deps: ConnectDeps = { link: fakeLink({ kind: "exit", errorMessage: null }), fetchLinkToken: async () => OK_TOKEN, exchange: vi.fn() };
+    const deps: ConnectDeps = { link: fakeLink({ kind: "exit" }), fetchLinkToken: async () => OK_TOKEN, exchange: vi.fn() };
     expect(await connectBank(deps)).toEqual({ status: "cancelled" });
   });
 
-  it("reports the Link SDK's exit error when there is one", async () => {
-    const deps: ConnectDeps = {
-      link: fakeLink({ kind: "exit", errorMessage: "INSTITUTION_NOT_RESPONDING" }),
-      fetchLinkToken: async () => OK_TOKEN,
-      exchange: vi.fn(),
-    };
-    expect(await connectBank(deps)).toEqual({ status: "error", message: "INSTITUTION_NOT_RESPONDING" });
+  it("reports a Link that could not start as an error, never a rejection that leaves the button busy", async () => {
+    const link: PlaidLinkClient = { isAvailable: () => true, open: vi.fn(async () => Promise.reject(new Error("native"))) };
+    const exchange = vi.fn();
+    expect(await connectBank({ link, fetchLinkToken: async () => OK_TOKEN, exchange })).toEqual({
+      status: "error",
+      message: "Couldn't open the bank connection. Try again.",
+    });
+    expect(exchange).not.toHaveBeenCalled();
+    const sync = vi.fn();
+    expect(await reconnectBank({ link, fetchLinkToken: async () => OK_TOKEN, sync }, "x")).toEqual({
+      status: "error",
+      message: "Couldn't open the bank connection. Try again.",
+    });
+    expect(sync).not.toHaveBeenCalled();
   });
 
   it("exchanges on success and reports the unmapped accounts to map next", async () => {
-    const exchange = vi.fn(async () => ({ status: "ok" as const, plaidItemId: "row-1", accounts: [{ plaidAccountId: "pa1", name: "Checking" }] }));
+    const exchange = vi.fn(async () => ({ status: "ok" as const, plaidItemId: "row-1", accounts: [PA1] }));
     const deps: ConnectDeps = {
       link: fakeLink({ kind: "success", publicToken: "pub-1", institution: { id: "ins_1", name: "First Platypus Bank" } }),
       fetchLinkToken: async () => OK_TOKEN,
       exchange,
     };
     const r = await connectBank(deps);
-    expect(r).toEqual({ status: "linked", plaidItemId: "row-1", accounts: [{ plaidAccountId: "pa1", name: "Checking" }] });
+    expect(r).toEqual({ status: "linked", plaidItemId: "row-1", accounts: [PA1] });
     expect(exchange).toHaveBeenCalledWith("pub-1", { id: "ins_1", name: "First Platypus Bank" });
   });
 
@@ -63,9 +71,9 @@ describe("connectBank", () => {
     const deps: ConnectDeps = {
       link: fakeLink({ kind: "success", publicToken: "pub-1", institution: null }),
       fetchLinkToken: async () => OK_TOKEN,
-      exchange: async () => ({ status: "already_linked", itemId: "plaid-item-1" }),
+      exchange: async () => ({ status: "already_linked" }),
     };
-    expect(await connectBank(deps)).toEqual({ status: "already_linked", itemId: "plaid-item-1" });
+    expect(await connectBank(deps)).toEqual({ status: "already_linked" });
   });
 
   it("reports an exchange failure without crashing", async () => {
@@ -97,7 +105,7 @@ describe("reconnectBank", () => {
 
   it("does not sync on cancel/exit/unavailable/error", async () => {
     const sync = vi.fn();
-    expect(await reconnectBank({ link: fakeLink({ kind: "exit", errorMessage: null }), fetchLinkToken: async () => OK_TOKEN, sync }, "x")).toEqual({ status: "cancelled" });
+    expect(await reconnectBank({ link: fakeLink({ kind: "exit" }), fetchLinkToken: async () => OK_TOKEN, sync }, "x")).toEqual({ status: "cancelled" });
     expect(await reconnectBank({ link: fakeLink({ kind: "success", publicToken: "p", institution: null }, false), fetchLinkToken: async () => OK_TOKEN, sync }, "x")).toEqual({
       status: "unavailable",
     });

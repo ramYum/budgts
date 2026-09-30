@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../../lib/auth/auth-context";
 import { authFetch } from "../../lib/auth/api";
 import { jsonInit } from "../../lib/api/request";
+import type { UnmappedAccount } from "../../lib/plaid/banks-api";
 import { connectBank } from "../../lib/plaid/link-flow";
 import { createPlaidLinkClient, currentPlatform } from "../../lib/plaid/plaid-link-native";
 import { useProfile } from "../../lib/profile/profile-context";
@@ -63,7 +64,7 @@ export default function GetStartedScreen() {
             session,
             jsonInit("POST", { public_token: publicToken, institution: institution ? { institution_id: institution.id, name: institution.name } : undefined }),
           );
-          const j = (await res.json()) as { plaidItemId?: string; accounts?: { plaidAccountId: string; name: string | null }[] };
+          const j = (await res.json()) as { plaidItemId?: string; accounts?: UnmappedAccount[] };
           return res.ok && j.plaidItemId && j.accounts ? { status: "ok", plaidItemId: j.plaidItemId, accounts: j.accounts } : { status: "error", message: "Couldn't finish connecting the bank." };
         },
       },

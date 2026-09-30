@@ -1,4 +1,5 @@
-import type { LinkPlatform, PlaidLinkClient } from "./plaid-link";
+import type { UnmappedAccount } from "./banks-api";
+import type { LinkPlatform, PlaidLinkClient, PlaidLinkOutcome } from "./plaid-link";
 
 /**
  * The Plaid Link FLOW: mint a token, open Link, and turn the result into one of a fixed set of outcomes a screen can
@@ -8,16 +9,16 @@ import type { LinkPlatform, PlaidLinkClient } from "./plaid-link";
  */
 export type LinkTokenResult = { status: "ok"; linkToken: string } | { status: "error"; message: string };
 export type ExchangeResult =
-  | { status: "ok"; plaidItemId: string; accounts: { plaidAccountId: string; name: string | null }[] }
-  | { status: "already_linked"; itemId: string }
+  | { status: "ok"; plaidItemId: string; accounts: UnmappedAccount[] }
+  | { status: "already_linked" }
   | { status: "error"; message: string };
 export type SyncResult = { status: "ok" } | { status: "error"; message: string };
 
 export type ConnectOutcome =
   | { status: "unavailable" }
   | { status: "cancelled" }
-  | { status: "linked"; plaidItemId: string; accounts: { plaidAccountId: string; name: string | null }[] }
-  | { status: "already_linked"; itemId: string }
+  | { status: "linked"; plaidItemId: string; accounts: UnmappedAccount[] }
+  | { status: "already_linked" }
   | { status: "error"; message: string };
 
 export interface ConnectDeps {
@@ -28,6 +29,17 @@ export interface ConnectDeps {
   exchange: (publicToken: string, institution: { id: string; name: string } | null) => Promise<ExchangeResult>;
 }
 
+const LINK_FAILED = "Couldn't open the bank connection. Try again.";
+
+/** Link's own outcome, or "failed" when it could not start: a rejection never escapes to leave a button stuck. */
+async function openLink(link: PlaidLinkClient, linkToken: string): Promise<PlaidLinkOutcome | "failed"> {
+  try {
+    return await link.open(linkToken);
+  } catch {
+    return "failed";
+  }
+}
+
 /** Connect a new bank: mint a token, open Link, exchange on success. */
 export async function connectBank(deps: ConnectDeps, platform?: LinkPlatform): Promise<ConnectOutcome> {
   if (!deps.link.isAvailable()) return { status: "unavailable" };
@@ -35,14 +47,13 @@ export async function connectBank(deps: ConnectDeps, platform?: LinkPlatform): P
   const token = await deps.fetchLinkToken(platform ? { platform } : {});
   if (token.status === "error") return { status: "error", message: token.message };
 
-  const outcome = await deps.link.open(token.linkToken);
-  if (outcome.kind === "exit") {
-    return outcome.errorMessage ? { status: "error", message: outcome.errorMessage } : { status: "cancelled" };
-  }
+  const outcome = await openLink(deps.link, token.linkToken);
+  if (outcome === "failed") return { status: "error", message: LINK_FAILED };
+  if (outcome.kind === "exit") return { status: "cancelled" };
 
   const exchanged = await deps.exchange(outcome.publicToken, outcome.institution);
   if (exchanged.status === "ok") return { status: "linked", plaidItemId: exchanged.plaidItemId, accounts: exchanged.accounts };
-  if (exchanged.status === "already_linked") return { status: "already_linked", itemId: exchanged.itemId };
+  if (exchanged.status === "already_linked") return { status: "already_linked" };
   return { status: "error", message: exchanged.message };
 }
 
@@ -62,10 +73,9 @@ export async function reconnectBank(deps: ReconnectDeps, itemId: string, platfor
   const token = await deps.fetchLinkToken({ itemId, ...(platform ? { platform } : {}) });
   if (token.status === "error") return { status: "error", message: token.message };
 
-  const outcome = await deps.link.open(token.linkToken);
-  if (outcome.kind === "exit") {
-    return outcome.errorMessage ? { status: "error", message: outcome.errorMessage } : { status: "cancelled" };
-  }
+  const outcome = await openLink(deps.link, token.linkToken);
+  if (outcome === "failed") return { status: "error", message: LINK_FAILED };
+  if (outcome.kind === "exit") return { status: "cancelled" };
 
   const result = await deps.sync(itemId);
   return result.status === "ok" ? { status: "ok" } : { status: "error", message: result.message };

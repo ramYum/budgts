@@ -60,8 +60,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     const { data: subscription } = supabase.auth.onAuthStateChange((event, nextSession) => {
       // Nothing reaches a screen before the launch check above has run: it decides the first session, and a startup
-      // refresh (or any other event) of a stored session it may refuse must not slip in first.
-      if (!started) return;
+      // refresh (or any other event) of a stored session it may refuse must not slip in first. The guard still hears a
+      // launch refusal's completed sign-out, which ends the stored re-sign-in (Y-b); the screen doesn't.
+      if (!started) {
+        if (event === "SIGNED_OUT") reauthVerdict(event, null);
+        return;
+      }
       // A re-sign-in that came back as another account is never shown: sign this phone out. Deferred: the listener
       // must not call back into supabase-js while it is still announcing. If the sign-out fails, show nobody.
       if (reauthVerdict(event, nextSession?.user.id ?? null) === "reject") {

@@ -164,6 +164,30 @@ describe("Y1: the launch after a process killed mid re-sign-in", () => {
     expect(takeReturnAfterSignIn("alice")).toBe("/settings/delete-account?step=confirm");
   });
 
+  it("Y-b: a launch refusal's completed sign-out ends the re-sign-in on disk too, so B signing in on purpose stays", async () => {
+    await expectReauthAs("alice");
+    resetReauthGuard();
+    h.stored = "bob";
+    // as auth-js does: the stored session goes and SIGNED_OUT is emitted inside signOut
+    h.signOut.mockImplementation(async () => {
+      h.stored = null;
+      h.listener!("SIGNED_OUT", null);
+      return { error: null };
+    });
+    const first = await mount();
+    expect(seen).toBeNull();
+    expect(h.disk.has("budgts.reauth-expected")).toBe(false);
+    act(() => first.unmount());
+
+    // bob signs in on purpose, then the app is relaunched within the hour
+    resetReauthGuard();
+    h.stored = "bob";
+    h.signOut.mockClear();
+    await mount();
+    expect(seen).toBe("bob");
+    expect(h.signOut).not.toHaveBeenCalled();
+  });
+
   it("G-a: no auth event reaches the screen before the launch check has run", async () => {
     await expectReauthAs("alice");
     resetReauthGuard();

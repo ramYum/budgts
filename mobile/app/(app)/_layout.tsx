@@ -12,7 +12,9 @@ import { StatusProvider } from "../../lib/status/status-context";
  * The signed-in shell. It loads the profile first, then applies the web's first-run gate (`shellRoute`, over
  * src/lib/tour/gate.ts): Get Started until a currency is saved, then the welcome guide until it is finished or skipped,
  * then the app. Each part of the app is its own protected set of screens, so the stack can only ever show the one the
- * gate allows (the welcome guide stays open after it is seen, for a replay from More). A failed profile read is a
+ * gate allows (the welcome guide stays open after it is seen, for a replay from More). Screens left undeclared are open
+ * whatever the gate says: `settings/delete-account` on purpose, reachable before onboarding as on the web. A failed
+ * profile read is a
  * visible state with Try again and Sign out, never a blank screen or a guess about the gate.
  */
 function Gate() {
@@ -44,8 +46,6 @@ function Gate() {
         <Stack.Protected guard={route === "app"}>
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="transaction" options={{ presentation: "modal" }} />
-          <Stack.Screen name="map-accounts" options={{ presentation: "modal" }} />
-          <Stack.Screen name="delete-account" />
         </Stack.Protected>
         <Stack.Protected guard={route !== "onboarding"}>
           <Stack.Screen name="tour" />

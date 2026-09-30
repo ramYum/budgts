@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { View } from "react-native";
 import { useRouter } from "expo-router";
 import { useLoadingScreen } from "../../components/loading-screen";
-import { ConnectBank } from "../../components/tour/connect-bank";
+import { ConnectBank } from "../../components/banks/connect-bank";
 import { FirstRunFailure } from "../../components/tour/first-run-failure";
 import { TourView } from "../../components/tour/tour-view";
 import { loadResource } from "../../lib/api/load";

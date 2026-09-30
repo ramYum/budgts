@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { AnchorHTMLAttributes, ButtonHTMLAttributes, CSSProperties, ReactNode, Ref, SelectHTMLAttributes } from "react";
+import { categoryIcon } from "@/lib/brand/category-icon";
 import { Icon, type IconName } from "./icon";
 
 /** Shared design-system primitives. Components consume the semantic tokens in
@@ -342,23 +343,7 @@ export function IconTile({
   );
 }
 
-const CATEGORY_ICON: Record<string, IconName> = {
-  Housing: "home",
-  Transportation: "car",
-  "Food / Groceries": "cart",
-  Entertainment: "gamepad",
-  "Personal Care": "heart",
-  Insurances: "shield",
-  Salary: "briefcase",
-  "Other Income": "trending-up",
-  Transfer: "transfer",
-};
-
-/** A category's glyph: the standard categories have their own, anything
- * custom (or unmapped) gets a tag. */
-export function categoryIcon(name: string): IconName {
-  return CATEGORY_ICON[name] ?? "tag";
-}
+export { categoryIcon };
 
 /** A category's icon on a quiet tile. Monochrome on purpose: the accent is
  * reserved for state (`tone="wash"` marks an over/unplanned category), so

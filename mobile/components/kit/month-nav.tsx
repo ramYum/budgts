@@ -1,0 +1,47 @@
+import { Pressable, View } from "react-native";
+import { ROLE, type IconName } from "../../lib/brand/shared";
+import { shiftMonth } from "../../lib/dates";
+import { formatMonthLabel } from "../../lib/home/format";
+import { Icon } from "../brand/icon";
+import { PixelFrame } from "../brand/pixel-frame";
+import { Text } from "../brand/text";
+import { pressStyle } from "./press";
+
+function Step({ icon, label, onPress, testID }: { icon: IconName; label: string; onPress: () => void; testID: string }) {
+  return (
+    <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={label} onPress={onPress} hitSlop={4}>
+      {({ pressed }) => (
+        <PixelFrame
+          frame="px-step"
+          state={pressed ? ":hover" : ""}
+          style={[{ width: 36, height: 36, alignItems: "center", justifyContent: "center" }, pressStyle(pressed)]}
+        >
+          <Icon name={icon} color={ROLE.ink} />
+        </PixelFrame>
+      )}
+    </Pressable>
+  );
+}
+
+/** "September 2026 ‹ ›" (web `MonthNav`). The month key comes from the server; the arrows only step the key. */
+export function MonthNav({
+  month,
+  onChange,
+  testID = "month-nav",
+}: {
+  month: string;
+  onChange: (month: string) => void;
+  testID?: string;
+}) {
+  return (
+    <View testID={testID} style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+      <Text testID={`${testID}-label`} variant="bodyStrong" color={ROLE.ink} numberOfLines={1} style={{ fontVariant: ["tabular-nums"] }}>
+        {formatMonthLabel(month)}
+      </Text>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+        <Step testID={`${testID}-prev`} icon="chevron-left" label="Previous month" onPress={() => onChange(shiftMonth(month, -1))} />
+        <Step testID={`${testID}-next`} icon="chevron-right" label="Next month" onPress={() => onChange(shiftMonth(month, 1))} />
+      </View>
+    </View>
+  );
+}

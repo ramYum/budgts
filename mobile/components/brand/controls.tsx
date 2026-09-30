@@ -1,6 +1,5 @@
 import { forwardRef, useState } from "react";
 import {
-  ActivityIndicator,
   Pressable,
   TextInput,
   View,
@@ -32,7 +31,7 @@ export type ButtonProps = Omit<PressableProps, "children" | "style"> & {
   icon?: IconName;
   /** a trailing arrow, for "go on" steps */
   arrow?: boolean;
-  /** shows a spinner in place of the icons and keeps the label */
+  /** the web's pending state: the disabled frame and a muted label (pass the pending label, e.g. "Sending…"); busy to a screen reader */
   loading?: boolean;
   style?: StyleProp<ViewStyle>;
   children: string;
@@ -51,7 +50,7 @@ export function Button({
 }: ButtonProps) {
   const off = !!disabled || loading;
   const labelColor = variant === "primary" ? COLOR.white : variant === "danger" ? COLOR.signalInk : ROLE.ink;
-  const color = off && !loading ? ROLE.muted : labelColor;
+  const color = off ? ROLE.muted : labelColor;
   return (
     <Pressable
       accessibilityRole="button"
@@ -63,7 +62,7 @@ export function Button({
       {...rest}
     >
       {({ pressed }) => {
-        const state = off && !loading ? ":disabled" : pressed && variant !== "primary" ? ":hover" : "";
+        const state = off ? ":disabled" : pressed && variant !== "primary" ? ":hover" : "";
         const sunk = pressed && variant === "primary";
         return (
           <PixelFrame
@@ -82,7 +81,7 @@ export function Button({
               transform: sunk ? [{ translateY: 2 }] : pressed ? [{ scale: MOTION.pressScale }] : [],
             }}
           >
-            {loading ? <ActivityIndicator size="small" color={labelColor} /> : icon ? <Icon name={icon} color={color} /> : null}
+            {icon ? <Icon name={icon} color={color} /> : null}
             <Text variant="button" color={color} numberOfLines={1}>
               {children}
             </Text>
@@ -203,12 +202,12 @@ const TILE: Record<TileTone, { frame: string; color: string }> = {
   growth: { frame: "px-tile-growth", color: ROLE.pos },
 };
 
-/** An icon on a quiet stepped tile, 32px; the icon stays 24px so its cells stay whole. */
-export function IconTile({ name, tone = "gray" }: { name: IconName; tone?: TileTone }) {
+/** An icon on a quiet stepped tile, 32px unless sized; the icon stays 24px so its cells stay whole. */
+export function IconTile({ name, tone = "gray", size = SPACE.tile }: { name: IconName; tone?: TileTone; size?: number }) {
   return (
     <PixelFrame
       frame={TILE[tone].frame}
-      style={{ width: SPACE.tile, height: SPACE.tile, alignItems: "center", justifyContent: "center" }}
+      style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}
     >
       {/* 24px in a 20px frame interior, centred as on the web: 4px from each edge */}
       <Icon name={name} color={TILE[tone].color} />

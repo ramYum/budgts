@@ -1,62 +1,42 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { authFetch } from "../auth/api";
-import { useAuth } from "../auth/auth-context";
-import { loadHome, type HomeState } from "./load-home";
+import { useVersion } from "../api/invalidate";
+import { loadResource } from "../api/load";
+import { useResource } from "../api/use-resource";
+import { parseMobileHome } from "./contract";
+
+/** `GET /api/mobile/home`, for a browsed month (`YYYY-MM`) or, without one, the user's own current month. */
+export const homePath = (month: string | null) => (month ? `/api/mobile/home?month=${month}` : "/api/mobile/home");
 
 /**
- * Loads the Home view-model from `GET /api/mobile/home` with the current
- * Supabase session's Bearer token. The initial load shows `loading`; a
- * pull-to-refresh that fails keeps the numbers already on screen and reports a
- * `notice` instead of blanking them.
+ * Home's data: every figure computed by the server (`loadHome`, the web Home's own reads and math), validated against the
+ * contract. A new month loads afresh (the skeleton, as the web's navigation shows its loading screen). A save or a bank
+ * sync (`invalidate("home")`) reloads in place, the numbers staying on screen until the new ones land, as the web's
+ * `router.refresh()` does; only the user's own pull shows the pull indicator.
  */
-export function useHome() {
-  const { session } = useAuth();
-  const [state, setState] = useState<HomeState>({ status: "loading" });
-  const [refreshing, setRefreshing] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
+export function useHome(month: string | null) {
+  const resource = useResource(`home:${month ?? "current"}`, (session) =>
+    loadResource(() => authFetch(homePath(month), session), parseMobileHome),
+  );
+  const { refresh } = resource;
 
-  // Token refreshes swap the session object; the loader must not re-run (and
-  // flash `loading`) every time that happens, so read it through a ref.
-  const sessionRef = useRef(session);
+  const version = useVersion("home");
+  const seen = useRef(version);
   useEffect(() => {
-    sessionRef.current = session;
-  }, [session]);
+    if (version === seen.current) return;
+    seen.current = version;
+    void refresh();
+  }, [version, refresh]);
 
-  const alive = useRef(true);
-  useEffect(() => {
-    alive.current = true;
-    return () => {
-      alive.current = false;
-    };
-  }, []);
-
-  const fetchHome = useCallback(() => loadHome(() => authFetch("/api/mobile/home", sessionRef.current)), []);
-
-  const load = useCallback(async () => {
-    setNotice(null);
-    setState({ status: "loading" });
-    const next = await fetchHome();
-    if (alive.current) setState(next);
-  }, [fetchHome]);
-
-  const refresh = useCallback(async () => {
-    setRefreshing(true);
-    const next = await fetchHome();
-    if (!alive.current) return;
-    if (next.status === "ready") {
-      setNotice(null);
-      setState(next);
-    } else {
-      // Keep whatever is on screen if we already have numbers.
-      setState((prev) => (prev.status === "ready" ? prev : next));
-      setNotice(next.message);
+  const [pulling, setPulling] = useState(false);
+  const pull = useCallback(async () => {
+    setPulling(true);
+    try {
+      await refresh();
+    } finally {
+      setPulling(false);
     }
-    setRefreshing(false);
-  }, [fetchHome]);
+  }, [refresh]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  return { state, refreshing, notice, refresh, retry: load };
+  return { state: resource.state, notice: resource.notice, reload: resource.reload, pulling, pull };
 }

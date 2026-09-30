@@ -1,8 +1,8 @@
 import { act, create, type ReactTestInstance, type ReactTestRenderer } from "react-test-renderer";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { COLOR, ICONS, RAISE, ROLE } from "../../lib/brand/shared";
 import { pathPoints } from "../../lib/brand/snap";
-import { RATIO } from "../../test/native-hosts";
+import { RATIO, reducedMotion } from "../../test/native-hosts";
 import { BrandStage } from "./brand-stage";
 import { Button, Field, IconTile, TextButton } from "./controls";
 import { Icon } from "./icon";
@@ -81,7 +81,10 @@ describe("<PixelFrame>", () => {
   });
 });
 
-describe("<Robin>", () => {
+describe("<Robin> at rest (motion off: robin-motion.test.tsx has her moving)", () => {
+  beforeEach(() => void (reducedMotion.value = true));
+  afterEach(() => void (reducedMotion.value = false));
+
   it("draws Crystal at whole px per cell, decorative by default", () => {
     const r = render(<Robin mood="happy" scale={4} />);
     const svg = all(r, "Svg")[0]!;
@@ -182,9 +185,13 @@ describe("controls", () => {
 
 describe("<BrandStage>", () => {
   it("is the web's sign-in stage at rest: Crystal, her shadow, the wordmark, the tag, the rule and a savings line", () => {
+    reducedMotion.value = true;
     const r = render(<BrandStage />);
+    reducedMotion.value = false;
     const texts = all(r, "Text").map((t) => t.props.children).flat();
-    expect(texts).toEqual(expect.arrayContaining(["Budgts", "Every dollar has a job."]));
+    expect(texts.join("")).toContain("Budgts"); // one letter per view, for the ripple
+    expect(texts).toEqual(expect.arrayContaining(["Every dollar has a job."]));
+    expect(texts).not.toContain("Small savings add up."); // at rest only the first line
     expect(r.root.findByType(Robin).props).toMatchObject({ mood: "happy", scale: 4 });
   });
 });

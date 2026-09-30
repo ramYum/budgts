@@ -3,7 +3,7 @@
  * a list), with a light sweep. */
 export default function Loading() {
   return (
-    <div aria-busy="true" aria-live="polite">
+    <div aria-busy="true" aria-live="polite" data-testid="loading-skeleton">
       <span className="sr-only">Loading…</span>
       <div className="mb-6 space-y-2 md:mb-14">
         <div className="skeleton h-6 w-48 md:h-8 md:w-72" />

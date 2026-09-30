@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { tabTestId } from "@/lib/brand/test-ids";
 import { Icon, type IconName } from "./icon";
 
 const NAV: { href: string; label: string; icon: IconName }[] = [
@@ -23,6 +24,7 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Main"
+      data-testid="bottom-nav"
       className="fixed inset-x-0 bottom-0 z-20 border-t-2 border-hairline bg-surface pb-[max(0.25rem,env(safe-area-inset-bottom))] md:hidden"
     >
       <div className="mx-auto grid max-w-md grid-cols-4">
@@ -38,11 +40,12 @@ export function BottomNav() {
               key={item.href}
               href={item.href}
               aria-current={active ? "page" : undefined}
+              data-testid={tabTestId(item.label)}
               className={`press relative flex flex-col items-center gap-1 pb-2 pt-3 text-[13px] leading-4 ${
                 active ? "font-semibold text-text" : "text-muted hover:text-text"
               }`}
             >
-              {active ? <span className="pip absolute -top-0.5 h-1 w-4 bg-accent" aria-hidden /> : null}
+              {active ? <span data-testid="tab-pip" className="pip absolute -top-0.5 h-1 w-4 bg-accent" aria-hidden /> : null}
               <Icon name={item.icon} className={active ? "text-accent" : ""} />
               {item.label}
             </Link>

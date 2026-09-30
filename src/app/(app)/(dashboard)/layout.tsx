@@ -58,8 +58,8 @@ export default async function DashboardLayout({ children }: LayoutProps<"/">) {
       <DesktopSidebar email={user.email ?? ""} />
 
       {/* Phone: the brand and the bell; sign out lives in Settings. */}
-      <header className="sticky top-0 z-10 flex h-14 items-center justify-between bg-bg/90 px-6 backdrop-blur-xl md:hidden">
-        <Link href="/" aria-label="Budgts home" className="press">
+      <header data-testid="app-header" className="sticky top-0 z-10 flex h-14 items-center justify-between bg-bg/90 px-6 backdrop-blur-xl md:hidden">
+        <Link href="/" aria-label="Budgts home" className="press" data-testid="app-logo">
           <Logo size={22} />
         </Link>
         {plaidOn ? bell : null}
@@ -80,7 +80,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/">) {
           inset 24px from a phone's edges so cards sit off the glass. On
           desktop the bell closes the page's header row: it sits in the
           top-right corner, and <PageHeader> leaves room for it. */}
-      <main className="relative mx-auto w-full max-w-[1136px] flex-1 px-6 pb-28 pt-2 md:px-12 md:pb-16 md:pt-10">
+      <main data-testid="screen-content" className="relative mx-auto w-full max-w-[1136px] flex-1 px-6 pb-28 pt-2 md:px-12 md:pb-16 md:pt-10">
         {plaidOn ? <div className="absolute right-12 top-10 hidden md:block">{bell}</div> : null}
         {children}
       </main>

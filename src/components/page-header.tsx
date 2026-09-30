@@ -8,6 +8,7 @@ export function BackLink({ href, className }: { href: string; className?: string
     <Link
       href={href}
       aria-label="Back"
+      data-testid="page-back"
       className={`px-step press flex h-9 w-9 shrink-0 items-center justify-center ${className ?? ""}`}
     >
       <Icon name="back" />
@@ -44,7 +45,7 @@ export function PageHeader({
   children?: ReactNode;
 }) {
   return (
-    <header className="mb-5 md:mb-14 md:pr-14">
+    <header className="mb-5 md:mb-14 md:pr-14" data-testid="page-header">
       {/* The phone's second row exists only with a month: an empty row would
           still take the row gap. */}
       <div
@@ -55,12 +56,12 @@ export function PageHeader({
         <div className="flex min-h-10 min-w-0 items-center gap-2 [grid-area:title] md:gap-4">
           {back ? <BackLink href={back} className={backOnDesktop ? "" : "md:hidden"} /> : null}
           <div className="min-w-0">
-            <h1 className="px-title text-ink">{title}</h1>
-            {subtitle ? <p className="mt-1 text-[15px] leading-5 text-muted">{subtitle}</p> : null}
+            <h1 className="px-title text-ink" data-testid="page-title">{title}</h1>
+            {subtitle ? <p className="mt-1 text-[15px] leading-5 text-muted" data-testid="page-subtitle">{subtitle}</p> : null}
           </div>
         </div>
-        {month ? <div className={`[grid-area:month] ${subtitle ? "md:self-start" : ""}`}>{month}</div> : null}
-        {action ? <div className="[grid-area:action]">{action}</div> : null}
+        {month ? <div data-testid="page-month" className={`[grid-area:month] ${subtitle ? "md:self-start" : ""}`}>{month}</div> : null}
+        {action ? <div className="[grid-area:action]" data-testid="page-action">{action}</div> : null}
       </div>
       {children}
     </header>

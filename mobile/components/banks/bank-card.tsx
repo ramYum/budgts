@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Pressable, View } from "react-native";
+import Svg, { Path } from "react-native-svg";
 import Animated, { useReducedMotion } from "react-native-reanimated";
 import { COLOR, ROLE } from "../../lib/brand/shared";
 import { invalidate } from "../../lib/api/invalidate";
@@ -464,14 +465,33 @@ function AccountReviewNotice({ account, actions }: { account: BankAccount; actio
   );
 }
 
-/** A square checkbox in the web's accent-ink (the disconnect sheet's "also delete"). */
+/**
+ * The disconnect sheet's "also delete" box as the approved web renders it: a
+ * plain `<input type="checkbox">` at 16px with `accent-color: signal-ink`,
+ * which Chrome draws as a white box with a 1px #767676 edge and 2px corners,
+ * then filled in the accent with a white tick. Not a pixel frame: the web
+ * shows none here. Geometry to be confirmed against the parity capture.
+ */
+export const CHECKBOX_EDGE = "#767676";
 function Checkbox({ checked }: { checked: boolean }) {
-  return checked ? (
-    <View style={{ width: 16, height: 16, backgroundColor: COLOR.signalInk, alignItems: "center", justifyContent: "center" }}>
-      <Icon name="check" size={12} color={COLOR.white} />
+  return (
+    <View
+      testID="disconnect-purge-box"
+      style={{
+        width: 16,
+        height: 16,
+        borderRadius: 2,
+        borderWidth: checked ? 0 : 1,
+        borderColor: CHECKBOX_EDGE,
+        backgroundColor: checked ? COLOR.signalInk : COLOR.white,
+      }}
+    >
+      {checked ? (
+        <Svg width={16} height={16}>
+          <Path d="M3.5 8L6.5 11L12.5 5" fill="none" stroke={COLOR.white} strokeWidth={2} />
+        </Svg>
+      ) : null}
     </View>
-  ) : (
-    <PixelFrame frame="px-check" style={{ width: 16, height: 16 }} />
   );
 }
 

@@ -188,6 +188,8 @@ describe("Connected banks (web /connected-banks)", () => {
     expect(byTestId(r, "disconnect-submit").props.accessibilityLabel).toBe("Disconnect");
     await press(r, "disconnect-purge");
     expect(byTestId(r, "disconnect-purge").props.accessibilityState).toEqual({ checked: true });
+    // the web's plain checkbox in its accent, not a pixel frame
+    expect(byTestId(r, "disconnect-purge-box").props.style).toMatchObject({ width: 16, height: 16, borderRadius: 2, backgroundColor: "#c93434" });
     expect(byTestId(r, "disconnect-submit").props.accessibilityLabel).toBe("Disconnect and delete");
     await press(r, "disconnect-purge");
     await press(r, "disconnect-submit");

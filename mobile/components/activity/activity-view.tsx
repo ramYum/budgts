@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { Pressable, View } from "react-native";
 import { COLOR, ROLE } from "../../lib/brand/shared";
 import type { LoadState, MutationOutcome } from "../../lib/api/load";
+import type { CategoryFields, CategoryWrite } from "../../lib/categories/manage";
 import type { CategoryChoice } from "../../lib/transactions/use-transaction-commands";
 import type { ActivityExtras } from "../../lib/transactions/activity-api";
 import { KIND_OPTIONS, SLICE, dayTotals, filterActivity, type ActivityKind } from "../../lib/transactions/activity-view";
@@ -112,6 +113,8 @@ export type ActivityViewProps = {
   categories: { id: string; name: string }[];
   onCategorize: (anchorId: string, choice: CategoryChoice) => Promise<MutationOutcome>;
   onRescan: () => Promise<MutationOutcome>;
+  onCreateCategory: (fields: CategoryFields, requestId: string | undefined) => Promise<CategoryWrite>;
+  newRequestId: () => string;
 };
 
 /**
@@ -165,6 +168,8 @@ export function ActivityView(p: ActivityViewProps) {
             missingStandard={extras.missingStandardCategories}
             onCategorize={p.onCategorize}
             onRescan={p.onRescan}
+            onCreateCategory={p.onCreateCategory}
+            newRequestId={p.newRequestId}
           />
         ) : null}
         {p.extras.status === "error" ? (

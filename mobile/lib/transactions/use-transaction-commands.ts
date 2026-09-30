@@ -4,6 +4,7 @@ import { useAuth } from "../auth/auth-context";
 import { invalidate } from "../api/invalidate";
 import { mutate, type MutationOutcome } from "../api/load";
 import { jsonInit } from "../api/request";
+import { createBody, writeCategory, type CategoryFields, type CategoryWrite } from "../categories/manage";
 import { draftToPayload, type TransactionDraft } from "./form";
 
 /**
@@ -43,6 +44,14 @@ export function useTransactionCommands() {
         ),
       /** "Re-scan": the server re-runs its categorization evidence over the still-blank bank rows. */
       rescan: async () => done(await mutate(() => authFetch("/api/mobile/transactions/rescan", sessionRef.current, jsonInit("POST", {})))),
+      /** "+ New category…" (the Categories screen's create): one request id per sheet, so a retry lands once. */
+      createCategory: async (fields: CategoryFields, requestId: string | undefined): Promise<CategoryWrite> => {
+        const out = await writeCategory(() =>
+          authFetch("/api/mobile/categories", sessionRef.current, jsonInit("POST", createBody(fields, requestId!))),
+        );
+        if (out.ok) invalidate("transactions", "budgets", "home");
+        return out;
+      },
     };
   }, []);
 }

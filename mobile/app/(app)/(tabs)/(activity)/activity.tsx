@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import * as Crypto from "expo-crypto";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ActivityView } from "../../../../components/activity/activity-view";
 import { transferToggleDraft } from "../../../../components/activity/transaction-form";
@@ -128,6 +129,8 @@ export default function ActivityScreen() {
         categories={cats ?? []}
         onCategorize={commands.categorize}
         onRescan={commands.rescan}
+        onCreateCategory={commands.createCategory}
+        newRequestId={() => Crypto.randomUUID()}
         onAdd={() => setSheet({ kind: "add" })}
         onOpen={(t) => setSheet({ kind: "view", t })}
       />

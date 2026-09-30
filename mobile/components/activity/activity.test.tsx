@@ -2,6 +2,7 @@ import { act } from "react-test-renderer";
 import { describe, expect, it, vi } from "vitest";
 import { COLOR, ROLE } from "../../lib/brand/shared";
 import type { LoadState, MutationOutcome } from "../../lib/api/load";
+import type { CategoryWrite } from "../../lib/categories/manage";
 import type { ActivityExtras, NeedsCategoryGroup } from "../../lib/transactions/activity-api";
 import { SLICE } from "../../lib/transactions/activity-view";
 import type { MobileTransaction } from "../../lib/transactions/transactions-api";
@@ -83,6 +84,8 @@ function view(over: Partial<ActivityViewProps> = {}) {
     ],
     onCategorize: vi.fn(async (): Promise<MutationOutcome> => ({ status: "ok" })),
     onRescan: vi.fn(async (): Promise<MutationOutcome> => ({ status: "ok" })),
+    onCreateCategory: vi.fn(async (): Promise<CategoryWrite> => ({ ok: true, created: { id: "new-cat", name: "Coffee" } })),
+    newRequestId: () => "11111111-1111-4111-8111-111111111111",
     onAdd: vi.fn(),
     onOpen: vi.fn(),
     ...over,
@@ -315,11 +318,38 @@ describe("Needs a category actions (web needs-category.tsx)", () => {
     expect(textContent(byTestId(r, "needs-category-error"))).toBe("Changes are paused.");
   });
 
+  it("'+ New category…' opens the web's sheet for the merchant; the created category is used for the group", async () => {
+    const onCategorize = vi.fn(async (): Promise<MutationOutcome> => ({ status: "ok" }));
+    const onCreateCategory = vi.fn(async (): Promise<CategoryWrite> => ({ ok: true, created: { id: "new-cat", name: "Coffee" } }));
+    const { r } = view({ extras: one(), onCategorize, onCreateCategory });
+    expect(textContent(byTestId(r, "needs-category"))).toContain("Missing one? Choose + New category.");
+    act(() => byTestId(r, "needs-category-picker").props.onPress());
+    act(() => byTestId(r, "needs-category-picker-option-__new__").props.onPress());
+    expect(byTestId(r, "sheet").props.accessibilityLabel).toBe("New category for Merchant m1");
+    expect(onCategorize).not.toHaveBeenCalled();
+    act(() => byTestId(r, "category-name").props.onChangeText("Coffee"));
+    await act(async () => byTestId(r, "category-save").props.onPress());
+    expect(onCreateCategory).toHaveBeenCalledWith(expect.objectContaining({ name: "Coffee", kind: "expense" }), "11111111-1111-4111-8111-111111111111");
+    expect(onCategorize).toHaveBeenCalledWith("m1-1", { categoryId: "new-cat" });
+    expect(hostsWith(r, "sheet")).toHaveLength(0);
+  });
+
+  it("cancelling the new category leaves the group as it was", async () => {
+    const onCategorize = vi.fn(async (): Promise<MutationOutcome> => ({ status: "ok" }));
+    const { r } = view({ extras: one(), onCategorize });
+    act(() => byTestId(r, "needs-category-picker").props.onPress());
+    act(() => byTestId(r, "needs-category-picker-option-__new__").props.onPress());
+    await act(async () => byTestId(r, "category-cancel").props.onPress());
+    expect(hostsWith(r, "sheet")).toHaveLength(0);
+    expect(onCategorize).not.toHaveBeenCalled();
+    expect(hostsWith(r, "needs-category-group")).toHaveLength(1);
+  });
+
   it("maps picks and Plaid's categories like the web", () => {
     expect(choiceOf("std:Travel")).toEqual({ standardCategoryName: "Travel" });
     expect(choiceOf("abc")).toEqual({ categoryId: "abc" });
     expect(humanizePfc("GENERAL_MERCHANDISE")).toBe("General merchandise");
     expect(humanizePfc(null)).toBeNull();
-    expect(pickerOptions([{ id: "a", name: "A" }], []).map((o) => o.value)).toEqual(["a"]);
+    expect(pickerOptions([{ id: "a", name: "A" }], []).map((o) => o.value)).toEqual(["a", "__new__"]);
   });
 });

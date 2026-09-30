@@ -4,6 +4,7 @@ import { COLOR, ROLE } from "../../lib/brand/shared";
 import { formatMoney } from "../../lib/home/format";
 import type { MutationOutcome } from "../../lib/api/load";
 import type { NeedsCategoryGroup } from "../../lib/transactions/activity-api";
+import type { CategoryFields, CategoryWrite } from "../../lib/categories/manage";
 import type { CategoryChoice } from "../../lib/transactions/use-transaction-commands";
 import { Button, IconTile, TextButton } from "../brand/controls";
 import { Icon } from "../brand/icon";
@@ -11,6 +12,7 @@ import { PixelFrame } from "../brand/pixel-frame";
 import { Text } from "../brand/text";
 import { pressStyle } from "../kit/press";
 import { Select } from "../kit/select";
+import { CategorySheet } from "../settings/category-form";
 
 /** Merchants shown before "Show N more" (the web's phone layout). */
 export const FIRST = 3;
@@ -82,8 +84,9 @@ export function humanizePfc(v: string | null): string | null {
 
 const STD_PREFIX = "std:";
 const STD_HEADING = "__std_heading";
+export const NEW_CATEGORY = "__new__";
 
-/** The picker's choices: the user's categories, then the standard ones they no longer have (web optgroup). */
+/** The picker's choices: the user's categories, the standard ones they no longer have (web optgroup), then "+ New category…". */
 export function pickerOptions(categories: { id: string; name: string }[], missingStandard: string[]) {
   return [
     ...categories.map((c) => ({ value: c.id, label: c.name })),
@@ -93,6 +96,7 @@ export function pickerOptions(categories: { id: string; name: string }[], missin
           ...missingStandard.map((name) => ({ value: `${STD_PREFIX}${name}`, label: name })),
         ]
       : []),
+    { value: NEW_CATEGORY, label: "+ New category…" },
   ];
 }
 
@@ -121,6 +125,8 @@ export function NeedsCategory({
   missingStandard,
   onCategorize,
   onRescan,
+  onCreateCategory,
+  newRequestId,
 }: {
   groups: NeedsCategoryGroup[];
   currency: string;
@@ -128,11 +134,15 @@ export function NeedsCategory({
   missingStandard: string[];
   onCategorize: (anchorId: string, choice: CategoryChoice) => Promise<MutationOutcome>;
   onRescan: () => Promise<MutationOutcome>;
+  /** "+ New category…": creates the category (the Categories screen's command), then it is used for the group */
+  onCreateCategory: (fields: CategoryFields, requestId: string | undefined) => Promise<CategoryWrite>;
+  newRequestId: () => string;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [done, setDone] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
   const [rescanning, setRescanning] = useState(false);
+  const [addingFor, setAddingFor] = useState<NeedsCategoryGroup | null>(null);
 
   const visible = groups.filter((g) => !done.has(g.key));
   if (visible.length === 0) return null;
@@ -259,7 +269,7 @@ export function NeedsCategory({
                 value={null}
                 placeholder={suggestedName ? "Choose another" : "Choose a category"}
                 options={options}
-                onChange={(v) => void pick(group, v)}
+                onChange={(v) => (v === NEW_CATEGORY ? setAddingFor(group) : void pick(group, v))}
               />
 
               {pfc ? (
@@ -278,6 +288,20 @@ export function NeedsCategory({
         <Button testID="needs-category-more" variant="secondary" iconAfter="chevron-down" style={{ marginTop: 16 }} onPress={() => setExpanded(true)}>
           {`Show ${hidden} more`}
         </Button>
+      ) : null}
+
+      {addingFor ? (
+        <CategorySheet
+          title={`New category for ${addingFor.label}`}
+          submitLabel="Add & use"
+          newRequestId={newRequestId}
+          save={onCreateCategory}
+          onDone={(created) => {
+            const group = addingFor;
+            setAddingFor(null);
+            if (created) void pick(group, created.id);
+          }}
+        />
       ) : null}
 
       {error ? (

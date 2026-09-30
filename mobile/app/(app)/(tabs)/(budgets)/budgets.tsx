@@ -1,35 +1,72 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { authFetch } from "../../../../lib/auth/api";
 import { useAuth } from "../../../../lib/auth/auth-context";
 import { invalidate, useVersion } from "../../../../lib/api/invalidate";
 import { loadResource, mutate } from "../../../../lib/api/load";
 import { jsonInit } from "../../../../lib/api/request";
 import { useResource } from "../../../../lib/api/use-resource";
-import { parseBudgets } from "../../../../lib/budgets/budgets-api";
+import { parseBudgets, type MobileBudgets } from "../../../../lib/budgets/budgets-api";
+import { budgetsLink, readBudgetsParams } from "../../../../lib/budgets/params";
 import { useUserDates } from "../../../../lib/profile/profile-context";
-import { Button } from "../../../../components/brand/controls";
+import { CategorySheet, NewBudgetSheet, type SaveBudget } from "../../../../components/budgets/budget-sheets";
 import { BudgetsView, type BudgetsRange } from "../../../../components/budgets/budgets-view";
-import { EmptyState } from "../../../../components/kit/empty-state";
+import { LoadFailure } from "../../../../components/feedback/states";
+import { ScreenSkeleton } from "../../../../components/feedback/skeleton";
 import { Screen } from "../../../../components/shell/screen";
 
-/** The web's copy-budgets message (src/server/budgets.ts `copyBudgetsFromPreviousMonth`). */
+/** The web's budget messages (src/server/budgets.ts). */
 const NOTHING_TO_COPY = "There were no budgets last month to copy.";
+const MISSING_CATEGORY = "That category no longer exists. Refresh and try again.";
 
 /**
  * Budgets (web /budgets): budget vs actual per expense category for a month, or every category's all-time spending, from
- * `GET /api/mobile/budgets` (the same `loadBudgets` the web page renders). Stepping the month returns to This month, as the
- * web's month links do.
+ * `GET /api/mobile/budgets` (the same `loadBudgets` the web page renders). It takes the web page's params (`m`, `range`,
+ * `edit`; lib/budgets/params.ts). Stepping the month returns to This month, as the web's month links do.
  */
 export default function BudgetsScreen() {
-  const { session } = useAuth();
+  const router = useRouter();
+  const { session, signOut } = useAuth();
   const { month: thisMonth } = useUserDates();
-  const [month, setMonth] = useState(thisMonth);
-  const [range, setRange] = useState<BudgetsRange>("month");
-  const version = useVersion("budgets");
+  const raw = useLocalSearchParams<{ m?: string; range?: string; edit?: string }>();
+  const initial = readBudgetsParams(raw, thisMonth);
+  const [month, setMonth] = useState(initial.month);
+  const [range, setRange] = useState<BudgetsRange>(initial.range);
+  const [detail, setDetail] = useState<{ id: string; editing: boolean } | null>(initial.edit ? { id: initial.edit, editing: true } : null);
+  const [adding, setAdding] = useState(false);
 
-  const { state, reload, refresh, refreshing } = useResource(`${month}|${range}|${version}`, (s) =>
+  // A later link into the tab (Home's "Set budget") applies its params as a web navigation to /budgets?… would.
+  const linked = `${raw.m ?? ""}|${raw.range ?? ""}|${raw.edit ?? ""}`;
+  const firstLink = useRef(linked);
+  useEffect(() => {
+    if (linked === firstLink.current) return;
+    firstLink.current = linked;
+    const next = readBudgetsParams(raw, thisMonth);
+    setMonth(next.month);
+    setRange(next.range);
+    setDetail(next.edit ? { id: next.edit, editing: true } : null);
+  }, [linked]);
+
+  const version = useVersion("budgets");
+  const { state, reload } = useResource(`${month}|${range}|${version}`, (s) =>
     loadResource(() => authFetch(`/api/mobile/budgets?month=${month}&range=${range}`, s), parseBudgets),
   );
+
+  // Only the data for the month and range on screen; while a save reloads it, the last of it, so an open sheet keeps
+  // its figures and updates in place (the web revalidates under the open sheet the same way). With none, the web's
+  // loading page (the skeleton) or its failure page stands in for the whole page.
+  const last = useRef<MobileBudgets | null>(null);
+  if (state.status === "ready") last.current = state.data;
+  const shown = state.status === "ready" ? state.data : state.status === "loading" ? last.current : null;
+  const data = shown && shown.range === range && shown.month === month ? shown : null;
+  const monthData = data?.range === "month" ? data : null;
+
+  // Pull to refresh reloads (the figures stay up meanwhile); a failure shows the failure page, never the old figures
+  // as if they were current.
+  const [pulling, setPulling] = useState(false);
+  useEffect(() => {
+    if (state.status !== "loading") setPulling(false);
+  }, [state.status]);
 
   const [copying, setCopying] = useState(false);
   const [copyError, setCopyError] = useState<string | null>(null);
@@ -39,43 +76,74 @@ export default function BudgetsScreen() {
     const out = await mutate(() => authFetch("/api/mobile/budgets/copy", session, jsonInit("POST", { month })));
     setCopying(false);
     if (out.status === "ok") return invalidate("budgets", "home");
-    setCopyError(out.status === "nothing_to_copy" ? NOTHING_TO_COPY : out.status === "error" ? out.message : "Something went wrong. Please try again.");
+    setCopyError(
+      out.status === "nothing_to_copy" ? NOTHING_TO_COPY : out.status === "error" ? out.message : "Something went wrong. Please try again.",
+    );
   }, [month, session]);
 
-  // Only the data for the range and month on screen: a late response for the other range never renders under this switch.
-  const data = state.status === "ready" && state.data.range === range && state.data.month === month ? state.data : null;
+  const saveBudget = useCallback<SaveBudget>(
+    async (categoryId, amount) => {
+      const out = await mutate(() => authFetch("/api/mobile/budgets", session, jsonInit("PUT", { categoryId, month, amount })));
+      if (out.status === "ok") {
+        invalidate("budgets", "home");
+        return null;
+      }
+      if (out.status === "invalid") return Object.values(out.fieldErrors)[0] ?? "Invalid budget";
+      if (out.status === "missing") return MISSING_CATEGORY;
+      return out.status === "error" ? out.message : "Something went wrong. Please try again.";
+    },
+    [month, session],
+  );
+
+  const bar = detail && monthData ? monthData.categories.find((c) => c.id === detail.id) : undefined;
 
   return (
-    <Screen refreshing={refreshing} onRefresh={() => void refresh()}>
-      <BudgetsView
-        month={month}
-        range={range}
-        data={data}
-        body={
-          state.status === "error" ? (
-            <EmptyState
-              icon="warning"
-              title="Can't show your budgets"
-              body={state.message}
-              action={
-                <Button icon="sync" onPress={() => void reload()}>
-                  Try again
-                </Button>
-              }
-            />
-          ) : null
-        }
-        onMonth={(m) => {
-          setMonth(m);
-          setRange("month");
-          setCopyError(null);
-        }}
-        onRange={setRange}
-        // The category sheet and the New budget sheet arrive with the Foundation's Overlay (F6), next in D4.
-        onOpen={() => {}}
-        onNew={() => {}}
-        copy={{ pending: copying, error: copyError, onCopy: () => void copyLastMonth() }}
-      />
+    <Screen
+      refreshing={pulling}
+      onRefresh={() => {
+        setPulling(true);
+        void reload();
+      }}
+    >
+      {data === null ? (
+        state.status === "error" ? (
+          <LoadFailure kind={state.kind} onRetry={() => void reload()} onHome={() => router.navigate("/")} onSignOut={() => void signOut()} />
+        ) : (
+          <ScreenSkeleton />
+        )
+      ) : (
+        <BudgetsView
+          month={month}
+          range={range}
+          data={data}
+          onMonth={(m) => {
+            setMonth(m);
+            setRange("month");
+            setCopyError(null);
+          }}
+          onRange={setRange}
+          onOpen={(id, editing) => setDetail({ id, editing })}
+          onNew={() => setAdding(true)}
+          copy={{ pending: copying, error: copyError, onCopy: () => void copyLastMonth() }}
+        />
+      )}
+      {bar && monthData && detail ? (
+        <CategorySheet
+          key={`${detail.id}:${detail.editing}`}
+          bar={bar}
+          currency={monthData.currency}
+          startEditing={detail.editing}
+          onSave={saveBudget}
+          onSeeTransactions={() => {
+            setDetail(null);
+            router.navigate(budgetsLink.activity(month, bar.id));
+          }}
+          onClose={() => setDetail(null)}
+        />
+      ) : null}
+      {adding && monthData ? (
+        <NewBudgetSheet categories={monthData.unbudgetedCategories} onSave={saveBudget} onClose={() => setAdding(false)} />
+      ) : null}
     </Screen>
   );
 }

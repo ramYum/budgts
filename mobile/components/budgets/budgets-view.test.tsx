@@ -173,10 +173,4 @@ describe("Budgets (web budgets-view.tsx)", () => {
     const { r } = view({ range: "all", data: { ...allTime, allTime: [] } });
     expect(texts(r.root.findByType(EmptyState))).toEqual(["No spending recorded yet."]);
   });
-
-  it("keeps the header and range while the data loads, and shows what it is given instead", () => {
-    const { r } = view({ data: null, body: null });
-    expect(r.root.findByType(PageHeader).props.title).toBe("Budgets");
-    expect(r.root.findAll((n) => n.props.testID === "budgets-hero")).toHaveLength(0);
-  });
 });

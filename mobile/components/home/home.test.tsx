@@ -82,13 +82,13 @@ describe("Home header", () => {
     expect(title.props.accessibilityRole).toBe("header");
     expect(flat(title.props.style).columnGap).toBe(TITLE_WORD_GAP);
     expect(textContent(byTestId(r, "page-subtitle"))).toBe("You're doing well this month.");
-    expect(textContent(byTestId(r, "month-nav-label"))).toBe("September 2026");
+    expect(textContent(byTestId(r, "month-label"))).toBe("September 2026");
   });
 
   it("the arrows step the month", () => {
     const { r, props } = view(full());
-    act(() => byTestId(r, "month-nav-prev").props.onPress());
-    act(() => byTestId(r, "month-nav-next").props.onPress());
+    act(() => byTestId(r, "month-prev").props.onPress());
+    act(() => byTestId(r, "month-next").props.onPress());
     expect(props.onMonth.mock.calls).toEqual([["2026-08"], ["2026-10"]]);
   });
 });
@@ -106,7 +106,8 @@ describe("Money left", () => {
 
   it("steps a long figure down a size and says how much more went out", () => {
     const { r } = view(full({ moneyLeft: -123456789, savingsRate: -0.4 }));
-    const figure = r.root.findAll((n) => n.props.testID === "rolling-amount" && n.props.variant !== undefined)[0]!;
+    // the RollingAmount element itself (its `variant` is the type size)
+    const figure = byTestId(r, "home-money-left").findAll((n) => typeof n.type !== "string" && n.props.value === -123456789 && n.props.variant !== undefined)[0]!;
     expect(figure.props.variant).toBe("tNumLg");
     expect(textContent(byTestId(r, "home-hero-line"))).toBe("$1,234,567.89 more went out than came in.");
   });
@@ -264,7 +265,7 @@ describe("Recent activity", () => {
   it("the section links go where the web's go", () => {
     const { r, props } = view(full());
     for (const id of ["home-where", "home-savings", "home-recent"])
-      byTestId(r, id).findAll((n) => typeof n.type === "string" && n.props.testID === "section-head-action")[0]!.props.onPress();
+      byTestId(r, id).findAll((n) => typeof n.type === "string" && n.props.testID === "section-link")[0]!.props.onPress();
     expect(props.go.mock.calls.map((c) => c[0])).toEqual(["/budgets?m=2026-09", "/goals", "/activity"]);
   });
 });

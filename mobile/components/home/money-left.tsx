@@ -85,7 +85,6 @@ export function MoneyLeftCard({
             </Text>
             <View style={{ marginTop: 12 }}>
               <RollingAmount
-                testID="rolling-amount"
                 value={home.moneyLeft}
                 currency={currency}
                 variant={figureVariant(figure)}
@@ -96,7 +95,7 @@ export function MoneyLeftCard({
               <HeroLine home={home} />
             </Rise>
             <View style={{ marginTop: 16, maxWidth: 444 }}>
-              <ProgressBar testID="progress-bar" pct={keptPct(home.savingsRate)} tone={negative ? "over" : "under"} cellHeight={12} />
+              <ProgressBar pct={keptPct(home.savingsRate)} tone={negative ? "over" : "under"} cellHeight={12} />
             </View>
           </View>
           <Rule />

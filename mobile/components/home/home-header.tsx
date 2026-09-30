@@ -55,7 +55,9 @@ export function HomeHeader({
           </Text>
         </Rise>
       </View>
-      <MonthNav month={month} onChange={onMonth} />
+      <View testID="page-month">
+        <MonthNav month={month} onChange={onMonth} />
+      </View>
     </View>
   );
 }

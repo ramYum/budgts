@@ -101,6 +101,30 @@ export const TESTIDS = {
     "sheet-close",
   ],
   charts: ["spending-trend-card", "spending-breakdown-card"],
+  // Home (Lane B): the web's dashboard-view.tsx needs the same data-testids
+  home: [
+    "home-view",
+    "home-over-alert",
+    "home-money-left",
+    "home-hero-line",
+    "home-came-in",
+    "home-went-out",
+    "home-add-income",
+    "home-where",
+    "home-where-summary",
+    "home-where-row", // repeated
+    "home-where-empty",
+    "home-category-chip", // repeated
+    "home-where-no-budgets",
+    "home-change",
+    "home-savings",
+    "home-recent",
+    "home-recent-row", // repeated
+    "home-recent-empty",
+    "home-add-transaction",
+    "crystal-perch",
+    "crystal",
+  ],
   feedback: ["loading-skeleton", "error-state", "error-retry", "not-found", "offline-state"],
   // Lane A: onboarding and the welcome guide (web tour-card.tsx, tour-wizard.tsx, scenes.tsx, *-wizard-content.tsx)
   tour: [

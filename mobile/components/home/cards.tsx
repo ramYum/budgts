@@ -76,18 +76,18 @@ export function SavingsCard({ savings, currency, go }: { savings: NonNullable<Mo
   const { pct, badge } = savingsProgress(savings);
   return (
     <View testID="home-savings" style={{ gap: 12 }}>
-      <SectionHead testID="section-head" title="Savings" action="Goals" onAction={() => go("/goals")} />
+      <SectionHead title="Savings" action="Goals" onAction={() => go("/goals")} />
       <PixelFrame frame="px-card" style={{ padding: 8 }}>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-          <RollingAmount testID="rolling-amount" value={savings.totalSaved} currency={currency} variant="tNumLg" />
+          <RollingAmount value={savings.totalSaved} currency={currency} variant="tNumLg" />
           {badge ? (
-            <Badge testID="badge" tone="growth">
+            <Badge tone="growth">
               {badge}
             </Badge>
           ) : null}
         </View>
         <View style={{ marginTop: 16 }}>
-          <ProgressBar testID="progress-bar" pct={pct} tone="growth" />
+          <ProgressBar pct={pct} tone="growth" />
         </View>
         <Text variant="body" color={ROLE.muted} style={[SM, TNUM, { marginTop: 16 }]}>
           Kept toward {formatMoney(savings.totalTarget, currency)} across {savings.activeCount}{" "}
@@ -111,7 +111,7 @@ export function RecentActivity({
   const { recent, currency } = home;
   return (
     <View testID="home-recent" style={{ gap: 12 }}>
-      <SectionHead testID="section-head" title="Recent activity" action="See all" onAction={() => go("/activity")} />
+      <SectionHead title="Recent activity" action="See all" onAction={() => go("/activity")} />
       {recent.length === 0 ? (
         <PixelFrame testID="home-recent-empty" frame="px-card" style={{ padding: 8 }}>
           <View style={{ alignSelf: "flex-start" }}>

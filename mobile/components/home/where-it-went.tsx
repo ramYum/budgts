@@ -51,7 +51,7 @@ function WhereRow({ c, row, currency, month, go }: { c: HomeCategory; row: numbe
               {formatMoney(c.actual, currency)}
             </Text>
           </View>
-          <ProgressBar testID="progress-bar" pct={c.pctUsed} tone={c.state} start={row * 3} />
+          <ProgressBar pct={c.pctUsed} tone={c.state} start={row * 3} />
           <View style={{ flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: 12 }}>
             {note === "unplanned" ? (
               <Text variant="metaStrong" color={ROLE.neg}>
@@ -153,7 +153,7 @@ export function WhereItWent({
   const { currency, month } = home;
   return (
     <View testID="home-where" style={{ gap: 12 }}>
-      <SectionHead testID="section-head" title="Where it went" action="Budgets" onAction={() => go(`/budgets?m=${month}`)} />
+      <SectionHead title="Where it went" action="Budgets" onAction={() => go(`/budgets?m=${month}`)} />
       {home.budgeted > 0 && home.spent > 0 ? (
         home.leftToSpend < 0 ? (
           <View testID="home-where-summary" style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>

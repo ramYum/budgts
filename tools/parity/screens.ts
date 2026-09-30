@@ -154,6 +154,12 @@ export const TESTIDS = {
     "home-recent-row",
     "home-recent-empty",
     "home-add-transaction",
+    "home-setup",
+    "home-setup-bank",
+    "home-setup-income",
+    "home-setup-budget",
+    "home-trend",
+    "home-breakdown",
     "crystal-perch",
     "crystal",
     "crystal-say-<kind>", // hello, note, tap, cheer

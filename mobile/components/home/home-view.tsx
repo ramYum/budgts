@@ -1,3 +1,4 @@
+import type { Href } from "expo-router";
 import type { ReactNode } from "react";
 import { View } from "react-native";
 import type { MobileCategory } from "../../lib/categories/categories-api";
@@ -47,7 +48,7 @@ export function HomeView({
   categories: MobileCategory[] | null;
   name: string;
   hour: number;
-  go: (path: string) => void;
+  go: (href: Href) => void;
   onMonth: (month: string) => void;
   onAddIncome: () => void;
   onAddTransaction: () => void;

@@ -1,3 +1,4 @@
+import type { Href } from "expo-router";
 import type { ReactNode } from "react";
 import { View } from "react-native";
 import { ROLE, type IconName } from "../../lib/brand/shared";
@@ -58,7 +59,7 @@ export function GetSetUp({
   home: MobileHome;
   /** the user's categories, for the "N categories are ready to plan" count; null while they load */
   categories: MobileCategory[] | null;
-  go: (path: string) => void;
+  go: (href: Href) => void;
   onAddIncome: () => void;
 }) {
   const n = setupCount(home);
@@ -113,7 +114,7 @@ export function GetSetUp({
         body={expense === null ? " " : `${expense} ${expense === 1 ? "category is" : "categories are"} ready to plan.`}
         done={home.budgeted > 0}
         action={
-          <Button testID="home-setup-set-budget" variant="secondary" onPress={() => go(`/budgets?m=${home.month}`)}>
+          <Button testID="home-setup-set-budget" variant="secondary" onPress={() => go({ pathname: "/budgets", params: { m: home.month } })}>
             Set
           </Button>
         }

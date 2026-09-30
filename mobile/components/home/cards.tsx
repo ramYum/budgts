@@ -1,3 +1,5 @@
+import type { Href } from "expo-router";
+import { budgetsLink } from "../../lib/budgets/params";
 import { Pressable, View } from "react-native";
 import { COLOR, ROLE } from "../../lib/brand/shared";
 import type { HomeSuggestion, MobileHome } from "../../lib/home/contract";
@@ -23,11 +25,9 @@ const TNUM = { fontVariant: ["tabular-nums" as const] };
  * An unbudgeted category opens its budget; a category that grew opens its
  * transactions.
  */
-export function ChangeCard({ suggestion, month, currency, go }: { suggestion: HomeSuggestion; month: string; currency: string; go: (path: string) => void }) {
+export function ChangeCard({ suggestion, month, currency, go }: { suggestion: HomeSuggestion; month: string; currency: string; go: (href: Href) => void }) {
   const href =
-    suggestion.kind === "unbudgeted"
-      ? `/budgets?m=${month}&edit=${suggestion.categoryId}`
-      : `/activity?m=${month}&category=${suggestion.categoryId}`;
+    suggestion.kind === "unbudgeted" ? budgetsLink.edit(month, suggestion.categoryId) : budgetsLink.activity(month, suggestion.categoryId);
   const title = suggestion.kind === "unbudgeted" ? `Give ${suggestion.name} a budget` : suggestion.name;
   const amount = formatMoney(suggestion.amount, currency);
   const detail =
@@ -70,7 +70,7 @@ export function ChangeCard({ suggestion, month, currency, go }: { suggestion: Ho
 }
 
 /** "Savings" (web `savingsCard`): what the active goals hold, rolling in, and their progress toward the targets. */
-export function SavingsCard({ savings, currency, go }: { savings: NonNullable<MobileHome["savings"]>; currency: string; go: (path: string) => void }) {
+export function SavingsCard({ savings, currency, go }: { savings: NonNullable<MobileHome["savings"]>; currency: string; go: (href: Href) => void }) {
   // the web card's own figures (src/lib/figures/savings-pct.ts): the badge shows only with a target
   const badge = savings.totalTarget > 0 ? `${savingsPct(savings.totalSaved, savings.totalTarget)}%` : null;
   const pct = savingsBarPct(savings.totalSaved, savings.totalTarget);
@@ -105,7 +105,7 @@ export function RecentActivity({
   onAddTransaction,
 }: {
   home: MobileHome;
-  go: (path: string) => void;
+  go: (href: Href) => void;
   onAddTransaction: () => void;
 }) {
   const { recent, currency } = home;

@@ -38,7 +38,9 @@ export default function HomeScreen() {
     return () => sub.remove();
   }, []);
 
-  const go = (path: string) => router.push(path as Href);
+  // Home's links are the web's navigations: into another tab they switch to it and apply the params (a Budgets or Activity
+  // link never stacks a second copy of that screen, with its own load and realtime channel)
+  const go = (href: Href) => router.navigate(href);
 
   return (
     <Screen refreshing={pulling} onRefresh={() => void pull()}>

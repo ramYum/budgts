@@ -1,3 +1,5 @@
+import type { Href } from "expo-router";
+import { budgetsLink } from "../../lib/budgets/params";
 import { Pressable, View } from "react-native";
 import { COLOR, FONT, ROLE, categoryIcon } from "../../lib/brand/shared";
 import type { MobileCategory } from "../../lib/categories/categories-api";
@@ -22,10 +24,10 @@ const TNUM = { fontVariant: ["tabular-nums" as const] };
  * budget" opens its budget instead. Rows rise 60ms apart from 240ms, and
  * their cells cascade three steps apart.
  */
-function WhereRow({ c, row, currency, month, go }: { c: HomeCategory; row: number; currency: string; month: string; go: (path: string) => void }) {
+function WhereRow({ c, row, currency, month, go }: { c: HomeCategory; row: number; currency: string; month: string; go: (href: Href) => void }) {
   const note = whereNote(c);
   const flagged = note === "unplanned" || note === "over";
-  const setBudget = () => go(`/budgets?m=${month}&edit=${c.id}`);
+  const setBudget = () => go(budgetsLink.edit(month, c.id));
   return (
     <Pressable
         testID="home-where-row"
@@ -36,7 +38,7 @@ function WhereRow({ c, row, currency, month, go }: { c: HomeCategory; row: numbe
         onAccessibilityAction={(e) => {
           if (e.nativeEvent.actionName === "setBudget") setBudget();
         }}
-        onPress={() => go(`/activity?m=${month}&category=${c.id}`)}
+        onPress={() => go(budgetsLink.activity(month, c.id))}
         style={({ pressed }) => [{ flexDirection: "row", alignItems: "center", gap: 12 }, pressStyle(pressed)]}
       >
         <CategoryIcon name={c.name} tone={flagged ? "wash" : "gray"} />
@@ -146,12 +148,12 @@ export function WhereItWent({
 }: {
   home: MobileHome;
   categories: MobileCategory[] | null;
-  go: (path: string) => void;
+  go: (href: Href) => void;
 }) {
   const { currency, month } = home;
   return (
     <View testID="home-where" style={{ gap: 12 }}>
-      <SectionHead title="Where it went" action="Budgets" onAction={() => go(`/budgets?m=${month}`)} />
+      <SectionHead title="Where it went" action="Budgets" onAction={() => go({ pathname: "/budgets", params: { m: month } })} />
       {home.budgeted > 0 && home.spent > 0 ? (
         home.leftToSpend < 0 ? (
           <View testID="home-where-summary" style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>

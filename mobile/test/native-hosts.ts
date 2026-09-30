@@ -22,6 +22,9 @@ export const reactNativeMock = () => ({
   Text: host("Text"),
   TextInput: host("TextInput"),
   Pressable: host("Pressable"),
+  ScrollView: host("ScrollView"),
+  RefreshControl: host("RefreshControl"),
+  AppState: { currentState: "active", addEventListener: () => ({ remove: () => {} }) },
   ActivityIndicator: host("ActivityIndicator"),
   PixelRatio: { get: () => RATIO },
   useWindowDimensions: () => ({ ...windowSize, scale: RATIO, fontScale: 1 }),
@@ -81,6 +84,8 @@ export const reanimatedMock = () => {
       return cb.current;
     },
     withDelay: <T,>(_ms: number, animation: T) => animation,
+    // CSS animation timing functions: a plain description the tests can read back
+    steps: (n: number, modifier = "jump-end") => ({ steps: n, modifier }),
     withTiming: <T,>(to: T, _config?: unknown, done?: (finished: boolean) => void) => {
       done?.(true);
       return to;

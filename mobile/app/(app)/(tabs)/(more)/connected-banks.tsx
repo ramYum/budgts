@@ -2,18 +2,18 @@ import { useCallback, useState } from "react";
 import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { authFetch } from "../../lib/auth/api";
-import { useAuth } from "../../lib/auth/auth-context";
-import { invalidate, useVersion } from "../../lib/api/invalidate";
-import { loadResource } from "../../lib/api/load";
-import { jsonInit } from "../../lib/api/request";
-import { useResource } from "../../lib/api/use-resource";
-import { parseBanks, statusNeedsAttention, type BankAccount, type BankStatus, type ConnectedBank } from "../../lib/plaid/banks-api";
-import { connectBank, reconnectBank } from "../../lib/plaid/link-flow";
-import { createPlaidLinkClient, currentPlatform } from "../../lib/plaid/plaid-link-native";
-import { colors, fonts, radii } from "../../lib/theme";
-import { ErrorBlock, Loading, Notice } from "../../components/parts";
-import { OutlineButton, PrimaryButton, TextLink } from "../../components/ui";
+import { authFetch } from "../../../../lib/auth/api";
+import { useAuth } from "../../../../lib/auth/auth-context";
+import { invalidate, useVersion } from "../../../../lib/api/invalidate";
+import { loadResource } from "../../../../lib/api/load";
+import { jsonInit } from "../../../../lib/api/request";
+import { useResource } from "../../../../lib/api/use-resource";
+import { parseBanks, statusNeedsAttention, type BankAccount, type BankStatus, type ConnectedBank } from "../../../../lib/plaid/banks-api";
+import { connectBank, reconnectBank } from "../../../../lib/plaid/link-flow";
+import { createPlaidLinkClient, currentPlatform } from "../../../../lib/plaid/plaid-link-native";
+import { colors, fonts, radii } from "../../../../lib/theme";
+import { ErrorBlock, Loading, Notice } from "../../../../components/parts";
+import { OutlineButton, PrimaryButton, TextLink } from "../../../../components/ui";
 
 const STATUS_LABEL: Record<BankStatus, string> = {
   active: "Connected",
@@ -143,7 +143,7 @@ export default function ConnectedBanksScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={[]}>
       <View style={styles.header}>
         <Text style={styles.title} accessibilityRole="header">
           Connected Banks

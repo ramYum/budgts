@@ -1,7 +1,5 @@
 import {
   ActivityIndicator,
-  Image,
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -9,55 +7,31 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
-import { useAuth } from "../../../lib/auth/auth-context";
-import type { HomeActivity, HomeCategory, MobileHome } from "../../../lib/home/contract";
+import { useAuth } from "../../../../lib/auth/auth-context";
+import type { HomeActivity, HomeCategory, MobileHome } from "../../../../lib/home/contract";
 import {
   formatActivityDay,
   formatMoney,
   formatMonthLabel,
   formatSavingsRate,
-} from "../../../lib/home/format";
-import { useHome } from "../../../lib/home/use-home";
-import { colors, fonts, radii } from "../../../lib/theme";
-import { PrimaryButton } from "../../../components/ui";
+} from "../../../../lib/home/format";
+import { useHome } from "../../../../lib/home/use-home";
+import { colors, fonts, radii } from "../../../../lib/theme";
+import { PrimaryButton } from "../../../../components/ui";
 
 /**
  * The first real Budgts Home. Every number is computed server-side by the same
  * dashboard math the web Home uses (`GET /api/mobile/home`); this screen only
  * formats and lays out what it is given — no financial calculation lives here.
- * Presentation is native (see docs/BRAND_GUIDELINES.md tokens in lib/theme.ts);
- * account/diagnostics/sign-out live behind the avatar (`/diagnostics`).
+ * Its body still has the pre-redesign look until Phase 3 Lane B rebuilds it; the
+ * header and tab bar around it are the shell's (components/shell).
  */
 export default function HomeScreen() {
-  const router = useRouter();
-  const { session, signOut } = useAuth();
+  const { signOut } = useAuth();
   const { state, refreshing, notice, refresh, retry } = useHome();
 
-  const initial = (session?.user.email ?? "?").charAt(0).toUpperCase();
-
   return (
-    <SafeAreaView style={styles.safe} edges={["top"]}>
-      <View style={styles.header}>
-        <View style={styles.brand}>
-          <Image source={require("../../../assets/brand/logo-mark.png")} style={styles.mark} resizeMode="contain" />
-          <Image
-            source={require("../../../assets/brand/wordmark.png")}
-            style={styles.wordmark}
-            resizeMode="contain"
-            accessibilityLabel="Budgts"
-          />
-        </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Settings"
-          onPress={() => router.push("/settings")}
-          style={styles.avatar}
-        >
-          <Text style={styles.avatarText}>{initial}</Text>
-        </Pressable>
-      </View>
-
+    <SafeAreaView style={styles.safe} edges={[]}>
       {state.status === "loading" ? (
         <View style={styles.centered} accessibilityLabel="Loading your Home">
           <ActivityIndicator color={colors.accent} size="large" />
@@ -259,28 +233,6 @@ function ActivityRow({
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   safe: { flex: 1, backgroundColor: colors.bg },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 4,
-  },
-  brand: { flexDirection: "row", alignItems: "center", gap: 8 },
-  mark: { width: 34, height: 32 },
-  wordmark: { width: 64, height: 32 },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: radii.pill,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  avatarText: { fontFamily: fonts.semibold, fontSize: 15, color: colors.text },
   centered: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 },
   scroll: { padding: 20, paddingBottom: 40 },
   content: { gap: 20, width: "100%", maxWidth: 480, alignSelf: "center" },

@@ -36,3 +36,8 @@ export const flat = (style: unknown): Record<string, unknown> =>
 export function texts(n: ReactTestRenderer | ReactTestInstance): string[] {
   return hosts(n, "Text").flatMap((t) => (Array.isArray(t.props.children) ? t.props.children : [t.props.children]).filter((c: unknown) => typeof c === "string"));
 }
+
+/** The text a node reads as, in order: nested Text runs joined the way the device lays them out inline. */
+export function textContent(n: ReactTestInstance): string {
+  return n.children.map((c) => (typeof c === "string" ? c : textContent(c))).join("");
+}

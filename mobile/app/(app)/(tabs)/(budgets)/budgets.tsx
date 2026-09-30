@@ -1,19 +1,19 @@
 import { useCallback, useState } from "react";
 import { Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { authFetch } from "../../../lib/auth/api";
-import { useAuth } from "../../../lib/auth/auth-context";
-import { useVersion } from "../../../lib/api/invalidate";
-import { loadResource, mutate } from "../../../lib/api/load";
-import { jsonInit } from "../../../lib/api/request";
-import { useResource } from "../../../lib/api/use-resource";
-import { shiftMonth } from "../../../lib/dates";
-import { formatMoney } from "../../../lib/home/format";
-import { parseBudgets, type MobileBudgetCategory } from "../../../lib/budgets/budgets-api";
-import { useProfile, useUserDates } from "../../../lib/profile/profile-context";
-import { colors, fonts, radii } from "../../../lib/theme";
-import { ErrorBlock, Field, Loading, MonthNav } from "../../../components/parts";
-import { OutlineButton, PrimaryButton, TextLink } from "../../../components/ui";
+import { authFetch } from "../../../../lib/auth/api";
+import { useAuth } from "../../../../lib/auth/auth-context";
+import { useVersion } from "../../../../lib/api/invalidate";
+import { loadResource, mutate } from "../../../../lib/api/load";
+import { jsonInit } from "../../../../lib/api/request";
+import { useResource } from "../../../../lib/api/use-resource";
+import { shiftMonth } from "../../../../lib/dates";
+import { formatMoney } from "../../../../lib/home/format";
+import { parseBudgets, type MobileBudgetCategory } from "../../../../lib/budgets/budgets-api";
+import { useProfile, useUserDates } from "../../../../lib/profile/profile-context";
+import { colors, fonts, radii } from "../../../../lib/theme";
+import { ErrorBlock, Field, Loading, MonthNav } from "../../../../components/parts";
+import { OutlineButton, PrimaryButton, TextLink } from "../../../../components/ui";
 
 const STATE_COLOR: Record<MobileBudgetCategory["state"], string> = { under: colors.pos, near: colors.fillNear, over: colors.neg };
 
@@ -75,7 +75,7 @@ export default function BudgetsScreen() {
   }, [month, session, reload]);
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top"]}>
+    <SafeAreaView style={styles.safe} edges={[]}>
       <View style={styles.header}>
         <Text style={styles.title} accessibilityRole="header">
           Budgets

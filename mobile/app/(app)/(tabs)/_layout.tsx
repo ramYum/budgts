@@ -1,27 +1,42 @@
 import { Tabs } from "expo-router";
-import { colors, fonts } from "../../../lib/theme";
+import * as Haptics from "expo-haptics";
+import { BottomTabs, TABS, type TabRoute } from "../../../components/shell/bottom-tabs";
+import { useRealtimeRefresh } from "../../../lib/realtime/use-realtime-refresh";
 
 /**
- * The signed-in shell. Home, Activity, Budgets and Settings; Accounts is reached from Activity / Settings rather than its own
- * tab (docs/specs/2026-09-17-mobile-app-launch-design.md). Labels only — no icon pack dependency.
+ * The signed-in app: the web's four tabs (Home, Budgets, Activity, More), each
+ * its own stack under the shared header. The bar is ours (components/shell/
+ * bottom-tabs.tsx), drawn like the web's; pressing the current tab again
+ * returns its stack to the top, as the native stack does on a tab press.
  */
 export default function TabsLayout() {
+  // New bank rows (a background sync) or an edit on another device refresh every screen, like the web layout's <RealtimeRefresh>.
+  useRealtimeRefresh(["transactions"]);
+
   return (
     <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: colors.accent,
-        tabBarInactiveTintColor: colors.muted,
-        tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.border },
-        tabBarLabelStyle: { fontFamily: fonts.medium, fontSize: 13 },
-        tabBarIcon: () => null,
-        tabBarIconStyle: { display: "none" },
+      screenOptions={{ headerShown: false }}
+      tabBar={({ state, navigation }) => {
+        const active = state.routes[state.index]!.name as TabRoute;
+        return (
+          <BottomTabs
+            active={active}
+            onSelect={(route) => {
+              const target = state.routes.find((r) => r.name === route);
+              if (!target) return;
+              const event = navigation.emit({ type: "tabPress", target: target.key, canPreventDefault: true });
+              if (route !== active && !event.defaultPrevented) {
+                void Haptics.selectionAsync();
+                navigation.navigate(route);
+              }
+            }}
+          />
+        );
       }}
     >
-      <Tabs.Screen name="index" options={{ title: "Home", tabBarButtonTestID: "tab-home" }} />
-      <Tabs.Screen name="activity" options={{ title: "Activity", tabBarButtonTestID: "tab-activity" }} />
-      <Tabs.Screen name="budgets" options={{ title: "Budgets", tabBarButtonTestID: "tab-budgets" }} />
-      <Tabs.Screen name="settings" options={{ title: "Settings", tabBarButtonTestID: "tab-settings" }} />
+      {TABS.map((t) => (
+        <Tabs.Screen key={t.route} name={t.route} options={{ title: t.label }} />
+      ))}
     </Tabs>
   );
 }

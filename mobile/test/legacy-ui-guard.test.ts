@@ -11,21 +11,16 @@ import { describe, expect, it } from "vitest";
  * legacy modules are deleted.
  */
 const LEGACY_ALLOWED = [
-  "app/(app)/(tabs)/_layout.tsx",
-  "app/(app)/(tabs)/settings.tsx",
-  "app/(app)/diagnostics.tsx",
-  "app/(app)/paywall.tsx",
-  "app/(app)/(tabs)/activity.tsx",
-  "app/(app)/(tabs)/budgets.tsx",
-  "app/(app)/(tabs)/index.tsx",
+  "app/(app)/(tabs)/(activity)/activity.tsx",
+  "app/(app)/(tabs)/(budgets)/budgets.tsx",
+  "app/(app)/(tabs)/(home)/index.tsx",
+  "app/(app)/(tabs)/(more)/accounts.tsx",
+  "app/(app)/(tabs)/(more)/connected-banks.tsx",
   "app/(app)/_layout.tsx",
-  "app/(app)/accounts.tsx",
-  "app/(app)/connected-banks.tsx",
   "app/(app)/delete-account.tsx",
   "app/(app)/get-started.tsx",
   "app/(app)/map-accounts.tsx",
   "app/(app)/transaction.tsx",
-  "components/brand/controls.tsx",
   "components/parts.tsx",
   "components/ui.tsx",
 ];

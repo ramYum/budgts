@@ -2,16 +2,16 @@ import { useState } from "react";
 import { RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { authFetch } from "../../lib/auth/api";
-import { useAuth } from "../../lib/auth/auth-context";
-import { parseAccounts, type MobileAccount } from "../../lib/accounts/accounts-api";
-import { useVersion, invalidate } from "../../lib/api/invalidate";
-import { loadResource, mutate } from "../../lib/api/load";
-import { jsonInit } from "../../lib/api/request";
-import { useResource } from "../../lib/api/use-resource";
-import { colors, fonts, radii } from "../../lib/theme";
-import { ChipRow, ErrorBlock, Field, Loading, Chip } from "../../components/parts";
-import { OutlineButton, PrimaryButton, TextLink } from "../../components/ui";
+import { authFetch } from "../../../../lib/auth/api";
+import { useAuth } from "../../../../lib/auth/auth-context";
+import { parseAccounts, type MobileAccount } from "../../../../lib/accounts/accounts-api";
+import { useVersion, invalidate } from "../../../../lib/api/invalidate";
+import { loadResource, mutate } from "../../../../lib/api/load";
+import { jsonInit } from "../../../../lib/api/request";
+import { useResource } from "../../../../lib/api/use-resource";
+import { colors, fonts, radii } from "../../../../lib/theme";
+import { ChipRow, ErrorBlock, Field, Loading, Chip } from "../../../../components/parts";
+import { OutlineButton, PrimaryButton, TextLink } from "../../../../components/ui";
 
 /**
  * Accounts: list, add a manual account, rename / retype, and archive. A Plaid account only shows "Archive" if it is currently
@@ -30,7 +30,7 @@ export default function AccountsScreen() {
   const [editingId, setEditingId] = useState<string | null>(null);
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={[]}>
       <View style={styles.header}>
         <Text style={styles.title} accessibilityRole="header">
           Accounts

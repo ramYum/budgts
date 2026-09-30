@@ -2,19 +2,19 @@ import { useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { authFetch } from "../../../lib/auth/api";
-import { loadResource } from "../../../lib/api/load";
-import { useResource } from "../../../lib/api/use-resource";
-import { parseCategories } from "../../../lib/categories/categories-api";
-import { shiftMonth } from "../../../lib/dates";
-import { formatActivityDay, formatMoney, formatMonthLabel } from "../../../lib/home/format";
-import { useProfile, useUserDates } from "../../../lib/profile/profile-context";
-import { colors, fonts, radii } from "../../../lib/theme";
-import { draftFromTransaction } from "../../../lib/transactions/form";
-import type { MobileTransaction } from "../../../lib/transactions/transactions-api";
-import { useTransactionList } from "../../../lib/transactions/use-transaction-list";
-import { Chip, ErrorBlock, Loading, MonthNav, Notice } from "../../../components/parts";
-import { OutlineButton, PrimaryButton, TextLink } from "../../../components/ui";
+import { authFetch } from "../../../../lib/auth/api";
+import { loadResource } from "../../../../lib/api/load";
+import { useResource } from "../../../../lib/api/use-resource";
+import { parseCategories } from "../../../../lib/categories/categories-api";
+import { shiftMonth } from "../../../../lib/dates";
+import { formatActivityDay, formatMoney, formatMonthLabel } from "../../../../lib/home/format";
+import { useProfile, useUserDates } from "../../../../lib/profile/profile-context";
+import { colors, fonts, radii } from "../../../../lib/theme";
+import { draftFromTransaction } from "../../../../lib/transactions/form";
+import type { MobileTransaction } from "../../../../lib/transactions/transactions-api";
+import { useTransactionList } from "../../../../lib/transactions/use-transaction-list";
+import { Chip, ErrorBlock, Loading, MonthNav, Notice } from "../../../../components/parts";
+import { OutlineButton, PrimaryButton, TextLink } from "../../../../components/ui";
 
 /**
  * Activity: the month's ledger, newest first, with category filter and description search, keyset-paged from
@@ -40,7 +40,7 @@ export default function ActivityScreen() {
     router.push(t ? { pathname: "/transaction", params: { id: t.id, draft: JSON.stringify(draftFromTransaction(t)) } } : "/transaction");
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top"]}>
+    <SafeAreaView style={styles.safe} edges={[]}>
       <View style={styles.header}>
         <Text style={styles.title} accessibilityRole="header">
           Activity

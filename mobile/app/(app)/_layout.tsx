@@ -3,6 +3,7 @@ import { Stack } from "expo-router";
 import { useLoadingScreen } from "../../components/loading-screen";
 import { useAuth } from "../../lib/auth/auth-context";
 import { ProfileProvider, useProfile } from "../../lib/profile/profile-context";
+import { StatusProvider } from "../../lib/status/status-context";
 import { colors, fonts, radii } from "../../lib/theme";
 import { OutlineButton, PrimaryButton } from "../../components/ui";
 
@@ -41,6 +42,7 @@ function Gate() {
 
   const onboarded = state.profile.onboarded;
   return (
+    <StatusProvider>
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }}>
       <Stack.Protected guard={!onboarded}>
         <Stack.Screen name="get-started" />
@@ -48,14 +50,11 @@ function Gate() {
       <Stack.Protected guard={onboarded}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="transaction" options={{ presentation: "modal" }} />
-        <Stack.Screen name="accounts" />
-        <Stack.Screen name="connected-banks" />
         <Stack.Screen name="map-accounts" options={{ presentation: "modal" }} />
-        <Stack.Screen name="paywall" options={{ presentation: "modal" }} />
         <Stack.Screen name="delete-account" />
-        <Stack.Screen name="diagnostics" />
       </Stack.Protected>
     </Stack>
+    </StatusProvider>
   );
 }
 

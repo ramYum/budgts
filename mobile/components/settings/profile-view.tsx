@@ -1,16 +1,26 @@
 import { View } from "react-native";
 import { COLOR, ROLE } from "../../lib/brand/shared";
-import type { LoadState } from "../../lib/api/load";
-import { avatarLetter, signsInWith, type ProfileDetails } from "../../lib/settings/profile-details";
-import { Button } from "../brand/controls";
+import type { MobileProfile } from "../../lib/profile/profile-api";
 import { PixelFrame } from "../brand/pixel-frame";
 import { Text } from "../brand/text";
-import { EmptyState } from "../kit/empty-state";
 import { PageHeader } from "../kit/page-header";
 import { SectionHead } from "../kit/section-head";
 import { Badge } from "../kit/tiles";
 import { CopyButton } from "./copy-button";
 import { RowsCard } from "./rows-card";
+
+/** The Profile screen's lines, from the shared profile (the server derives them with the web page's own functions). */
+export type ProfileDetails = Pick<MobileProfile, "email" | "displayName" | "signInMethods" | "currency" | "currencyName" | "timeZoneLabel">;
+
+/** The web's "Signs in with …" line: "an email link or Google". */
+export function signsInWith(methods: readonly string[]): string {
+  return methods.map((m) => (m === "Email link" ? "an email link" : m)).join(" or ");
+}
+
+/** The avatar's letter: the name's, else the email's, else "?" (web Profile page). */
+export function avatarLetter(d: Pick<ProfileDetails, "displayName" | "email">): string {
+  return (d.displayName || d.email || "?")[0]!;
+}
 
 /** A detail's name over its value (web `dt` 13/20 muted, `dd` 15/24 medium ink). */
 function Detail({ label, value, testID }: { label: string; value: string; testID: string }) {
@@ -54,8 +64,8 @@ function Body({ d, copy }: { d: ProfileDetails; copy: (value: string) => Promise
         <SectionHead title="Details" />
         <RowsCard pad={12} testID="profile-details">
           <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-            <Detail label="Email" value={d.email} testID="profile-email" />
-            <CopyButton value={d.email} label="Copy email" copy={copy} testID="profile-copy-email" />
+            <Detail label="Email" value={d.email ?? ""} testID="profile-email" />
+            <CopyButton value={d.email ?? ""} label="Copy email" copy={copy} testID="profile-copy-email" />
           </View>
           <Detail label="Currency" value={`${d.currency} · ${d.currencyName}`} testID="profile-currency" />
           {/* an onboarded profile always has a zone; this only guards a half-finished one */}
@@ -87,34 +97,18 @@ function Body({ d, copy }: { d: ProfileDetails; copy: (value: string) => Promise
  * device.
  */
 export function ProfileView({
-  state,
+  profile,
   onBack,
-  onRetry,
   copy,
 }: {
-  state: LoadState<ProfileDetails>;
+  profile: ProfileDetails;
   onBack: () => void;
-  onRetry: () => void;
   copy: (value: string) => Promise<unknown>;
 }) {
   return (
     <View testID="profile-view">
       <PageHeader title="Profile" onBack={onBack} />
-      {state.status === "ready" ? (
-        <Body d={state.data} copy={copy} />
-      ) : state.status === "error" ? (
-        <EmptyState
-          testID="profile-error"
-          icon="warning"
-          title="Couldn't load your profile"
-          body={state.message}
-          action={
-            <Button testID="profile-retry" variant="secondary" icon="sync" onPress={onRetry}>
-              Try again
-            </Button>
-          }
-        />
-      ) : null}
+      <Body d={profile} copy={copy} />
     </View>
   );
 }

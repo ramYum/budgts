@@ -1,10 +1,9 @@
 import { act } from "react-test-renderer";
 import { describe, expect, it, vi } from "vitest";
 import { byTestId, flat, render, textContent, texts } from "../../test/render";
-import type { ProfileDetails } from "../../lib/settings/profile-details";
 import { AppearanceView } from "./appearance-view";
 import { CopyButton } from "./copy-button";
-import { ProfileView } from "./profile-view";
+import { ProfileView, avatarLetter, signsInWith, type ProfileDetails } from "./profile-view";
 import { SECURITY_FACTS, SecurityView } from "./security-view";
 
 const copied = (r: ReturnType<typeof render>) => r.root.findAll((n) => typeof n.type === "string" && n.props.testID === "copy-button-copied");
@@ -19,7 +18,7 @@ const details: ProfileDetails = {
 };
 
 const profile = (over: Partial<Parameters<typeof ProfileView>[0]> = {}) => (
-  <ProfileView state={{ status: "ready", data: details }} onBack={() => {}} onRetry={() => {}} copy={async () => {}} {...over} />
+  <ProfileView profile={details} onBack={() => {}} copy={async () => {}} {...over} />
 );
 
 describe("Profile (web /settings/profile)", () => {
@@ -45,19 +44,17 @@ describe("Profile (web /settings/profile)", () => {
   });
 
   it("falls back to You and the email's letter when there's no name", () => {
-    const r = render(profile({ state: { status: "ready", data: { ...details, displayName: "", email: "9x@example.com" } } }));
+    const r = render(profile({ profile: { ...details, displayName: "", email: "9x@example.com" } }));
     expect(textContent(byTestId(r, "profile-name"))).toBe("You");
     expect(texts(r)).toContain("9");
   });
 
-  it("shows nothing but the header while loading, and a way out when it fails", () => {
-    const loading = render(profile({ state: { status: "loading" } }));
-    expect(texts(loading)).toEqual(["Profile"]);
-    const onRetry = vi.fn();
-    const failed = render(profile({ state: { status: "error", kind: "network", message: "Couldn't reach Budgts." }, onRetry }));
-    expect(texts(byTestId(failed, "profile-error"))).toContain("Couldn't reach Budgts.");
-    byTestId(failed, "profile-retry").props.onPress();
-    expect(onRetry).toHaveBeenCalled();
+  it("says how the user signs in, and picks the avatar letter, as the web does", () => {
+    expect(signsInWith(["Email link"])).toBe("an email link");
+    expect(signsInWith(["Email link", "Google"])).toBe("an email link or Google");
+    expect(signsInWith(["Apple"])).toBe("Apple");
+    expect(avatarLetter({ displayName: "Alex", email: "alex@x.com" })).toBe("A");
+    expect(avatarLetter({ displayName: "", email: null })).toBe("?");
   });
 
   it("goes back", () => {

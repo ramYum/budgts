@@ -1,5 +1,5 @@
 import { Platform } from "react-native";
-import { createPlaidLinkSession, LinkEventName, type LinkExit, type LinkSuccess } from "react-native-plaid-link-sdk";
+import { createPlaidLinkSession, type LinkSuccess } from "react-native-plaid-link-sdk";
 import type { LinkPlatform, PlaidLinkClient, PlaidLinkOutcome } from "./plaid-link";
 
 /**
@@ -39,14 +39,10 @@ export function createPlaidLinkClient(): PlaidLinkClient {
               institution: success.metadata.institution ? { id: success.metadata.institution.id, name: success.metadata.institution.name } : null,
             });
           },
-          onExit: (exit: LinkExit) => {
-            resolve({ kind: "exit", errorMessage: exit.error?.errorCode ?? null });
-          },
-          onEvent: (event) => {
-            // ERROR events without a terminal onExit are the one case the SDK's callback contract doesn't otherwise
-            // surface to the caller — treat it the same as an exit with that error code.
-            if (event.eventName === LinkEventName.ERROR) resolve({ kind: "exit", errorMessage: event.metadata.errorCode ?? "ERROR" });
-          },
+          // Link always ends in onSuccess or onExit. An ERROR event is not an ending: Link shows the error and lets the
+          // user retry (a mistyped password), so settling on it would drop a connection that then succeeds.
+          onExit: () => resolve({ kind: "exit" }),
+          onEvent: () => {},
         })
           .then((session) => session.open())
           .catch((e: unknown) => reject(e instanceof Error ? e : new Error("Plaid Link failed to start")));

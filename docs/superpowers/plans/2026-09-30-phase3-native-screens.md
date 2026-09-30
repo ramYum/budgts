@@ -645,3 +645,13 @@ Stable interface; changes go through Lane E.
 - **Linking in:** `router.navigate(budgetsLink.edit(month, categoryId))` → `{ pathname: "/budgets", params: { m, edit } }` (Home's "Set budget", Lane B). A later link while the tab is open applies its params as a web navigation would (month, range, the sheet).
 - **Linking out:** the category sheet's "See transactions" → `router.navigate(budgetsLink.activity(month, categoryId))` → `/activity?m=&category=` (D1's contract above).
 - **Shared display figure:** "vs. last month" is `budgetTrendPct` in `src/lib/figures/budget-trend.ts`, moved verbatim out of the web `budgets-view.tsx` (zero-pixel: the web sheet captured before and after for the `full` and `over` users, Dining out and Groceries, 0 changed pixels at threshold 0). `src/lib/figures` (also `savings-pct.ts`: `savingsPct` / `savingsBarPct`, Goals and Home) is in `SHARED` (mobile/metro.shared.js); brand-purity follows the imports.
+
+### Phase 3 device checklist (the owner's device pass)
+
+Re-auth guard (`phase-m/p3-c-auth`, security review 9.5, merged 2026-09-30):
+1. Settings → Delete account → Confirm it's you with Google, picking a different Google account: refused, signed out, sign-in says why. Android and iOS.
+2. The same with Android's developer option "Don't keep activities" on.
+3. The same in airplane mode (the sign-out can't reach the server: sign-in says so).
+4. After a refusal, sign in as that other account on purpose: it signs in normally, no stale message.
+5. The email re-auth after the app's process is killed between sending the link and opening it.
+6. `adb shell am start -d "budgts://auth/callback?code=x"` while signed in: "nothing changed, you're still signed in", with a way back.

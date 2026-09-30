@@ -132,22 +132,3 @@ export async function requestReauthLink(
     return failed;
   }
 }
-
-/**
- * Where the app goes once a sign-in link's sign-in completes (app/auth/callback.tsx): back to the deletion screen, as
- * the web's link does with `next`. The app's hand-off page passes on only the link's code, so the intent waits here, on
- * this device, for the hour a sign-in link lasts. It is taken once, and only by the account that left it: anyone else
- * signing in on this phone lands on Home.
- */
-const RETURN_TTL_MS = 60 * 60 * 1000;
-let pendingReturn: { path: string; userId: string; at: number } | null = null;
-
-export function returnAfterSignIn(path: string, userId: string, now: number = Date.now()): void {
-  pendingReturn = { path, userId, at: now };
-}
-
-export function takeReturnAfterSignIn(userId: string, now: number = Date.now()): string | null {
-  const p = pendingReturn;
-  pendingReturn = null;
-  return p && p.userId === userId && now - p.at <= RETURN_TTL_MS ? p.path : null;
-}

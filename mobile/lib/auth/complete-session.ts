@@ -1,13 +1,14 @@
 import { problemFromAuthError, type AuthLinkProblem } from "./auth-errors";
 import { parseAuthCallbackUrl } from "./parse-callback-url";
 
-export type CompleteSessionResult = { ok: true } | { ok: false; problem: AuthLinkProblem };
+/** `userId`: who the exchange signed in (from its own answer: the app's session state may not have caught up yet). */
+export type CompleteSessionResult = { ok: true; userId?: string } | { ok: false; problem: AuthLinkProblem };
 
 type AuthErrorLike = { code?: string; message: string; name?: string; status?: number } | null;
 
 /** The supabase-js call a sign-in return needs (injected, so this is unit-tested without a device). */
 export type SessionAuth = {
-  exchangeCodeForSession(code: string): Promise<{ error: AuthErrorLike }>;
+  exchangeCodeForSession(code: string): Promise<{ data?: { user?: { id: string } | null } | null; error: AuthErrorLike }>;
 };
 
 /**
@@ -20,8 +21,10 @@ export async function completeSession(url: string, auth: SessionAuth): Promise<C
   const parsed = parseAuthCallbackUrl(url);
   if (parsed.kind === "error") return { ok: false, problem: parsed.problem };
   try {
-    const { error } = await auth.exchangeCodeForSession(parsed.code);
-    return error ? { ok: false, problem: problemFromAuthError(error) } : { ok: true };
+    const { data, error } = await auth.exchangeCodeForSession(parsed.code);
+    if (error) return { ok: false, problem: problemFromAuthError(error) };
+    const userId = data?.user?.id;
+    return userId ? { ok: true, userId } : { ok: true };
   } catch (err) {
     return { ok: false, problem: problemFromAuthError(err as { message: string; name?: string }) };
   }

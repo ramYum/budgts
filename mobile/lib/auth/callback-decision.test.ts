@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { returnAfterSignIn, takeReturnAfterSignIn } from "../account/delete-screen";
+import { returnAfterSignIn, takeReturnAfterSignIn } from "./return-intent";
 import { callbackDecision } from "./callback-decision";
 import { completeSession, type SessionAuth } from "./complete-session";
 
@@ -96,5 +96,41 @@ describe("an old or foreign link while signed in changes nothing", () => {
     const outcome = await completeSession("budgts://auth/callback#error=access_denied&error_code=otp_expired", a);
     expect(outcome).toEqual({ ok: false, problem: "expired" });
     expect(a.exchangeCodeForSession).not.toHaveBeenCalled();
+  });
+});
+
+describe("a re-sign-in that came back as a different account", () => {
+  const bobRejected = (id: string | null | undefined) => (id === "bob" ? ("other_account" as const) : null);
+
+  it("never goes on as the other account: it waits for the sign-out, then shows sign-in with the reason", () => {
+    const take = vi.fn(() => "/settings/delete-account?step=confirm");
+    // the refused session never reached the app; alice's is still on screen while the phone signs out
+    expect(callbackDecision({ ok: true, userId: "bob" }, "alice", take, bobRejected)).toEqual({ kind: "wait" });
+    expect(callbackDecision({ ok: true, userId: "bob" }, null, take, bobRejected)).toEqual({ kind: "sign-in", problem: "other_account" });
+    expect(take).not.toHaveBeenCalled();
+  });
+
+  it("the same account goes on to confirm as before", () => {
+    returnAfterSignIn(CONFIRM, "alice");
+    expect(callbackDecision({ ok: true, userId: "alice" }, "alice", takeReturnAfterSignIn, bobRejected)).toEqual({ kind: "go", href: CONFIRM });
+  });
+});
+
+describe("completeSession names who the exchange signed in", () => {
+  it("from the exchange's own answer", async () => {
+    const a = auth(async () => ({ data: { user: { id: "bob" } }, error: null }));
+    expect(await completeSession("budgts://auth/callback?code=c", a)).toEqual({ ok: true, userId: "bob" });
+  });
+});
+
+describe("R1: a refused account that later signs in on purpose", () => {
+  it("goes on (refuse B, sign out, sign in as B → go)", async () => {
+    const guard = await import("./reauth-guard");
+    guard.resetReauthGuard();
+    guard.expectReauthAs("alice");
+    expect(guard.reauthVerdict("SIGNED_IN", "bob")).toBe("reject");
+    guard.reauthVerdict("SIGNED_OUT", null);
+    expect(guard.reauthVerdict("SIGNED_IN", "bob")).toBe("accept");
+    expect(callbackDecision({ ok: true, userId: "bob" }, "bob", () => null, guard.refusalOf)).toEqual({ kind: "go", href: "/" });
   });
 });

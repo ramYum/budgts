@@ -17,7 +17,11 @@ export type AuthLinkProblem =
   /** a link the app never asks for (a token_hash or implicit-flow link): refused, parse-callback-url.ts */
   | "not_this_app"
   /** the phone couldn't reach the server */
-  | "network";
+  | "network"
+  /** a signed-in re-sign-in came back as a different account: refused and signed out (lib/auth/reauth-guard.ts) */
+  | "other_account"
+  /** that refusal's sign-out failed: the other account's session may still be stored until the next launch refuses it */
+  | "sign_out_failed";
 
 export const LINK_PROBLEM_MESSAGE: Record<AuthLinkProblem, string> = {
   expired: "That sign-in link has expired or was already used. Send yourself a new one below.",
@@ -27,6 +31,8 @@ export const LINK_PROBLEM_MESSAGE: Record<AuthLinkProblem, string> = {
   invalid: "That sign-in link didn't work. Send yourself a new one below.",
   not_this_app: "This sign-in link can't be used here. Send yourself a new one below and open it on this phone.",
   network: "Couldn't reach Budgts. Check your connection and try again.",
+  sign_out_failed: "That sign-in was for a different account, and Budgts couldn't finish signing it out. Nothing was deleted. Close Budgts and open it again to finish, then sign in with the account you want to delete.",
+  other_account: "That sign-in was for a different account, so nothing was deleted and you've been signed out. Sign in again with the account you want to delete.",
 };
 
 type ErrorLike = { code?: string | null; message?: string | null; status?: number | null; name?: string | null };

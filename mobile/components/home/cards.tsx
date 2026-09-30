@@ -2,7 +2,7 @@ import { Pressable, View } from "react-native";
 import { COLOR, ROLE } from "../../lib/brand/shared";
 import type { HomeSuggestion, MobileHome } from "../../lib/home/contract";
 import { formatMoney } from "../../lib/home/format";
-import { savingsBadge } from "../../lib/home/view";
+import { savingsProgress } from "../../lib/home/view";
 import { IconTile } from "../brand/controls";
 import { Icon } from "../brand/icon";
 import { PixelFrame } from "../brand/pixel-frame";
@@ -73,7 +73,7 @@ export function ChangeCard({ suggestion, month, currency, go }: { suggestion: Ho
 
 /** "Savings" (web `savingsCard`): what the active goals hold, rolling in, and their progress toward the targets. */
 export function SavingsCard({ savings, currency, go }: { savings: NonNullable<MobileHome["savings"]>; currency: string; go: (path: string) => void }) {
-  const badge = savingsBadge(savings);
+  const { pct, badge } = savingsProgress(savings);
   return (
     <View testID="home-savings" style={{ gap: 12 }}>
       <SectionHead testID="section-head" title="Savings" action="Goals" onAction={() => go("/goals")} />
@@ -87,7 +87,7 @@ export function SavingsCard({ savings, currency, go }: { savings: NonNullable<Mo
           ) : null}
         </View>
         <View style={{ marginTop: 16 }}>
-          <ProgressBar testID="progress-bar" pct={savings.pct} tone="growth" />
+          <ProgressBar testID="progress-bar" pct={pct} tone="growth" />
         </View>
         <Text variant="body" color={ROLE.muted} style={[SM, TNUM, { marginTop: 16 }]}>
           Kept toward {formatMoney(savings.totalTarget, currency)} across {savings.activeCount}{" "}

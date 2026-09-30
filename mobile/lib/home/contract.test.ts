@@ -35,7 +35,7 @@ const valid = {
       category: { name: "Food / Groceries", color: "#3FA772" },
     },
   ],
-  savings: { activeCount: 1, totalSaved: 42000, totalTarget: 100000, pct: 42 },
+  savings: { activeCount: 1, totalSaved: 42000, totalTarget: 100000 },
   bankConnected: true,
   suggestion: { kind: "mover", categoryId: "c1", name: "Food / Groceries", amount: 18555, delta: 4200 },
 };
@@ -81,7 +81,6 @@ describe("parseMobileHome", () => {
     ["bad budget state", { ...valid, categories: [{ ...valid.categories[0], state: "weird" }] }],
     ["bad direction", { ...valid, recent: [{ ...valid.recent[0], direction: "sideways" }] }],
     ["bad savings shape", { ...valid, savings: { activeCount: "1" } }],
-    ["savings without pct", { ...valid, savings: { activeCount: 1, totalSaved: 1, totalTarget: 2 } }],
     ["bankConnected not a boolean", { ...valid, bankConnected: "yes" }],
     ["unknown suggestion kind", { ...valid, suggestion: { ...valid.suggestion, kind: "other" } }],
     ["fractional suggestion amount", { ...valid, suggestion: { ...valid.suggestion, amount: 1.5 } }],

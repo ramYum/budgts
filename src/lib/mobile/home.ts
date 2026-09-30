@@ -9,7 +9,7 @@
  * Removing or changing a field is a contract change: bump `MOBILE_HOME_VERSION`, update `mobile/lib/home/contract.ts`,
  * and update the shape test. Adding a field keeps the version (an older app ignores what it does not read); the shape test
  * still lists it. Added 2026-09-29 (Stage 2B): the spending cards (`suggestion`, `breakdown`, `trend`, `trendChange`) and
- * `bankConnected`, so the native Home can show everything the web Home does. Added 2026-09-30 (Phase 3): `savings.pct`.
+ * `bankConnected`, so the native Home can show everything the web Home does.
  */
 import type { BudgetState } from "@/lib/budget/types";
 import type { HomeData, HomeRecentItem } from "@/lib/home/load-home";
@@ -47,9 +47,8 @@ export type MobileHome = MobileSpendingCards & {
   categories: MobileHomeCategory[];
   /** The five most recent transactions, newest first. */
   recent: HomeRecentItem[];
-  /** `null` when the user has no active goals. `pct` is saved ÷ target × 100, unrounded (the cells use it as is; the badge
-   * rounds it), 0 without a target: the web Home's savings card prints this. */
-  savings: { activeCount: number; totalSaved: number; totalTarget: number; pct: number } | null;
+  /** `null` when the user has no active goals. */
+  savings: { activeCount: number; totalSaved: number; totalTarget: number } | null;
   /** "Get set up": whether any bank connection exists; `null` when bank connections are switched off. */
   bankConnected: boolean | null;
 };
@@ -65,11 +64,6 @@ export function mobileCategories(home: { view: Pick<HomeData["view"], "bars"> })
     pctUsed: b.pctUsed,
     state: b.state,
   }));
-}
-
-/** The goals' combined progress, exactly as the web Home's savings card computes it (dashboard-view.tsx). */
-export function goalsPct(s: { totalSaved: number; totalTarget: number }): number {
-  return s.totalTarget > 0 ? (s.totalSaved / s.totalTarget) * 100 : 0;
 }
 
 export function buildMobileHome(home: HomeData): MobileHome {
@@ -99,12 +93,7 @@ export function buildMobileHome(home: HomeData): MobileHome {
     })),
     savings:
       savings.activeCount > 0
-        ? {
-            activeCount: savings.activeCount,
-            totalSaved: savings.totalSaved,
-            totalTarget: savings.totalTarget,
-            pct: goalsPct(savings),
-          }
+        ? { activeCount: savings.activeCount, totalSaved: savings.totalSaved, totalTarget: savings.totalTarget }
         : null,
     bankConnected: home.bankConnected,
     ...spendingCards(home.view, home.prevView, home.trend),

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { GUIDE_COPY, firstRunRedirect } from "./shared";
-import { parseOnboardingCards, parseTourCards } from "./tour-api";
+import { completeTour, parseOnboardingCards, parseTourCards } from "./tour-api";
 
 describe("shared web sources", () => {
   it("are the web's own guide words and gate, not copies", () => {
@@ -50,5 +50,25 @@ describe("parseTourCards", () => {
   it("refuses progress that doesn't add up", () => {
     expect(() => parseTourCards({ ...body, totalVisible: 8 })).toThrow();
     expect(() => parseTourCards({ ...body, offset: -1 })).toThrow();
+  });
+});
+
+describe("completeTour (POST /api/mobile/tour)", () => {
+  const json = (status: number, body: unknown) => async () => new Response(JSON.stringify(body), { status });
+
+  it("is done only when the server says it stamped the guide seen", async () => {
+    expect(await completeTour(json(200, { ok: true }))).toEqual({ status: "done" });
+    expect((await completeTour(json(200, {}))).status).toBe("error");
+  });
+
+  it("names the failure in plain words, never the server's", async () => {
+    expect(await completeTour(json(503, { error: "unavailable" }))).toMatchObject({ status: "error", kind: "unavailable" });
+    expect(await completeTour(json(404, { error: "profile_missing" }))).toMatchObject({ status: "error", kind: "unavailable" });
+    expect(await completeTour(json(401, {}))).toMatchObject({ status: "error", kind: "auth" });
+    expect(
+      await completeTour(async () => {
+        throw new TypeError("Network request failed");
+      }),
+    ).toMatchObject({ status: "error", kind: "network", message: "Couldn't reach Budgts. Check your connection and try again." });
   });
 });

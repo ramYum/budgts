@@ -24,6 +24,8 @@ export type TxnListItem = {
   is_transfer: boolean;
   category_id: string | null;
   account_id: string;
+  /** `bank` rows keep their account on edit (owner decision 2026-09-30). */
+  source: "manual" | "bank" | "email" | "receipt";
   category: { name: string; color: string } | null;
   account: { name: string } | null;
 };
@@ -419,6 +421,7 @@ function toInitial(it: TxnListItem): TransactionInitial {
     isTransfer: it.is_transfer,
     accountId: it.account_id,
     accountName: it.account?.name ?? "",
+    accountLocked: it.source === "bank",
     categoryId: it.category_id,
   };
 }

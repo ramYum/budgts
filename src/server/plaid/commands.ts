@@ -7,6 +7,7 @@ import "server-only";
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { after } from "next/server";
+import { readOwnOpenAccount } from "@/lib/accounts/selectable-accounts";
 import { db } from "@/lib/db";
 import { claimMissReason, findItemByPlaidItemId } from "@/lib/plaid/item-store";
 import { claimMissMessage, runClaimedSync } from "@/lib/plaid/sync-runner";
@@ -72,6 +73,14 @@ export async function mapAccountsFor(
   // Confirm the Item is the caller's and grab its Plaid `item_id` for the sync.
   const { data: item } = await supabase.from("plaid_items").select("item_id").eq("id", plaidItemId).maybeSingle();
   if (!item) return { ok: false, error: "not_found", message: "That bank connection no longer exists. Try connecting again." };
+
+  // An "existing" target must be the caller's own, open account: RLS on plaid_accounts checks only the link row's
+  // user_id, not the account it points at. Checked for every entry before any write, so a bad entry saves nothing.
+  for (const entry of entries) {
+    if (entry.mode !== "existing") continue;
+    const target = entry.existingAccountId ? await readOwnOpenAccount(supabase, entry.existingAccountId) : null;
+    if (!target) return { ok: false, error: "invalid", message: "That account is no longer available. Refresh and choose again." };
+  }
 
   for (const entry of entries) {
     let accountId: string | null = null;

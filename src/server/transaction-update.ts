@@ -16,36 +16,42 @@ export interface UpdateTransactionFields {
 
 export type UpdateTransactionOutcome = { outcome: "ok" } | { outcome: "missing" } | { outcome: "conflict" };
 
-/**
- * The row's current `account_id`, or `null` if it doesn't exist / isn't
- * visible to this client (RLS). An edit compares against it so that keeping
- * the row's own account is always allowed, even when that account can no
- * longer take new entries (a disconnected bank's kept history).
- */
-export async function readTransactionAccountId(supabase: SupabaseClient, id: string): Promise<string | null> {
-  const { data, error } = await supabase.from("transactions").select("account_id").eq("id", id).maybeSingle();
-  if (error) throw new Error(error.message);
-  return data ? (data.account_id as string) : null;
+/** What an edit decides against, read once: see {@link readObservedRow}. */
+export interface ObservedRow {
+  isTransfer: boolean;
+  accountId: string;
+  /** Imported from a bank (`source = 'bank'`, or still linked to a Plaid account): its account never changes on edit. */
+  bankSourced: boolean;
 }
 
 /**
- * The row's current `is_transfer`, or `null` if it doesn't exist / isn't
- * visible to this client (RLS, for the real request-scoped client).
+ * The row's current `is_transfer`, account and origin in one read, or `null` if it doesn't exist / isn't visible to
+ * this client (RLS). Handing it to {@link updateTransactionRow} makes the write conditional on exactly this state, so
+ * a "keep the account" or "move it" decision can never land on a row whose account changed in between.
  */
-export async function readObservedIsTransfer(supabase: SupabaseClient, id: string): Promise<boolean | null> {
-  const { data, error } = await supabase.from("transactions").select("is_transfer").eq("id", id).maybeSingle();
+export async function readObservedRow(supabase: SupabaseClient, id: string): Promise<ObservedRow | null> {
+  const { data, error } = await supabase
+    .from("transactions")
+    .select("is_transfer, account_id, source, plaid_account_id")
+    .eq("id", id)
+    .maybeSingle();
   if (error) throw new Error(error.message);
-  return data ? (data.is_transfer as boolean) : null;
+  if (!data) return null;
+  return {
+    isTransfer: data.is_transfer as boolean,
+    accountId: data.account_id as string,
+    bankSourced: data.source === "bank" || data.plaid_account_id != null,
+  };
 }
 
 /**
  * One optimistic conditional write: succeeds only if `is_transfer` is
- * still `observed` at write time. `transfer_user_set` is set to `true`
- * only when `fields.isTransfer` genuinely differs from `observed` --
- * never written `false` over an existing `true` (the field is omitted
- * entirely, not set, when unchanged). This is the only place
- * `transfer_user_set` is ever written (design: 2026-09-12
- * transfer-ownership §4).
+ * still `observed.isTransfer` AND the row is still on `observed.accountId`
+ * at write time. `transfer_user_set` is set to `true` only when
+ * `fields.isTransfer` genuinely differs from the observed value -- never
+ * written `false` over an existing `true` (the field is omitted entirely,
+ * not set, when unchanged). This is the only place `transfer_user_set` is
+ * ever written (design: 2026-09-12 transfer-ownership §4).
  *
  * The same conditional branch also clears `transfer_pair_id` on THIS row
  * (design: 2026-09-16 paired-transfer detection, user-override lifecycle)
@@ -59,7 +65,7 @@ export async function readObservedIsTransfer(supabase: SupabaseClient, id: strin
 export async function attemptConditionalUpdate(
   supabase: SupabaseClient,
   id: string,
-  observed: boolean,
+  observed: Pick<ObservedRow, "isTransfer" | "accountId">,
   fields: UpdateTransactionFields,
 ): Promise<"ok" | "conflict"> {
   const { data, error } = await supabase
@@ -73,44 +79,50 @@ export async function attemptConditionalUpdate(
       description: fields.description,
       note: fields.note,
       is_transfer: fields.isTransfer,
-      ...(fields.isTransfer !== observed ? { transfer_user_set: true, transfer_pair_id: null } : {}),
+      ...(fields.isTransfer !== observed.isTransfer ? { transfer_user_set: true, transfer_pair_id: null } : {}),
     })
     .eq("id", id)
-    .eq("is_transfer", observed)
+    .eq("is_transfer", observed.isTransfer)
+    .eq("account_id", observed.accountId)
     .select("id");
   if (error) throw new Error(error.message);
   return data && data.length > 0 ? "ok" : "conflict";
 }
 
 /**
- * Optimistic conditional update, genuinely atomic for the property that
- * matters: the write only succeeds if `is_transfer` is still what was
- * observed when the caller decided whether to change it. A plain
+ * Optimistic conditional update, genuinely atomic for the properties that
+ * matter: the write only succeeds if `is_transfer` and the account are still
+ * what was observed when the caller decided what to change. A plain
  * read-then-write is NOT atomic and must never be described as
  * self-correcting -- see spec §4's traced silent-loss sequence (a
  * concurrent sync's change can be silently reverted by a write that
- * already decided "no change" against stale data). On a genuine conflict
- * (`is_transfer` changed between the read and the write), re-reads once
- * and retries against the fresh value -- recomputing `transfer_user_set`
- * against that fresh value, not the stale one. If the retry also affects
- * zero rows, stops and reports a conflict rather than looping or
- * silently applying a decision made against stale data.
+ * already decided "no change" against stale data).
+ *
+ * `observed` is the caller's own {@link readObservedRow} (the edit command
+ * reads once, decides the account rule against it, and passes it here);
+ * without it this reads the row itself. On a zero-row write it re-reads:
+ * gone -> `missing`; account changed -> `conflict` (the account decision was
+ * made against the old one, so never retried); only `is_transfer` changed ->
+ * one retry against the fresh value, recomputing `transfer_user_set` from
+ * it. If the retry also affects zero rows, stops and reports a conflict
+ * rather than looping or silently applying a decision made against stale
+ * data.
  */
 export async function updateTransactionRow(
   supabase: SupabaseClient,
   id: string,
   fields: UpdateTransactionFields,
+  observed?: ObservedRow,
 ): Promise<UpdateTransactionOutcome> {
-  const observed = await readObservedIsTransfer(supabase, id);
-  if (observed === null) return { outcome: "missing" };
+  const seen = observed ?? (await readObservedRow(supabase, id));
+  if (seen === null) return { outcome: "missing" };
 
-  const first = await attemptConditionalUpdate(supabase, id, observed, fields);
+  const first = await attemptConditionalUpdate(supabase, id, seen, fields);
   if (first === "ok") return { outcome: "ok" };
 
-  // Zero rows affected: distinguish "row vanished / no longer visible"
-  // from "is_transfer changed under us" (a genuine conflict) by re-reading.
-  const reread = await readObservedIsTransfer(supabase, id);
+  const reread = await readObservedRow(supabase, id);
   if (reread === null) return { outcome: "missing" };
+  if (reread.accountId !== seen.accountId) return { outcome: "conflict" };
 
   const second = await attemptConditionalUpdate(supabase, id, reread, fields);
   return second === "ok" ? { outcome: "ok" } : { outcome: "conflict" };

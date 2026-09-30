@@ -1,17 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const landTransaction = vi.fn();
+const findExisting = vi.fn();
 const updateTransactionRow = vi.fn();
-const readTransactionAccountId = vi.fn();
+const readObservedRow = vi.fn();
 const accountAcceptsEntries = vi.fn();
+const store = { findExisting: (...a: unknown[]) => findExisting(...a) };
 vi.mock("@/lib/ingestion", async (orig) => ({
   ...(await orig<typeof import("@/lib/ingestion")>()),
   landTransaction: (...a: unknown[]) => landTransaction(...a),
-  supabaseTransactionStore: () => ({ __store: true }),
+  supabaseTransactionStore: () => store,
 }));
 vi.mock("@/server/transaction-update", () => ({
   updateTransactionRow: (...a: unknown[]) => updateTransactionRow(...a),
-  readTransactionAccountId: (...a: unknown[]) => readTransactionAccountId(...a),
+  readObservedRow: (...a: unknown[]) => readObservedRow(...a),
 }));
 vi.mock("@/lib/accounts/selectable-accounts", () => ({
   accountAcceptsEntries: (...a: unknown[]) => accountAcceptsEntries(...a),
@@ -23,6 +25,9 @@ const ACCOUNT = "33333333-3333-4333-8333-333333333333";
 const CATEGORY = "44444444-4444-4444-8444-444444444444";
 const OTHER_ACCOUNT = "55555555-5555-4555-8555-555555555555";
 const supabase = { __as: "user-a" } as never;
+
+/** The row as read before an edit: a manual entry on ACCOUNT unless overridden. */
+const row = (over: Record<string, unknown> = {}) => ({ isTransfer: false, accountId: ACCOUNT, bankSourced: false, ...over });
 
 const input = (over: Record<string, unknown> = {}) => ({
   accountId: ACCOUNT,
@@ -38,11 +43,13 @@ const input = (over: Record<string, unknown> = {}) => ({
 
 beforeEach(() => {
   landTransaction.mockReset();
+  findExisting.mockReset();
   updateTransactionRow.mockReset();
-  readTransactionAccountId.mockReset();
+  readObservedRow.mockReset();
   accountAcceptsEntries.mockReset();
   landTransaction.mockResolvedValue({ id: "new-id" });
-  readTransactionAccountId.mockResolvedValue(ACCOUNT);
+  findExisting.mockResolvedValue(null);
+  readObservedRow.mockResolvedValue(row());
   accountAcceptsEntries.mockResolvedValue(true);
 });
 
@@ -51,8 +58,8 @@ describe("createManualTransaction", () => {
     const r = await createManualTransaction(supabase, "user-a", input());
 
     expect(r).toEqual({ ok: true, id: "new-id" });
-    const [store, userId, n] = landTransaction.mock.calls[0];
-    expect(store).toEqual({ __store: true });
+    const [landedStore, userId, n] = landTransaction.mock.calls[0];
+    expect(landedStore).toBe(store);
     expect(userId).toBe("user-a");
     expect(n).toMatchObject({ accountId: ACCOUNT, categoryId: CATEGORY, amount: 1234, direction: "debit", source: "manual", sourceRef: null });
   });
@@ -67,6 +74,17 @@ describe("createManualTransaction", () => {
   it("makes a retry idempotent by giving the transaction a client-request source reference", async () => {
     await createManualTransaction(supabase, "user-a", input(), "req-1234abcd");
     expect(landTransaction.mock.calls[0][2]).toMatchObject({ source: "manual", sourceRef: "client:req-1234abcd" });
+  });
+
+  it("answers a retry of a create that already landed with that row, before any account check", async () => {
+    // The first attempt landed; the account may since have stopped taking entries (bank disconnected).
+    findExisting.mockResolvedValue({ id: "landed-id" });
+    accountAcceptsEntries.mockResolvedValue(false);
+
+    expect(await createManualTransaction(supabase, "user-a", input(), "req-1234abcd")).toEqual({ ok: true, id: "landed-id" });
+    expect(findExisting).toHaveBeenCalledWith("user-a", "manual", "client:req-1234abcd");
+    expect(accountAcceptsEntries).not.toHaveBeenCalled();
+    expect(landTransaction).not.toHaveBeenCalled();
   });
 
   it("rejects a malformed request id without saving", async () => {
@@ -85,7 +103,11 @@ describe("createManualTransaction", () => {
   it("refuses an account that can't take entries (archived, disconnected, not the caller's) without saving", async () => {
     accountAcceptsEntries.mockResolvedValue(false);
     const r = await createManualTransaction(supabase, "user-a", input());
-    expect(r).toMatchObject({ ok: false, error: "invalid", fieldErrors: { accountId: expect.any(String) } });
+    expect(r).toEqual({
+      ok: false,
+      error: "invalid",
+      fieldErrors: { accountId: "That account can't take transactions right now. Keep the current account or choose another." },
+    });
     expect(accountAcceptsEntries).toHaveBeenCalledWith(supabase, ACCOUNT);
     expect(landTransaction).not.toHaveBeenCalled();
   });
@@ -97,16 +119,19 @@ describe("createManualTransaction", () => {
 });
 
 describe("updateManualTransaction", () => {
-  it("writes the validated fields and reports ok", async () => {
+  it("writes the validated fields against the row it read, and reports ok", async () => {
     updateTransactionRow.mockResolvedValue({ outcome: "ok" });
 
     const r = await updateManualTransaction(supabase, "txn-1", input({ isTransfer: true }));
 
     expect(r).toEqual({ ok: true });
+    expect(readObservedRow).toHaveBeenCalledTimes(1);
+    // The observed row goes to the write, which is conditional on its account (and is_transfer): one read, atomic keep.
     expect(updateTransactionRow).toHaveBeenCalledWith(
       supabase,
       "txn-1",
       expect.objectContaining({ accountId: ACCOUNT, amount: 1234, isTransfer: true }),
+      row(),
     );
   });
 
@@ -121,7 +146,7 @@ describe("updateManualTransaction", () => {
     expect(updateTransactionRow.mock.calls[0][2].accountId).toBe(ACCOUNT);
   });
 
-  it("moves the row to another account only when that account can take entries", async () => {
+  it("moves a manual row to another account only when that account can take entries", async () => {
     updateTransactionRow.mockResolvedValue({ outcome: "ok" });
 
     expect(await updateManualTransaction(supabase, "txn-1", input({ accountId: OTHER_ACCOUNT }))).toEqual({ ok: true });
@@ -133,12 +158,37 @@ describe("updateManualTransaction", () => {
     accountAcceptsEntries.mockResolvedValue(false);
 
     const r = await updateManualTransaction(supabase, "txn-1", input({ accountId: OTHER_ACCOUNT }));
-    expect(r).toMatchObject({ ok: false, error: "invalid", fieldErrors: { accountId: expect.any(String) } });
+    expect(r).toEqual({
+      ok: false,
+      error: "invalid",
+      fieldErrors: { accountId: "That account can't take transactions right now. Keep the current account or choose another." },
+    });
     expect(updateTransactionRow).not.toHaveBeenCalled();
   });
 
+  it("never moves a bank-imported row to another account, even an open one (owner decision 2026-09-30)", async () => {
+    readObservedRow.mockResolvedValue(row({ bankSourced: true }));
+
+    const r = await updateManualTransaction(supabase, "txn-1", input({ accountId: OTHER_ACCOUNT }));
+    expect(r).toEqual({
+      ok: false,
+      error: "invalid",
+      fieldErrors: { accountId: "A bank transaction stays on the account it came from." },
+    });
+    expect(accountAcceptsEntries).not.toHaveBeenCalled();
+    expect(updateTransactionRow).not.toHaveBeenCalled();
+  });
+
+  it("still lets a bank-imported row be edited on its own account", async () => {
+    readObservedRow.mockResolvedValue(row({ bankSourced: true }));
+    updateTransactionRow.mockResolvedValue({ outcome: "ok" });
+
+    expect(await updateManualTransaction(supabase, "txn-1", input({ categoryId: null }))).toEqual({ ok: true });
+    expect(updateTransactionRow.mock.calls[0][2]).toMatchObject({ accountId: ACCOUNT, categoryId: null });
+  });
+
   it("says missing when the row is gone or hidden by RLS, before writing anything", async () => {
-    readTransactionAccountId.mockResolvedValue(null);
+    readObservedRow.mockResolvedValue(null);
     expect(await updateManualTransaction(supabase, "t", input())).toEqual({ ok: false, error: "missing" });
     expect(updateTransactionRow).not.toHaveBeenCalled();
   });
@@ -161,6 +211,7 @@ describe("updateManualTransaction", () => {
     expect(await updateManualTransaction(supabase, "t", input())).toEqual({ ok: false, error: "failed", message: "boom" });
   });
 });
+
 
 describe("deleteTransactionById", () => {
   function deleting(result: { data: unknown; error: { message: string } | null }) {

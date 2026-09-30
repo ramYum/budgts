@@ -15,7 +15,7 @@ vi.mock("next/cache", () => ({ revalidatePath: (p: string, type?: string) => rev
 // The edited row already sits on ACCOUNT_ID, so the account guard in the command never needs to look the account up.
 vi.mock("@/server/transaction-update", () => ({
   updateTransactionRow: (...a: unknown[]) => updateTransactionRow(...a),
-  readTransactionAccountId: async () => "33333333-3333-4333-8333-333333333333",
+  readObservedRow: async () => ({ isTransfer: false, accountId: "33333333-3333-4333-8333-333333333333", bankSourced: false }),
 }));
 
 const { updateTransaction } = await import("./transactions");
@@ -79,6 +79,7 @@ describe("updateTransaction", () => {
         note: null,
         isTransfer: true,
       }),
+      { isTransfer: false, accountId: ACCOUNT_ID, bankSourced: false },
     );
     expect(revalidatePath).toHaveBeenCalledTimes(1);
     expect(revalidatePath).toHaveBeenCalledWith("/", "layout");

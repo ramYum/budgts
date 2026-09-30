@@ -124,4 +124,33 @@ describe("TransactionForm", () => {
     expect(screen.getAllByRole("option", { name: "Checking" })).toHaveLength(1);
     expect(screen.getByRole("combobox", { name: "Account" })).toHaveValue("a1");
   });
+
+  it("shows a bank-imported transaction's account read-only and keeps it on save", async () => {
+    const action = vi.fn().mockResolvedValue({});
+    const user = userEvent.setup();
+    renderForm(
+      {
+        submitLabel: "Save changes",
+        initial: {
+          id: "t1",
+          amount: 500,
+          direction: "debit",
+          occurredAt: "2026-09-10T00:00:00.000Z",
+          description: "Coffee",
+          note: null,
+          isTransfer: false,
+          accountId: "a1",
+          accountName: "Checking",
+          accountLocked: true,
+          categoryId: null,
+        },
+      },
+      action,
+    );
+
+    expect(screen.queryByRole("combobox", { name: "Account" })).not.toBeInTheDocument();
+    expect(screen.getByText("Checking")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    expect((action.mock.calls[0][1] as FormData).get("accountId")).toBe("a1");
+  });
 });

@@ -18,6 +18,8 @@ export type TransactionInitial = {
   accountId: string;
   /** Shown when the row's account can't take new entries and so isn't in `accounts` (e.g. a disconnected bank's). */
   accountName: string;
+  /** Imported from a bank: the account is shown read-only and can't be changed (owner decision 2026-09-30). */
+  accountLocked?: boolean;
   categoryId: string | null;
 };
 
@@ -104,13 +106,20 @@ export function TransactionForm({
 
       <label className={label}>
         Account
-        <Select name="accountId" defaultValue={initial?.accountId ?? accountOptions[0]?.id} required>
-          {accountOptions.map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.name}
-            </option>
-          ))}
-        </Select>
+        {initial?.accountLocked ? (
+          <>
+            <p className="px-band px-2 py-1 text-base leading-6 text-graphite">{initial.accountName}</p>
+            <input type="hidden" name="accountId" value={initial.accountId} />
+          </>
+        ) : (
+          <Select name="accountId" defaultValue={initial?.accountId ?? accountOptions[0]?.id} required>
+            {accountOptions.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </Select>
+        )}
       </label>
       {fe.accountId ? <p className="text-sm text-neg">{fe.accountId}</p> : null}
 

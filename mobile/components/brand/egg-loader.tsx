@@ -68,8 +68,23 @@ export function lapKeyframes(count: number, at: (k: number) => LapKeyframe): Rec
 }
 
 /** Memoised: the loading screen re-renders on every hold and label change, and the egg must roll straight through them. */
-export const EggLoader = memo(function EggLoader({ label = "Loading", onLayout }: { label?: string; onLayout?: (e: LayoutChangeEvent) => void }) {
+export const EggLoader = memo(function EggLoader({
+  label = "Loading",
+  onLayout,
+  motionAfterMs = 0,
+}: {
+  label?: string;
+  onLayout?: (e: LayoutChangeEvent) => void;
+  /**
+   * When to start rolling, in ms. null holds the egg still: at start-up the
+   * native splash still covers it until JS hears of its first layout, and an
+   * egg already mid-lap when the splash lifts would jump from the splash's.
+   */
+  motionAfterMs?: number | null;
+}) {
   const reduceMotion = useReducedMotion();
+  const still = reduceMotion || motionAfterMs === null;
+  const delay = motionAfterMs ?? 0;
   const ratio = PixelRatio.get();
   const { width } = useWindowDimensions();
   const path = eggPathFor(width, EGG_SCALE);
@@ -100,18 +115,18 @@ export const EggLoader = memo(function EggLoader({ label = "Loading", onLayout }
         accessibilityElementsHidden
         importantForAccessibility="no-hide-descendants"
       >
-        <Ground key={path.id} ground={ground} loop={loop} ratio={ratio} cellX={px.cellX} still={reduceMotion} />
+        <Ground key={path.id} ground={ground} loop={loop} ratio={ratio} cellX={px.cellX} still={still} delayMs={delay} />
         {EGG_FRAMES.map((frame, i) => (
-          <FrameLayer key={`${path.id}-${frame.angle}`} index={i} frame={frame} ratio={ratio} loop={loop} frameX={px.frameX} still={reduceMotion} />
+          <FrameLayer key={`${path.id}-${frame.angle}`} index={i} frame={frame} ratio={ratio} loop={loop} frameX={px.frameX} still={still} delayMs={delay} />
         ))}
       </View>
     </View>
   );
 });
 
-/** A lap's timing: the loop's length, repeating, one step at a time, from mount (or the parity clock's instant). */
-function useLapTiming(loop: EggStep[]) {
-  const timing = useMotionTiming(0);
+/** A lap's timing: the loop's length, repeating, one step at a time, from its start (or the parity clock's instant). */
+function useLapTiming(loop: EggStep[], delayMs: number) {
+  const timing = useMotionTiming(delayMs);
   return {
     animationDuration: `${loop.length * EGG_STEP_MS}ms` as const,
     animationIterationCount: "infinite" as const,
@@ -128,6 +143,7 @@ const FrameLayer = memo(function FrameLayer({
   loop,
   frameX,
   still,
+  delayMs,
 }: {
   index: number;
   frame: EggFrame;
@@ -135,6 +151,7 @@ const FrameLayer = memo(function FrameLayer({
   loop: EggStep[];
   frameX: number[];
   still: boolean;
+  delayMs: number;
 }) {
   const paths = useMemo(() => framePaths(frame).map(([fill, d]) => [fill, snapPath(d, { unit: EGG_SCALE, ratio })] as const), [frame, ratio]);
   const top = (REST.h - frame.h) * EGG_SCALE; // every frame stands on the resting egg's ground line
@@ -142,7 +159,7 @@ const FrameLayer = memo(function FrameLayer({
     () => lapKeyframes(loop.length, (k) => ({ opacity: loop[k]!.frame === index ? 1 : 0, transform: [{ translateX: frameX[k]! }] })),
     [loop, frameX, index],
   );
-  const timing = useLapTiming(loop);
+  const timing = useLapTiming(loop, delayMs);
   // The resting style (and Reduce Motion's): the resting frame alone, where the splash left it.
   const rest: LapKeyframe = { opacity: index === 0 ? 1 : 0, transform: [{ translateX: 0 }] };
   return (
@@ -166,12 +183,14 @@ function Ground({
   ratio,
   cellX,
   still,
+  delayMs,
 }: {
   ground: EggGround;
   loop: EggStep[];
   ratio: number;
   cellX: number[];
   still: boolean;
+  delayMs: number;
 }) {
   const pitch = ground.cell + ground.gap;
   const size = snap(ground.cell * EGG_SCALE, ratio);
@@ -190,7 +209,7 @@ function Ground({
       });
     return { recent: lapOf(0), older: lapOf(1) };
   }, [loop, cellX]);
-  const lapTiming = useLapTiming(loop);
+  const lapTiming = useLapTiming(loop, delayMs); // in step with the egg
   const sweepTiming = useMotionTiming(0);
   const swept = cellX[ground.count]!;
 

@@ -19,7 +19,8 @@ a local emulator/device or a CI runner with one.
 ## Running (once the above exists)
 
 ```sh
-maestro test .maestro/flows/currency-onboarding.yaml
+maestro test .maestro/flows/first-run.yaml
+maestro test .maestro/flows/tour-replay.yaml
 maestro test .maestro/flows/add-transaction.yaml
 maestro test .maestro/flows/budget.yaml
 maestro test .maestro/flows/connect-bank-smoke.yaml
@@ -30,9 +31,11 @@ Sign-in is the one flow that needs an out-of-band secret — see `flows/sign-in.
 
 ## What exists vs. what's next
 
-- `flows/currency-onboarding.yaml` — Get Started: pick a currency, skip the bank step, land on Home.
+- `flows/first-run.yaml` — a fresh account: Crystal's cards, Skip to the currency, Start budgeting, the welcome guide
+  continuing from those cards, Skip, land on Home (Phase 3 Lane A). Parity user `firstrun`.
+- `flows/tour-replay.yaml` — More → Play the welcome guide → Crystal's intro → Skip → Home.
 - `flows/add-transaction.yaml` — Activity → Add → save → appears in the list. Assumes a signed-in, onboarded session
-  with at least one account (run after `currency-onboarding.yaml`, or against a seeded test account).
+  with at least one account (run after `first-run.yaml`, or against a seeded test account).
 - `flows/budget.yaml` — Budgets: set an amount on the default "Food / Groceries" category, confirm it's reflected.
   Relies on the standard seeded category set (`src/lib/categories/standard.ts`), not a fixture.
 - `flows/connect-bank-smoke.yaml` — **smoke only**: confirms Plaid Link actually launches from Connected Banks.

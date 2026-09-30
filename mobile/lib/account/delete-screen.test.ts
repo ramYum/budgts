@@ -99,11 +99,17 @@ describe("requestReauthLink (web requestReauthLink)", () => {
 });
 
 describe("the return after the email sign-in", () => {
-  it("is taken once, within the link's hour", () => {
-    returnAfterSignIn(DELETE_ACCOUNT_CONFIRM_PATH, 0);
-    expect(takeReturnAfterSignIn(60_000)).toBe(DELETE_ACCOUNT_CONFIRM_PATH);
-    expect(takeReturnAfterSignIn(60_000)).toBeNull();
-    returnAfterSignIn(DELETE_ACCOUNT_CONFIRM_PATH, 0);
-    expect(takeReturnAfterSignIn(60 * 60 * 1000 + 1)).toBeNull();
+  it("is taken once, within the link's hour, by the account that left it", () => {
+    returnAfterSignIn(DELETE_ACCOUNT_CONFIRM_PATH, "u1", 0);
+    expect(takeReturnAfterSignIn("u1", 60_000)).toBe(DELETE_ACCOUNT_CONFIRM_PATH);
+    expect(takeReturnAfterSignIn("u1", 60_000)).toBeNull();
+
+    returnAfterSignIn(DELETE_ACCOUNT_CONFIRM_PATH, "u1", 0);
+    expect(takeReturnAfterSignIn("u1", 60 * 60 * 1000 + 1)).toBeNull();
+
+    // someone else signing in on this phone never inherits it, and it's gone afterwards
+    returnAfterSignIn(DELETE_ACCOUNT_CONFIRM_PATH, "u1", 0);
+    expect(takeReturnAfterSignIn("u2", 1)).toBeNull();
+    expect(takeReturnAfterSignIn("u1", 2)).toBeNull();
   });
 });

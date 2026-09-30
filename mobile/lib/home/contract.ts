@@ -33,6 +33,11 @@ export type HomeActivity = {
   category: { name: string; color: string } | null;
 };
 
+/** The one change worth suggesting this month (server: `src/lib/insights/suggestion.ts`); `share` is a whole percent. */
+export type HomeSuggestion =
+  | { kind: "unbudgeted"; categoryId: string; name: string; amount: number; share: number }
+  | { kind: "mover"; categoryId: string; name: string; amount: number; delta: number };
+
 export type MobileHome = {
   version: typeof MOBILE_HOME_VERSION;
   /** The user's current month and today, in their stored time zone. */
@@ -48,6 +53,10 @@ export type MobileHome = {
   categories: HomeCategory[];
   recent: HomeActivity[];
   savings: { activeCount: number; totalSaved: number; totalTarget: number } | null;
+  /** "Get set up": whether any bank connection exists; `null` when bank connections are switched off. */
+  bankConnected: boolean | null;
+  /** Home's "What can I change?" card; `null` when there is nothing worth suggesting. */
+  suggestion: HomeSuggestion | null;
 };
 
 export class HomeContractError extends Error {
@@ -112,6 +121,15 @@ function parseActivity(v: unknown): HomeActivity {
   };
 }
 
+function parseSuggestion(v: unknown): HomeSuggestion | null {
+  if (v === null || v === undefined) return null;
+  if (!isObj(v)) return fail("suggestion");
+  const base = { categoryId: str(v, "categoryId"), name: str(v, "name"), amount: int(v, "amount") };
+  if (v.kind === "unbudgeted") return { kind: "unbudgeted", ...base, share: int(v, "share") };
+  if (v.kind === "mover") return { kind: "mover", ...base, delta: int(v, "delta") };
+  return fail("suggestion.kind");
+}
+
 /** Validates an untrusted JSON body into a `MobileHome`, or throws `HomeContractError`. */
 export function parseMobileHome(input: unknown): MobileHome {
   if (!isObj(input)) return fail("body is not an object");
@@ -136,6 +154,9 @@ export function parseMobileHome(input: unknown): MobileHome {
     };
   }
 
+  const bank = input.bankConnected;
+  if (bank !== null && typeof bank !== "boolean") return fail("bankConnected");
+
   return {
     version: MOBILE_HOME_VERSION,
     month,
@@ -150,5 +171,7 @@ export function parseMobileHome(input: unknown): MobileHome {
     categories: input.categories.map(parseCategory),
     recent: input.recent.map(parseActivity),
     savings,
+    bankConnected: bank,
+    suggestion: parseSuggestion(input.suggestion),
   };
 }

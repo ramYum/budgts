@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { Pressable, View, type TextStyle } from "react-native";
 import { COLOR, ROLE, type TypeRoleName } from "../../lib/brand/shared";
 import type { MobileBudgetCategory, MobileBudgets, MobileBudgetsAllTime, MobileBudgetsMonth } from "../../lib/budgets/budgets-api";
@@ -261,13 +260,11 @@ function AllTimeBody({ data }: { data: MobileBudgetsAllTime }) {
  * The Budgets screen (web budgets-view.tsx, phone layout): the header with the month and "New", the This month / All time
  * range with "Copy last month", then either the Remaining hero and a card per category (their cells cascading two steps
  * apart) or every category's all-time spending. Every figure is the server's (`/api/mobile/budgets`); nothing is summed here.
- * `body` stands in for the data while it loads or fails, under the same header and range.
  */
 export function BudgetsView({
   month,
   range,
   data,
-  body,
   onMonth,
   onRange,
   onOpen,
@@ -276,8 +273,7 @@ export function BudgetsView({
 }: {
   month: string;
   range: BudgetsRange;
-  data: MobileBudgets | null;
-  body?: ReactNode;
+  data: MobileBudgets;
   onMonth: (month: string) => void;
   onRange: (range: BudgetsRange) => void;
   onOpen: (categoryId: string, editing: boolean) => void;
@@ -309,7 +305,7 @@ export function BudgetsView({
         />
         {range === "month" ? <CopyLastMonth {...copy} /> : null}
       </View>
-      {data === null ? (body ?? null) : data.range === "all" ? <AllTimeBody data={data} /> : <MonthBody data={data} onOpen={onOpen} onNew={onNew} />}
+      {data.range === "all" ? <AllTimeBody data={data} /> : <MonthBody data={data} onOpen={onOpen} onNew={onNew} />}
     </View>
   );
 }

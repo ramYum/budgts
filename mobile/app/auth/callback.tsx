@@ -1,10 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { View } from "react-native";
-import { Redirect, useGlobalSearchParams } from "expo-router";
+import { Redirect, useGlobalSearchParams, useRouter, type Href } from "expo-router";
 import * as Linking from "expo-linking";
+import { LinkProblem } from "../../components/auth/link-problem";
 import { useLoadingScreen } from "../../components/loading-screen";
-import type { AuthLinkProblem } from "../../lib/auth/auth-errors";
-import { completeSessionFromUrl } from "../../lib/auth/complete-session-from-url";
+import { StandaloneShell } from "../../components/settings/standalone-shell";
+import { takeReturnAfterSignIn } from "../../lib/account/delete-screen";
+import { useAuth } from "../../lib/auth/auth-context";
+import { callbackDecision, type CallbackDecision } from "../../lib/auth/callback-decision";
+import { completeSessionFromUrl, type CompleteSessionResult } from "../../lib/auth/complete-session-from-url";
 import { isAuthCallbackUrl } from "../../lib/auth/parse-callback-url";
 import { ROLE } from "../../lib/brand/shared";
 
@@ -15,12 +19,19 @@ import { ROLE } from "../../lib/brand/shared";
  * single-use code is exchanged once). Mirrors `src/app/auth/callback/route.ts`.
  *
  * It reads the whole link the OS opened, fragment included: a failed link
- * carries its error there. A failure goes back to sign-in with its problem,
- * where the message sits above the form that fixes it (auth-errors.ts).
+ * carries its error there. Reachable signed in as well as signed out (a
+ * fresh sign-in before deleting the account returns here); where it goes
+ * next is lib/auth/callback-decision.ts: on, to what the sign-in left for
+ * this account (takeReturnAfterSignIn), else Home; a signed-out failure back
+ * to sign-in with its problem; a signed-in failure changes nothing and says
+ * so, with a way back.
  */
 export default function AuthCallbackScreen() {
   const params = useGlobalSearchParams();
-  const [outcome, setOutcome] = useState<{ ok: true } | { ok: false; problem: AuthLinkProblem } | null>(null);
+  const router = useRouter();
+  const { session } = useAuth();
+  const userId = session?.user.id ?? null;
+  const [outcome, setOutcome] = useState<CompleteSessionResult | null>(null);
 
   // Chosen once: the single-use code must be exchanged for exactly one URL.
   const [url] = useState(() => {
@@ -38,11 +49,30 @@ export default function AuthCallbackScreen() {
     };
   }, [url]);
 
-  // The egg loader covers the exchange (components/loading-screen.tsx).
-  useLoadingScreen(!outcome, "Signing you in");
+  // Decided once: the return intent is taken, one-shot, only when the answer and the session are both in.
+  const [decision, setDecision] = useState<CallbackDecision>({ kind: "wait" });
+  const decided = useRef(false);
+  useEffect(() => {
+    if (decided.current) return;
+    const next = callbackDecision(outcome, userId, takeReturnAfterSignIn);
+    if (next.kind === "wait") return;
+    decided.current = true;
+    setDecision(next);
+  }, [outcome, userId]);
 
-  if (outcome?.ok) return <Redirect href="/" />;
-  if (outcome && !outcome.ok) return <Redirect href={{ pathname: "/sign-in", params: { problem: outcome.problem } }} />;
+  // The egg loader covers the exchange (components/loading-screen.tsx).
+  useLoadingScreen(decision.kind === "wait", "Signing you in");
+
+  if (decision.kind === "go") return <Redirect href={decision.href as Href} />;
+  if (decision.kind === "sign-in") return <Redirect href={{ pathname: "/sign-in", params: { problem: decision.problem } }} />;
+  if (decision.kind === "problem") {
+    const back = decision.back;
+    return (
+      <StandaloneShell>
+        <LinkProblem problem={decision.problem} onBack={() => router.replace(back as Href)} />
+      </StandaloneShell>
+    );
+  }
 
   return <View style={{ flex: 1, backgroundColor: ROLE.bg }} />;
 }

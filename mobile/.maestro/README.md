@@ -39,7 +39,7 @@ Sign-in is the one flow that needs an out-of-band secret — see `flows/sign-in.
   Deliberately does not complete a real Sandbox institution login (Plaid's own native UI isn't ours to give testIDs
   to) — the staging contract test (`tests/e2e/mobile-plaid-api.spec.ts`) covers the full connect chain by bypassing
   Link's UI on purpose; this flow is the one piece that bypass can't reach (does Link launch on a device at all).
-- `flows/delete-account.yaml` — Settings → Delete account → confirm → submit → signed out. **Destructive and
+- `flows/delete-account.yaml` — Settings → Delete account → Continue → type DELETE → Delete my account → Account deleted → sign-in. **Destructive and
   irreversible** — run only against a disposable, seed-only test account, per its own file comment.
 - `flows/sign-in.yaml` — opens the app via a magic-link deep link. The `token_hash` must be minted out-of-band (the
   same `magicTokenHash` helper the Playwright e2e suite uses, `tests/e2e/helpers/test-user.ts`) and substituted before

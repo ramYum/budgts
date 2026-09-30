@@ -1,143 +1,121 @@
-import { useState } from "react";
-import { Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
-import { requestAccountDeletion, type DeleteOutcome } from "../../../lib/account/delete-account";
+import { useEffect, useRef, useState } from "react";
+import { BackHandler, Linking, Platform } from "react-native";
+import { Stack, useLocalSearchParams, useRouter, type Href } from "expo-router";
+import * as ExpoLinking from "expo-linking";
+import * as WebBrowser from "expo-web-browser";
+import { ScreenSkeleton } from "../../../components/feedback/skeleton";
+import { LoadFailure } from "../../../components/feedback/states";
+import { DeleteAccountFlow, type DeleteFlowActions } from "../../../components/settings/delete-account-flow";
+import { StandaloneShell } from "../../../components/settings/standalone-shell";
+import { requestAccountDeletion } from "../../../lib/account/delete-account";
+import {
+  parseDeleteScreen,
+  requestReauthLink,
+  returnAfterSignIn,
+} from "../../../lib/account/delete-screen";
+import { loadResource } from "../../../lib/api/load";
+import { useResource } from "../../../lib/api/use-resource";
 import { authFetch } from "../../../lib/auth/api";
 import { useAuth } from "../../../lib/auth/auth-context";
-import { colors, fonts, radii } from "../../../lib/theme";
-import { OutlineButton, PrimaryButton, TextLink } from "../../../components/ui";
+import { buildAuthCallbackUrl } from "../../../lib/auth/callback-url";
+import { completeSessionFromUrl } from "../../../lib/auth/complete-session-from-url";
+import { signInWithGoogle } from "../../../lib/auth/google";
+import { legalUrl } from "../../../lib/legal";
+import { ACCOUNT_DELETED_PATH, DELETE_ACCOUNT_CONFIRM_PATH, DELETE_ACCOUNT_PATH } from "../../../lib/shared";
+import { supabase } from "../../../lib/supabase/client";
 
-const MESSAGES: Partial<Record<DeleteOutcome["status"], string>> = {
-  reauth_required: "For your security, please sign in again to confirm. Sign out, sign back in, then return here.",
-  unavailable: "Account deletion is temporarily unavailable. Please try again later.",
-  incomplete: "We couldn't finish deleting your account. It's read-only until the deletion completes. Try again to finish it.",
-  plaid: "We couldn't disconnect one of your banks, so your account wasn't deleted. Disconnect it in Connected Banks, then try again.",
-  failed: "Your account wasn't deleted. Please try again.",
-  uncertain:
-    "We didn't get a clear answer, so your account may or may not be deleted. Try again: if deletion had already started, trying again finishes it.",
-  network: "Couldn't reach Budgts. Check your connection and try again.",
-  auth: "Your session has expired. Please sign in again.",
-};
+const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL;
 
 /**
- * In-app account deletion (Apple requires it to start in the app). The server does the work
- * (`POST /api/account/delete`, docs/specs/2026-09-19-account-deletion-design.md): no ledger history means a hard delete, a
- * charge means the account is anonymised and the financial ledger kept. Deleting the account never cancels an App Store /
- * Google Play subscription, and the screen says so before and after.
+ * Settings → Delete account (web /settings/delete-account): a standalone screen, outside the tabs, reachable before
+ * onboarding is finished, as on the web. Its first state comes from `GET /api/mobile/account/delete`; the deletion is
+ * `POST /api/account/delete` (lib/account/delete-account.ts), which re-checks everything. A fresh sign-in (Google in
+ * place, or the email link that returns here) changes the session's sign-in time, and the state is read again.
  */
 export default function DeleteAccountScreen() {
   const router = useRouter();
+  const { step } = useLocalSearchParams<{ step?: string }>();
   const { session, signOut } = useAuth();
-  const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [outcome, setOutcome] = useState<DeleteOutcome | null>(null);
+  const { state, reload, refresh } = useResource("delete-screen", (s) =>
+    loadResource(() => authFetch("/api/mobile/account/delete", s), parseDeleteScreen),
+  );
 
-  const onDelete = async () => {
-    setBusy(true);
-    setOutcome(await requestAccountDeletion(Platform.OS === "android" ? "google" : "apple", () => authFetch("/api/account/delete", session, { method: "POST" })));
-    setBusy(false);
-  };
+  // A fresh sign-in: read the state again, quietly, so a flow waiting on it moves on to confirm.
+  const signedInAt = session?.user.last_sign_in_at ?? null;
+  const seen = useRef(signedInAt);
+  useEffect(() => {
+    if (signedInAt === seen.current) return;
+    seen.current = signedInAt;
+    void refresh();
+  }, [signedInAt, refresh]);
 
-  if (outcome?.status === "deleted") {
-    return (
-      <SafeAreaView style={styles.safe}>
-        <ScrollView contentContainerStyle={styles.scroll}>
-          <Text style={styles.title} accessibilityRole="header">
-            Your account was deleted
-          </Text>
-          {outcome.storeSubscriptionMayBeActive ? (
-            <Text style={styles.body} testID="delete-store-warning">
-              Deleting your account does not cancel your App Store or Google Play subscription. To stop being charged, cancel it
-              in your store account settings.
-            </Text>
-          ) : null}
-          {outcome.storeSubscriptionMayBeActive && outcome.manageSubscriptionUrl ? (
-            <OutlineButton testID="delete-manage-subscription" onPress={() => void Linking.openURL(outcome.manageSubscriptionUrl!)}>
-              How to cancel your subscription
-            </OutlineButton>
-          ) : null}
-          <PrimaryButton testID="delete-done" onPress={() => void signOut()}>
-            Done
-          </PrimaryButton>
-        </ScrollView>
-      </SafeAreaView>
-    );
+  // Leaving mid-deletion doesn't stop it on the server, but the answer would be lost: Android's back waits.
+  useEffect(() => {
+    if (!busy) return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => true);
+    return () => sub.remove();
+  }, [busy]);
+
+  const toSettings = () => (router.canGoBack() ? router.back() : router.navigate("/settings"));
+
+  function content() {
+    if (state.status === "loading") return <ScreenSkeleton />;
+    if (state.status === "error") {
+      return <LoadFailure kind={state.kind} onRetry={() => void reload()} onHome={toSettings} onSignOut={() => void signOut()} />;
+    }
+    const screen = state.data;
+    const actions: DeleteFlowActions = {
+      deleteAccount: () =>
+        requestAccountDeletion(Platform.OS === "android" ? "google" : "apple", () =>
+          authFetch("/api/account/delete", session, { method: "POST" }),
+        ),
+      onDeleted: (store) => {
+        const params = new URLSearchParams();
+        if (store) params.set("store", "1");
+        if (screen.keepsRecords) params.set("keeps", "1");
+        if (screen.supportEmail) params.set("legal", "1");
+        const query = params.toString();
+        router.replace((query ? `${ACCOUNT_DELETED_PATH}?${query}` : ACCOUNT_DELETED_PATH) as Href);
+        // The server has revoked the session already; this clears the device's copy.
+        void signOut();
+      },
+      sendReauthLink: async () => {
+        const result = await requestReauthLink(screen.email, {
+          apiBaseUrl: API_BASE,
+          signInWithOtp: (args) => supabase.auth.signInWithOtp(args),
+        });
+        if (result.sent && session) returnAfterSignIn(DELETE_ACCOUNT_CONFIRM_PATH, session.user.id);
+        return result;
+      },
+      reauthWithGoogle: async () => {
+        const result = await signInWithGoogle({
+          redirectTo: buildAuthCallbackUrl(ExpoLinking.createURL),
+          signInWithOAuth: (args) => supabase.auth.signInWithOAuth(args),
+          openAuthSession: (url, returnUrl) => WebBrowser.openAuthSessionAsync(url, returnUrl),
+          completeSession: completeSessionFromUrl,
+        });
+        return result.status === "error" ? result.message : null;
+      },
+      onKeep: toSettings,
+      onConnectedBanks: () => router.push("/connected-banks"),
+      onSignInAgain: () => {
+        if (session) returnAfterSignIn(DELETE_ACCOUNT_PATH, session.user.id);
+        void signOut();
+      },
+      openUrl: (url) => void (url.startsWith("mailto:") ? Linking.openURL(url) : WebBrowser.openBrowserAsync(url)),
+      deletionPageUrl: screen.supportEmail ? legalUrl(API_BASE, "accountDeletion") : null,
+      onBusy: setBusy,
+    };
+    return <DeleteAccountFlow screen={screen} step={step === "confirm" ? "confirm" : "intro"} actions={actions} />;
   }
 
-  const message = outcome ? MESSAGES[outcome.status] : null;
-
   return (
-    <SafeAreaView style={styles.safe}>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <Text style={styles.title} accessibilityRole="header">
-          Delete your account
-        </Text>
-        <Text style={styles.body}>
-          This permanently deletes your Budgts account and its data. It can&apos;t be undone. If you&apos;ve made a purchase, we
-          keep the financial record of it without your personal details, as the law requires.
-        </Text>
-        <Text style={styles.body}>
-          Deleting your account does <Text style={styles.bold}>not</Text> cancel an App Store or Google Play subscription. Cancel
-          that separately in your store account settings.
-        </Text>
-
-        <Pressable
-          testID="delete-confirm"
-          accessibilityRole="checkbox"
-          accessibilityState={{ checked: confirmed }}
-          onPress={() => setConfirmed((c) => !c)}
-          style={styles.confirmRow}
-        >
-          <View style={[styles.box, confirmed && styles.boxOn]} />
-          <Text style={styles.confirmText}>I understand this can&apos;t be undone</Text>
-        </Pressable>
-
-        {message ? (
-          <Text style={styles.error} accessibilityRole="alert" testID="delete-error">
-            {message}
-          </Text>
-        ) : null}
-
-        {outcome?.status === "plaid" ? (
-          <OutlineButton testID="delete-connected-banks" onPress={() => router.push("/connected-banks")}>
-            Connected Banks
-          </OutlineButton>
-        ) : null}
-
-        {outcome?.status === "reauth_required" || outcome?.status === "auth" ? (
-          <PrimaryButton testID="delete-sign-out" onPress={() => void signOut()}>
-            Sign out and sign in again
-          </PrimaryButton>
-        ) : (
-          <PrimaryButton
-            testID="delete-submit"
-            style={styles.destructive}
-            disabled={!confirmed}
-            loading={busy}
-            onPress={() => void onDelete()}
-          >
-            Delete my account
-          </PrimaryButton>
-        )}
-        <TextLink testID="delete-cancel" onPress={() => router.back()}>
-          Cancel
-        </TextLink>
-      </ScrollView>
-    </SafeAreaView>
+    <>
+      <Stack.Screen options={{ gestureEnabled: !busy }} />
+      <StandaloneShell align="top" onHome={busy ? undefined : () => router.navigate("/")}>
+        {content()}
+      </StandaloneShell>
+    </>
   );
 }
-
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.bg },
-  scroll: { padding: 24, gap: 16 },
-  title: { fontFamily: fonts.bold, fontSize: 26, color: colors.text },
-  body: { fontFamily: fonts.regular, fontSize: 15, color: colors.muted, lineHeight: 22 },
-  bold: { fontFamily: fonts.semibold, color: colors.text },
-  confirmRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 4 },
-  box: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: colors.border, backgroundColor: colors.surface },
-  boxOn: { backgroundColor: colors.neg, borderColor: colors.neg },
-  confirmText: { fontFamily: fonts.medium, fontSize: 15, color: colors.text, flexShrink: 1 },
-  error: { fontFamily: fonts.medium, fontSize: 14, color: colors.neg },
-  destructive: { backgroundColor: colors.neg, borderRadius: radii.pill },
-});

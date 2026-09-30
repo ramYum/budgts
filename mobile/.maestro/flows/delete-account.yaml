@@ -1,6 +1,8 @@
-# Delete account: Settings -> Delete account -> confirm -> submit -> signed out. DESTRUCTIVE AND IRREVERSIBLE — run
-# only against a disposable, seed-only test account created for this purpose, never a real or shared one (same rule
-# the web e2e suite's account-deletion spec follows). Unexecuted — see .maestro/README.md.
+# Delete account: Settings -> Delete account -> Continue -> type DELETE -> Delete my account -> Account deleted -> Done
+# -> sign-in. DESTRUCTIVE AND IRREVERSIBLE: run only against a disposable, seed-only test account created for this
+# purpose, never a real or shared one (same rule the web e2e suite's account-deletion spec follows), signed in within
+# the last 10 minutes (otherwise the flow stops on "Confirm it's you"). Unexecuted until the emulator run; see
+# .maestro/README.md.
 appId: com.budgts.app
 ---
 - launchApp
@@ -10,13 +12,19 @@ appId: com.budgts.app
     id: "hub-settings"
 - tapOn:
     id: "hub-settings-delete-account"
+- assertVisible: "Before you go"
 - tapOn:
-    id: "delete-confirm"
+    id: "delete-continue"
+- assertVisible: "Last step"
+- tapOn:
+    id: "delete-confirm-word"
+- inputText: "DELETE"
+- hideKeyboard
 - tapOn:
     id: "delete-submit"
 - assertVisible:
-    id: "delete-done"
+    id: "account-deleted"
 - tapOn:
-    id: "delete-done"
+    id: "account-deleted-done"
 - assertVisible:
     id: "sign-in-google"

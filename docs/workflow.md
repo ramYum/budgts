@@ -1190,12 +1190,17 @@ implementation goes to `budgts-architect`.
     it under heavier load earlier the same session: port 2 of 8 runs passed, `e5cfbda` 2 of 6).
   - **Pre-existing follow-ups found while verifying (not caused by the port):**
     - 16 recurring / bill / subscription detection integration tests failed on the drifted staging, identically on
-      clean `e5cfbda`. The reviewer attributed it to the scan cutoff coming from this machine's clock while
-      `transactions.created_at` comes from the database's `now()` (about 0.32 s ahead). **After the staging rebuild
-      all 16 passed** (172/172), so the drifted schema is the likelier cause. One run: watch the next runs, and if
-      they fail again, take the scan time from the database.
-    - The Path B concurrency test's "a deadlock must actually happen" condition did not trigger on the drifted
-      staging; it passed once after the rebuild. It is timing-dependent, so not yet called fixed.
+      clean `e5cfbda`, passed after the rebuild and failed again on 2026-09-30. **Cause: clock skew, not schema
+      drift** (resolved 2026-09-30, branch `fix/recurring-db-clock`). The scan cutoff came from this machine's clock
+      while `transactions.created_at` comes from the database's `now()` (0.3 to 0.5 s ahead; Windows Time here is not
+      syncing, so the skew drifts, which is why they passed once). Proved on staging on one date: app clock shifted
+      0 s and -1 s failed exactly the 16, +1 s passed 30/30; the pure detector passed at every month-end date
+      tried. The scan window now comes from the database clock, with a 15-minute overlap on the watermark for sync
+      transactions still open during a scan; `tests/integration/plaid-recurring-clock-skew.test.ts` pins it.
+    - The Path B concurrency test's "a deadlock must actually happen" condition was flaky: it read
+      `pg_stat_database.deadlocks` 1.5 s after the fact, but that counter is flushed from the victim backend
+      asynchronously (an idle backend waits ~10 s). It now watches the lock cycle itself through
+      `pg_blocking_pids()`, and the writer's `deadlock_timeout` of 30 s makes the deletion always the victim.
   - **Landed 2026-09-28.** Owner: "1. Move it into launch branch 2. Push 3. Rebuild staging".
     `phase-m/mobile-launch` fast-forwarded to `e26fcfe` and pushed, then `e8b4ed3` (the Expo env template: the
     README's `.env.example` only ever lived in the untracked `Budgts-mobile-archive` folder, because the root

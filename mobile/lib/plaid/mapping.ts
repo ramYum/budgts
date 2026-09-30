@@ -40,3 +40,14 @@ export function buildMapEntries(accounts: UnmappedAccount[], rows: MapRow[]): Ma
     return { plaidAccountId: a.plaidAccountId, mode: "ignore" };
   });
 }
+
+/** What the mapping sheet offers: the Budgts accounts a Plaid account can feed, and the types a new one can take. */
+export type MappingChoices = { budgtsAccounts: { id: string; name: string }[]; accountTypes: string[] };
+
+/**
+ * From `GET /api/mobile/accounts` (ordered by name, like the web's list): every account that isn't archived is a
+ * choice, as on the web (`loadConnectedBanks`' `budgtsAccounts`), and the server's own type list.
+ */
+export function mappingChoices(data: { accounts: { id: string; name: string; archived: boolean }[]; accountTypes: string[] }): MappingChoices {
+  return { budgtsAccounts: data.accounts.filter((a) => !a.archived).map(({ id, name }) => ({ id, name })), accountTypes: data.accountTypes };
+}

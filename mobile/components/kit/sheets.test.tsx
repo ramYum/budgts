@@ -109,10 +109,10 @@ describe("Select", () => {
 
   it("opens a sheet of the options, the chosen one ticked; a pick closes it", () => {
     const pick = vi.fn();
-    const r = render(<Select label="Type" value="checking" options={options} onChange={pick} />);
-    act(() => hosts(r, "Pressable")[0]!.props.onPress());
-    expect(hosts(r, "Pressable").find((p) => p.props.accessibilityLabel === "Checking")!.props.accessibilityState).toEqual({ selected: true });
-    act(() => hosts(r, "Pressable").find((p) => p.props.accessibilityLabel === "Savings")!.props.onPress());
+    const r = render(<Select testID="type" label="Type" value="checking" options={options} onChange={pick} />);
+    act(() => byTestId(r, "type").props.onPress());
+    expect(byTestId(r, "type-option-checking").props.accessibilityState).toEqual({ selected: true, disabled: false });
+    act(() => byTestId(r, "type-option-savings").props.onPress());
     expect(pick).toHaveBeenCalledWith("savings");
     expect(r.root.findAll((n) => n.props.testID === "sheet")).toHaveLength(0);
   });
@@ -123,5 +123,20 @@ describe("Select", () => {
     expect(r.root.findAll((n) => n.type === PixelFrame)[0]!.props.state).toBe("[data-invalid='true']");
     void COLOR;
     void ROLE;
+  });
+
+  it("can hide its label for a field its row explains, still heard by a screen reader", () => {
+    const r = render(<Select testID="t" label="New account type" hideLabel value="savings" options={options} onChange={() => {}} />);
+    expect(texts(r)).toEqual(["Savings"]);
+    expect(byTestId(r, "t").props.accessibilityLabel).toBe("New account type, Savings");
+  });
+
+  it("offers a disabled option it can't pick (the web's <option disabled>)", () => {
+    const pick = vi.fn();
+    const r = render(<Select testID="t" label="Import as" value="new" options={[{ value: "new", label: "A new Budgts account" }, { value: "existing", label: "An existing account", disabled: true }]} onChange={pick} />);
+    act(() => byTestId(r, "t").props.onPress());
+    const off = byTestId(r, "t-option-existing");
+    expect(off.props.disabled).toBe(true);
+    expect(off.props.accessibilityState).toEqual({ selected: false, disabled: true });
   });
 });

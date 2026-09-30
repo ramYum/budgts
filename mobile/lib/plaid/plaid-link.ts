@@ -11,12 +11,13 @@ export type LinkPlatform = "ios" | "android";
 
 export type PlaidLinkOutcome =
   | { kind: "success"; publicToken: string; institution: { id: string; name: string } | null }
-  /** The user closed Link, or it failed to open/run. `errorMessage` is Plaid's own error code (e.g.
-   * `INSTITUTION_NOT_RESPONDING`), not free text — never the underlying exception's message. */
-  | { kind: "exit"; errorMessage: string | null };
+  /** Link closed without a bank: the user left, or gave up after an error Link itself already showed them (the web's
+   * `onExit`, which shows nothing more). */
+  | { kind: "exit" };
 
 export interface PlaidLinkClient {
   /** False where the native module isn't present (Expo Go, or a build without it). Every other call is then unsafe. */
   isAvailable(): boolean;
+  /** Rejects only when Link could not start at all. */
   open(linkToken: string): Promise<PlaidLinkOutcome>;
 }

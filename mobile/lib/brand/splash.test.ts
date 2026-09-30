@@ -26,6 +26,13 @@ describe("native splash", () => {
     expect(splash.backgroundColor.toLowerCase()).toBe(COLOR.paper);
   });
 
+  it("never shows black between the splash and the first frame: the app's window is paper too", () => {
+    // expo-system-ui writes this into Android's android:windowBackground and iOS's root view: whatever
+    // sits under the splash when it goes, before React has drawn, is the same paper as the splash
+    expect(expo.backgroundColor.toLowerCase()).toBe(COLOR.paper);
+    expect(expo.userInterfaceStyle).toBe("light");
+  });
+
   it("frames the loader's egg: a square just big enough for it, at a size Android can centre on whole pixels", () => {
     const rest = EGG_FRAMES[0]!;
     expect(splash.imageWidth).toBeGreaterThanOrEqual(Math.max(rest.w, rest.h) * EGG_SCALE);

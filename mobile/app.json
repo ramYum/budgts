@@ -7,6 +7,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "backgroundColor": "#F4F4F4",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.budgts.app",

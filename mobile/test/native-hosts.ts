@@ -50,22 +50,10 @@ export const svgMock = () => ({
 /**
  * react-native-reanimated without a UI thread: shared values are plain boxes,
  * animated styles read them whenever a property is read, timings land on
- * their target at once (finishing their callback), and frame callbacks run
- * only when a test ticks them (tickFrames). `reducedMotion.value` stands in for the OS setting.
+ * their target at once (finishing their callback), and CSS animations are
+ * plain style props the tests read back. `reducedMotion.value` stands in for the OS setting.
  */
 export const reducedMotion = { value: false };
-/** Every useFrameCallback, with each callback it has been handed (to catch a clock that re-registers). */
-export type FakeFrameCallback = {
-  active: boolean;
-  setActive: (a: boolean) => void;
-  callback: (frame: { timestamp: number }) => void;
-  seen: Set<unknown>;
-};
-export const frameCallbacks: FakeFrameCallback[] = [];
-/** The display ticking: every active frame callback runs at `timestamp` ms. */
-export function tickFrames(timestamp: number) {
-  for (const c of frameCallbacks) if (c.active) c.callback({ timestamp });
-}
 export const reanimatedMock = () => {
   const AnimatedView = host("Animated.View");
   return {
@@ -80,17 +68,6 @@ export const reanimatedMock = () => {
       return style;
     },
     useReducedMotion: () => reducedMotion.value,
-    useFrameCallback: (callback: (frame: { timestamp: number }) => void) => {
-      const cb = useRef<FakeFrameCallback | null>(null);
-      if (!cb.current) {
-        const c: FakeFrameCallback = { active: false, setActive: (a) => void (c.active = a), callback, seen: new Set() };
-        cb.current = c;
-        frameCallbacks.push(c);
-      }
-      cb.current.callback = callback;
-      cb.current.seen.add(callback);
-      return cb.current;
-    },
     withDelay: <T,>(_ms: number, animation: T) => animation,
     // CSS animation timing functions: a plain description the tests can read back
     steps: (n: number, modifier = "jump-end") => ({ steps: n, modifier }),
@@ -103,11 +80,6 @@ export const reanimatedMock = () => {
   };
 };
 
-/** Every function a worklet handed back to the JS thread (scheduleOnRN), in order. */
-export const scheduledOnRN: unknown[] = [];
 export const workletsMock = () => ({
-  scheduleOnRN: <A extends unknown[]>(fn: (...args: A) => void, ...args: A) => {
-    scheduledOnRN.push(fn);
-    fn(...args);
-  },
+  scheduleOnRN: <A extends unknown[]>(fn: (...args: A) => void, ...args: A) => fn(...args),
 });

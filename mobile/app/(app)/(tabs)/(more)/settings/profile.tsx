@@ -2,20 +2,20 @@ import * as Clipboard from "expo-clipboard";
 import { ProfileView } from "../../../../../components/settings/profile-view";
 import { useBack } from "../../../../../components/settings/use-back";
 import { Screen } from "../../../../../components/shell/screen";
-import { loadResource } from "../../../../../lib/api/load";
-import { useResource } from "../../../../../lib/api/use-resource";
-import { authFetch } from "../../../../../lib/auth/api";
-import { parseProfileDetails } from "../../../../../lib/settings/profile-details";
+import { useProfile } from "../../../../../lib/profile/profile-context";
 
-/** Profile: the web's /settings/profile (components/settings/profile-view.tsx). */
+/**
+ * Profile: the web's /settings/profile (components/settings/profile-view.tsx), from the profile the signed-in shell
+ * already holds (lib/profile/profile-context.tsx). The shell shows the app only once that profile is loaded, and
+ * re-reads it when the app returns to the foreground.
+ */
 export default function ProfileScreen() {
   const onBack = useBack("/settings");
-  const { state, refreshing, refresh, reload } = useResource("profile-details", (session) =>
-    loadResource(() => authFetch("/api/mobile/profile", session), parseProfileDetails),
-  );
+  const { state } = useProfile();
+  if (state.status !== "ready") throw new Error("Profile needs the loaded profile the app shell gates on");
   return (
-    <Screen refreshing={refreshing} onRefresh={() => void refresh()}>
-      <ProfileView state={state} onBack={onBack} onRetry={() => void reload()} copy={(value) => Clipboard.setStringAsync(value)} />
+    <Screen>
+      <ProfileView profile={state.profile} onBack={onBack} copy={(value) => Clipboard.setStringAsync(value)} />
     </Screen>
   );
 }

@@ -655,3 +655,7 @@ Re-auth guard (`phase-m/p3-c-auth`, security review 9.5, merged 2026-09-30):
 4. After a refusal, sign in as that other account on purpose: it signs in normally, no stale message.
 5. The email re-auth after the app's process is killed between sending the link and opening it.
 6. `adb shell am start -d "budgts://auth/callback?code=x"` while signed in: "nothing changed, you're still signed in", with a way back.
+
+### Root test timeout (2026-09-30)
+
+The root `vitest.config.mts` sets `testTimeout: 15_000` for every test: the React Testing Library component tests timed out at random under full-suite parallel load (transaction-list, account-mapping, needs-category) while passing alone. Fixed once in config; the full web suite ran clean twice (2075/2075).

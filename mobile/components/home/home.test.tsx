@@ -2,7 +2,6 @@ import type { Href } from "expo-router";
 import { act } from "react-test-renderer";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { byTestId, flat, hosts, render, textContent, texts } from "../../test/render";
-import type { MobileCategory } from "../../lib/categories/categories-api";
 import type { HomeCategory, MobileHome } from "../../lib/home/contract";
 import { HomeView } from "./home-view";
 import { resetOverAlertDismissals } from "./over-alert";
@@ -57,19 +56,17 @@ const full = (over: Partial<MobileHome> = {}): MobileHome => ({
     { month: "2026-09", spend: 174854 },
   ],
   trendChange: { total: 174854, delta: 24854, previousMonth: "2026-08" },
+  expenseCategories: [
+    { id: "a", name: "Groceries" },
+    { id: "c", name: "Dining" },
+  ],
   ...over,
 });
 
-const categories: MobileCategory[] = [
-  { id: "a", name: "Groceries", kind: "expense", color: "#000" },
-  { id: "b", name: "Salary", kind: "income", color: "#000" },
-  { id: "c", name: "Dining", kind: "expense", color: "#000" },
-];
 
-function view(home: MobileHome, over: { categories?: MobileCategory[] | null } = {}) {
+function view(home: MobileHome) {
   const props = {
     home,
-    categories: over.categories === undefined ? categories : over.categories,
     name: "Alex",
     hour: 14,
     go: vi.fn<(href: Href) => void>(),
@@ -205,8 +202,8 @@ describe("Where it went", () => {
     expect(r.root.findAll((n) => n.props.testID === "home-where-summary")).toHaveLength(0);
   });
 
-  it("no chips while the categories load", () => {
-    const { r } = view(full({ spent: 0, categories: [] }), { categories: null });
+  it("no chips when there are no expense categories", () => {
+    const { r } = view(full({ spent: 0, categories: [], expenseCategories: [] }));
     expect(r.root.findAll((n) => n.props.testID === "home-category-chip")).toHaveLength(0);
   });
 
@@ -294,7 +291,6 @@ describe("a failed refresh", () => {
     const r = render(
       <HomeView
         home={full()}
-        categories={categories}
         name="Alex"
         hour={9}
         go={() => {}}
@@ -362,9 +358,9 @@ describe("Get set up", () => {
     expect(textContent(byTestId(off, "home-setup"))).toContain("0 of 2");
   });
 
-  it("keeps the category line's place without a wrong count while the categories load", () => {
-    const { r } = view(fresh(), { categories: null });
-    expect(textContent(byTestId(r, "home-setup-budget"))).toBe("Give categories a budget\u00a0Set");
+  it("counts the expense categories from Home's own payload, in the web's singular", () => {
+    const { r } = view(fresh({ expenseCategories: [{ id: "a", name: "Groceries" }] }));
+    expect(textContent(byTestId(r, "home-setup-budget"))).toBe("Give categories a budget1 category is ready to plan.Set");
   });
 
   it("is gone once anything came in or went out", () => {

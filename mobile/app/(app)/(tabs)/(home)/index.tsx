@@ -5,11 +5,7 @@ import { LoadFailure } from "../../../../components/feedback/states";
 import { ScreenSkeleton } from "../../../../components/feedback/skeleton";
 import { HomeView } from "../../../../components/home/home-view";
 import { Screen } from "../../../../components/shell/screen";
-import { authFetch } from "../../../../lib/auth/api";
 import { useAuth } from "../../../../lib/auth/auth-context";
-import { loadResource } from "../../../../lib/api/load";
-import { useResource } from "../../../../lib/api/use-resource";
-import { parseCategories } from "../../../../lib/categories/categories-api";
 import { useHome } from "../../../../lib/home/use-home";
 import { displayName } from "../../../../lib/shared";
 import { emptyDraft } from "../../../../lib/transactions/form";
@@ -27,8 +23,6 @@ export default function HomeScreen() {
   const { session, signOut } = useAuth();
   const [month, setMonth] = useState<string | null>(null);
   const { state, notice, pulling, pull, reload } = useHome(month);
-  // the chips of a month with no spending: the user's categories (not a figure)
-  const categories = useResource("home-categories", (s) => loadResource(() => authFetch("/api/mobile/categories", s), parseCategories));
   useRealtimeRefresh(["budgets"]);
   // Crystal walks only while Home is in front and the app is active (the web pauses her with the tab hidden)
   const focused = useIsFocused();
@@ -51,7 +45,6 @@ export default function HomeScreen() {
       ) : (
         <HomeView
           home={state.data}
-          categories={categories.state.status === "ready" ? categories.state.data : null}
           name={displayName(session?.user.email)}
           hour={new Date().getHours()}
           go={go}

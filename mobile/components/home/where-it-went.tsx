@@ -2,7 +2,6 @@ import type { Href } from "expo-router";
 import { budgetsLink } from "../../lib/budgets/params";
 import { Pressable, View } from "react-native";
 import { COLOR, FONT, ROLE, categoryIcon } from "../../lib/brand/shared";
-import type { MobileCategory } from "../../lib/categories/categories-api";
 import type { HomeCategory, MobileHome } from "../../lib/home/contract";
 import { formatMoney } from "../../lib/shared";
 import { whereNote } from "../../lib/home/view";
@@ -102,8 +101,7 @@ function WhereRow({ c, row, currency, month, go }: { c: HomeCategory; row: numbe
 }
 
 /** Nothing spent yet: Crystal asleep, and the categories waiting, as chips (web `px-badge` h-8). */
-function NoSpending({ categories }: { categories: MobileCategory[] | null }) {
-  const expense = (categories ?? []).filter((c) => c.kind === "expense");
+function NoSpending({ expense }: { expense: MobileHome["expenseCategories"] }) {
   return (
     <PixelFrame testID="home-where-empty" frame="px-card" style={{ padding: 8 }}>
       <View style={{ alignSelf: "flex-start" }}>
@@ -143,11 +141,9 @@ function NoSpending({ categories }: { categories: MobileCategory[] | null }) {
  */
 export function WhereItWent({
   home,
-  categories,
   go,
 }: {
   home: MobileHome;
-  categories: MobileCategory[] | null;
   go: (href: Href) => void;
 }) {
   const { currency, month } = home;
@@ -175,7 +171,7 @@ export function WhereItWent({
         )
       ) : null}
       {home.spent === 0 ? (
-        <NoSpending categories={categories} />
+        <NoSpending expense={home.expenseCategories} />
       ) : home.categories.length === 0 ? (
         <PixelFrame testID="home-where-no-budgets" frame="px-card" style={{ padding: 12 }}>
           <Text variant="body" color={ROLE.muted}>

@@ -63,6 +63,8 @@ export type MobileHome = {
   trend: { month: string; spend: number }[];
   /** The trend card's headline: the month's spending and its change against the previous month. */
   trendChange: { total: number; delta: number | null; previousMonth: string | null };
+  /** The active expense categories, in the web Home's order: the chips of a month with no spending, the set-up count. */
+  expenseCategories: { id: string; name: string }[];
 };
 
 export class HomeContractError extends Error {
@@ -195,5 +197,8 @@ export function parseMobileHome(input: unknown): MobileHome {
       ? input.trend.map((t) => (isObj(t) ? { month: str(t, "month"), spend: int(t, "spend") } : fail("trend")))
       : fail("trend is not an array"),
     trendChange: parseTrendChange(input.trendChange),
+    expenseCategories: Array.isArray(input.expenseCategories)
+      ? input.expenseCategories.map((c) => (isObj(c) ? { id: str(c, "id"), name: str(c, "name") } : fail("expenseCategories")))
+      : fail("expenseCategories is not an array"),
   };
 }

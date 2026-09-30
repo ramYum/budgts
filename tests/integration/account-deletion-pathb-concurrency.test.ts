@@ -70,28 +70,43 @@ async function seedPathBUser() {
   }
   await pg`insert into public.savings_goals (user_id, name, target_amount) values (${userId}, 'itest goal', 5000)`;
   await pg`insert into public.budgets (user_id, category_id, month, amount) values (${userId}, ${categoryId}, '2026-09-01', 10000)`;
-  // The physical order a scan visits the two transactions in.
+  // Physical (ctid) order. Not necessarily the order a DELETE visits them in: the planner decides that.
   const rows = await pg<{ id: string }[]>`select id from public.transactions where user_id = ${userId} order by ctid`;
   return { userId, accountId, categoryId, first: rows[0].id, last: rows[1].id };
 }
 
-/** Resolves once a backend is waiting on a lock inside a `DELETE FROM <table>` (PostgREST wraps it in a WITH). */
-async function waitForDeleteToBlockOn(table: string, timeoutMs = 15_000) {
+/** Resolves with the backend pid once a backend is waiting on a lock inside a `DELETE FROM <table>` (PostgREST wraps
+ * it in a WITH). */
+async function waitForDeleteToBlockOn(table: string, timeoutMs = 15_000): Promise<number> {
   const pattern = `%delete from%${table}%`;
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    const rows = await pg`
-      select 1 from pg_stat_activity
+    const rows = await pg<{ pid: number }[]>`
+      select pid from pg_stat_activity
       where datname = current_database() and wait_event_type = 'Lock' and query ilike ${pattern}`;
-    if (rows.length) return;
+    if (rows.length) return rows[0].pid;
     await sleep(50);
   }
   throw new Error(`the deletion never blocked on a lock in DELETE FROM ${table}; the scenario did not set up`);
 }
 
-async function deadlockCount(): Promise<number> {
-  const [row] = await pg<{ d: number }[]>`select deadlocks::int as d from pg_stat_database where datname = current_database()`;
-  return row.d;
+/**
+ * Watches for the lock cycle itself: each backend listed in the other's `pg_blocking_pids()`. Resolves true the moment
+ * both wait on each other, false once `settled` resolves without that having happened (no cycle formed). The deletion's
+ * 1 s `deadlock_timeout` breaks a real cycle, so it stays observable for about a second, far longer than one probe.
+ */
+async function watchForLockCycle(a: number, b: number, settled: Promise<unknown>): Promise<boolean> {
+  let done = false;
+  void settled.finally(() => {
+    done = true;
+  });
+  while (!done) {
+    const [row] = await pg<{ cycle: boolean }[]>`
+      select (${b}::int = any(pg_blocking_pids(${a}::int)) and ${a}::int = any(pg_blocking_pids(${b}::int))) as cycle`;
+    if (row.cycle) return true;
+    await sleep(20);
+  }
+  return false;
 }
 
 /** Everything a caller could observe about the account afterwards. */
@@ -139,57 +154,52 @@ describe("deleteAccount (Path B) against concurrent writers — real Postgres + 
   }, 60_000);
 
   it("survives a lock cycle on the user's transactions: the account ends up anonymized, not half-deleted", async () => {
-    // Which transactions row the deletion scan reaches LAST is decided by Postgres and differs between databases, so try
-    // both holds: every attempt must satisfy the guarantees, and a real deadlock must occur in at least one.
-    const attempts: string[] = [];
-    let sawDeadlock = false;
-    for (const hold of ["last", "first"] as const) {
-      const u = await seedPathBUser();
-      const held = hold === "last" ? u.last : u.first;
-      const wanted = hold === "last" ? u.first : u.last;
-      const deadlocksBefore = await deadlockCount();
-      let deletion!: Promise<DeleteAccountResult>;
+    // The cycle is built so it forms on every run, whatever order the planner visits rows in: the writer holds the
+    // user's `accounts` row, which the deletion reaches only AFTER its `delete from transactions` has taken every
+    // transactions row; the writer then reaches for one of those rows. (Holding one of two transactions rows and
+    // guessing the scan order from ctid was a coin toss: the planner often chose an index order.) The cycle is
+    // observed directly through pg_blocking_pids, not inferred from pg_stat_database.deadlocks, whose value is
+    // flushed from the victim backend asynchronously and so was read too early at times.
+    const u = await seedPathBUser();
+    let deletion!: Promise<DeleteAccountResult>;
+    let cycle = false;
 
-      // The writer (a sync applying updates, a transfer-pairing pass) locks one row...
-      const writerOutcome = await pg
-        .begin(async (tx) => {
-          await tx`update public.transactions set description = 'itest touch 1' where id = ${held}`;
-          // ...a real deletion starts and parks on it after taking the earlier one...
-          deletion = deleteAccount(admin, u.userId);
-          await waitForDeleteToBlockOn("transactions");
-          // ...then the writer reaches for the other row. If the deletion already holds it, that closes the cycle.
-          await tx`update public.transactions set description = 'itest touch 2' where id = ${wanted}`;
-        })
-        .then(
-          () => "writer committed" as const,
-          (e: { code?: string }) => e,
-        );
+    // The writer (a sync applying updates, a transfer-pairing pass) holds the account row...
+    const writerOutcome = await pg
+      .begin(async (tx) => {
+        // A long deadlock_timeout for the writer only: the deletion (default 1 s) always runs deadlock detection
+        // first, so it is always the victim and its 40P01 retry is what this test exercises.
+        await tx`set local deadlock_timeout = '30s'`;
+        const [{ pid: writerPid }] = await tx<{ pid: number }[]>`select pg_backend_pid() as pid`;
+        await tx`select id from public.accounts where id = ${u.accountId} for update`;
+        // ...a real deletion starts, deletes (and so locks) every transactions row, and parks on the account...
+        deletion = deleteAccount(admin, u.userId);
+        const deleterPid = await waitForDeleteToBlockOn("accounts");
+        // ...then the writer reaches for a transactions row the deletion holds, which closes the cycle.
+        const touch = tx`update public.transactions set description = 'itest touch' where id = ${u.first}`.execute();
+        cycle = await watchForLockCycle(writerPid, deleterPid, touch);
+        await touch;
+      })
+      .then(
+        () => "writer committed" as const,
+        (e: { code?: string }) => e,
+      );
 
-      const result = await deletion;
-      const after = await snapshot(u.userId);
-      await sleep(1_500); // pg_stat_database is flushed asynchronously
-      const deadlocks = (await deadlockCount()) - deadlocksBefore;
-      const observed = JSON.stringify({
-        hold,
-        writer: writerOutcome === "writer committed" ? writerOutcome : `aborted:${writerOutcome.code}`,
-        deletion: describeResult(result),
-        deadlocksDetected: deadlocks,
-        after,
-      });
-      attempts.push(observed);
-      if (deadlocks >= 1) sawDeadlock = true;
+    const result = await deletion;
+    const after = await snapshot(u.userId);
+    const observed = JSON.stringify({
+      writer: writerOutcome === "writer committed" ? writerOutcome : `aborted:${writerOutcome.code}`,
+      deletion: describeResult(result),
+      lockCycle: cycle,
+      after,
+    });
 
-      if (result.ok) {
-        expectFullyAnonymized(after, `success must mean completed: ${observed}`);
-      } else {
-        // a reported failure must be retryable to completion
-        expect(describeResult(await deleteAccount(admin, u.userId)), `retry after a reported failure: ${observed}`).toBe("ok(anonymize)");
-      }
-      // The point: the user's request is not lost to a deadlock that a bounded retry absorbs.
-      expect(describeResult(result), observed).toBe("ok(anonymize)");
-      if (sawDeadlock) break;
-    }
-    expect(sawDeadlock, `the scenario must really deadlock in at least one hold order: ${attempts.join(" || ")}`).toBe(true);
+    expect(cycle, `the scenario must really form a lock cycle: ${observed}`).toBe(true);
+    // The writer is never the victim (see its deadlock_timeout), so it always commits.
+    expect(writerOutcome, observed).toBe("writer committed");
+    // The point: the user's request is not lost to a deadlock that a bounded retry absorbs.
+    expect(describeResult(result), observed).toBe("ok(anonymize)");
+    expectFullyAnonymized(after, `success must mean completed: ${observed}`);
   }, 150_000);
 
   it("a row written after its table's turn is not silently kept: success means nothing owned is left", async () => {

@@ -373,7 +373,7 @@ export type Screen = {
   id: string;
   /** web path (signed in as the state's user) */
   web: string;
-  /** native deep link path, `budgts://<native>` */
+  /** native deep link path, `budgts:///<native>` (Expo Router path; "" is Home) */
   native: string;
   states: StateId[];
   /** frozen-motion capture time, ms after load (default 4000) */
@@ -424,7 +424,7 @@ export function webPathFor(screen: Screen, state: StateId): string {
 export function nativeLinkFor(screen: Screen, state: StateId): string {
   const endpoint = screen.id === "activity" ? "activity" : screen.id;
   const q = state === "loading" ? `?hold=${endpoint}` : state === "error" ? `?fail=${endpoint}` : "";
-  return `budgts://${screen.native}${q}`;
+  return `budgts:///${screen.native}${q}`;
 }
 
 export function findScreen(id: string): Screen {

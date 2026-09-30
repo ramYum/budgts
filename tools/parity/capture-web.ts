@@ -55,6 +55,8 @@ const BASE = opt("base") ?? "http://localhost:3200";
 const DEVICE_IDS = (list("device") ?? ["android-412", "iphone-390"]) as DeviceId[];
 const SETS = (list("set") ?? ["rest", "frozen"]) as MotionSet[];
 const ONLY = list("screen");
+/** viewport height override (CSS px): the device's usable height from capture-native's device.json, so both sides match */
+const HEIGHT = opt("height") ? Number(opt("height")) : null;
 const DEFAULT_FREEZE = 4000;
 const START = Date.now();
 
@@ -72,7 +74,7 @@ function fixedNow(): Date {
 }
 
 async function newContext(browser: Browser, device: DeviceId, set: MotionSet): Promise<BrowserContext> {
-  const d = DEVICES[device];
+  const d = { ...DEVICES[device], ...(HEIGHT ? { height: HEIGHT } : {}) };
   const ua = d.mobileUA === "android" ? pwDevices["Pixel 7"].userAgent : pwDevices["iPhone 15"].userAgent;
   return browser.newContext({
     viewport: { width: d.width, height: d.height },
@@ -152,7 +154,7 @@ async function captureOne(page: Page, screen: Screen, state: StateId, set: Motio
     }, freezeAt);
   }
   await page.evaluate(() => window.scrollTo(0, 0));
-  const d = DEVICES[device];
+  const d = { ...DEVICES[device], ...(HEIGHT ? { height: HEIGHT } : {}) };
   const name = captureName(screen.id, state, set);
   const dir = join(OUT, device);
   mkdirSync(dir, { recursive: true });

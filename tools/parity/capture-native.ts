@@ -21,7 +21,7 @@ import { loadStagingEnv } from "./env";
 import { readSeededUsers, tokenHashFor } from "./auth";
 import { PARITY_TIME_ZONE, type ParityUserName } from "./data";
 import { SCREENS, STATE_USER, captureName, nativeLinkFor, type MotionSet, type Screen, type StateId } from "./screens";
-import { boxesFromHierarchy, parseDensity } from "./capture-native-lib";
+import { boxesFromHierarchy, parseDensity, screenArea } from "./capture-native-lib";
 import type { CaptureMeta } from "./capture-web";
 
 const args = process.argv.slice(2);
@@ -116,6 +116,7 @@ async function main() {
   const dir = join(OUT, DEVICE);
   mkdirSync(dir, { recursive: true });
   let failures = 0;
+  let area: { x: number; y: number; w: number; h: number } | null = null;
   try {
     const density = preflight();
     const byUser = new Map<ParityUserName | null, { screen: Screen; state: StateId }[]>();
@@ -137,9 +138,11 @@ async function main() {
             if (state === "offline") adb("shell", "cmd", "connectivity", "airplane-mode", "enable");
             maestro("capture.yaml", { LINK: linkFor(screen, state, set), OUT: name }, dir);
             const boxes = boxesFromHierarchy(sh(MAESTRO, [...(SERIAL ? ["--device", SERIAL] : []), "hierarchy"]), density);
-            const root = boxes.find((b) => b.key === "screen-root");
-            if (!root) throw new Error('no view with testID "screen-root" (the native <Screen> must set it)');
             const png = PNG.sync.read(readFileSync(join(dir, `${name}.png`)));
+            // Crop: between the status bar and the gesture bar (the web's viewport); screen-root is Screen's scroll view,
+            // which runs under the translucent header and the status bar, so it is not the crop.
+            const root = screenArea(boxes, png.width / density, png.height / density);
+            area = root;
             const meta: CaptureMeta = {
               side: "native",
               screen: screen.id,
@@ -163,6 +166,10 @@ async function main() {
           }
         }
       }
+    }
+    if (area) {
+      // The web captures this screen size to compare against (capture-web --height), so both viewports match.
+      writeFileSync(join(OUT, "device.json"), JSON.stringify({ device: DEVICE, area, heightDp: Math.round(area.h) }, null, 2));
     }
   } finally {
     try {

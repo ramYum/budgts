@@ -563,8 +563,8 @@ Native deep links for captures (Expo Router paths): `budgts:///`, `budgts:///bud
 
 - `mobile/lib/motion/stepped.ts` (`useSteppedClock`) is deleted: a frame callback switched on from an effect starts late when start-up JS is busy. Stepped (sprite) motion is a Reanimated CSS keyframe animation with `steps(n, "jump-end")`, delay from `useMotionTiming` (so `?clock=` freezes it).
 - UI-thread shared-value animations (`withTiming`, `withSequence`, `withDelay`) only where the sequence is decided at run time (Crystal's randomised roam); never JS timers per frame.
-- The splash now holds on every activity (`mobile/patches/expo-splash-screen+57.0.9.patch`, applied by `patch-package` in `postinstall`) over `expo.backgroundColor` `#F4F4F4`.
-- **The next dev-client rebuild (after F7):** `npm ci` in `mobile/` (postinstall applies the patch), then `npx expo prebuild --platform android`, then `gradlew assembleDebug`. It also carries `expo-blur`.
+- The Android launch: the config plugin `mobile/plugins/with-android-launch-egg.js` (listed before `expo-splash-screen` in `app.json`) makes the window background paper with the centred egg and calls `SplashScreenManager.hide()` right after Expo's splash block in `MainActivity`; the loader's per-platform motion rule is `lib/brand/splash-motion.ts` (merged `phase-m/p3-egg2`, review 9.5; the earlier `patch-package` splash patch is removed).
+- **A dev-client rebuild:** `npm ci` in `mobile/`, then `npx expo prebuild --platform android --clean` (it runs the launch plugin), then `gradlew assembleDebug`.
 
 ### Shared web helpers (audit, 2026-09-30): import these, delete your copies
 
@@ -603,7 +603,7 @@ The app's gateways: `mobile/lib/brand/shared.ts` (brand) and `mobile/lib/shared.
 - **`useResource`** reloads a new key in place (no skeleton flash on a version bump or realtime event); only the first load or a retry after a failure shows loading; a failed reload replaces the old data (never another month's numbers).
 - **Realtime**: `useRealtimeRefresh(tables)` with the web's tables (`lib/realtime/topics.ts`); Home and Budgets add `["budgets"]`, Goals `["savings_goals", "savings_contributions"]`.
 - **`account_locked`**: `mutate()` answers `{ status: "error", kind: "locked", message: LOCKED_MESSAGE }`.
-- **Native batch for the post-F7 dev client:** `expo-blur`, `@react-native-community/datetimepicker`, and p3-egg's splash patch (`npm ci` first so `patch-package` applies it, then `expo prebuild`).
+- **Native batch for the post-F7 dev client:** `expo-blur` and `@react-native-community/datetimepicker` (`npm ci`, then `expo prebuild --clean`, which also applies the Android launch plugin).
 
 ### F7 as built (cell charts)
 
@@ -655,6 +655,12 @@ Re-auth guard (`phase-m/p3-c-auth`, security review 9.5, merged 2026-09-30):
 4. After a refusal, sign in as that other account on purpose: it signs in normally, no stale message.
 5. The email re-auth after the app's process is killed between sending the link and opening it.
 6. `adb shell am start -d "budgts://auth/callback?code=x"` while signed in: "nothing changed, you're still signed in", with a way back.
+
+Android launch (`phase-m/p3-egg2`, review 9.5), for the release pass:
+7. A release (or preview) APK, cold and warm launches: no black frame, one egg at every hand-off.
+8. One device on API 25–30, for the compat path.
+9. A full-resolution frame diff of the launch at 2.625 density.
+10. Watch for the egg showing through the window background: the keyboard opening on sign-in, stack transitions, returning from Plaid Link.
 
 ### Root test timeout (2026-09-30)
 

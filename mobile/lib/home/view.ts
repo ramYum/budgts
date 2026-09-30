@@ -1,4 +1,4 @@
-import type { TypeRoleName } from "../brand/shared";
+import { greetingForHour } from "../shared";
 import type { MobileHome } from "./contract";
 
 /**
@@ -9,30 +9,9 @@ import type { MobileHome } from "./contract";
  * rise in.
  */
 
-/**
- * A friendly first name from a sign-in email (web `src/lib/user/display-name.ts`, same rule; view.test.ts checks the two
- * agree). Metro serves the app only the web's brand and Crystal folders, so the one-line rule is mirrored here.
- */
-export function displayName(email: string | null | undefined): string {
-  const handle = ((email ?? "").split("@")[0] ?? "").split(/[+._-]/)[0] ?? "";
-  return handle ? `${handle[0]!.toUpperCase()}${handle.slice(1)}` : "";
-}
-
-/** "Good morning" by the device's own hour (web `greetingForHour`, src/lib/local-date.ts; checked equal in view.test.ts). */
-export function greetingForHour(hour: number): string {
-  if (hour < 12) return "Good morning";
-  if (hour < 18) return "Good afternoon";
-  return "Good evening";
-}
-
 /** "Good afternoon, Alex." as the words that rise in one by one (web `Greeting`). */
 export function greetingWords(hour: number, name: string): string[] {
   return `${greetingForHour(hour)}${name ? `, ${name}` : ""}.`.split(" ");
-}
-
-/** The hero figure's size: a figure longer than 13 characters steps down so it never wraps (web `figureSize`). */
-export function figureVariant(text: string): TypeRoleName {
-  return text.length <= 13 ? "tNumXl" : "tNumLg";
 }
 
 /** Nothing in or out yet this month: a new account, or a month just begun. */

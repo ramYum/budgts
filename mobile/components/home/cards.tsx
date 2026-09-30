@@ -1,7 +1,7 @@
 import { Pressable, View } from "react-native";
 import { COLOR, ROLE } from "../../lib/brand/shared";
 import type { HomeSuggestion, MobileHome } from "../../lib/home/contract";
-import { formatMoney } from "../../lib/home/format";
+import { formatMoney } from "../../lib/shared";
 import { savingsBarPct, savingsPct } from "../../../src/lib/figures/savings-pct";
 import { IconTile } from "../brand/controls";
 import { Icon } from "../brand/icon";
@@ -13,11 +13,9 @@ import { SectionHead } from "../kit/section-head";
 import { Badge, CategoryIcon, Chevron } from "../kit/tiles";
 import { RollingAmount } from "../motion/rolling-amount";
 import { CardRows } from "./card-rows";
-import { Lamp } from "./rise";
+import { Lamp } from "../motion/rise";
 
 const TNUM = { fontVariant: ["tabular-nums" as const] };
-/** web `text-sm leading-5` */
-const SM = { fontSize: 14, lineHeight: 20 };
 
 /**
  * "What can I change?" (web dashboard-view.tsx `change`): the one suggestion
@@ -52,13 +50,13 @@ export function ChangeCard({ suggestion, month, currency, go }: { suggestion: Ho
               {title}
             </Text>
             {suggestion.kind === "unbudgeted" ? (
-              <Text variant="body" color={COLOR.graphite} style={[SM, TNUM]}>
+              <Text variant="small" color={COLOR.graphite} style={TNUM}>
                 {detail}
               </Text>
             ) : (
-              <Text variant="body" color={COLOR.graphite} style={[SM, TNUM]}>
+              <Text variant="small" color={COLOR.graphite} style={TNUM}>
                 {amount} this month,{" "}
-                <Text variant="body" color={ROLE.neg} style={SM}>
+                <Text variant="small" color={ROLE.neg}>
                   up {formatMoney(suggestion.delta, currency)} vs. last month
                 </Text>
               </Text>
@@ -91,7 +89,7 @@ export function SavingsCard({ savings, currency, go }: { savings: NonNullable<Mo
         <View style={{ marginTop: 16 }}>
           <ProgressBar pct={pct} tone="growth" />
         </View>
-        <Text variant="body" color={ROLE.muted} style={[SM, TNUM, { marginTop: 16 }]}>
+        <Text variant="small" color={ROLE.muted} style={[TNUM, { marginTop: 16 }]}>
           Kept toward {formatMoney(savings.totalTarget, currency)} across {savings.activeCount}{" "}
           {savings.activeCount === 1 ? "goal" : "goals"}
         </Text>
@@ -122,7 +120,7 @@ export function RecentActivity({
           <Text variant="listName" color={ROLE.ink} style={{ marginTop: 16 }}>
             Nothing recorded yet
           </Text>
-          <Text variant="body" color={ROLE.muted} style={SM}>
+          <Text variant="small" color={ROLE.muted}>
             {home.bankConnected ? "Purchases from your bank land here on their own." : "Connected purchases land here on their own."}
           </Text>
           <View style={{ marginTop: 8, flexDirection: "row" }}>
@@ -169,7 +167,7 @@ export function RecentActivity({
                     <Text variant="listName" color={ROLE.ink} numberOfLines={1}>
                       {title}
                     </Text>
-                    <Text variant="body" color={ROLE.muted} numberOfLines={1} style={SM}>
+                    <Text variant="small" color={ROLE.muted} numberOfLines={1}>
                       {kind}
                     </Text>
                   </View>

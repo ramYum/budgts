@@ -12,7 +12,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
 import { COLOR, ROAM, ROLE, bubbleSide, crystalCheers, crystalLines } from "../../lib/brand/shared";
-import { formatSavingsRate } from "../../lib/home/format";
+import { formatSavingsRate } from "../../lib/shared";
 import { useMotionTiming } from "../../lib/motion/parity-clock";
 import { Robin } from "../brand/robin";
 import { Text } from "../brand/text";

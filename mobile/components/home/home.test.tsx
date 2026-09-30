@@ -68,10 +68,6 @@ function view(home: MobileHome, over: { categories?: MobileCategory[] | null } =
 
 const allText = (r: ReturnType<typeof render>) => texts(r).join("");
 
-// Crystal perches on the hero (components/crystal)
-vi.mock("react-native-reanimated", async () => (await import("../crystal/test-mocks")).reanimated());
-vi.mock("react-native", async () => (await import("../crystal/test-mocks")).reactNative());
-
 afterEach(() => resetOverAlertDismissals());
 
 describe("Home header", () => {

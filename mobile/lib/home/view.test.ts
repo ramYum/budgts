@@ -1,11 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { displayName as webDisplayName } from "../../../src/lib/user/display-name";
-import { greetingForHour as webGreeting } from "../../../src/lib/local-date";
 import type { MobileHome } from "./contract";
 import {
-  displayName,
-  figureVariant,
-  greetingForHour,
   greetingWords,
   heroLine,
   homeBlocks,
@@ -34,28 +29,10 @@ const home = (over: Partial<MobileHome> = {}): MobileHome => ({
   ...over,
 });
 
-describe("the mirrored web rules stay the web's", () => {
-  it("displayName matches src/lib/user/display-name.ts", () => {
-    for (const email of ["alex.lee+budgts@x.com", "sam@x.com", "o_neil@x.com", "@x.com", "", null, undefined, "ñandu-7@x.com", "z@x"])
-      expect(displayName(email)).toBe(webDisplayName(email));
-  });
-
-  it("greetingForHour matches src/lib/local-date.ts at every hour", () => {
-    for (let h = 0; h < 24; h++) expect(greetingForHour(h)).toBe(webGreeting(h));
-  });
-});
-
 describe("Home presentation", () => {
   it("greets word by word, with or without a name", () => {
     expect(greetingWords(14, "Alex")).toEqual(["Good", "afternoon,", "Alex."]);
     expect(greetingWords(8, "")).toEqual(["Good", "morning."]);
-  });
-
-  it("steps the figure down past 13 characters (web figureSize)", () => {
-    expect(figureVariant("$1,451.46")).toBe("tNumXl");
-    expect(figureVariant("-$12,345,678.9")).toBe("tNumLg");
-    expect(figureVariant("$1,234,567.89")).toBe("tNumXl"); // 13 exactly
-    expect(figureVariant("-$1,234,567.89")).toBe("tNumLg");
   });
 
   it("picks the subtitle and hero sentence as the web does", () => {

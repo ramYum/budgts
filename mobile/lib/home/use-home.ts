@@ -1,4 +1,3 @@
-import { useCallback, useEffect, useRef, useState } from "react";
 import { authFetch } from "../auth/api";
 import { useVersion } from "../api/invalidate";
 import { loadResource } from "../api/load";
@@ -10,33 +9,14 @@ export const homePath = (month: string | null) => (month ? `/api/mobile/home?mon
 
 /**
  * Home's data: every figure computed by the server (`loadHome`, the web Home's own reads and math), validated against the
- * contract. A new month loads afresh (the skeleton, as the web's navigation shows its loading screen). A save or a bank
- * sync (`invalidate("home")`) reloads in place, the numbers staying on screen until the new ones land, as the web's
- * `router.refresh()` does; only the user's own pull shows the pull indicator.
+ * contract. A new month, a save or a bank sync (`invalidate("home")`) reloads in place (`useResource`): the numbers stay
+ * until the new ones land; only the user's own pull shows the pull indicator, and a pull that fails keeps the numbers with
+ * a `notice`.
  */
 export function useHome(month: string | null) {
-  const resource = useResource(`home:${month ?? "current"}`, (session) =>
+  const version = useVersion("home");
+  const { state, notice, reload, refresh, refreshing } = useResource(`home:${month ?? "current"}:${version}`, (session) =>
     loadResource(() => authFetch(homePath(month), session), parseMobileHome),
   );
-  const { refresh } = resource;
-
-  const version = useVersion("home");
-  const seen = useRef(version);
-  useEffect(() => {
-    if (version === seen.current) return;
-    seen.current = version;
-    void refresh();
-  }, [version, refresh]);
-
-  const [pulling, setPulling] = useState(false);
-  const pull = useCallback(async () => {
-    setPulling(true);
-    try {
-      await refresh();
-    } finally {
-      setPulling(false);
-    }
-  }, [refresh]);
-
-  return { state: resource.state, notice: resource.notice, reload: resource.reload, pulling, pull };
+  return { state, notice, reload, pulling: refreshing, pull: refresh };
 }

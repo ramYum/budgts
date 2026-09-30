@@ -1,18 +1,15 @@
 import { act } from "react-test-renderer";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { byTestId, flat, hosts, render, textContent } from "../../test/render";
-import { reducedMotion } from "../../test/native-hosts";
+import { announcements, reducedMotion } from "../../test/native-hosts";
 import { cubicBezier, facingAt, hopArc, hopProgress, hopWing, peckOffset, placeAt, walkMoving } from "./motion";
 import { CrystalPerch } from "./crystal-perch";
 
-import { announce } from "./test-mocks";
 
-vi.mock("react-native-reanimated", async () => (await import("./test-mocks")).reanimated());
-vi.mock("react-native", async () => (await import("./test-mocks")).reactNative());
 
 afterEach(() => {
   reducedMotion.value = false;
-  announce.mockReset();
+  announcements.length = 0;
 });
 
 describe("the walk's poses (web HOP_ARC, HOP_FLAP, PECK, the mover's slide)", () => {
@@ -86,7 +83,7 @@ describe("Crystal on Home", () => {
     const said = bubble(r, "crystal-say-tap");
     expect(textContent(said)).toBe("32% saved!");
     expect(flat(said.props.style)).toMatchObject({ animationDelay: "850ms", animationDuration: "3000ms" });
-    expect(announce).toHaveBeenCalledWith("32% saved!");
+    expect(announcements).toEqual(["32% saved!"]);
     act(() => byTestId(r, "crystal").props.onPress());
     expect(textContent(bubble(r, "crystal-say-tap"))).toBe("Chirp chirp!");
     expect(r.root.findAll((n) => n.props.testID === "crystal-say-hello")).toHaveLength(0);

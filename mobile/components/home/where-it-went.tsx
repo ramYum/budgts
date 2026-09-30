@@ -2,7 +2,7 @@ import { Pressable, View } from "react-native";
 import { COLOR, FONT, ROLE, categoryIcon } from "../../lib/brand/shared";
 import type { MobileCategory } from "../../lib/categories/categories-api";
 import type { HomeCategory, MobileHome } from "../../lib/home/contract";
-import { formatMoney } from "../../lib/home/format";
+import { formatMoney } from "../../lib/shared";
 import { whereNote } from "../../lib/home/view";
 import { Icon } from "../brand/icon";
 import { PixelFrame } from "../brand/pixel-frame";
@@ -15,8 +15,6 @@ import { CategoryIcon } from "../kit/tiles";
 import { CardRows } from "./card-rows";
 
 const TNUM = { fontVariant: ["tabular-nums" as const] };
-/** web `text-sm leading-5` */
-const SM = { fontSize: 14, lineHeight: 20 };
 
 /**
  * One row (web `WhereRow`): name and amount, the cells, then what's left or
@@ -112,7 +110,7 @@ function NoSpending({ categories }: { categories: MobileCategory[] | null }) {
       <Text variant="listName" color={ROLE.ink} style={{ marginTop: 16 }}>
         No spending yet this month
       </Text>
-      <Text variant="body" color={ROLE.muted} style={SM}>
+      <Text variant="small" color={ROLE.muted}>
         Your categories are ready. Spending shows up here as it happens.
       </Text>
       {expense.length > 0 ? (
@@ -125,7 +123,7 @@ function NoSpending({ categories }: { categories: MobileCategory[] | null }) {
               style={{ height: 32, paddingHorizontal: 6, flexDirection: "row", alignItems: "center", gap: 6 }}
             >
               <Icon name={categoryIcon(c.name)} size={12} color={COLOR.graphite} />
-              <Text variant="body" color={COLOR.graphite} style={SM}>
+              <Text variant="small" color={COLOR.graphite}>
                 {c.name}
               </Text>
             </PixelFrame>

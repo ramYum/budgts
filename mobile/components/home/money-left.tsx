@@ -1,8 +1,9 @@
 import { Pressable, View } from "react-native";
 import { ROLE } from "../../lib/brand/shared";
 import type { MobileHome } from "../../lib/home/contract";
-import { formatMoney, formatSavingsRate } from "../../lib/home/format";
-import { figureVariant, heroLine, keptPct } from "../../lib/home/view";
+import { formatMoney, formatSavingsRate } from "../../lib/shared";
+import { heroLine, keptPct } from "../../lib/home/view";
+import { figureVariant } from "../kit/figure";
 import { Rule } from "../brand/controls";
 import { Icon } from "../brand/icon";
 import { PixelFrame } from "../brand/pixel-frame";
@@ -11,7 +12,7 @@ import { ProgressBar } from "../kit/progress-bar";
 import { pressStyle } from "../kit/press";
 import { CrystalPerch } from "../crystal/crystal-perch";
 import { RollingAmount } from "../motion/rolling-amount";
-import { Rise } from "./rise";
+import { Rise } from "../motion/rise";
 
 const TNUM = { fontVariant: ["tabular-nums" as const] };
 
@@ -102,7 +103,7 @@ export function MoneyLeftCard({
           <View style={{ flexDirection: "row", gap: 16 }}>
             <View style={{ flex: 1, minWidth: 0 }}>
               <View style={{ minHeight: 28, flexDirection: "row", alignItems: "center", gap: 4 }}>
-                <Text variant="body" color={ROLE.muted} style={{ fontSize: 14, lineHeight: 20 }}>
+                <Text variant="small" color={ROLE.muted}>
                   Came in
                 </Text>
                 <Pressable
@@ -125,7 +126,7 @@ export function MoneyLeftCard({
             </View>
             <View style={{ flex: 1, minWidth: 0 }}>
               <View style={{ minHeight: 28, flexDirection: "row", alignItems: "center" }}>
-                <Text variant="body" color={ROLE.muted} style={{ fontSize: 14, lineHeight: 20 }}>
+                <Text variant="small" color={ROLE.muted}>
                   Went out
                 </Text>
               </View>

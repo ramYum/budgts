@@ -3,7 +3,7 @@ import { ROLE } from "../../lib/brand/shared";
 import { greetingWords } from "../../lib/home/view";
 import { Text } from "../brand/text";
 import { MonthNav } from "../kit/month-nav";
-import { Rise } from "./rise";
+import { Rise } from "../motion/rise";
 
 /** A Dogica Bold space is 16px at the title size, narrowed a quarter em by the web's `word-spacing: -0.25em`. */
 export const TITLE_WORD_GAP = 12;

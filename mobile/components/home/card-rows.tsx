@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { COLOR } from "../../lib/brand/shared";
 import { PixelFrame } from "../brand/pixel-frame";
-import { Rise } from "./rise";
+import { Rise } from "../motion/rise";
 
 export type CardRow = { key: string; node: ReactNode };
 

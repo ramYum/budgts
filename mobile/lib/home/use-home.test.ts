@@ -72,17 +72,25 @@ describe("useHome", () => {
     expect(h.seen.slice(before).some((s) => s.pulling)).toBe(false);
   });
 
-  it("a failed refresh keeps the numbers and reports a notice; a good one clears it", async () => {
+  it("a failed pull keeps the numbers and reports a notice; a good one clears it", async () => {
     const h = mount(null);
     await settle();
     respond = down;
-    await act(async () => invalidate("home"));
-    await settle();
+    await act(async () => h.last().pull());
     expect(h.last().state.status).toBe("ready");
     expect(h.last().notice).toMatch(/couldn't load/i);
     respond = ok;
     await act(async () => h.last().pull());
     expect(h.last().notice).toBeNull();
+  });
+
+  it("a reload after a save that fails shows the failure, never the old numbers as current", async () => {
+    const h = mount(null);
+    await settle();
+    respond = down;
+    await act(async () => invalidate("home"));
+    await settle();
+    expect(h.last().state.status).toBe("error");
   });
 
   it("the user's pull shows the indicator until it lands", async () => {
@@ -102,11 +110,11 @@ describe("useHome", () => {
     expect(h.last().pulling).toBe(false);
   });
 
-  it("a new month loads afresh", async () => {
+  it("a new month loads in place: the shown month stays until the next lands", async () => {
     const h = mount(null);
     await settle();
     act(() => h.r.update(createElement(h.Probe, { m: "2026-08" })));
-    expect(h.last().state.status).toBe("loading");
+    expect(h.last().state.status).toBe("ready");
     await settle();
     expect(calls).toEqual(["/api/mobile/home", "/api/mobile/home?month=2026-08"]);
   });

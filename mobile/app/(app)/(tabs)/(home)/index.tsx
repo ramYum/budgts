@@ -11,7 +11,7 @@ import { loadResource } from "../../../../lib/api/load";
 import { useResource } from "../../../../lib/api/use-resource";
 import { parseCategories } from "../../../../lib/categories/categories-api";
 import { useHome } from "../../../../lib/home/use-home";
-import { displayName } from "../../../../lib/home/view";
+import { displayName } from "../../../../lib/shared";
 import { emptyDraft } from "../../../../lib/transactions/form";
 import { useRealtimeRefresh } from "../../../../lib/realtime/use-realtime-refresh";
 

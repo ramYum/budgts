@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { Pressable, View } from "react-native";
 import { ROLE } from "../../lib/brand/shared";
-import { formatMoney } from "../../lib/home/format";
+import { formatMoney } from "../../lib/shared";
 import { Icon } from "../brand/icon";
 import { PixelFrame } from "../brand/pixel-frame";
 import { Text } from "../brand/text";

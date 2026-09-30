@@ -56,24 +56,26 @@ export function EmptyState({
   body,
   action,
   icon,
+  testID = "empty-state",
 }: {
   title: string;
   body?: string;
   action?: ReactNode;
   icon?: IconName;
+  testID?: string;
 }) {
   return (
-    <PixelFrame testID="empty-state" frame="px-card" style={{ alignItems: "flex-start", gap: 8, padding: 16 }}>
+    <PixelFrame testID={testID} frame="px-card" style={{ alignItems: "flex-start", gap: 8, padding: 16 }}>
       {icon ? (
         <View style={{ marginBottom: 8 }}>
           <IconTile name={icon} />
         </View>
       ) : null}
-      <Text testID="empty-state-title" variant="listName" color={ROLE.ink}>
+      <Text testID={`${testID}-title`} variant="listName" color={ROLE.ink}>
         {title}
       </Text>
       {body ? (
-        <Text variant="body" color={ROLE.muted} style={{ fontSize: 14, lineHeight: 20, maxWidth: 448 }}>
+        <Text variant="small" color={ROLE.muted} style={{ maxWidth: 448 }}>
           {body}
         </Text>
       ) : null}

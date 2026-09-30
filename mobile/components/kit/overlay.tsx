@@ -48,7 +48,18 @@ export const useSheetFocus = () => useContext(SheetFocus);
  * edge-to-edge window no longer resizes for it) and scrolls the focused
  * field into view, `KEYBOARD_MARGIN` above the keyboard.
  */
-export function Overlay({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+export function Overlay({
+  title,
+  onClose,
+  children,
+  testID = "sheet",
+}: {
+  title: string;
+  onClose: () => void;
+  children: ReactNode;
+  /** the parity id (contract default "sheet"); a second sheet on one screen gets its own */
+  testID?: string;
+}) {
   const reduced = useReducedMotion();
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
@@ -85,7 +96,7 @@ export function Overlay({ title, onClose, children }: { title: string; onClose: 
           <Pressable accessibilityLabel="Close" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} onPress={onClose} />
           <Animated.View style={sheetIn}>
             <PixelFrame
-              testID="sheet"
+              testID={testID}
               frame="px-card-raised"
               accessibilityViewIsModal
               accessibilityLabel={title}
@@ -99,10 +110,10 @@ export function Overlay({ title, onClose, children }: { title: string; onClose: 
               >
                 <View ref={content} collapsable={false}>
                   <View style={{ marginBottom: 20, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                    <Text testID="sheet-title" variant="pxFigure" color={ROLE.ink} accessibilityRole="header" style={{ flexShrink: 1 }}>
+                    <Text testID={`${testID}-title`} variant="pxFigure" color={ROLE.ink} accessibilityRole="header" style={{ flexShrink: 1 }}>
                       {title}
                     </Text>
-                    <Pressable testID="sheet-close" accessibilityRole="button" accessibilityLabel="Close" onPress={onClose} hitSlop={4}>
+                    <Pressable testID={`${testID}-close`} accessibilityRole="button" accessibilityLabel="Close" onPress={onClose} hitSlop={4}>
                       {({ pressed }) => (
                         <PixelFrame
                           frame="px-step"

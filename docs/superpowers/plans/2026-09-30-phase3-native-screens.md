@@ -586,3 +586,19 @@ The app's gateways: `mobile/lib/brand/shared.ts` (brand) and `mobile/lib/shared.
 | `LOCKED_MESSAGE` | `mobile/lib/api/load.ts` (kept equal to `src/lib/ownership.ts` by `tests/unit/mobile-locked-message.test.ts`; `ownership.ts` isn't pure) | — |
 
 Not shared, on purpose: the budget trend, `savingsProgress` and every other figure: the screens read them from their `/api/mobile/*` payload (B already moved goals progress to the server).
+
+### Foundation change requests, batch 2 (2026-09-30)
+
+- **Parity ids with overrides:** every kit piece takes an optional `testID` that defaults to its contract id, so a screen with several instances gives each its own (screens.ts per-instance ids): `Overlay` ("sheet", title/close `<id>-title`/`<id>-close`), `RowMenu`, `Badge`, `SectionHead` (defaults "section-head"/"section-title"/"section-link"; an override `x` gives `x`/`x-title`/`x-link`), `RollingAmount`, `ProgressBar`, `EmptyState` (`<id>-title`), `SegmentedControl` (defaults "segmented"/"segment-<value>"; override `x` gives `x-<value>`), `HubSection`. `HubRow` is either `href` + `go` (ids from the href) or `onPress` + `testID` (a row that leaves the app).
+- **`Select`**: Lane E's `hideLabel` and `SelectOption.disabled` adopted (6bc5c06's API); an optional `testID` gives the field that id and its options `<testID>-option-<value>`.
+- **`DateField`** (`components/kit/date-field.tsx`): every date input. Shows `mm/dd/yyyy` as Android Chrome shows the web's `<input type="date">`, opens the Material date dialog on Android and the system calendar in a sheet on iOS, answers `YYYY-MM-DD`. Needs the post-F7 dev client (`@react-native-community/datetimepicker`); don't render it on the current APK.
+- **`Checkbox`** (`components/kit/checkbox.tsx`): Chrome's 16px checkbox, tone `ink` or `accent` (signal ink).
+- **Brand `Field`**: `label` may be a node (pass `accessibilityLabel` then), `rows` makes a multi-line note (`fieldHeight(rows)`).
+- **`Button` / `TextButton`**: `iconAfter`; `TextButton strong` is semibold ink ("Copy last month").
+- **`PageHeader`**: `title` may be a node (Home's word-by-word greeting); it keeps the `page-title` id.
+- **Type role `small`** (14/20 regular, web `text-sm leading-5`) in `src/lib/brand/tokens.ts`.
+- **`Rise` / `Lamp`** now live in `components/motion/rise.tsx` (moved from Lane B's `components/home/rise.tsx`; B deletes its copy on rebase).
+- **`useResource`** reloads a new key in place (no skeleton flash on a version bump or realtime event); only the first load or a retry after a failure shows loading; a failed reload replaces the old data (never another month's numbers).
+- **Realtime**: `useRealtimeRefresh(tables)` with the web's tables (`lib/realtime/topics.ts`); Home and Budgets add `["budgets"]`, Goals `["savings_goals", "savings_contributions"]`.
+- **`account_locked`**: `mutate()` answers `{ status: "error", kind: "locked", message: LOCKED_MESSAGE }`.
+- **Native batch for the post-F7 dev client:** `expo-blur`, `@react-native-community/datetimepicker`, and p3-egg's splash patch (`npm ci` first so `patch-package` applies it, then `expo prebuild`).

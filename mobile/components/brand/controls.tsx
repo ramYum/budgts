@@ -1,4 +1,4 @@
-import { forwardRef, useImperativeHandle, useRef, useState } from "react";
+import { forwardRef, useId, useImperativeHandle, useRef, useState, type ReactNode } from "react";
 import {
   Pressable,
   TextInput,
@@ -98,17 +98,29 @@ export function Button({
   );
 }
 
-export type FieldProps = Omit<TextInputProps, "style" | "placeholderTextColor"> & {
-  label: string;
+export type FieldProps = Omit<TextInputProps, "style" | "placeholderTextColor" | "multiline" | "numberOfLines"> & {
+  /** the label above the field; a node for a label with emphasis ("Type **DELETE** to confirm") */
+  label: string | ReactNode;
+  /** what a screen reader hears when `label` is a node */
+  accessibilityLabel?: string;
   invalid?: boolean;
+  /** lines of a multi-line note (the web's `<textarea rows>`); a one-line field without it */
+  rows?: number;
   testID?: string;
 };
 
-/** A labelled text field in a stepped frame, 44px tall; the frame thickens to ink on focus and to red when invalid. */
+/** A field's frame height: 44px for one line (24px line, 4px padding, the 6px frame each side), 24px more per extra row. */
+export const fieldHeight = (rows = 1) => SPACE.field + (rows - 1) * 24;
+
+/**
+ * A labelled text field in a stepped frame (web `fieldClass` under `labelClass`), 44px tall, or a `rows`-line note;
+ * the frame thickens to ink on focus and to red when invalid.
+ */
 export const Field = forwardRef<TextInput, FieldProps>(function Field(
-  { label, invalid = false, onFocus, onBlur, editable = true, ...rest },
+  { label, accessibilityLabel, invalid = false, rows, onFocus, onBlur, editable = true, ...rest },
   ref,
 ) {
+  const labelId = `field-label-${useId()}`;
   const [focused, setFocused] = useState(false);
   const input = useRef<TextInput>(null);
   useImperativeHandle(ref, () => input.current as TextInput);
@@ -117,16 +129,18 @@ export const Field = forwardRef<TextInput, FieldProps>(function Field(
   const state = invalid ? "[data-invalid='true']" : focused ? ":focus-within" : "";
   return (
     <View style={{ gap: 6 }}>
-      <Text variant="formLabel" color={COLOR.graphite} nativeID={`${rest.testID ?? label}-label`}>
+      <Text variant="formLabel" color={COLOR.graphite} nativeID={labelId}>
         {label}
       </Text>
-      <PixelFrame frame="px-field" state={state} style={{ height: SPACE.field }}>
+      <PixelFrame frame="px-field" state={state} style={{ height: fieldHeight(rows) }}>
         <TextInput
           ref={input}
           {...rest}
           editable={editable}
-          accessibilityLabel={label}
-          aria-labelledby={`${rest.testID ?? label}-label`}
+          accessibilityLabel={typeof label === "string" ? label : accessibilityLabel}
+          aria-labelledby={labelId}
+          multiline={rows !== undefined && rows > 1}
+          numberOfLines={rows}
           placeholderTextColor={PLACEHOLDER}
           cursorColor={ROLE.ink}
           selectionColor={COLOR.signal}
@@ -146,8 +160,8 @@ export const Field = forwardRef<TextInput, FieldProps>(function Field(
               paddingHorizontal: 8,
               paddingVertical: 4,
               color: editable ? ROLE.ink : ROLE.muted,
-              // Android pads text inputs by default; the web field doesn't
-              textAlignVertical: "center",
+              // Android pads text inputs by default; the web field doesn't. A note starts at its top, like a textarea.
+              textAlignVertical: rows !== undefined && rows > 1 ? "top" : "center",
               includeFontPadding: false,
             },
           ]}
@@ -162,7 +176,8 @@ export function TextButton({
   icon,
   iconAfter,
   children,
-  color = ROLE.muted,
+  strong = false,
+  color = strong ? ROLE.ink : ROLE.muted,
   onPress,
   disabled,
   testID,
@@ -170,6 +185,8 @@ export function TextButton({
   icon?: IconName;
   /** a trailing icon ("Show 12 more" ⌄) */
   iconAfter?: IconName;
+  /** semibold ink, for a text action that leads its row ("Copy last month") */
+  strong?: boolean;
   children: string;
   color?: string;
   onPress: () => void;
@@ -197,7 +214,7 @@ export function TextButton({
       {({ pressed }) => (
         <>
           {icon ? <Icon name={icon} color={pressed ? ROLE.ink : color} /> : null}
-          <Text variant="body" color={pressed ? ROLE.ink : color}>
+          <Text variant={strong ? "bodyStrong" : "body"} color={pressed ? ROLE.ink : color}>
             {children}
           </Text>
           {iconAfter ? <Icon name={iconAfter} color={pressed ? ROLE.ink : color} /> : null}

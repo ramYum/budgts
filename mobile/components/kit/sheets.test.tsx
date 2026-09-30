@@ -111,7 +111,7 @@ describe("Select", () => {
     const pick = vi.fn();
     const r = render(<Select label="Type" value="checking" options={options} onChange={pick} />);
     act(() => hosts(r, "Pressable")[0]!.props.onPress());
-    expect(hosts(r, "Pressable").find((p) => p.props.accessibilityLabel === "Checking")!.props.accessibilityState).toEqual({ selected: true });
+    expect(hosts(r, "Pressable").find((p) => p.props.accessibilityLabel === "Checking")!.props.accessibilityState).toEqual({ selected: true, disabled: false });
     act(() => hosts(r, "Pressable").find((p) => p.props.accessibilityLabel === "Savings")!.props.onPress());
     expect(pick).toHaveBeenCalledWith("savings");
     expect(r.root.findAll((n) => n.props.testID === "sheet")).toHaveLength(0);

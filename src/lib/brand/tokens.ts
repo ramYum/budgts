@@ -138,6 +138,8 @@ export const TYPE = {
   meta: { face: "geist", weight: 400, size: 13, lineHeight: 20, tracking: { px: 0 } },
   metaStrong: { face: "geist", weight: 500, size: 13, lineHeight: 20, tracking: { px: 0 } },
   formLabel: { face: "geist", weight: 500, size: 14, lineHeight: 20, tracking: { px: 0 } },
+  /** small reading text (web `text-sm leading-5`): hints, empty-state bodies, notes under a field */
+  small: { face: "geist", weight: 400, size: 14, lineHeight: 20, tracking: { px: 0 } },
   button: { face: "geist", weight: 600, size: 15, lineHeight: 24, tracking: { px: 0 } },
   input: { face: "geist", weight: 400, size: 16, lineHeight: 24, tracking: { px: 0 } },
   /** technical lines (the sign-in savings ticker: font-mono 13/20) */

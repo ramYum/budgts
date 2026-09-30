@@ -31,7 +31,7 @@ export function menuPosition(anchor: { x: number; y: number; width: number; heig
  * small lifted list of actions (Edit, Archive…) under it. Closes on a pick,
  * on a press anywhere outside it, and on Android's back.
  */
-export function RowMenu({ label, items }: { label: string; items: RowMenuItem[] }) {
+export function RowMenu({ label, items, testID = "row-menu" }: { label: string; items: RowMenuItem[]; testID?: string }) {
   const [at, setAt] = useState<{ top: number; right: number } | null>(null);
   const kebab = useRef<View>(null);
   const window = useWindowDimensions();
@@ -47,7 +47,7 @@ export function RowMenu({ label, items }: { label: string; items: RowMenuItem[] 
     <>
       <Pressable
         ref={kebab}
-        testID="row-menu"
+        testID={testID}
         accessibilityRole="button"
         accessibilityLabel={label}
         accessibilityState={{ expanded: at !== null }}

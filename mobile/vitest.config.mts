@@ -8,7 +8,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     environment: "node",
-    include: ["lib/**/*.test.ts", "components/**/*.test.tsx", "app/**/*.test.tsx", "test/**/*.test.ts"],
+    include: ["lib/**/*.test.ts", "lib/**/*.test.tsx", "components/**/*.test.tsx", "app/**/*.test.tsx", "test/**/*.test.ts"],
     globals: true,
     setupFiles: ["./test/native-mocks.setup.ts"],
     // expo-linking ships untranspiled ESM; callback-url.test.ts runs its real

@@ -36,7 +36,8 @@ export function PageHeader({
   action,
   children,
 }: {
-  title: string;
+  /** the pixel title; a node for a title with its own motion (Home's word-by-word greeting) */
+  title: string | ReactNode;
   subtitle?: string;
   onBack?: () => void;
   month?: ReactNode;
@@ -50,9 +51,15 @@ export function PageHeader({
           <View style={{ flex: 1, minWidth: 0, minHeight: 40, flexDirection: "row", alignItems: "center", gap: 8 }}>
             {onBack ? <BackButton onPress={onBack} /> : null}
             <View style={{ flexShrink: 1, minWidth: 0 }}>
-              <Text testID="page-title" variant="pxTitle" color={ROLE.ink} accessibilityRole="header">
-                {title}
-              </Text>
+              {typeof title === "string" ? (
+                <Text testID="page-title" variant="pxTitle" color={ROLE.ink} accessibilityRole="header">
+                  {title}
+                </Text>
+              ) : (
+                <View testID="page-title" accessibilityRole="header">
+                  {title}
+                </View>
+              )}
               {subtitle ? (
                 <Text testID="page-subtitle" variant="body" color={ROLE.muted} style={{ marginTop: 4, lineHeight: 20 }}>
                   {subtitle}

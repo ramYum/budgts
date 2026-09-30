@@ -12,6 +12,7 @@ export function SectionHead({
   action,
   onAction,
   aside,
+  testID,
 }: {
   title: string;
   count?: number;
@@ -19,13 +20,15 @@ export function SectionHead({
   onAction?: () => void;
   /** anything else on the right (a badge, a quiet note) */
   aside?: ReactNode;
+  /** the parity id: "section-head" (title "section-title", link "section-link") unless a screen needs this one apart */
+  testID?: string;
 }) {
   return (
     <View
-      testID="section-head"
+      testID={testID ?? "section-head"}
       style={{ minHeight: 24, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}
     >
-      <Text testID="section-title" variant="tHead" color={ROLE.ink} accessibilityRole="header" style={{ flexShrink: 1 }}>
+      <Text testID={testID ? `${testID}-title` : "section-title"} variant="tHead" color={ROLE.ink} accessibilityRole="header" style={{ flexShrink: 1 }}>
         {title}
         {count !== undefined ? (
           <Text variant="listName" color={ROLE.muted} style={{ fontVariant: ["tabular-nums"] }}>
@@ -35,7 +38,7 @@ export function SectionHead({
       </Text>
       {action && onAction ? (
         <Pressable
-          testID="section-link"
+          testID={testID ? `${testID}-link` : "section-link"}
           accessibilityRole="link"
           accessibilityLabel={action}
           onPress={onAction}

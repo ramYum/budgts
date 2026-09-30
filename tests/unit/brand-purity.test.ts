@@ -5,7 +5,8 @@ import { describe, expect, it } from "vitest";
 /**
  * The modules the native apps import straight from the web source (Metro
  * `watchFolders`, mobile/metro.config.js): the tokens, frames, robin and egg art and
- * icon table in src/lib/brand, and Crystal's walk in src/lib/crystal. They run
+ * icon table in src/lib/brand, Crystal's walk in src/lib/crystal, and the welcome
+ * guide's words and first-run gate (the pure files of src/components/tour and src/lib/tour). They run
  * in the browser, in Node (the generators), and under Hermes on iOS and
  * Android, so they must stay pure TypeScript: no package imports (Metro
  * resolves only mobile/node_modules, never the web app's), no React, no Next,
@@ -14,12 +15,27 @@ import { describe, expect, it } from "vitest";
 
 const root = join(__dirname, "..", "..");
 const SHARED_DIRS = ["src/lib/brand", "src/lib/crystal"];
+/** Pure files the app imports from folders that also hold web-only modules (React components, server loaders). */
+const SHARED_FILES = ["src/components/tour/guide-copy.ts", "src/lib/tour/gate.ts", "src/lib/tour/steps.ts"];
 
-const shared = SHARED_DIRS.flatMap((dir) =>
-  readdirSync(join(root, dir))
-    .filter((f) => f.endsWith(".ts") && !f.endsWith(".test.ts"))
-    .map((f) => `${dir}/${f}`),
-);
+const shared = [
+  ...SHARED_DIRS.flatMap((dir) =>
+    readdirSync(join(root, dir))
+      .filter((f) => f.endsWith(".ts") && !f.endsWith(".test.ts"))
+      .map((f) => `${dir}/${f}`),
+  ),
+  ...SHARED_FILES,
+];
+
+/** `a/b/c.ts` + `../d/e.ts` → `a/d/e.ts` */
+function resolveFrom(file: string, spec: string): string {
+  const parts = file.split("/").slice(0, -1);
+  for (const seg of spec.split("/")) {
+    if (seg === "..") parts.pop();
+    else if (seg !== ".") parts.push(seg);
+  }
+  return parts.join("/");
+}
 
 const FORBIDDEN = [
   /\bdocument\./,
@@ -45,10 +61,12 @@ describe("shared brand modules stay pure", () => {
         "src/lib/crystal/roam.ts",
       ]),
     );
-    // the app's own list of what it shares (mobile/lib/brand/shared.ts) names only these
-    const appSide = readFileSync(join(root, "mobile/lib/brand/shared.ts"), "utf8");
-    for (const m of appSide.matchAll(/from "\.\.\/\.\.\/\.\.\/(src\/lib\/[^"]+)"/g)) {
-      expect(shared, m[1]).toContain(`${m[1]}.ts`);
+    // the app's own lists of what it shares (mobile/lib/brand/shared.ts, mobile/lib/tour/shared.ts) name only these
+    for (const list of ["mobile/lib/brand/shared.ts", "mobile/lib/tour/shared.ts"]) {
+      const appSide = readFileSync(join(root, list), "utf8");
+      const named = [...appSide.matchAll(/from "\.\.\/\.\.\/\.\.\/(src\/[^"]+)"/g)].map((m) => m[1]!);
+      expect(named.length, list).toBeGreaterThan(0);
+      for (const m of named) expect(shared, m).toContain(`${m}.ts`);
     }
   });
 
@@ -57,9 +75,8 @@ describe("shared brand modules stay pure", () => {
       const text = readFileSync(join(root, file), "utf8");
       for (const m of text.matchAll(/^\s*(?:import|export)\b[^"';]*?from\s*["']([^"']+)["']/gm)) {
         const spec = m[1]!;
-        expect(spec, `${file}: ${spec}`).toMatch(/^\.\/[\w-]+\.ts$/);
-        const dir = file.slice(0, file.lastIndexOf("/"));
-        expect(shared, `${file}: ${spec}`).toContain(`${dir}/${spec.slice(2)}`);
+        expect(spec, `${file}: ${spec}`).toMatch(/^(?:\.\/|(?:\.\.\/)+)[\w/-]+\.ts$/);
+        expect(shared, `${file}: ${spec}`).toContain(resolveFrom(file, spec));
       }
       expect(text, `${file}: bare import`).not.toMatch(/^\s*import\s+["']/m);
     });

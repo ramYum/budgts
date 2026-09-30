@@ -44,6 +44,7 @@ describe("shared brand modules stay pure", () => {
         "src/lib/brand/icons.ts",
         "src/lib/crystal/roam.ts",
         "src/lib/figures/budget-trend.ts",
+        "src/lib/figures/savings-pct.ts",
       ]),
     );
     // the app's own list of what it shares (mobile/lib/brand/shared.ts) names only these

@@ -116,15 +116,18 @@ function SetupStep({
   body,
   done,
   action,
+  testId,
 }: {
   icon: IconName;
   title: string;
   body: string;
   done: boolean;
   action: ReactNode;
+  /** the parity check's id (tools/parity) */
+  testId: string;
 }) {
   return (
-    <li className="flex items-center gap-3 py-4 first:pt-0 last:pb-0 md:gap-4">
+    <li className="flex items-center gap-3 py-4 first:pt-0 last:pb-0 md:gap-4" data-testid={testId}>
       <IconTile name={done ? "check" : icon} tone={done ? "growth" : "gray"} />
       <div className="min-w-0 flex-1">
         <p className={`text-[15px] font-medium leading-6 ${done ? "text-muted" : "text-ink"}`}>{title}</p>
@@ -185,6 +188,7 @@ export function DashboardView({
       done: setup.bankConnected,
       node: (
         <SetupStep
+          testId="home-setup-bank"
           key="bank"
           icon="bank"
           title="Connect your bank"
@@ -200,6 +204,7 @@ export function DashboardView({
     done: tiles.income > 0,
     node: (
       <SetupStep
+          testId="home-setup-income"
         key="income"
         icon="coins"
         title="Add this month's income"
@@ -222,6 +227,7 @@ export function DashboardView({
     done: tiles.budgeted > 0,
     node: (
       <SetupStep
+          testId="home-setup-budget"
         key="budget"
         icon="budgets"
         title="Give categories a budget"
@@ -487,7 +493,7 @@ export function DashboardView({
         <div className="contents xl:flex xl:flex-col xl:gap-10">
           {quiet && stepsDone < steps.length ? (
             <Reveal i={next()} className="order-1 xl:order-none">
-              <section className="space-y-3">
+              <section className="space-y-3" data-testid="home-setup">
                 <SectionHead
                   title="Get set up"
                   aside={
@@ -502,7 +508,7 @@ export function DashboardView({
                     </span>
                   }
                 />
-                <ol className="px-card px-rows p-2 md:p-4">{steps.map((s) => s.node)}</ol>
+                <ol className="px-card px-rows p-2 md:p-4" data-testid="home-setup-steps">{steps.map((s) => s.node)}</ol>
               </section>
             </Reveal>
           ) : null}
@@ -511,7 +517,7 @@ export function DashboardView({
           </Reveal>
           {!quiet ? (
             <Reveal i={next()} className="order-6 xl:order-none">
-              <section className="space-y-3">
+              <section className="space-y-3" data-testid="home-trend">
                 <SectionHead title="Spending · 6 months" />
                 <SpendingTrendCard trend={trend} currency={currency} />
               </section>
@@ -534,7 +540,7 @@ export function DashboardView({
           </Reveal>
           {tiles.spent > 0 ? (
             <Reveal i={next()} className="order-7 xl:order-none">
-              <section className="space-y-3">
+              <section className="space-y-3" data-testid="home-breakdown">
                 <SectionHead title="Where your money goes" />
                 <SpendingBreakdownCard bars={view.bars} totalSpent={tiles.spent} currency={currency} />
               </section>

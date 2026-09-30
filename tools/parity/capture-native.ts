@@ -46,7 +46,9 @@ let lockOwned = false;
 
 function sh(cmd: string, cmdArgs: string[], cwd?: string): string {
   const r = spawnSync(cmd, cmdArgs, { cwd, encoding: "utf8", shell: process.platform === "win32" && cmd.endsWith(".bat"), maxBuffer: 64 << 20 });
-  if (r.status !== 0) throw new Error(`${cmd} ${cmdArgs.join(" ")} failed (${r.status}): ${(r.stderr || r.stdout).slice(-800)}`);
+  // Never echo a flow's -e values: TOKEN_HASH is a live sign-in credential.
+  const shown = cmdArgs.map((a, i) => (cmdArgs[i - 1] === "-e" ? `${a.split("=")[0]}=…` : a)).join(" ");
+  if (r.status !== 0) throw new Error(`${cmd} ${shown} failed (${r.status}): ${(r.stderr || r.stdout).slice(-800)}`);
   return r.stdout;
 }
 const adb = (...a: string[]) => sh(ADB, [...(SERIAL ? ["-s", SERIAL] : []), ...a]);

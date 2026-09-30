@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { EGG_FRAMES, EGG_STEP_MS, eggPathFor } from "../lib/brand/shared";
-import { frameCallbacks, tickFrames } from "../test/native-hosts";
+import { describe, expect, it, vi } from "vitest";
+import { EGG_FRAMES } from "../lib/brand/shared";
 import { LoadingScreenProvider, useLoadingScreen } from "./loading-screen";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -25,19 +24,12 @@ function Screen({ initial, label: words = "Loading your account" }: { initial: b
   useLoadingScreen(loading, words);
   return null;
 }
-// the stand-in window is a 412dp phone: the half-turn lap
-const EGG_LOOP = eggPathFor(412, 6).loop;
-/** the egg frame showing (the stand-in styles are read on render) */
-const eggFrame = (r: ReactTestRenderer) =>
-  EGG_FRAMES.findIndex((f) => {
+/** Every egg frame layer's animation, by testID (the same objects, or new ones). */
+const eggAnimations = (r: ReactTestRenderer) =>
+  EGG_FRAMES.map((f) => {
     const n = r.root.find((x) => x.props.testID === `egg-frame-${f.angle}` && typeof x.type === "string");
-    const style = Object.assign({}, ...[n.props.style].flat(2));
-    return style.opacity === 1;
+    return Object.assign({}, ...[n.props.style].flat(2)).animationName as unknown;
   });
-
-afterEach(() => {
-  frameCallbacks.length = 0;
-});
 
 describe("the loading screen", () => {
   it("covers start-up from the first frame, and hands the splash its cue once laid out", () => {
@@ -101,17 +93,14 @@ describe("the loading screen", () => {
     expect(() => render(<Screen initial />)).toThrow(/LoadingScreenProvider/);
   });
 
-  it("keeps the egg rolling through re-renders: a new hold label never restarts its clock", () => {
+  it("keeps the egg rolling through re-renders: a new hold label hands the same animations on, so nothing restarts", () => {
     const r = render(
       <LoadingScreenProvider loading>
         <Screen initial label="Signing you in" />
       </LoadingScreenProvider>,
     );
-    const step = 5;
-    act(() => {
-      tickFrames(2000);
-      tickFrames(2000 + step * EGG_STEP_MS + 1);
-    });
+    const before = eggAnimations(r);
+    expect(before.every((a) => a !== undefined)).toBe(true);
     // start-up finishes and the screen's own load takes over under a new label
     act(() =>
       r.update(
@@ -121,18 +110,8 @@ describe("the loading screen", () => {
       ),
     );
     expect(label(r)).toBe("Loading your account");
-    expect(eggFrame(r)).toBe(EGG_LOOP[step]!.frame);
-    // and the display keeps counting from where it was, not from zero
-    act(() => tickFrames(2000 + (step + 1) * EGG_STEP_MS + 1));
-    act(() =>
-      r.update(
-        <LoadingScreenProvider loading={false} label="Loading">
-          <Screen initial label="Loading your account" />
-        </LoadingScreenProvider>,
-      ),
-    );
-    expect(eggFrame(r)).toBe(EGG_LOOP[step + 1]!.frame);
-    for (const c of frameCallbacks) expect(c.seen.size, "the frame callback was re-registered").toBe(1);
+    const after = eggAnimations(r);
+    after.forEach((a, i) => expect(a, EGG_FRAMES[i]!.angle.toString()).toBe(before[i]));
   });
 
   it("is the only thing a screen reader sees while loading, then gives the screen back", () => {

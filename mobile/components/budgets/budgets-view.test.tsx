@@ -8,7 +8,8 @@ import { PageHeader } from "../kit/page-header";
 import { ProgressBar } from "../kit/progress-bar";
 import { SegmentedControl } from "../kit/segmented-control";
 import { Reveal } from "../motion/reveal";
-import { BudgetsView, figureVariant } from "./budgets-view";
+import { Button } from "../brand/controls";
+import { BudgetRow, BudgetsView } from "./budgets-view";
 
 const cat = (over: Partial<MobileBudgetCategory> = {}): MobileBudgetCategory => ({
   id: "groceries",
@@ -53,6 +54,10 @@ const allTime: MobileBudgetsAllTime = {
   ],
 };
 
+/** Every host carrying `id`, in tree order (repeated ids are numbered by the parity capture the same way). */
+const all = (r: ReturnType<typeof render>, id: string) => r.root.findAll((n) => typeof n.type === "string" && n.props.testID === id);
+const button = (r: ReturnType<typeof render>, label: string) => r.root.findAll((n) => n.type === Button && n.props.children === label)[0]!;
+
 function view(over: Partial<Parameters<typeof BudgetsView>[0]> = {}) {
   const props: Parameters<typeof BudgetsView>[0] = {
     month: "2026-09",
@@ -73,8 +78,7 @@ describe("Budgets (web budgets-view.tsx)", () => {
     const { r } = view();
     expect(r.root.findByType(PageHeader).props.title).toBe("Budgets");
     expect(texts(r.root.findByType(MonthNav))).toContain("September 2026");
-    expect(byTestId(r, "budgets-new").props.accessibilityLabel).toBe("New budget");
-    expect(texts(byTestId(r, "budgets-new"))).toContain("New");
+    expect(button(r, "New").props.accessibilityLabel).toBe("New budget");
     const range = r.root.findByType(SegmentedControl);
     expect(range.props.value).toBe("month");
     expect(texts(range)).toEqual(["This month", "All time"]);
@@ -92,14 +96,11 @@ describe("Budgets (web budgets-view.tsx)", () => {
   it("prints a negative Remaining in red and steps a long figure down a size", () => {
     const { r } = view({ data: monthData({ leftToSpend: -2500, tone: "over" }) });
     expect(flat(byTestId(r, "budgets-remaining").props.style).color).toBe(ROLE.neg);
-    expect(figureVariant("$150.00")).toBe("tNumXl");
-    expect(figureVariant("$1,234,567.89")).toBe("tNumXl"); // 13 characters
-    expect(figureVariant("-$1,234,567.89")).toBe("tNumLg");
   });
 
   it("gives each category a card whose cells cascade two steps apart, rising in after the hero", () => {
     const { r } = view();
-    const bars = byTestId(r, "budgets-rows").findAllByType(ProgressBar);
+    const bars = r.root.findAllByType(BudgetRow).map((row) => row.findByType(ProgressBar));
     expect(bars.map((b) => [b.props.pct, b.props.tone, b.props.start])).toEqual([
       [30, "under", 0],
       [130, "over", 2],
@@ -111,15 +112,17 @@ describe("Budgets (web budgets-view.tsx)", () => {
 
   it("says what's left, what's over, and what has no plan, in the web's words", () => {
     const { r } = view();
-    expect(texts(byTestId(r, "budget-row-groceries"))).toEqual(["Groceries", "$120.00", "$280.00", " left", "of $400.00"]);
-    expect(texts(byTestId(r, "budget-row-dining"))).toEqual(["Dining", "$130.00", "Over by $30.00", "of $100.00"]);
-    expect(texts(byTestId(r, "budget-row-fun"))).toEqual(["Entertainment", "$50.00", "No budget, all unplanned", "Set budget"]);
-    expect(texts(byTestId(r, "budget-row-car"))).toEqual(["Transportation", "$0.00", "No budget set", "Set budget"]);
+    expect(all(r, "budget-card").map((c) => texts(c))).toEqual([
+      ["Groceries", "$120.00", "$280.00", " left", "of $400.00"],
+      ["Dining", "$130.00", "Over by $30.00", "of $100.00"],
+      ["Entertainment", "$50.00", "No budget, all unplanned", "Set budget"],
+      ["Transportation", "$0.00", "No budget set", "Set budget"],
+    ]);
   });
 
   it("opens a category from its card", () => {
     const { r, props } = view();
-    byTestId(r, "budget-row-dining").props.onPress();
+    all(r, "budget-card")[1]!.props.onPress();
     expect(props.onOpen).toHaveBeenCalledWith("dining", false);
   });
 
@@ -127,7 +130,7 @@ describe("Budgets (web budgets-view.tsx)", () => {
     const suggestion = { kind: "unbudgeted" as const, categoryId: "fun", name: "Entertainment", amount: 5000, share: 11 };
     const { r, props } = view({ data: monthData({ suggestion }) });
     expect(textContent(byTestId(r, "budgets-unplanned"))).toContain("Entertainment has no budget. All $50.00 of it counts as unplanned.");
-    byTestId(r, "budgets-unplanned-set").props.onPress();
+    button(r, "Set Entertainment budget").props.onPress();
     expect(props.onOpen).toHaveBeenCalledWith("fun", true);
 
     const mover = { kind: "mover" as const, categoryId: "dining", name: "Dining", amount: 13000, delta: 3000 };
@@ -141,7 +144,7 @@ describe("Budgets (web budgets-view.tsx)", () => {
       "Set a monthly limit per category to see how you're tracking.",
       "Build my budget",
     ]);
-    byTestId(r, "budgets-build").props.onPress();
+    button(r, "Build my budget").props.onPress();
     expect(props.onNew).toHaveBeenCalled();
   });
 
@@ -158,15 +161,17 @@ describe("Budgets (web budgets-view.tsx)", () => {
     expect(byTestId(pending, "budgets-copy").props.disabled).toBe(true);
     expect(texts(byTestId(pending, "budgets-copy"))).toEqual(["Copying…"]);
     const failed = view({ copy: { pending: false, error: "There were no budgets last month to copy.", onCopy: vi.fn() } }).r;
-    expect(textContent(byTestId(failed, "budgets-copy-error"))).toBe("There were no budgets last month to copy.");
+    expect(texts(failed)).toContain("There were no budgets last month to copy.");
   });
 
   it("lists all-time spending largest first, without New or Copy", () => {
     const { r } = view({ range: "all", data: allTime });
     expect(texts(byTestId(r, "budgets-all-time"))).toEqual(["Groceries", "$1,234.56", "Dining", "$50.00"]);
-    expect(r.root.findAll((n) => n.props.testID === "budgets-new" || n.props.testID === "budgets-copy")).toHaveLength(0);
-    expect(flat(byTestId(r, "budgets-all-time-dining").props.style).borderTopWidth).toBe(1);
-    expect(flat(byTestId(r, "budgets-all-time-groceries").props.style).borderTopWidth).toBeUndefined();
+    expect(r.root.findAll((n) => n.type === Button && n.props.children === "New")).toHaveLength(0);
+    expect(all(r, "budgets-copy")).toHaveLength(0);
+    const rows = all(r, "budgets-all-time-row");
+    expect(flat(rows[0]!.props.style).borderTopWidth).toBeUndefined();
+    expect(flat(rows[1]!.props.style).borderTopWidth).toBe(1);
   });
 
   it("says so when there's no spending at all", () => {

@@ -87,7 +87,7 @@ export function CategorySheet({
   const over = bar.state === "over";
 
   return (
-    <Overlay title={bar.name} onClose={onClose} testID="budget-sheet">
+    <Overlay title={bar.name} onClose={onClose}>
       <View style={{ gap: 16 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
           <CategoryIcon name={bar.name} tone={over ? "wash" : "gray"} />
@@ -157,7 +157,7 @@ export function NewBudgetSheet({
   const [categoryId, setCategoryId] = useState(categories[0]?.id ?? "");
   if (categories.length === 0) {
     return (
-      <Overlay title="New budget" onClose={onClose} testID="budget-new-sheet">
+      <Overlay title="New budget" onClose={onClose}>
         <Text variant="body" color={ROLE.muted}>
           Every expense category already has a budget.
         </Text>
@@ -165,10 +165,9 @@ export function NewBudgetSheet({
     );
   }
   return (
-    <Overlay title="New budget" onClose={onClose} testID="budget-new-sheet">
+    <Overlay title="New budget" onClose={onClose}>
       <View style={{ gap: 16 }}>
         <Select
-          testID="budget-category"
           label="Category"
           value={categoryId}
           options={categories.map((c) => ({ value: c.id, label: c.name }))}

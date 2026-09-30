@@ -7,6 +7,7 @@ import { Icon } from "../brand/icon";
 import { PixelFrame } from "../brand/pixel-frame";
 import { Text } from "../brand/text";
 import { EmptyState } from "../kit/empty-state";
+import { figureVariant } from "../kit/figure";
 import { MonthNav } from "../kit/month-nav";
 import { PageHeader } from "../kit/page-header";
 import { pressStyle } from "../kit/press";
@@ -22,11 +23,6 @@ export type BudgetsRange = "month" | "all";
 const tnum = (size: number): TextStyle => ({ fontVariant: ["tabular-nums"], letterSpacing: -0.01 * size });
 /** The web's `text-sm leading-5` (14/20) on a reading role. */
 const SM: TextStyle = { fontSize: 14, lineHeight: 20 };
-
-/** The web's `figureSize` (ui.tsx), phone scale: the hero figure steps down from 32 to 22 once it is longer than 13 characters. */
-export function figureVariant(text: string): TypeRoleName {
-  return text.length <= 13 ? "tNumXl" : "tNumLg";
-}
 
 /** "Copy last month" (web copy-budgets.tsx): a quiet semibold ink text action with the copy icon after it. */
 function CopyLastMonth({ pending, error, onCopy }: { pending: boolean; error: string | null; onCopy: () => void }) {
@@ -49,7 +45,7 @@ function CopyLastMonth({ pending, error, onCopy }: { pending: boolean; error: st
         <Icon name="copy" color={ROLE.ink} />
       </Pressable>
       {error ? (
-        <Text testID="budgets-copy-error" variant="body" color={ROLE.muted} style={[SM, { flexShrink: 1 }]}>
+        <Text variant="body" color={ROLE.muted} style={[SM, { flexShrink: 1 }]}>
           {error}
         </Text>
       ) : null}
@@ -101,7 +97,7 @@ function Hero({ data, onSetBudget }: { data: MobileBudgetsMonth; onSetBudget: (c
                 {` All ${formatMoney(unplanned.amount, data.currency)} of it counts as unplanned.`}
               </Text>
             </PixelFrame>
-            <Button testID="budgets-unplanned-set" variant="secondary" icon="budgets" onPress={() => onSetBudget(unplanned.categoryId)}>
+            <Button variant="secondary" icon="budgets" onPress={() => onSetBudget(unplanned.categoryId)}>
               {`Set ${unplanned.name} budget`}
             </Button>
           </View>
@@ -129,7 +125,7 @@ export function BudgetRow({
   return (
     <Reveal i={index + 2}>
       <Pressable
-        testID={`budget-row-${b.id}`}
+        testID="budget-card"
         accessibilityRole="button"
         accessibilityLabel={`${b.name}, ${spent} spent`}
         onPress={onOpen}
@@ -146,7 +142,7 @@ export function BudgetRow({
                 <Text variant="listName" color={ROLE.ink} numberOfLines={1} style={{ flexShrink: 1 }}>
                   {b.name}
                 </Text>
-                <Text testID={`budget-row-${b.id}-spent`} variant="bodyStrong" color={ROLE.ink} style={[{ flexShrink: 0 }, tnum(15)]}>
+                <Text variant="bodyStrong" color={ROLE.ink} style={[{ flexShrink: 0 }, tnum(15)]}>
                   {spent}
                 </Text>
               </View>
@@ -202,7 +198,7 @@ function MonthBody({
   return (
     <>
       <Hero data={data} onSetBudget={(id) => onOpen(id, true)} />
-      <View testID="budgets-categories" style={{ marginTop: 40, gap: 12 }}>
+      <View style={{ marginTop: 40, gap: 12 }}>
         <SectionHead title="Categories" count={data.categories.length} />
         {data.categories.length === 0 ? (
           <EmptyState
@@ -210,13 +206,13 @@ function MonthBody({
             title="You don't have a budget yet."
             body="Set a monthly limit per category to see how you're tracking."
             action={
-              <Button testID="budgets-build" icon="plus" onPress={onNew}>
+              <Button icon="plus" onPress={onNew}>
                 Build my budget
               </Button>
             }
           />
         ) : (
-          <View testID="budgets-rows" style={{ gap: 16 }}>
+          <View style={{ gap: 16 }}>
             {data.categories.map((b, i) => (
               <BudgetRow key={b.id} b={b} currency={data.currency} index={i} onOpen={() => onOpen(b.id, false)} />
             ))}
@@ -230,13 +226,13 @@ function MonthBody({
 function AllTimeBody({ data }: { data: MobileBudgetsAllTime }) {
   if (data.allTime.length === 0) return <EmptyState icon="budgets" title="No spending recorded yet." />;
   return (
-    <View testID="budgets-all-time-section" style={{ gap: 12 }}>
+    <View style={{ gap: 12 }}>
       <SectionHead title="All time" count={data.allTime.length} />
       <PixelFrame testID="budgets-all-time" frame="px-card" style={{ padding: 8 }}>
         {data.allTime.map((r, i) => (
           <View
             key={r.categoryId}
-            testID={`budgets-all-time-${r.categoryId}`}
+            testID="budgets-all-time-row"
             style={[
               { flexDirection: "row", alignItems: "center", gap: 12, paddingTop: i === 0 ? 0 : 12, paddingBottom: i === data.allTime.length - 1 ? 0 : 12 },
               i > 0 ? { borderTopWidth: 1, borderTopColor: COLOR.divider } : null,
@@ -281,19 +277,19 @@ export function BudgetsView({
   copy: { pending: boolean; error: string | null; onCopy: () => void };
 }) {
   return (
-    <View testID="budgets-view">
+    <View>
       <PageHeader
         title="Budgets"
         month={<MonthNav month={month} onChange={onMonth} />}
         action={
           range === "month" ? (
-            <Button testID="budgets-new" icon="plus" accessibilityLabel="New budget" onPress={onNew}>
+            <Button icon="plus" accessibilityLabel="New budget" onPress={onNew}>
               New
             </Button>
           ) : undefined
         }
       />
-      <View testID="budgets-toolbar" style={{ marginBottom: 24, flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+      <View style={{ marginBottom: 24, flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
         <SegmentedControl
           label="Range"
           value={range}

@@ -21,7 +21,13 @@
     "predb:migrate": "tsx tools/db/preflight-migrate.ts",
     "db:migrate": "drizzle-kit migrate",
     "db:verify-history": "tsx tools/db/verify-migration-history.ts",
-    "screenshot": "node tools/screenshot.mjs"
+    "screenshot": "node tools/screenshot.mjs",
+    "parity": "tsx tools/parity/run.ts",
+    "parity:serve": "tsx tools/parity/serve.ts",
+    "parity:seed": "tsx tools/parity/seed.ts",
+    "parity:web": "tsx tools/parity/capture-web.ts",
+    "parity:native": "tsx tools/parity/capture-native.ts",
+    "parity:compare": "tsx tools/parity/compare.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.6",
@@ -46,6 +52,7 @@
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.7",
     "@types/node": "^22.20.1",
+    "@types/pngjs": "^6.0.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6.1.1",
@@ -54,6 +61,8 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
     "jsdom": "^30.0.1",
+    "pixelmatch": "^7.2.0",
+    "pngjs": "^7.0.0",
     "puppeteer": "^25.10.0",
     "tailwindcss": "^4",
     "tsx": "^4.23.15",

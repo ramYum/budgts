@@ -47,6 +47,20 @@ export function boxesFromHierarchy(json: string, density: number): Box[] {
   return out;
 }
 
+/**
+ * The screen area both sides compare, in dp: the full width, from the bottom of Android's status bar to the top of its
+ * navigation (gesture) bar, read from the system views in the same hierarchy (`statusBarBackground`,
+ * `navigationBarBackground`). The web's counterpart is its whole viewport, captured at this height (capture-web
+ * `--height`). A window without those views (edge-to-edge with none drawn) falls back to the whole image.
+ */
+export function screenArea(boxes: Box[], widthDp: number, heightDp: number): { x: number; y: number; w: number; h: number } {
+  const status = boxes.find((b) => b.id === "statusBarBackground");
+  const nav = boxes.find((b) => b.id === "navigationBarBackground");
+  const top = status ? status.y + status.h : 0;
+  const bottom = nav && nav.y > heightDp / 2 ? nav.y : heightDp;
+  return { x: 0, y: top, w: widthDp, h: bottom - top };
+}
+
 /** `adb shell wm density` → the density factor (420 dpi → 2.625). An override wins over the physical value. */
 export function parseDensity(output: string): number {
   const override = output.match(/Override density:\s*(\d+)/);

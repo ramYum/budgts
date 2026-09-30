@@ -33,3 +33,17 @@ describe("native hierarchy", () => {
     expect(() => parseDensity("error")).toThrow();
   });
 });
+
+describe("the compared screen area", () => {
+  it("runs from the status bar's bottom to the gesture bar's top", async () => {
+    const { screenArea } = await import("../../../tools/parity/capture-native-lib");
+    const b = (id: string, y: number, h: number) => ({ id, key: id, x: 0, y, w: 411.43, h });
+    expect(screenArea([b("statusBarBackground", 0, 24), b("navigationBarBackground", 896, 18.29)], 411.43, 914.29)).toEqual({
+      x: 0,
+      y: 24,
+      w: 411.43,
+      h: 872,
+    });
+    expect(screenArea([], 411.43, 914.29)).toEqual({ x: 0, y: 0, w: 411.43, h: 914.29 });
+  });
+});

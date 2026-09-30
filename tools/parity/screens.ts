@@ -98,6 +98,25 @@ export const TESTIDS = {
   ],
   charts: ["spending-trend-card", "spending-breakdown-card"],
   feedback: ["loading-skeleton", "error-state", "error-retry", "not-found", "offline-state"],
+  // Lane A, the welcome guide (web tour-card.tsx, scenes.tsx; native components/tour/*). The web ids are still to add (P2).
+  tour: [
+    "tour-card",
+    "tour-back",
+    "tour-progress",
+    "tour-progress-cell",
+    "tour-skip",
+    "tour-scene",
+    "scene-<stepId>", // crystal, welcome, auto-capture, currency, bank, auto-sort, money-left, plan, done
+    "tour-name",
+    "tour-heading",
+    "tour-body",
+    "tour-media",
+    "tour-primary",
+    "tour-by-hand",
+    "tour-footnote",
+    "tour-how-it-works",
+    "onboarding-currency",
+  ],
 } as const;
 
 /** Hub rows and tabs derive their ids in one place, shared with the web components and the native atoms. */

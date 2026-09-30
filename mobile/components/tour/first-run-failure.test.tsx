@@ -9,7 +9,7 @@ describe("FirstRunFailure (a failed load before the app opens)", () => {
     const onRetry = vi.fn();
     const onSignOut = vi.fn();
     const r = render(<FirstRunFailure kind="rejected" detail="Check its date and time settings." onRetry={onRetry} onSignOut={onSignOut} />);
-    byTestId(r, "error-state-retry").props.onPress();
+    byTestId(r, "error-retry").props.onPress();
     byTestId(r, "first-run-sign-out").props.onPress();
     expect(onRetry).toHaveBeenCalledOnce();
     expect(onSignOut).toHaveBeenCalledOnce();
@@ -23,7 +23,7 @@ describe("FirstRunFailure (a failed load before the app opens)", () => {
 
   it("offers only Sign out when trying again can't help, saying why", () => {
     const r = render(<FirstRunFailure kind="rejected" detail="Sign out, sign back in." canRetry={false} onRetry={() => {}} onSignOut={() => {}} />);
-    expect(() => byTestId(r, "error-state-retry")).toThrow();
+    expect(() => byTestId(r, "error-retry")).toThrow();
     expect(byTestId(r, "first-run-failure-detail").props.accessibilityRole).toBe("alert");
     expect(byTestId(r, "first-run-sign-out")).toBeTruthy();
   });

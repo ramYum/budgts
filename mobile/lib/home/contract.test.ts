@@ -38,6 +38,12 @@ const valid = {
   savings: { activeCount: 1, totalSaved: 42000, totalTarget: 100000 },
   bankConnected: true,
   suggestion: { kind: "mover", categoryId: "c1", name: "Food / Groceries", amount: 18555, delta: 4200 },
+  breakdown: [{ name: "Food / Groceries", amount: 18555, share: 100 }],
+  trend: [
+    { month: "2026-08", spend: 150000 },
+    { month: "2026-09", spend: 174854 },
+  ],
+  trendChange: { total: 174854, delta: 24854, previousMonth: "2026-08" },
 };
 
 describe("parseMobileHome", () => {
@@ -66,6 +72,12 @@ describe("parseMobileHome", () => {
     expect(off.bankConnected).toBeNull();
   });
 
+  it("reads a first month's trend headline: no change and no previous month", () => {
+    const home = parseMobileHome({ ...valid, breakdown: [], trendChange: { total: 0, delta: null, previousMonth: null } });
+    expect(home.trendChange).toEqual({ total: 0, delta: null, previousMonth: null });
+    expect(home.breakdown).toEqual([]);
+  });
+
   it("rejects an unknown version so an old app never mis-renders a newer contract", () => {
     expect(() => parseMobileHome({ ...valid, version: 2 })).toThrow(HomeContractError);
   });
@@ -81,6 +93,9 @@ describe("parseMobileHome", () => {
     ["bad budget state", { ...valid, categories: [{ ...valid.categories[0], state: "weird" }] }],
     ["bad direction", { ...valid, recent: [{ ...valid.recent[0], direction: "sideways" }] }],
     ["bad savings shape", { ...valid, savings: { activeCount: "1" } }],
+    ["trend not an array", { ...valid, trend: null }],
+    ["fractional breakdown share", { ...valid, breakdown: [{ name: "x", amount: 1, share: 1.5 }] }],
+    ["missing trendChange", { ...valid, trendChange: undefined }],
     ["bankConnected not a boolean", { ...valid, bankConnected: "yes" }],
     ["unknown suggestion kind", { ...valid, suggestion: { ...valid.suggestion, kind: "other" } }],
     ["fractional suggestion amount", { ...valid, suggestion: { ...valid.suggestion, amount: 1.5 } }],

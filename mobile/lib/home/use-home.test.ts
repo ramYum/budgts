@@ -33,6 +33,9 @@ const body = {
   savings: null,
   bankConnected: null,
   suggestion: null,
+  breakdown: [],
+  trend: [],
+  trendChange: { total: 100, delta: null, previousMonth: null },
 };
 const ok = () => Promise.resolve(new Response(JSON.stringify(body), { status: 200 }));
 const down = () => Promise.resolve(new Response("{}", { status: 503 }));

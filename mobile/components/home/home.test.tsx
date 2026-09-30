@@ -43,6 +43,19 @@ const full = (over: Partial<MobileHome> = {}): MobileHome => ({
   savings: { activeCount: 2, totalSaved: 42000, totalTarget: 100000 },
   bankConnected: true,
   suggestion: { kind: "mover", categoryId: "over", name: "Dining", amount: 15000, delta: 4200 },
+  breakdown: [
+    { name: "Dining", amount: 15000, share: 60 },
+    { name: "Groceries", amount: 10000, share: 40 },
+  ],
+  trend: [
+    { month: "2026-04", spend: 90000 },
+    { month: "2026-05", spend: 120000 },
+    { month: "2026-06", spend: 110000 },
+    { month: "2026-07", spend: 130000 },
+    { month: "2026-08", spend: 150000 },
+    { month: "2026-09", spend: 174854 },
+  ],
+  trendChange: { total: 174854, delta: 24854, previousMonth: "2026-08" },
   ...over,
 });
 
@@ -311,5 +324,72 @@ describe("Crystal on the hero", () => {
     expect(perch).toHaveLength(1);
     expect(textContent(byTestId(r, "crystal-say-hello"))).toBe("Hi, Alex!");
     expect(textContent(byTestId(r, "crystal-say-note"))).toBe("45% saved!");
+  });
+});
+
+describe("Get set up", () => {
+  const fresh = (over: Partial<MobileHome> = {}) =>
+    full({ income: 0, spent: 0, budgeted: 0, leftToSpend: 0, moneyLeft: 0, savingsRate: null, categories: [], recent: [], suggestion: null, breakdown: [], ...over });
+  const ids = (r: ReturnType<typeof render>, id: string) => r.root.findAll((n) => typeof n.type === "string" && n.props.testID === id);
+
+  it("a new month lists the web's three steps, bank first, with the count and a cell per step", () => {
+    const { r } = view(fresh({ bankConnected: false }));
+    const setup = byTestId(r, "home-setup");
+    expect(textContent(setup)).toContain("0 of 3");
+    expect(textContent(byTestId(r, "home-setup-bank"))).toBe("Connect your bankPurchases import on their own.Connect");
+    expect(textContent(byTestId(r, "home-setup-income"))).toBe("Add this month's incomeGives Money Left a starting point.Add");
+    expect(textContent(byTestId(r, "home-setup-budget"))).toBe("Give categories a budget2 categories are ready to plan.Set");
+    // the first open step carries the one primary action
+    expect(byTestId(r, "home-setup-add-income").props.accessibilityLabel).toBe("Add");
+  });
+
+  it("each step's button goes where the web's does", () => {
+    const { r, props } = view(fresh({ bankConnected: false }));
+    byTestId(r, "home-setup-connect").props.onPress();
+    byTestId(r, "home-setup-add-income").props.onPress();
+    byTestId(r, "home-setup-set-budget").props.onPress();
+    expect(props.go.mock.calls.map((c) => c[0])).toEqual(["/connected-banks", "/budgets?m=2026-09"]);
+    expect(props.onAddIncome).toHaveBeenCalledOnce();
+  });
+
+  it("a done step shows Done; with bank connections off there is no bank step", () => {
+    const { r } = view(fresh({ bankConnected: true }));
+    expect(textContent(byTestId(r, "home-setup-bank"))).toContain("Done");
+    expect(textContent(byTestId(r, "home-setup"))).toContain("1 of 3");
+    const off = view(fresh({ bankConnected: null })).r;
+    expect(ids(off, "home-setup-bank")).toHaveLength(0);
+    expect(textContent(byTestId(off, "home-setup"))).toContain("0 of 2");
+  });
+
+  it("keeps the category line's place without a wrong count while the categories load", () => {
+    const { r } = view(fresh(), { categories: null });
+    expect(textContent(byTestId(r, "home-setup-budget"))).toBe("Give categories a budget\u00a0Set");
+  });
+
+  it("is gone once anything came in or went out", () => {
+    expect(ids(view(full()).r, "home-setup")).toHaveLength(0);
+  });
+});
+
+describe("the spending charts", () => {
+  const has = (h: MobileHome, id: string) => view(h).r.root.findAll((n) => typeof n.type === "string" && n.props.testID === id).length > 0;
+
+  it("Spending · 6 months shows once the month has activity; Where your money goes once something was spent", () => {
+    expect(has(full(), "spending-trend-card")).toBe(true);
+    expect(has(full(), "spending-breakdown-card")).toBe(true);
+    const quiet = full({ income: 0, spent: 0, breakdown: [] });
+    expect(has(quiet, "home-trend")).toBe(false);
+    expect(has(quiet, "home-breakdown")).toBe(false);
+    const incomeOnly = full({ spent: 0, breakdown: [] });
+    expect(has(incomeOnly, "home-trend")).toBe(true);
+    expect(has(incomeOnly, "home-breakdown")).toBe(false);
+  });
+
+  it("closes the column in the web's phone order", () => {
+    const { r } = view(full());
+    const heads = r.root
+      .findAll((n) => typeof n.type === "string" && n.props.testID === "section-title")
+      .map((n) => textContent(n));
+    expect(heads).toEqual(["Where it went", "Savings", "Recent activity", "Spending · 6 months", "Where your money goes"]);
   });
 });

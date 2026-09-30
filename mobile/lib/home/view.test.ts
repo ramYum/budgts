@@ -26,6 +26,19 @@ const home = (over: Partial<MobileHome> = {}): MobileHome => ({
   savings: null,
   bankConnected: true,
   suggestion: null,
+  breakdown: [
+    { name: "Dining", amount: 15000, share: 60 },
+    { name: "Groceries", amount: 10000, share: 40 },
+  ],
+  trend: [
+    { month: "2026-04", spend: 90000 },
+    { month: "2026-05", spend: 120000 },
+    { month: "2026-06", spend: 110000 },
+    { month: "2026-07", spend: 130000 },
+    { month: "2026-08", spend: 150000 },
+    { month: "2026-09", spend: 174854 },
+  ],
+  trendChange: { total: 174854, delta: 24854, previousMonth: "2026-08" },
   ...over,
 });
 

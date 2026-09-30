@@ -57,6 +57,12 @@ export type MobileHome = {
   bankConnected: boolean | null;
   /** Home's "What can I change?" card; `null` when there is nothing worth suggesting. */
   suggestion: HomeSuggestion | null;
+  /** "Where your money goes", largest first; whole-percent shares. Empty when nothing was spent. */
+  breakdown: { name: string; amount: number; share: number }[];
+  /** Six months of spending, oldest first; the last is the shown month. */
+  trend: { month: string; spend: number }[];
+  /** The trend card's headline: the month's spending and its change against the previous month. */
+  trendChange: { total: number; delta: number | null; previousMonth: string | null };
 };
 
 export class HomeContractError extends Error {
@@ -130,6 +136,15 @@ function parseSuggestion(v: unknown): HomeSuggestion | null {
   return fail("suggestion.kind");
 }
 
+function parseTrendChange(v: unknown): MobileHome["trendChange"] {
+  if (!isObj(v)) return fail("trendChange");
+  const delta = v.delta;
+  if (delta !== null && !isInt(delta)) return fail("trendChange.delta");
+  const prev = v.previousMonth;
+  if (prev !== null && !isStr(prev)) return fail("trendChange.previousMonth");
+  return { total: int(v, "total"), delta, previousMonth: prev };
+}
+
 /** Validates an untrusted JSON body into a `MobileHome`, or throws `HomeContractError`. */
 export function parseMobileHome(input: unknown): MobileHome {
   if (!isObj(input)) return fail("body is not an object");
@@ -173,5 +188,12 @@ export function parseMobileHome(input: unknown): MobileHome {
     savings,
     bankConnected: bank,
     suggestion: parseSuggestion(input.suggestion),
+    breakdown: Array.isArray(input.breakdown)
+      ? input.breakdown.map((b) => (isObj(b) ? { name: str(b, "name"), amount: int(b, "amount"), share: int(b, "share") } : fail("breakdown")))
+      : fail("breakdown is not an array"),
+    trend: Array.isArray(input.trend)
+      ? input.trend.map((t) => (isObj(t) ? { month: str(t, "month"), spend: int(t, "spend") } : fail("trend")))
+      : fail("trend is not an array"),
+    trendChange: parseTrendChange(input.trendChange),
   };
 }

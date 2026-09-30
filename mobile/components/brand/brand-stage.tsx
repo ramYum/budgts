@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Text as RNText, View, type StyleProp, type ViewStyle } from "react-native";
+import { Text as RNText, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 import Animated, { steps, useReducedMotion } from "react-native-reanimated";
 import Svg, { Path } from "react-native-svg";
 import { COLOR, ROBIN_FEET_X, ROLE, TYPE } from "../../lib/brand/shared";
@@ -177,12 +177,21 @@ function Ticker() {
   );
 }
 
-function TickerText({ line }: { line: string }) {
+/**
+ * A savings line's own text, never ellipsised (the web's `white-space: nowrap; overflow: hidden` clips, it never adds
+ * "…"): one line, clipped, and a character wider than the line so Android's own measuring can't find it short.
+ */
+function LineText({ line, style }: { line: string; style?: StyleProp<TextStyle> }) {
   return (
-    <RNText testID="ticker-line" numberOfLines={1} style={[textStyle("mono"), { position: "absolute", top: 0, left: "50%", marginLeft: (-line.length * CH) / 2, width: line.length * CH, color: ROLE.muted }]}>
+    <RNText testID="ticker-line" numberOfLines={1} ellipsizeMode="clip" style={[textStyle("mono"), { width: (line.length + 1) * CH, color: ROLE.muted }, style]}>
       {line}
     </RNText>
   );
+}
+
+function TickerText({ line }: { line: string }) {
+  // centred as a whole line, as it types from a fixed start
+  return <LineText line={line} style={{ position: "absolute", top: 0, left: "50%", marginLeft: (-line.length * CH) / 2 }} />;
 }
 
 function TickerLine({ line, k }: { line: string; k: number }) {
@@ -201,10 +210,9 @@ function TickerLine({ line, k }: { line: string; k: number }) {
       testID="ticker-type"
       style={[{ position: "absolute", top: 0, left: "50%", marginLeft: -width / 2, height: 20, width: CARET, opacity: 0, overflow: "hidden", flexDirection: "row" }, type]}
     >
-      <View style={{ flexShrink: 1, minWidth: 0, overflow: "hidden" }}>
-        <RNText testID="ticker-line" numberOfLines={1} style={[textStyle("mono"), { width, color: ROLE.muted }]}>
-          {line}
-        </RNText>
+      {/* the typed part: a window over the whole line, which keeps its own width (never squeezed, so never cut short) */}
+      <View style={{ flex: 1, height: 20, overflow: "hidden" }}>
+        <LineText line={line} style={{ position: "absolute", left: 0, top: 0 }} />
       </View>
       <Animated.View testID="ticker-caret" style={[{ width: CARET, height: 20, flexShrink: 0, backgroundColor: ROLE.accent }, caret]} />
     </Animated.View>

@@ -116,6 +116,23 @@ describe("the sign-in stage's 8s beat (globals.css stage-*, saving, wm-*, ticker
     expect(lines.map((s) => (s.animationTimingFunction as { steps: number }).steps)).toEqual(TICKER_LINES.map((l) => l.length));
   });
 
+  it("never ellipsises a savings line, typing or at rest: it clips like the web, each line wider than its text", () => {
+    const check = (r: ReturnType<typeof render>) => {
+      const lines = hosts(r, "Text").filter((t) => t.props.testID === "ticker-line");
+      expect(lines.length).toBeGreaterThan(0);
+      for (const t of lines) {
+        expect(t.props).toMatchObject({ numberOfLines: 1, ellipsizeMode: "clip" });
+        const text = String(t.props.children);
+        expect(flat(t.props.style).width).toBeGreaterThan(text.length * 7.8);
+      }
+      return lines;
+    };
+    // typing: the text stands on its own in the typed window, so the window's width never squeezes it
+    for (const t of check(render(<BrandStage />))) expect(flat(t.props.style)).toMatchObject({ position: "absolute", left: 0 });
+    reducedMotion.value = true;
+    check(render(<BrandStage />));
+  });
+
   it("holds still under Reduce Motion, the web's motion-off frame", () => {
     reducedMotion.value = true;
     expect(moves(render(<BrandStage />))).toEqual([]);

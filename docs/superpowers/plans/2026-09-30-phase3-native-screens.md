@@ -426,7 +426,7 @@ Lane rules: each lane owns only the files listed; shared atoms change only throu
 - **D3 Needs a category** ← `plaid/needs-category.tsx`: categorize a merchant group via `/api/mobile/transactions/[id]/categorize`; rescan.
 - **D4 Budgets** ← `budgets-view.tsx`, `copy-budgets.tsx`: hero with 12px cells, This month / All time, rows with cascading cells (`start = index*2`), detail sheet with the category's transactions, New budget sheet, Copy budgets; `/api/mobile/budgets`, `/budgets/copy`.
 - **D5 Goals** ← `goals-view.tsx`, `goal-form.tsx`, `contribution-form.tsx`: row menu, add money sheet, growth-tone cells.
-- **D6 Insights** ← `insights/page.tsx`, `insights-view.tsx`: MonthNav, charts (F7), income sources, idea lamp motion.
+- **D6 Insights** ← `insights/page.tsx`, `insights-view.tsx`: MonthNav, charts (F7), income sources, the savings-rate waffle. No lamp: the web's Insights page has none (the idea lamp is Home's).
 - Maestro: `add-transaction.yaml`, `edit-transaction.yaml`, `categorize.yaml`, `budget.yaml`, `goal-contribution.yaml`.
 
 ### Lane E — Banks and accounts. Owns `app/(app)/connected-banks.tsx`, `app/(app)/accounts.tsx`, `components/banks/**`, `lib/plaid/*` UI glue (not the pipeline).

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import * as Crypto from "expo-crypto";
 import { View } from "react-native";
 import { ROLE } from "../../lib/brand/shared";
 import type { MobileGoal } from "../../lib/goals/goals-api";
@@ -7,8 +8,11 @@ import { Text } from "../brand/text";
 import { DateField } from "../kit/date-field";
 import { Overlay } from "../kit/overlay";
 
-/** Resolves to the message to show, or null once saved. */
-export type Submit<T> = (values: T) => Promise<string | null>;
+/**
+ * Saves the form; resolves to the message to show, or null once saved. `requestId` is the sheet's one idempotency key for
+ * a create (the same on every retry from this sheet, so a lost response can never land the save twice); null for an edit.
+ */
+export type Submit<T> = (values: T, requestId: string | null) => Promise<string | null>;
 
 export type GoalValues = { name: string; targetAmount: string; targetDate: string | null };
 export type ContributionValues = { amount: string; occurredAt: string; note: string | null };
@@ -41,14 +45,14 @@ function FormFoot({ error, pending, submitLabel, onSubmit, onCancel }: { error: 
   );
 }
 
-function useSubmit<T>(submit: Submit<T>, onDone: () => void) {
+function useSubmit<T>(submit: Submit<T>, onDone: () => void, requestId: string | null) {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const run = async (values: T) => {
     if (pending) return;
     setError(null);
     setPending(true);
-    const message = await submit(values);
+    const message = await submit(values, requestId);
     setPending(false);
     if (message) setError(message);
     else onDone();
@@ -73,7 +77,9 @@ export function GoalFormSheet({
   const [name, setName] = useState(initial?.name ?? "");
   const [targetAmount, setTargetAmount] = useState(initial?.targetAmount ?? "");
   const [targetDate, setTargetDate] = useState<string | null>(initial?.targetDate ?? null);
-  const { error, pending, run } = useSubmit(onSubmit, onClose);
+  // a create's one request id, kept for the life of the sheet; an edit needs none
+  const [requestId] = useState(() => (initial ? null : Crypto.randomUUID()));
+  const { error, pending, run } = useSubmit(onSubmit, onClose, requestId);
   const submit = () => void run({ name, targetAmount, targetDate });
 
   return (
@@ -116,7 +122,8 @@ export function ContributionSheet({
   const [amount, setAmount] = useState("");
   const [occurredAt, setOccurredAt] = useState(today);
   const [note, setNote] = useState("");
-  const { error, pending, run } = useSubmit(onSubmit, onClose);
+  const [requestId] = useState(() => Crypto.randomUUID());
+  const { error, pending, run } = useSubmit(onSubmit, onClose, requestId);
   const submit = () => void run({ amount, occurredAt, note: blankToNull(note) });
 
   return (

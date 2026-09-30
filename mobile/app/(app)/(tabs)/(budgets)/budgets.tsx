@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
+import { View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { authFetch } from "../../../../lib/auth/api";
 import { useAuth } from "../../../../lib/auth/auth-context";
@@ -8,12 +9,14 @@ import { jsonInit } from "../../../../lib/api/request";
 import { useResource } from "../../../../lib/api/use-resource";
 import { useRealtimeRefresh } from "../../../../lib/realtime/use-realtime-refresh";
 import { parseBudgets } from "../../../../lib/budgets/budgets-api";
-import { budgetsLink, readBudgetsParams } from "../../../../lib/budgets/params";
+import { budgetsLink } from "../../../../lib/budgets/params";
+import { useBudgetsRoute } from "../../../../lib/budgets/use-budgets-route";
 import { useUserDates } from "../../../../lib/profile/profile-context";
 import { CategorySheet, NewBudgetSheet, type SaveBudget } from "../../../../components/budgets/budget-sheets";
-import { BudgetsView, type BudgetsRange } from "../../../../components/budgets/budgets-view";
+import { BudgetsView } from "../../../../components/budgets/budgets-view";
 import { LoadFailure } from "../../../../components/feedback/states";
 import { ScreenSkeleton } from "../../../../components/feedback/skeleton";
+import { RefreshNotice } from "../../../../components/home/refresh-notice";
 import { Screen } from "../../../../components/shell/screen";
 
 /** The web's budget messages (src/server/budgets.ts). */
@@ -30,27 +33,13 @@ export default function BudgetsScreen() {
   const { session, signOut } = useAuth();
   const { month: thisMonth } = useUserDates();
   const raw = useLocalSearchParams<{ m?: string; range?: string; edit?: string }>();
-  const initial = readBudgetsParams(raw, thisMonth);
-  const [month, setMonth] = useState(initial.month);
-  const [range, setRange] = useState<BudgetsRange>(initial.range);
-  const [detail, setDetail] = useState<{ id: string; editing: boolean } | null>(initial.edit ? { id: initial.edit, editing: true } : null);
+  // month, range and the open sheet, in step with the route params (lib/budgets/use-budgets-route.ts)
+  const { month, range, detail, showMonth, showRange, openDetail, closeDetail } = useBudgetsRoute(raw, thisMonth, (p) => router.setParams(p));
   const [adding, setAdding] = useState(false);
-
-  // A later link into the tab (Home's "Set budget") applies its params as a web navigation to /budgets?… would.
-  const linked = `${raw.m ?? ""}|${raw.range ?? ""}|${raw.edit ?? ""}`;
-  const firstLink = useRef(linked);
-  useEffect(() => {
-    if (linked === firstLink.current) return;
-    firstLink.current = linked;
-    const next = readBudgetsParams(raw, thisMonth);
-    setMonth(next.month);
-    setRange(next.range);
-    setDetail(next.edit ? { id: next.edit, editing: true } : null);
-  }, [linked]);
 
   const version = useVersion("budgets");
   useRealtimeRefresh(["budgets"]);
-  const { state, reload } = useResource(
+  const { state, reload, refresh, refreshing, notice } = useResource(
     `${month}|${range}`,
     (s) => loadResource(() => authFetch(`/api/mobile/budgets?month=${month}&range=${range}`, s), parseBudgets),
     { version },
@@ -63,14 +52,6 @@ export default function BudgetsScreen() {
   const data = shown && shown.range === range && shown.month === month ? shown : null;
   const monthData = data?.range === "month" ? data : null;
 
-  // Pull to refresh reloads (the figures stay up meanwhile); a failure shows the failure page, never the old figures
-  // as if they were current.
-  const [pulling, setPulling] = useState(false);
-  const pull = async () => {
-    setPulling(true);
-    await reload();
-    setPulling(false);
-  };
 
   const [copying, setCopying] = useState(false);
   const [copyError, setCopyError] = useState<string | null>(null);
@@ -102,10 +83,13 @@ export default function BudgetsScreen() {
   const bar = detail && monthData ? monthData.categories.find((c) => c.id === detail.id) : undefined;
 
   return (
-    <Screen
-      refreshing={pulling}
-      onRefresh={() => void pull()}
-    >
+    // Pull to refresh keeps the figures up while it asks; a failed pull keeps them and says they may be out of date.
+    <Screen refreshing={refreshing} onRefresh={() => void refresh()}>
+      {notice && data ? (
+        <View style={{ marginBottom: 20 }}>
+          <RefreshNotice message={notice} onRetry={() => void refresh()} />
+        </View>
+      ) : null}
       {data === null ? (
         state.status === "error" ? (
           <LoadFailure kind={state.kind} onRetry={() => void reload()} onHome={() => router.navigate("/")} onSignOut={() => void signOut()} />
@@ -118,12 +102,14 @@ export default function BudgetsScreen() {
           range={range}
           data={data}
           onMonth={(m) => {
-            setMonth(m);
-            setRange("month");
             setCopyError(null);
+            showMonth(m);
           }}
-          onRange={setRange}
-          onOpen={(id, editing) => setDetail({ id, editing })}
+          onRange={(r) => {
+            setCopyError(null);
+            showRange(r);
+          }}
+          onOpen={openDetail}
           onNew={() => setAdding(true)}
           copy={{ pending: copying, error: copyError, onCopy: () => void copyLastMonth() }}
         />
@@ -136,10 +122,10 @@ export default function BudgetsScreen() {
           startEditing={detail.editing}
           onSave={saveBudget}
           onSeeTransactions={() => {
-            setDetail(null);
+            closeDetail();
             router.navigate(budgetsLink.activity(month, bar.id));
           }}
-          onClose={() => setDetail(null)}
+          onClose={closeDetail}
         />
       ) : null}
       {adding && monthData ? (

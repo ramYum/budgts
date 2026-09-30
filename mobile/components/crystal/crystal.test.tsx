@@ -3,7 +3,10 @@ import { afterEach, describe, expect, it } from "vitest";
 import { byTestId, flat, hosts, render, textContent } from "../../test/render";
 import { announcements, reducedMotion } from "../../test/native-hosts";
 import { cubicBezier, facingAt, hopArc, hopProgress, hopWing, peckOffset, placeAt, walkMoving } from "./motion";
+import { crystalCheers, crystalLines } from "../../lib/brand/shared";
+import { formatSavingsRate } from "../../lib/shared";
 import { CrystalPerch } from "./crystal-perch";
+import { BUBBLE_TEXT_MAX, bubbleText, tagWidth } from "./speech-bubble";
 
 
 
@@ -90,8 +93,8 @@ describe("Crystal on Home", () => {
   });
 
   it("says the month's mood: regrouping when more went out, getting started with no income", () => {
-    expect(textContent(bubble(perch(-0.1), "crystal-say-note"))).toBe("Spent > earned");
-    expect(textContent(bubble(perch(null), "crystal-say-note"))).toBe("No income yet");
+    expect(textContent(bubble(perch(-0.1), "crystal-say-note"))).toBe("Spent >\nearned");
+    expect(textContent(bubble(perch(null), "crystal-say-note"))).toBe("No income\nyet"); // 113px of line in 112 of room: two lines, as the web's bubble
     expect(textContent(bubble(perch(0.3, "Christopher"), "crystal-say-hello"))).toBe("Hi there!");
   });
 
@@ -111,5 +114,32 @@ describe("Crystal on Home", () => {
     act(() => byTestId(r, "crystal").props.onPress());
     expect(textContent(bubble(r, "crystal-say-tap"))).toBe("32% saved!");
     expect(flat(bubble(r, "crystal-say-tap").props.style).opacity).toBeUndefined();
+  });
+});
+
+describe("her bubble's line breaks (the web's text-balance, the same on both platforms)", () => {
+  it("keeps a line that fits whole, and breaks a longer one at its most even space", () => {
+    expect(bubbleText("Hi, Alex!")).toBe("Hi, Alex!");
+    expect(bubbleText("Chirp chirp!")).toBe("Chirp chirp!");
+    expect(bubbleText("Future you says thanks!")).toBe("Future you\nsays thanks!");
+    expect(bubbleText("Tomorrow's a fresh start")).toBe("Tomorrow's a\nfresh start");
+    // too long for two lines: three, as even as they go
+    expect(bubbleText("Keep that streak going!")).toBe("Keep that\nstreak\ngoing!");
+    expect(bubbleText("Every dollar has a job!")).toBe("Every dollar\nhas a job!");
+  });
+
+  it("every line she can say fits her bubble, in at most three lines", () => {
+    const all = new Set<string>();
+    for (const rate of [0.45, -0.2, null]) {
+      for (const l of crystalLines("Alexandra", rate, formatSavingsRate).lines) all.add(l);
+      for (const l of crystalCheers(rate)) all.add(l);
+    }
+    all.add("Hi, Alex!");
+    all.add("Hi there!");
+    for (const line of all) {
+      const parts = bubbleText(line).split("\n");
+      expect(parts.length, line).toBeLessThanOrEqual(3);
+      for (const p of parts) expect(tagWidth(p), `${line}: ${p}`).toBeLessThanOrEqual(BUBBLE_TEXT_MAX);
+    }
   });
 });

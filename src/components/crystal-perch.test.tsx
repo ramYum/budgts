@@ -1,43 +1,10 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import { CrystalPerch, crystalCheers, crystalLines } from "./crystal-perch";
+import { CrystalPerch } from "./crystal-perch";
 
 const bubbles = (container: HTMLElement) =>
   [...container.querySelectorAll<HTMLElement>(".crystal-say")].map((b) => [b.dataset.say, b.textContent]);
-
-describe("crystalLines", () => {
-  it("greets by name when it fits the bubble, and generically when it doesn't", () => {
-    expect(crystalLines("Alex", 0.3).hello).toBe("Hi, Alex!");
-    expect(crystalLines("Christopher", 0.3).hello).toBe("Hi there!");
-    expect(crystalLines("", 0.3).hello).toBe("Hi there!");
-  });
-
-  it("leads with the month's note: the savings rate, overspending, or no income yet", () => {
-    expect(crystalLines("Alex", 0.32).lines[0]).toBe("32% saved!");
-    expect(crystalLines("Alex", -0.11).lines[0]).toBe("Spent > earned");
-    expect(crystalLines("Alex", null).lines[0]).toBe("No income yet");
-  });
-});
-
-describe("crystalCheers", () => {
-  it("cheers to the month's mood: celebrating, regrouping, or getting started", () => {
-    expect(crystalCheers(0.32)).toContain("Future you says thanks!");
-    expect(crystalCheers(-0.2)).toContain("Tomorrow's a fresh start");
-    expect(crystalCheers(null)).toContain("Add income to begin!");
-  });
-
-  it("keeps every line short enough for her bubble, with no em-dashes", () => {
-    for (const rate of [0.32, -0.2, null]) {
-      const cheers = crystalCheers(rate);
-      expect(cheers.length).toBeGreaterThanOrEqual(5);
-      for (const line of cheers) {
-        expect(line.length).toBeLessThanOrEqual(24);
-        expect(line).not.toMatch(/[—–]/);
-      }
-    }
-  });
-});
 
 describe("CrystalPerch", () => {
   it("arrives saying hi, then her note on the month", () => {

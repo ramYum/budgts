@@ -2,6 +2,7 @@
 
 import { Fragment, useEffect, useRef, useState, type CSSProperties } from "react";
 import { formatSavingsRate } from "@/lib/display/money";
+import { crystalCheers, crystalLines } from "@/lib/crystal/lines";
 import { ROAM, bubbleSide, hopLength, nextOuting, type Dir } from "@/lib/crystal/roam";
 import { Robin } from "./mascot";
 
@@ -18,35 +19,6 @@ import { Robin } from "./mascot";
  * reaction are CSS (globals.css `crystal-*`); the walk is timed here. With
  * motion off she sits in the middle with her note on the month.
  */
-
-type Say = { hello: string; lines: string[] };
-
-/** Her lines: a hello, then the month's note first, then a short rotation
- * (one per tap). Copy only; the rate is the dashboard's own figure. */
-export function crystalLines(name: string, savingsRate: number | null): Say {
-  const hello = name && name.length <= 8 ? `Hi, ${name}!` : "Hi there!";
-  if (savingsRate === null) return { hello, lines: ["No income yet", "Add income +", "Chirp chirp!"] };
-  if (savingsRate < 0) return { hello, lines: ["Spent > earned", "Let's regroup", "We got this!"] };
-  return { hello, lines: [`${formatSavingsRate(savingsRate)} saved!`, "Chirp chirp!", "Keep it up!", "Proud of you!"] };
-}
-
-/** Her lines of encouragement while she roams, to the month's mood: getting
- * started, regrouping after an overspent month, or keeping a saving month
- * going. Short enough for her bubble (it wraps to two lines on a phone). */
-export function crystalCheers(savingsRate: number | null): string[] {
-  if (savingsRate === null)
-    return ["Add income to begin!", "Every dollar has a job!", "Let's plan together!", "Small steps add up!", "You've got this!"];
-  if (savingsRate < 0)
-    return ["Tomorrow's a fresh start", "Small cuts add up!", "We can turn it around!", "One step at a time!", "You've got this!"];
-  return [
-    "You've got this!",
-    "Future you says thanks!",
-    "Small steps add up!",
-    "Every dollar has a job!",
-    "Consistency wins!",
-    "Keep that streak going!",
-  ];
-}
 
 const vars = (v: Record<string, string | number>) => v as CSSProperties;
 
@@ -148,7 +120,7 @@ export function CrystalPerch({
     side: "left" | "right";
   } | null>(null);
   const mood = savingsRate !== null && savingsRate < 0 ? "curious" : "happy";
-  const { hello, lines } = crystalLines(name, savingsRate);
+  const { hello, lines } = crystalLines(name, savingsRate, formatSavingsRate);
   const saving = savingsRate !== null && savingsRate > 0;
   // her cheers follow the month on screen (read by the walk below)
   const cheers = useRef<string[]>([]);

@@ -54,18 +54,15 @@ export function AppHeader({
   needsCategoryCount,
   onHome,
   onBell,
-  translucent = false,
 }: {
   /** null: bank connections are off (or the status has not arrived), so no bell */
   needsCategoryCount: number | null;
   onHome: () => void;
   onBell: () => void;
-  /** over a screen that scrolls under it (the web's sticky header); otherwise solid page grey */
-  translucent?: boolean;
 }) {
   const insets = useSafeAreaInsets();
   return (
-    <View testID="app-header" style={{ paddingTop: insets.top, backgroundColor: translucent ? HEADER_TRANSLUCENT_BG : ROLE.bg }}>
+    <View testID="app-header" style={{ paddingTop: insets.top, backgroundColor: HEADER_TRANSLUCENT_BG }}>
       <View style={{ height: HEADER_HEIGHT, paddingHorizontal: 24, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
         <Pressable testID="app-logo" accessibilityRole="link" accessibilityLabel="Budgts home" onPress={onHome} style={({ pressed }) => pressStyle(pressed)}>
           <Logo size={22} />

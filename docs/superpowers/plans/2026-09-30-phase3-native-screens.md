@@ -659,3 +659,7 @@ Re-auth guard (`phase-m/p3-c-auth`, security review 9.5, merged 2026-09-30):
 ### Root test timeout (2026-09-30)
 
 The root `vitest.config.mts` sets `testTimeout: 15_000` for every test: the React Testing Library component tests timed out at random under full-suite parallel load (transaction-list, account-mapping, needs-category) while passing alone. Fixed once in config; the full web suite ran clean twice (2075/2075).
+
+### Header blur (2026-09-30, with the post-merge dev client)
+
+The signed-in header now lives in `<Screen>` (the tab stacks show no stack header): `AppHeader` at the web's `bg-bg/90` over an expo-blur `BlurView` of the content scrolling under it (`HEADER_BLUR`: intensity 100, Android `dimezisBlurViewSdk31Plus`, radius 100 ÷ 4 = 25 ≈ the web's `backdrop-blur-xl` 24px; Android 11 and older get the 90% colour only). Android blurs a `BlurTargetView` wrapping the scroll view. Needs the dev client built after F7 (expo-blur is native).

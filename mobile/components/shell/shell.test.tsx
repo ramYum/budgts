@@ -5,7 +5,7 @@ import { byTestId, flat, hosts, render, textContent, texts } from "../../test/re
 import { PixelFrame } from "../brand/pixel-frame";
 import { Robin } from "../brand/robin";
 import { Logo, wordmarkSize } from "../brand/logo";
-import { AppHeader } from "./app-header";
+import { AppHeader, HEADER_TRANSLUCENT_BG } from "./app-header";
 import { BottomTabs, contentBottomPad, TAB_BAR_HEIGHT, TABS } from "./bottom-tabs";
 import { StatusBanners } from "./status-banners";
 
@@ -74,7 +74,8 @@ describe("BottomTabs (web bottom-nav.tsx)", () => {
 describe("AppHeader (web dashboard layout header)", () => {
   it("is 56px under the status bar, the lockup left, the bell right", () => {
     const r = render(<AppHeader needsCategoryCount={3} onHome={() => {}} onBell={() => {}} />);
-    expect(flat(byTestId(r, "app-header").props.style)).toMatchObject({ paddingTop: 24, backgroundColor: ROLE.bg });
+    expect(flat(byTestId(r, "app-header").props.style)).toMatchObject({ paddingTop: 24, backgroundColor: HEADER_TRANSLUCENT_BG });
+    expect(HEADER_TRANSLUCENT_BG).toBe("rgba(244, 244, 244, 0.9)"); // the web's bg-bg/90
     expect(byTestId(r, "needs-category-bell").props.accessibilityLabel).toBe("3 transactions need a category");
     expect(texts(byTestId(r, "needs-category-count"))).toEqual(["3"]);
   });

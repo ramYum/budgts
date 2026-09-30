@@ -25,7 +25,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const { session, signOut } = useAuth();
   const [month, setMonth] = useState<string | null>(null);
-  const { state, pulling, pull, reload } = useHome(month);
+  const { state, notice, pulling, pull, reload } = useHome(month);
   // the chips of a month with no spending: the user's categories (not a figure)
   const categories = useResource("home-categories", (s) => loadResource(() => authFetch("/api/mobile/categories", s), parseCategories));
   useRealtimeRefresh(["budgets"]);
@@ -54,6 +54,8 @@ export default function HomeScreen() {
             })
           }
           onAddTransaction={() => router.push("/transaction")}
+          notice={notice}
+          onRefresh={() => void pull()}
         />
       )}
     </Screen>

@@ -12,8 +12,8 @@ const { getDefaultConfig } = require("expo/metro-config");
 const appRoot = __dirname;
 const webRoot = path.resolve(appRoot, "..");
 
-/** The web folders the app reads: tokens, frames, robin and egg art and icons; Crystal's walk; the font files. */
-const SHARED = ["src/lib/brand", "src/lib/crystal", "src/app/fonts"].map((dir) => path.join(webRoot, dir));
+/** The web folders the app reads: tokens, frames, robin and egg art and icons; Crystal's walk; the pure display figures both sides print; the font files. */
+const SHARED = ["src/lib/brand", "src/lib/crystal", "src/lib/figures", "src/app/fonts"].map((dir) => path.join(webRoot, dir));
 
 const config = getDefaultConfig(appRoot);
 

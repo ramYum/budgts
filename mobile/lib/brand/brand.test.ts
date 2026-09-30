@@ -119,7 +119,7 @@ describe("Metro", () => {
       resolver: { nodeModulesPaths: string[]; blockList: RegExp[] };
     };
     const web = join(mobileRoot, "..");
-    expect(config.watchFolders).toEqual(["src/lib/brand", "src/lib/crystal", "src/app/fonts"].map((d) => join(web, d)));
+    expect(config.watchFolders).toEqual(["src/lib/brand", "src/lib/crystal", "src/lib/figures", "src/app/fonts"].map((d) => join(web, d)));
     expect(config.resolver.nodeModulesPaths).toEqual([join(mobileRoot, "node_modules")]);
     const blocked = (p: string) => config.resolver.blockList.some((re) => re.test(p));
     expect(blocked(join(web, "node_modules", "react", "index.js"))).toBe(true);

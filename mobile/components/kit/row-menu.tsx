@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { Modal, Pressable, View, useWindowDimensions } from "react-native";
 import Animated, { steps, useReducedMotion } from "react-native-reanimated";
 import { COLOR, ROLE, type IconName } from "../../lib/brand/shared";
+import { POP_IN, POP_MS } from "../../lib/motion/css";
 import { useMotionTiming } from "../../lib/motion/parity-clock";
 import { Icon } from "../brand/icon";
 import { PixelFrame } from "../brand/pixel-frame";
@@ -17,8 +18,6 @@ export type RowMenuItem = {
   disabled?: boolean;
 };
 
-/** `@keyframes pop-in` on steps(3, end), 300ms: the menu snaps in like a sprite. */
-export const POP_IN = { from: { opacity: 0, transform: [{ scale: 0.4 }] }, to: { opacity: 1, transform: [{ scale: 1 }] } };
 
 /** Where the menu opens: under the kebab, its right edge on the kebab's, 4px down; kept inside the screen's 8px margin. */
 export function menuPosition(anchor: { x: number; y: number; width: number; height: number }, window: { width: number }) {
@@ -65,7 +64,7 @@ export function RowMenu({ label, items, testID = "row-menu" }: { label: string; 
                 { position: "absolute", top: at.top, right: at.right, transformOrigin: "top right" },
                 reduced
                   ? null
-                  : { animationName: POP_IN, animationDuration: "300ms", animationTimingFunction: steps(3, "jump-end"), animationFillMode: "backwards", ...timing },
+                  : { animationName: POP_IN, animationDuration: `${POP_MS}ms`, animationTimingFunction: steps(3, "jump-end"), animationFillMode: "backwards", ...timing },
               ]}
             >
               <PixelFrame frame="px-card-raised" accessibilityRole="menu" accessibilityLabel={label} onStartShouldSetResponder={() => true} style={{ minWidth: 176, padding: 4 }}>

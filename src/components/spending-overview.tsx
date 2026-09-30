@@ -5,6 +5,21 @@ import type { MonthSpend } from "@/lib/budget/spend-trend";
 import { spendingBreakdown, trendChange } from "@/lib/insights/figures";
 import { RollingAmount } from "./rolling-amount";
 import { formatMonthName } from "@/lib/display/dates";
+import {
+  RING,
+  RING_DOT,
+  RING_NEUTRALS,
+  RING_PITCH,
+  RING_SIZE,
+  TREND_GAP as GAP,
+  TREND_ROWS as ROWS,
+  TREND_SEG_H as SEG_H,
+  TREND_SEG_W as SEG_W,
+  formatSignedChange,
+  formatWhole,
+  ringSlices,
+  trendColumns,
+} from "@/lib/display/charts";
 
 // Pixel charts: plain server-rendered markup, no chart library and no client
 // JS. Every mark is a square cell on whole pixels; cells step in on first
@@ -12,18 +27,6 @@ import { formatMonthName } from "@/lib/display/dates";
 // legend, aria), so no number is readable only from a mark.
 
 
-/** "$1,671" for a chart tag: whole units, cut (not rounded) so the tag never
- * claims more than was spent. Display only; minor units stay the source. */
-function formatWhole(minor: number, currency: string): string {
-  return new Intl.NumberFormat(undefined, { style: "currency", currency, maximumFractionDigits: 0 }).format(
-    Math.trunc(minor / 100),
-  );
-}
-
-const ROWS = 14;
-const SEG_W = 24; // px: one column of flat segments per month
-const SEG_H = 4;
-const GAP = 2; // px between segments
 
 /**
  * Six months of spending as segmented columns: past months in quiet gray, the
@@ -48,14 +51,8 @@ export function SpendingTrendCard({
 }) {
   const { total, delta, previousMonth } = trendChange(trend);
   const prevName = previousMonth ? formatMonthName(previousMonth, "long") : "";
-  const max = Math.max(0, ...trend.map((t) => t.spend));
-  const data = trend.map((t, i) => ({
-    ...t,
-    label: formatMonthName(t.month, "short"),
-    current: i === trend.length - 1,
-    lit: max > 0 && t.spend > 0 ? Math.max(1, Math.round((t.spend / max) * ROWS)) : 0,
-  }));
-  const signed = (v: number) => `${v > 0 ? "+" : v < 0 ? "−" : ""}${formatMoney(Math.abs(v), currency)}`;
+  const data = trendColumns(trend);
+  const signed = (v: number) => formatSignedChange(v, (m) => formatMoney(m, currency));
 
   return (
     <section className="px-card p-2 md:p-4" data-testid="spending-trend-card">
@@ -137,35 +134,13 @@ export function SpendingTrendCard({
  * (five named slices show as they are). Identity is never color-alone: the
  * legend names every slice with its amount and share, in the order the ring
  * draws them (clockwise from 12). */
-const RAMP = ["var(--signal)", "#111111", "#6e6e6e", "#9e9e9e", "#d0d0d0"];
+const RAMP = ["var(--signal)", ...RING_NEUTRALS];
 
 // The slices and their shares come from spendingBreakdown (src/lib/insights/figures.ts),
 // shared with the native API; RAMP has one colour per slice (BREAKDOWN_SLICES).
 
-// A 20×20 grid of 6px cells on an 8px pitch: a fine ring about two and a
-// half cells thick, with room for the total inside it.
-const GRID = 20;
-const PITCH = 8;
-const DOT = 6;
-const R_OUT = 9.9;
-const R_IN = 7.2;
-
-/** Ring cells in clockwise order from 12 o'clock, computed once. */
-const RING = (() => {
-  const c = (GRID - 1) / 2;
-  const cells: { x: number; y: number; a: number }[] = [];
-  for (let y = 0; y < GRID; y++)
-    for (let x = 0; x < GRID; x++) {
-      const dx = x - c;
-      const dy = y - c;
-      const r = Math.hypot(dx, dy);
-      if (r <= R_OUT && r >= R_IN) {
-        const a = (Math.atan2(dx, -dy) + 2 * Math.PI) % (2 * Math.PI);
-        cells.push({ x, y, a });
-      }
-    }
-  return cells.sort((p, q) => p.a - q.a);
-})();
+// The ring's grid (20×20 cells of 6px on an 8px pitch) and which slice each
+// cell paints come from src/lib/display/charts.ts, shared with the apps.
 
 export function SpendingBreakdownCard({
   bars,
@@ -188,18 +163,12 @@ export function SpendingBreakdownCard({
   }
 
   // cumulative share → which slice each ring cell belongs to
-  const bounds: number[] = [];
-  let acc = 0;
-  for (const s of slices) {
-    acc += s.amount / totalSpent;
-    bounds.push(acc);
-  }
-  const colorAt = (i: number) => {
-    const t = (i + 0.5) / RING.length;
-    const k = bounds.findIndex((b) => t <= b);
-    return slices[k === -1 ? slices.length - 1 : k]!.color;
-  };
-  const size = GRID * PITCH - (PITCH - DOT);
+  const sliceOf = ringSlices(
+    slices.map((s) => s.amount),
+    totalSpent,
+  );
+  const colorAt = (i: number) => slices[sliceOf[i]!]!.color;
+  const size = RING_SIZE;
 
   return (
     <section className="px-card p-2 md:p-4" data-testid="spending-breakdown-card">
@@ -215,10 +184,10 @@ export function SpendingBreakdownCard({
             {RING.map((cell, i) => (
               <rect
                 key={i}
-                x={cell.x * PITCH}
-                y={cell.y * PITCH}
-                width={DOT}
-                height={DOT}
+                x={cell.x * RING_PITCH}
+                y={cell.y * RING_PITCH}
+                width={RING_DOT}
+                height={RING_DOT}
                 fill={colorAt(i)}
                 className="cell"
                 style={{ ["--d" as string]: Math.floor(i / 4) }}

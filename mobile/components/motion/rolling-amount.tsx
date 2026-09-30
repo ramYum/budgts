@@ -24,16 +24,35 @@ export const reelOffset = (v: number, lap: boolean, lineHeight: number) => -(v +
  * are a 0.88em band centred in the line, so a rolling reel shows no stray
  * fragments above or below the figure; Dogica figures use the line box.
  */
-export function reelWindow(variant: TypeRoleName): { top: number; height: number } {
-  const { fontSize, lineHeight } = textStyle(variant);
+export function reelWindow(variant: TypeRoleName, lineHeightOverride?: number): { top: number; height: number } {
+  const { fontSize } = textStyle(variant);
+  const lineHeight = lineHeightOverride ?? textStyle(variant).lineHeight;
   if (isPixelRole(variant)) return { top: 0, height: lineHeight };
   const height = 0.88 * fontSize;
   return { top: (lineHeight - height) / 2, height };
 }
 
-function Reel({ ch, place, column, variant, color, play }: { ch: string; place: number; column: number; variant: TypeRoleName; color: string; play: boolean }) {
-  const { lineHeight, fontSize } = textStyle(variant);
-  const win = reelWindow(variant);
+function Reel({
+  ch,
+  place,
+  column,
+  variant,
+  lineHeightOverride,
+  color,
+  play,
+}: {
+  ch: string;
+  place: number;
+  column: number;
+  variant: TypeRoleName;
+  lineHeightOverride?: number;
+  color: string;
+  play: boolean;
+}) {
+  const { fontSize } = textStyle(variant);
+  const lineHeight = lineHeightOverride ?? textStyle(variant).lineHeight;
+  const lh = lineHeightOverride ? { lineHeight: lineHeightOverride } : null;
+  const win = reelWindow(variant, lineHeightOverride);
   const rest = reelOffset(Number(ch), place < LAP_PLACES, lineHeight);
   // The spin-in plays once, from the first value; later values glide (a transition), like the web's reels.
   const first = useRef(rest).current;
@@ -42,7 +61,7 @@ function Reel({ ch, place, column, variant, color, play }: { ch: string; place: 
   const timing = useMotionTiming(rollDelayMs(column));
   return (
     <View>
-      <Text variant={variant} color={color} style={{ opacity: 0, fontVariant: ["tabular-nums"] }}>
+      <Text variant={variant} color={color} style={[{ opacity: 0, fontVariant: ["tabular-nums"] }, lh]}>
         {ch}
       </Text>
       <View style={{ position: "absolute", left: -bleed, right: -bleed, top: win.top, height: win.height, overflow: "hidden" }}>
@@ -61,7 +80,7 @@ function Reel({ ch, place, column, variant, color, play }: { ch: string; place: 
               : null,
           ]}
         >
-          <Text variant={variant} color={color} style={{ textAlign: "center", fontVariant: ["tabular-nums"] }}>
+          <Text variant={variant} color={color} style={[{ textAlign: "center", fontVariant: ["tabular-nums"] }, lh]}>
             {REEL}
           </Text>
         </Animated.View>
@@ -82,11 +101,14 @@ export function RollingAmount({
   currency,
   variant = "tNumXl",
   color = ROLE.ink,
+  lineHeight,
   testID = "rolling-amount",
 }: {
   value: number;
   currency: string;
   variant?: TypeRoleName;
+  /** a figure set tighter than its role (the ring's 15/20 total) */
+  lineHeight?: number;
   color?: string;
   testID?: string;
 }) {
@@ -94,10 +116,11 @@ export function RollingAmount({
   const play = usePlay() && !reduced;
   const text = formatMoney(value, currency);
   const chars = [...text];
+  const lh = lineHeight ? { lineHeight } : null;
 
   if (reduced) {
     return (
-      <Text testID={testID} variant={variant} color={color} style={{ fontVariant: ["tabular-nums"] }}>
+      <Text testID={testID} variant={variant} color={color} style={[{ fontVariant: ["tabular-nums"] }, lh]}>
         {text}
       </Text>
     );
@@ -111,14 +134,14 @@ export function RollingAmount({
         const key = chars.length - 1 - i;
         if (!isDigit(ch)) {
           return (
-            <Text key={`s${key}`} variant={variant} color={color}>
+            <Text key={`s${key}`} variant={variant} color={color} style={lh}>
               {ch}
             </Text>
           );
         }
         const place = digitCount - 1 - seen;
         seen += 1;
-        return <Reel key={`d${key}`} ch={ch} place={place} column={seen} variant={variant} color={color} play={play} />;
+        return <Reel key={`d${key}`} ch={ch} place={place} column={seen} variant={variant} lineHeightOverride={lineHeight} color={color} play={play} />;
       })}
     </View>
   );

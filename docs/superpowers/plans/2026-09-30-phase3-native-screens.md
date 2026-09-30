@@ -602,3 +602,10 @@ Not shared, on purpose: the budget trend, `savingsProgress` and every other figu
 - **Realtime**: `useRealtimeRefresh(tables)` with the web's tables (`lib/realtime/topics.ts`); Home and Budgets add `["budgets"]`, Goals `["savings_goals", "savings_contributions"]`.
 - **`account_locked`**: `mutate()` answers `{ status: "error", kind: "locked", message: LOCKED_MESSAGE }`.
 - **Native batch for the post-F7 dev client:** `expo-blur`, `@react-native-community/datetimepicker`, and p3-egg's splash patch (`npm ci` first so `patch-package` applies it, then `expo prebuild`).
+
+### F7 as built (cell charts)
+
+- `components/charts/spending-trend-card.tsx` `<SpendingTrendCard trend change currency figure="total|change" title testID>` and `components/charts/spending-breakdown-card.tsx` `<SpendingBreakdownCard breakdown totalSpent currency header testID>`: the web's cards (phone layout), fed by `MobileSpendingCards` (`trend`, `trendChange`, `breakdown`) and the screen's `spent`. Contract ids `spending-trend-card`, `spending-breakdown-card`.
+- Geometry shared with the web: `src/lib/display/charts.ts` (`trendColumns`, `formatWhole`, `formatSignedChange`, `RING`, `ringSlices`, sizes, `RING_NEUTRALS`); the web's `spending-overview.tsx` now draws from it (zero-pixel refactor).
+- `components/charts/cell.tsx` `<Cell d color style>`: the web's `.cell` (`cell-in`, steps(3), 22ms a step after 220ms), respecting `usePlay`, Reduce Motion and the parity clock. `lib/motion/css.ts` gains `CELL_IN`, `cellDelayMs`, `POP_IN`, `POP_MS`.
+- `RollingAmount` takes `lineHeight` for a figure set tighter than its role (the ring's 15/20 total).

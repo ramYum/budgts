@@ -42,3 +42,13 @@ export const alarmDelayMs = (start: number) => (start + 16) * MOTION.cellStepMs 
 export const ROLL_IN_MS = 1400;
 export const ROLL_GLIDE_MS = 900;
 export const rollDelayMs = (column: number) => column * 45 + 120;
+
+/** `@keyframes cell-in` on steps(3, end), 240ms: a chart cell snaps in like a sprite (`.cell`). */
+export const CELL_IN = { from: { opacity: 0, transform: [{ scale: 0.3 }] }, to: { opacity: 1, transform: [{ scale: 1 }] } };
+export const CELL_IN_MS = 240;
+/** `.cell`'s delay for step `d` (`--d`): 22ms a step after 220ms. */
+export const cellDelayMs = (d: number) => d * 22 + 220;
+
+/** `@keyframes pop-in` on steps(3, end), 300ms: a tag or menu snaps in (`.pop`). */
+export const POP_IN = { from: { opacity: 0, transform: [{ scale: 0.4 }] }, to: { opacity: 1, transform: [{ scale: 1 }] } };
+export const POP_MS = 300;

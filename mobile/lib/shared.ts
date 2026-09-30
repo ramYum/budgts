@@ -11,3 +11,4 @@ export * from "../../src/lib/display/local-date";
 export * from "../../src/lib/display/display-name";
 export * from "../../src/lib/account/screen";
 export * from "../../src/lib/categories/options";
+export * from "../../src/lib/display/charts";

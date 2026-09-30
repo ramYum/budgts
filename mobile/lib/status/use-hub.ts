@@ -12,8 +12,10 @@ import { parseHub, type MobileHub } from "./status-api";
 export function useHub(): MobileHub | null {
   const budgets = useVersion("budgets");
   const accounts = useVersion("accounts");
-  const { state } = useResource(`hub:${budgets}:${accounts}`, (session) =>
-    loadResource(() => authFetch("/api/mobile/hub", session), parseHub),
+  const { state } = useResource(
+    "hub",
+    (session) => loadResource(() => authFetch("/api/mobile/hub", session), parseHub),
+    { version: `${budgets}:${accounts}` },
   );
   return state.status === "ready" ? state.data : null;
 }

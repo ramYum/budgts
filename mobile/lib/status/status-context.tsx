@@ -18,8 +18,10 @@ const StatusContext = createContext<MobileStatus | null>(null);
 export function StatusProvider({ children }: { children: ReactNode }) {
   const tx = useVersion("transactions");
   const accounts = useVersion("accounts");
-  const { state } = useResource(`status:${tx}:${accounts}`, (session) =>
-    loadResource(() => authFetch("/api/mobile/status", session), parseStatus),
+  const { state } = useResource(
+    "status",
+    (session) => loadResource(() => authFetch("/api/mobile/status", session), parseStatus),
+    { version: `${tx}:${accounts}` },
   );
   // A reload keeps the last answer on screen (no bell flicker); a failed first load shows nothing.
   const [last, setLast] = useState<MobileStatus | null>(null);

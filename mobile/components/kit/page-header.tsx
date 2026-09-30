@@ -38,7 +38,8 @@ export function PageHeader({
 }: {
   /** the pixel title; a node for a title with its own motion (Home's word-by-word greeting) */
   title: string | ReactNode;
-  subtitle?: string;
+  /** a quiet line under the title; a node for one with its own motion (Home's greeting line) */
+  subtitle?: string | ReactNode;
   onBack?: () => void;
   month?: ReactNode;
   action?: ReactNode;
@@ -60,10 +61,14 @@ export function PageHeader({
                   {title}
                 </View>
               )}
-              {subtitle ? (
+              {typeof subtitle === "string" && subtitle ? (
                 <Text testID="page-subtitle" variant="body" color={ROLE.muted} style={{ marginTop: 4, lineHeight: 20 }}>
                   {subtitle}
                 </Text>
+              ) : subtitle ? (
+                <View testID="page-subtitle" style={{ marginTop: 4 }}>
+                  {subtitle}
+                </View>
               ) : null}
             </View>
           </View>

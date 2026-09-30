@@ -585,7 +585,9 @@ The app's gateways: `mobile/lib/brand/shared.ts` (brand) and `mobile/lib/shared.
 | Tour steps, gate, guide copy | `src/lib/tour/steps.ts`, `gate.ts`; `src/components/tour/guide-copy.ts` (A: make its `@/lib/tour/steps` import relative `../../lib/tour/steps.ts`) | A's copies |
 | `LOCKED_MESSAGE` | `mobile/lib/api/load.ts` (kept equal to `src/lib/ownership.ts` by `tests/unit/mobile-locked-message.test.ts`; `ownership.ts` isn't pure) | — |
 
-Not shared, on purpose: the budget trend, `savingsProgress` and every other figure: the screens read them from their `/api/mobile/*` payload (B already moved goals progress to the server).
+**Display-only figure formulas are shared (decision 2026-09-30, superseding this table's first draft):** `src/lib/figures` (`budgetTrendPct`, `savingsPct`, `savingsBarPct`) holds the small percentages the web computed inline for drawing (a bar's fill, a goal's progress), as pure modules served through `metro.shared.js`; B and D-2 add the folder to `SHARED`. They turn server figures into a drawing, like the progress cells. Money itself (totals, budgets, Money Left, savings rate) still comes only from the `/api/mobile/*` payload; `src/lib/budget` and `src/lib/plaid` stay outside `SHARED`.
+
+**`useResource(key, fetcher, { version })` (decision 2026-09-30):** `key` names WHICH resource (the month, a filter): a new key shows the loading state, as the web's navigation shows its loading page. `version` (`useVersion(...)`, realtime) refreshes the SAME resource in place. Put versions in `options.version`, never in the key.
 
 ### Foundation change requests, batch 2 (2026-09-30)
 

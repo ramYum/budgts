@@ -117,7 +117,13 @@ export function HomeView({
       ) : null}
 
       <Reveal i={i.hero} style={{ marginTop: alert ? 48 : 28 }}>
-        <MoneyLeftCard home={home} name={name} awake={awake} onAddIncome={onAddIncome} />
+        <MoneyLeftCard
+          home={home}
+          name={name}
+          awake={awake}
+          layoutKey={`${alert ? "alert" : ""}:${notice ? "notice" : ""}`}
+          onAddIncome={onAddIncome}
+        />
       </Reveal>
 
       <View style={{ marginTop: 32, gap: 32 }}>

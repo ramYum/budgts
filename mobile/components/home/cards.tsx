@@ -3,8 +3,7 @@ import { budgetsLink } from "../../lib/budgets/params";
 import { Pressable, View } from "react-native";
 import { COLOR, ROLE } from "../../lib/brand/shared";
 import type { HomeSuggestion, MobileHome } from "../../lib/home/contract";
-import { formatMoney } from "../../lib/shared";
-import { savingsBarPct, savingsPct } from "../../../src/lib/figures/savings-pct";
+import { formatMoney, savingsBarPct, savingsPct } from "../../lib/shared";
 import { IconTile } from "../brand/controls";
 import { Icon } from "../brand/icon";
 import { PixelFrame } from "../brand/pixel-frame";
@@ -16,8 +15,8 @@ import { Badge, CategoryIcon, Chevron } from "../kit/tiles";
 import { RollingAmount } from "../motion/rolling-amount";
 import { CardRows } from "./card-rows";
 import { Lamp } from "../motion/rise";
+import { TNUM } from "./type";
 
-const TNUM = { fontVariant: ["tabular-nums" as const] };
 
 /**
  * "What can I change?" (web dashboard-view.tsx `change`): the one suggestion

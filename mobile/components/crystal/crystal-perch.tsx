@@ -142,7 +142,18 @@ type Speech = { id: number; kind: "tap" | "cheer"; text: string; side: "left" | 
  * the screen in front and the app is active. With motion off she sits in the
  * middle with her note on the month.
  */
-export function CrystalPerch({ name, savingsRate, awake = true }: { name: string; savingsRate: number | null; awake?: boolean }) {
+export function CrystalPerch({
+  name,
+  savingsRate,
+  awake = true,
+  layoutKey = "",
+}: {
+  name: string;
+  savingsRate: number | null;
+  awake?: boolean;
+  /** changes whenever something above the hero appears or goes (the budget warning, the refresh notice): her place on the page is measured again */
+  layoutKey?: string;
+}) {
   const reduced = useReducedMotion();
   const play = usePlay();
   const frozen = useMotionTiming(0).animationPlayState === "paused";
@@ -266,13 +277,22 @@ export function CrystalPerch({ name, savingsRate, awake = true }: { name: string
     return () => cancelAnimation(clock);
   }, [running, runClock, clock]);
 
-  function onTrackLayout(e: LayoutChangeEvent) {
-    setSpan(Math.max(0, e.nativeEvent.layout.width - BIRD.width));
+  // where her edge sits on the page, for the on-screen check; her own layout never changes when a block above her
+  // comes or goes, so the hero tells her (layoutKey) and she measures again
+  const measureTop = useCallback(() => {
     const content = watch?.contentRef.current;
-    if (content && trackRef.current && top.current === null)
+    if (content && trackRef.current)
       trackRef.current.measureLayout(content, (_x, y) => {
         top.current = y;
       });
+  }, [watch]);
+  useEffect(() => {
+    measureTop();
+  }, [layoutKey, measureTop]);
+
+  function onTrackLayout(e: LayoutChangeEvent) {
+    setSpan(Math.max(0, e.nativeEvent.layout.width - BIRD.width));
+    measureTop();
   }
 
   const tap = () => {

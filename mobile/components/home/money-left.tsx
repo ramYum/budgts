@@ -13,8 +13,8 @@ import { pressStyle } from "../kit/press";
 import { CrystalPerch } from "../crystal/crystal-perch";
 import { RollingAmount } from "../motion/rolling-amount";
 import { Rise } from "../motion/rise";
+import { TNUM } from "./type";
 
-const TNUM = { fontVariant: ["tabular-nums" as const] };
 
 /** "+$3,200.00" / "−$1,748.54", or a plain zero (web `signed`). */
 function signed(value: number, currency: string, direction: "in" | "out") {
@@ -64,12 +64,15 @@ export function MoneyLeftCard({
   home,
   name,
   awake,
+  layoutKey,
   onAddIncome,
 }: {
   home: MobileHome;
   name: string;
   /** Home is the screen in front and the app is active (Crystal pauses otherwise) */
   awake: boolean;
+  /** what sits above the card right now (Crystal re-measures her place when it changes) */
+  layoutKey: string;
   onAddIncome: () => void;
 }) {
   const { currency } = home;
@@ -147,7 +150,7 @@ export function MoneyLeftCard({
         </Rise>
       </PixelFrame>
       {/* Crystal perches on the card's top edge; drawn after it so she stands in front */}
-      <CrystalPerch name={name} savingsRate={home.savingsRate} awake={awake} />
+      <CrystalPerch name={name} savingsRate={home.savingsRate} awake={awake} layoutKey={layoutKey} />
     </View>
   );
 }

@@ -10,12 +10,11 @@ import { PixelFrame } from "../brand/pixel-frame";
 import { Robin } from "../brand/robin";
 import { Text } from "../brand/text";
 import { ProgressBar } from "../kit/progress-bar";
-import { pressStyle } from "../kit/press";
 import { SectionHead } from "../kit/section-head";
 import { CategoryIcon } from "../kit/tiles";
 import { CardRows } from "./card-rows";
+import { TNUM } from "./type";
 
-const TNUM = { fontVariant: ["tabular-nums" as const] };
 
 /**
  * One row (web `WhereRow`): name and amount, the cells, then what's left or
@@ -27,18 +26,28 @@ function WhereRow({ c, row, currency, month, go }: { c: HomeCategory; row: numbe
   const note = whereNote(c);
   const flagged = note === "unplanned" || note === "over";
   const setBudget = () => go(budgetsLink.edit(month, c.id));
+  // what the row says under its cells, for a screen reader
+  const said =
+    note === "unplanned"
+      ? "No budget, all unplanned"
+      : note === "over"
+        ? `Over by ${formatMoney(-c.remaining, currency)} of ${formatMoney(c.budget, currency)}`
+        : note === "left"
+          ? `${formatMoney(c.remaining, currency)} left of ${formatMoney(c.budget, currency)}`
+          : "No budget set";
   return (
     <Pressable
         testID="home-where-row"
         accessibilityRole="link"
-        accessibilityLabel={`${c.name}, ${formatMoney(c.actual, currency)}`}
+        accessibilityLabel={`${c.name}, ${formatMoney(c.actual, currency)}, ${said}`}
         // the row is one stop for a screen reader; "Set budget" is its action there
         accessibilityActions={c.budget > 0 ? undefined : [{ name: "setBudget", label: "Set budget" }]}
         onAccessibilityAction={(e) => {
           if (e.nativeEvent.actionName === "setBudget") setBudget();
         }}
         onPress={() => go(budgetsLink.activity(month, c.id))}
-        style={({ pressed }) => [{ flexDirection: "row", alignItems: "center", gap: 12 }, pressStyle(pressed)]}
+        // the web's row is a plain link (no press shrink); only its name underlines on hover
+        style={{ flexDirection: "row", alignItems: "center", gap: 12 }}
       >
         <CategoryIcon name={c.name} tone={flagged ? "wash" : "gray"} />
         <View style={{ flex: 1, minWidth: 0, gap: 6 }}>
@@ -173,7 +182,18 @@ export function WhereItWent({
       {home.spent === 0 ? (
         <NoSpending expense={home.expenseCategories} />
       ) : home.categories.length === 0 ? (
-        <PixelFrame testID="home-where-no-budgets" frame="px-card" style={{ padding: 12 }}>
+        <PixelFrame
+          testID="home-where-no-budgets"
+          frame="px-card"
+          style={{ padding: 12 }}
+          // its one link is the card's action for a screen reader
+          accessible
+          accessibilityLabel="Set a budget on the Budgets screen to see how you're tracking."
+          accessibilityActions={[{ name: "activate", label: "Open Budgets" }]}
+          onAccessibilityAction={(e) => {
+            if (e.nativeEvent.actionName === "activate") go({ pathname: "/budgets" });
+          }}
+        >
           <Text variant="body" color={ROLE.muted}>
             Set a budget on the{" "}
             <Text variant="listName" color={ROLE.ink} accessibilityRole="link" onPress={() => go({ pathname: "/budgets" })} style={{ textDecorationLine: "underline" }}>

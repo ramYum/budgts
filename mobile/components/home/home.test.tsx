@@ -390,3 +390,31 @@ describe("the spending charts", () => {
     expect(heads).toEqual(["Where it went", "Savings", "Recent activity", "Spending · 6 months", "Where your money goes"]);
   });
 });
+
+describe("screen reader (review 🟢4, 🟢5)", () => {
+  it("a Where it went row reads its name, amount and the note under its cells, and has no press shrink", () => {
+    const { r } = view(full());
+    const rows = r.root.findAll((n) => typeof n.type === "string" && n.props.testID === "home-where-row");
+    expect(rows.map((n) => n.props.accessibilityLabel)).toEqual([
+      "Dining, $150.00, Over by $50.00 of $100.00",
+      "Fun, $25.00, No budget, all unplanned",
+      "Groceries, $185.55, $34.45 left of $220.00",
+    ]);
+    expect(typeof rows[0]!.props.style).not.toBe("function");
+  });
+
+  it("a card whose one link is its action offers it: the no-budgets card opens Budgets, the refresh notice refreshes", () => {
+    const { r, props } = view(full({ categories: [], budgeted: 0 }));
+    const card = byTestId(r, "home-where-no-budgets");
+    expect(card.props.accessibilityActions).toEqual([{ name: "activate", label: "Open Budgets" }]);
+    card.props.onAccessibilityAction({ nativeEvent: { actionName: "activate" } });
+    expect(props.go).toHaveBeenCalledWith({ pathname: "/budgets" });
+
+    const onRefresh = vi.fn();
+    const n = render(
+      <HomeView home={full()} name="Alex" hour={9} go={() => {}} onMonth={() => {}} onAddIncome={() => {}} onAddTransaction={() => {}} notice="Couldn't reach Budgts." onRefresh={onRefresh} />,
+    );
+    byTestId(n, "home-refresh-notice").props.onAccessibilityAction({ nativeEvent: { actionName: "activate" } });
+    expect(onRefresh).toHaveBeenCalledOnce();
+  });
+});

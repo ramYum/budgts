@@ -9,7 +9,8 @@ const webRoot = path.resolve(appRoot, "..");
  * The web folders the app may read, and the one list of them (tests/unit/brand-purity.test.ts checks that every web
  * file the app imports sits in one of these and is pure TypeScript):
  * - the brand: tokens, frames, robin and egg art, icons, figure size, test ids; Crystal's walk; the font files;
- * - pure display helpers: money formatting and parsing, dates and month labels, the greeting, display names;
+ * - pure display helpers: money formatting and parsing, dates and month labels, the greeting, display names; the
+ *   display figures both sides print from server totals (src/lib/figures: budget trend, savings share);
  * - screen constants the web and the app share: the deletion screen's words and paths, category options, the welcome
  *   guide's steps, gate and words.
  * Never the money math (src/lib/budget, src/lib/plaid): figures come from the server.
@@ -19,6 +20,7 @@ const SHARED = [
   "src/lib/crystal",
   "src/app/fonts",
   "src/lib/display",
+  "src/lib/figures",
   "src/lib/account",
   "src/lib/categories",
   "src/lib/tour",

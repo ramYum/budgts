@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { formatMoney } from "@/lib/display/money";
 import type { GoalProgress, GoalsSummary } from "@/lib/budget/savings";
+import { savingsPct } from "@/lib/figures/savings-pct";
 import {
   addContribution,
   createGoal,
@@ -111,7 +112,7 @@ export function GoalsView({
   const [overlay, setOverlay] = useState<OverlayState>(null);
   const close = () => setOverlay(null);
   const saved = formatMoney(summary.totalSaved, currency);
-  const pct = summary.totalTarget > 0 ? Math.round((summary.totalSaved / summary.totalTarget) * 100) : 0;
+  const pct = savingsPct(summary.totalSaved, summary.totalTarget);
 
   return (
     <div>

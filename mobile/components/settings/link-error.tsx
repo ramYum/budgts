@@ -5,7 +5,7 @@ import { Text } from "../brand/text";
 export function LinkError({ message }: { message: string | null | undefined }) {
   if (!message) return null;
   return (
-    <Text testID="link-error" variant="small" color={ROLE.neg} accessibilityRole="alert">
+    <Text testID="link-error" variant="small" color={ROLE.neg} accessibilityRole="alert" selectable>
       {message}
     </Text>
   );

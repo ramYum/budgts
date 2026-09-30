@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { AccessibilityInfo, View } from "react-native";
+import { AccessibilityInfo, Platform, View } from "react-native";
 import { COLOR, ROLE, type IconName } from "../../lib/brand/shared";
 import type { DeleteOutcome } from "../../lib/account/delete-account";
 import {
@@ -41,6 +41,8 @@ export type DeleteFlowActions = {
   openUrl: (url: string) => void;
   /** budgts.com's "how deletion works" page, when the legal pages are live */
   deletionPageUrl: string | null;
+  /** the stage changed (the screen clears a stale message) */
+  onStage?: () => void;
   /** true while the server works: the screen holds the back gesture, as the web warns before unload */
   onBusy?: (busy: boolean) => void;
 };
@@ -417,14 +419,21 @@ export function DeleteAccountFlow({ screen, step, actions: a }: { screen: Delete
 
   const subtitle = stage === "error" ? ERROR_COPY[error].title : STAGE_TITLE[stage];
 
-  // Each stage change is spoken (VoiceOver ignores live regions), never the first render.
+  // Each stage change is spoken once, never the first render: Android's TalkBack reads the subtitle's live region;
+  // iOS's VoiceOver ignores live regions, so it is announced there. The screen also hears the change (onStage).
   const announced = useRef(false);
+  // the screen's actions are rebuilt each render; only a stage change calls onStage
+  const onStage = useRef(a.onStage);
+  useEffect(() => {
+    onStage.current = a.onStage;
+  });
   useEffect(() => {
     if (!announced.current) {
       announced.current = true;
       return;
     }
-    AccessibilityInfo.announceForAccessibility(subtitle);
+    if (Platform.OS === "ios") AccessibilityInfo.announceForAccessibility(subtitle);
+    onStage.current?.();
   }, [subtitle]);
 
   const onBusy = a.onBusy;

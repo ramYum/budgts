@@ -10,3 +10,8 @@ export async function openInBrowser(url: string, open: (url: string) => Promise<
     return LINK_FAILED;
   }
 }
+
+/** When the phone has no email app for a `mailto:` link: the address itself, to write to by hand (it stays selectable). */
+export function mailAppFailed(address: string): string {
+  return `Couldn't open your email app. Write to ${address}.`;
+}

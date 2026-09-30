@@ -653,6 +653,8 @@ Stable interface; changes go through Lane E.
 | Delete account, "Deleting your account" card | "…so keep this screen open." | "…so keep this page open." | an app has screens, not pages |
 | Settings → Categories, Archive / Restore | a failure is said under the hint ("Your account is being deleted…", "Couldn't save…") | the result is dropped silently | no silent failure states (CLAUDE.md); the web's silence is logged as a web issue |
 | About, Account deleted, Delete account | a page that won't open in the in-app browser says "Couldn't open that page. Try again in a moment." | the browser opens the link | a native browser sheet can fail; never a dead tap |
+| Delete account, "Still stuck? Email …" | with no email app: "Couldn't open your email app. Write to <address>." (selectable) | the browser hands `mailto:` to the OS | a phone may have no mail app; the address stays reachable |
+| More / Settings hub counts (review G9, narrowed) | re-read in place after any change in the app and on every return to the screen (`useFocusEffect`, a navigation event) | rendered fresh on every visit | matches the web's per-visit freshness; the one difference left: a screen kept open doesn't see another device's change until it is revisited, as a web page left open doesn't either |
 
 ### Phase 3 device checklist (the owner's device pass)
 

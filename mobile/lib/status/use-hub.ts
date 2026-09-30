@@ -1,3 +1,5 @@
+import { useCallback, useRef, useState } from "react";
+import { useFocusEffect } from "expo-router";
 import { authFetch } from "../auth/api";
 import { loadResource } from "../api/load";
 import { useVersion } from "../api/invalidate";
@@ -16,10 +18,23 @@ export function useHub(): MobileHub | null {
   const accounts = useVersion("accounts");
   const transactions = useVersion("transactions");
   const budgets = useVersion("budgets");
+  // Fresh on every visit, as the web renders them per request: a return to More or Settings (a navigation event, not
+  // a timer) re-reads them in place, so a change made on another device shows. Not on the first mount: that's the load.
+  const [visit, setVisit] = useState(0);
+  const mounted = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (!mounted.current) {
+        mounted.current = true;
+        return;
+      }
+      setVisit((v) => v + 1);
+    }, []),
+  );
   const { state } = useResource(
     "hub",
     (session) => loadResource(() => authFetch("/api/mobile/hub", session), parseHub),
-    { version: `${goals}:${accounts}:${transactions}:${budgets}` },
+    { version: `${goals}:${accounts}:${transactions}:${budgets}:${visit}` },
   );
   return state.status === "ready" ? state.data : null;
 }

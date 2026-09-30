@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AccessibilityInfo, Pressable, View } from "react-native";
+import { AccessibilityInfo, Platform, Pressable, View } from "react-native";
 import Animated, { steps, useReducedMotion } from "react-native-reanimated";
 import { COLOR, ROLE } from "../../lib/brand/shared";
 import { POP_IN, POP_MS } from "../../lib/motion/css";
@@ -38,7 +38,8 @@ export function CopyButton({
     try {
       await copy(value);
       setCopied(true);
-      AccessibilityInfo.announceForAccessibility("Copied");
+      // TalkBack reads the chip's live region; VoiceOver ignores live regions, so iOS announces it
+      if (Platform.OS === "ios") AccessibilityInfo.announceForAccessibility("Copied");
     } catch {
       // the clipboard refused: nothing to confirm
     }

@@ -60,15 +60,16 @@ function LinkCard({ tile, title, body, onPress, testID }: { tile: ReactNode; tit
 /** One question (web `<details>`): the question and a plus, or, open, a minus and the answer below. */
 function Question({ q, a, open, onToggle, testID }: { q: string; a: string; open: boolean; onToggle: () => void; testID: string }) {
   return (
-    <View style={{ paddingVertical: 8 }}>
+    <View testID={`${testID}-row`} style={{ paddingVertical: 12 }}>
       <Pressable
         testID={testID}
         accessibilityRole="button"
         accessibilityState={{ expanded: open }}
         accessibilityLabel={q}
         onPress={onToggle}
-        // the web's py-3 + py-1 around a 24px line, all on the button: a 48pt target (44 minimum)
-        style={{ minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 16, paddingVertical: 8 }}
+        // the web's py-1 around a 24px line inside the row's py-3; the slop reaches the row's edges: a 56pt target
+        hitSlop={{ top: 12, bottom: 12 }}
+        style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 16, paddingVertical: 4 }}
       >
         <Text variant="listName" color={ROLE.ink} style={{ flex: 1, minWidth: 0 }}>
           {q}
@@ -76,7 +77,7 @@ function Question({ q, a, open, onToggle, testID }: { q: string; a: string; open
         <Icon name={open ? "minus" : "plus"} color={ROLE.ink} />
       </Pressable>
       {open ? (
-        <Text testID={`${testID}-answer`} variant="body" color={ROLE.muted} style={{ paddingTop: 4, paddingBottom: 8 }}>
+        <Text testID={`${testID}-answer`} variant="body" color={ROLE.muted} style={{ paddingTop: 8, paddingBottom: 4 }}>
           {a}
         </Text>
       ) : null}

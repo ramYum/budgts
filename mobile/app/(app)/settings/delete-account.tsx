@@ -23,7 +23,7 @@ import { signInWithGoogle } from "../../../lib/auth/google";
 import { expectReauthAs } from "../../../lib/auth/reauth-guard";
 import { returnAfterSignIn } from "../../../lib/auth/return-intent";
 import { legalUrl } from "../../../lib/legal";
-import { openInBrowser } from "../../../lib/open-in-browser";
+import { mailAppFailed, openInBrowser } from "../../../lib/open-in-browser";
 import { ACCOUNT_DELETED_PATH, DELETE_ACCOUNT_CONFIRM_PATH, DELETE_ACCOUNT_PATH } from "../../../lib/shared";
 import { supabase } from "../../../lib/supabase/client";
 
@@ -111,8 +111,13 @@ export default function DeleteAccountScreen() {
           await signOut();
         })();
       },
-      openUrl: (url) =>
-        void openInBrowser(url, url.startsWith("mailto:") ? Linking.openURL : WebBrowser.openBrowserAsync).then(setLinkError),
+      openUrl: (url) => {
+        const mail = url.startsWith("mailto:") ? url.slice("mailto:".length) : null;
+        void openInBrowser(url, mail ? Linking.openURL : WebBrowser.openBrowserAsync).then((failed) =>
+          setLinkError(failed && mail ? mailAppFailed(mail) : failed),
+        );
+      },
+      onStage: () => setLinkError(null),
       deletionPageUrl: screen.supportEmail ? legalUrl(API_BASE, "accountDeletion") : null,
       onBusy: setBusy,
     };

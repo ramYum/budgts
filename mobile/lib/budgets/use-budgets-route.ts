@@ -33,15 +33,17 @@ export function useBudgetsRoute(raw: RawParams, currentMonth: string, setParams:
     month,
     range,
     detail,
-    /** stepping the month returns to This month, as the web's month links do */
+    /** stepping the month returns to This month, as the web's month links do; any sheet (and a stale `edit`) goes */
     showMonth(m: string) {
       setMonth(m);
       setRange("month");
-      setParams({ m, range: "month" });
+      setDetail(null);
+      setParams({ m, range: "month", edit: undefined });
     },
     showRange(r: BudgetsParams["range"]) {
       setRange(r);
-      setParams({ m: month, range: r });
+      setDetail(null);
+      setParams({ m: month, range: r, edit: undefined });
     },
     openDetail(id: string, editing: boolean) {
       setDetail({ id, editing });

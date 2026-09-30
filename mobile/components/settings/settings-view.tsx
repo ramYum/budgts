@@ -40,7 +40,7 @@ export function SettingsView({
         <HubSection title="Your account">
           <HubRow testID="settings-profile" label="Profile" icon="profile" value={email} onPress={() => go("/settings/profile")} />
           <HubRow testID="settings-security" label="Security" icon="security" onPress={() => go("/settings/security")} />
-          <HubRow testID="settings-delete-account" label="Delete account" icon="user-x" onPress={() => go("/delete-account")} />
+          <HubRow testID="settings-delete-account" label="Delete account" icon="user-x" onPress={() => go("/settings/delete-account")} />
         </HubSection>
 
         <HubSection title="Your money">

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { formatMoney } from "@/lib/display/money";
 import type { DashboardView as DV, DashboardCategory } from "@/lib/budget/dashboard";
 import type { AllTimeRow } from "@/lib/budgets/load-budgets";
+import { budgetTrendPct } from "@/lib/figures/budget-trend";
 import { budgetProgress } from "@/lib/insights/figures";
 import { pickSuggestion } from "@/lib/insights/suggestion";
 import { setBudget } from "@/server/budgets";
@@ -99,7 +100,7 @@ function CategoryDetail({
   onClose: () => void;
 }) {
   const [editing, setEditing] = useState(startEditing);
-  const trend = prevActual > 0 ? Math.round(((bar.actual - prevActual) / prevActual) * 100) : null;
+  const trend = budgetTrendPct(bar.actual, prevActual);
 
   return (
     <Overlay title={bar.name} onClose={onClose}>

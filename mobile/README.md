@@ -217,6 +217,31 @@ Also: the single-use code can reach the app twice on Android (the OAuth browser
 result *and* the intent-filter route), so `completeSessionFromUrl` is
 deduplicated per URL (`lib/auth/once-by-key.ts`).
 
+## Native patches: Expo modules are prebuilt (2026-09-30)
+
+Expo SDK 57 hands its own modules to Gradle as prebuilt AARs
+(`node_modules/<pkg>/local-maven-repo`), not as source. A `patch-package`
+patch to an Expo module's Kotlin or Java therefore compiles to nothing unless
+that module is opted out of the prebuilt artifacts
+(`expo.autolinking.android.buildFromSource`). JavaScript patches and
+non-Expo native modules are unaffected.
+
+This bit the splash: `2dbad44` patched expo-splash-screen's
+`SplashScreenManager` to re-arm its hold per activity, and the release-build
+"verifications" after it ran stock code (the warm relaunch held because
+nothing else ended the splash early in a release build, not because of the
+patch). The black gap on debug builds came back on the device, and only a
+from-source build showed the patch had never run.
+
+The fix changes app code instead of a dependency:
+`plugins/with-android-launch-egg.js` makes the window background the launch
+screen (the egg on paper) and adds `SplashScreenManager.hide()` (public API,
+compiled against the prebuilt AAR) right after `registerOnActivity(this)` in
+the generated `MainActivity`, on every activity. It throws at prebuild if
+Expo stops generating that call. Prefer a config-plugin mod like this over a
+native patch; if a native patch is ever unavoidable, add the module to
+`buildFromSource` and prove on a device that the patched code runs.
+
 ## Native config verification (2026-09-18)
 
 Ran `npx expo prebuild --platform all` once, inspected the generated native

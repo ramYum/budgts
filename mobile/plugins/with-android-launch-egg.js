@@ -2,25 +2,60 @@
 // paper with the resting egg centred on it, exactly where the splash icon and
 // the loading screen draw it (docs/BRAND_GUIDELINES.md → Motion, "Egg loader").
 //
-// The system splash then leaves as soon as the app's window first draws
-// (patches/expo-splash-screen+*.patch stops expo-splash-screen holding that
-// first draw back), and whatever is on screen until React draws the loader is
-// this window background: the same egg, never an empty, black window. Holding
-// the draw back is what went black: in debug builds React Native's "Loading
-// from Metro" popup draws a window of its own, the system takes that as the
-// app's first frame and removes the splash, and the held-back main window
-// shows black until JavaScript runs.
+// expo-splash-screen keeps the Android splash by holding the app window's first
+// draw back until JavaScript calls hide(). When anything else ends the system
+// splash first (in debug builds, React Native's "Loading from Metro" popup is
+// a window of the app's own), the held-back window has never drawn and shows
+// black until JavaScript runs. So MainActivity releases that hold as soon as it
+// registers (SplashScreenManager.hide(): public API, compiled against Expo's
+// prebuilt module, on every activity including a warm relaunch), the system
+// splash leaves at the window's first frame, and whatever is on screen until
+// React draws the loader is this window background: the same egg, never an
+// empty window. mobile/README.md → "Native patches" has the history.
 //
 // The egg images are the splash's own (assets/splash/egg-<density>.png, drawn
 // by tools/generate-app-icons.mjs at each density's exact size), so nothing is
 // resampled.
 const fs = require("node:fs");
 const path = require("node:path");
-const { AndroidConfig, withAndroidStyles, withDangerousMod } = require("expo/config-plugins");
+const { AndroidConfig, withAndroidStyles, withDangerousMod, withMainActivity } = require("expo/config-plugins");
 
 const DENSITIES = ["mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi"];
 const DRAWABLE = "launch_background";
 const EGG = "launch_egg";
+
+const REGISTER = "SplashScreenManager.registerOnActivity(this)";
+const EXPO_BLOCK_END = "// @generated end expo-splashscreen";
+const HIDE = "SplashScreenManager.hide()";
+const HIDE_LINES = [
+  "    // Budgts: never hold the window's first draw back; its background is the launch screen",
+  "    // (plugins/with-android-launch-egg.js), so the splash may leave at the first frame.",
+  `    ${HIDE}`,
+];
+
+/** MainActivity.kt with the splash hold released right after expo-splash-screen registers it. Idempotent. */
+function releaseSplashHold(contents) {
+  if (!contents.includes(REGISTER)) {
+    throw new Error(`with-android-launch-egg: MainActivity no longer calls ${REGISTER}; expo-splash-screen changed, update this plugin`);
+  }
+  if (contents.includes(HIDE)) return contents;
+  const lines = contents.split("\n");
+  // after expo's generated block when there is one, so re-running expo's own mod keeps our line
+  let at = lines.findIndex((l) => l.includes(EXPO_BLOCK_END));
+  if (at < 0) at = lines.findIndex((l) => l.includes(REGISTER));
+  lines.splice(at + 1, 0, ...HIDE_LINES);
+  return lines.join("\n");
+}
+
+/** The parsed styles.xml with AppTheme's window background set to the launch screen. */
+function setLaunchWindowBackground(styles) {
+  return AndroidConfig.Styles.assignStylesValue(styles, {
+    add: true,
+    parent: AndroidConfig.Styles.getAppThemeGroup(),
+    name: "android:windowBackground",
+    value: `@drawable/${DRAWABLE}`,
+  });
+}
 
 /** The window background: paper, the egg centred on it. */
 function launchBackgroundXml(paper) {
@@ -55,23 +90,21 @@ const withLaunchEggFiles = (config, { paper }) =>
     },
   ]);
 
-const withLaunchEggTheme = (config) =>
-  withAndroidStyles(config, (config) => {
-    config.modResults = AndroidConfig.Styles.assignStylesValue(config.modResults, {
-      add: true,
-      parent: AndroidConfig.Styles.getAppThemeGroup(),
-      name: "android:windowBackground",
-      value: `@drawable/${DRAWABLE}`,
-    });
-    return config;
-  });
-
 module.exports = function withAndroidLaunchEgg(config) {
   const paper = config.backgroundColor;
   if (!paper) throw new Error("with-android-launch-egg: set expo.backgroundColor (the paper the egg sits on)");
   config = withLaunchEggFiles(config, { paper });
-  config = withLaunchEggTheme(config);
+  config = withAndroidStyles(config, (config) => {
+    config.modResults = setLaunchWindowBackground(config.modResults);
+    return config;
+  });
+  config = withMainActivity(config, (config) => {
+    config.modResults.contents = releaseSplashHold(config.modResults.contents);
+    return config;
+  });
   return config;
 };
 
 module.exports.launchBackgroundXml = launchBackgroundXml;
+module.exports.releaseSplashHold = releaseSplashHold;
+module.exports.setLaunchWindowBackground = setLaunchWindowBackground;

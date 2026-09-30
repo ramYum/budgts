@@ -61,6 +61,7 @@
         }
       ],
       "expo-localization",
+      "./plugins/with-android-launch-egg",
       [
         "expo-splash-screen",
         {
@@ -77,8 +78,7 @@
         }
       ],
       "expo-sharing",
-      "@react-native-community/datetimepicker",
-      "./plugins/with-android-launch-egg"
+      "@react-native-community/datetimepicker"
     ],
     "extra": {
       "router": {},

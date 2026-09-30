@@ -23,8 +23,10 @@ server the apps call. The sequence: launch spec §13a.
 ### The goal — read this before every decision
 
 Budgts is a **commercial product** published by **Budgts, LLC** (Apple and
-Google organization accounts, which need its D-U-N-S number: still pending
-on 2026-09-29) — decided 2026-09-26, ending the 2026-09-24/25 personal-use
+Google organization accounts. On 2026-09-30 the D-U-N-S number was secured and
+the Google Play Console account was converted from personal to organization, so
+Google's 12-tester / 14-day closed test no longer applies; Apple's organization
+enrollment is next) — decided 2026-09-26, ending the 2026-09-24/25 personal-use
 hiatus. The launch plan is
 `docs/specs/2026-09-17-mobile-app-launch-design.md`; owner decisions:
 

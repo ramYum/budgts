@@ -260,11 +260,15 @@ Steps get their exact, verified commands as they are first run (none are
 guessed here).
 
 - **Accounts** (owner): Apple Developer and Google Play Console, both as
-  **organizations** under Budgts, LLC (needs its D-U-N-S number: still
-  pending on 2026-09-29; enroll as soon as it arrives, with the name and
-  address exactly as on the D-U-N-S record). Apple's Small Business Program
-  gives the 15% rate. Organization Play accounts skip the 12-tester closed
-  test.
+  **organizations** under Budgts, LLC.
+  - **Google Play: done 2026-09-30.** The D-U-N-S number was secured, and
+    the Play Console account was converted from personal to organization
+    that day. So Google's 12-tester / 14-day closed test no longer applies.
+    The internal testing track is still used, only so the owner can install
+    release builds.
+  - **Apple: next.** Enroll the Apple Developer Program as an organization,
+    with the name and address exactly as on the D-U-N-S record, then join
+    the Small Business Program for the 15% rate.
 - **Builds:** EAS Build from `mobile/` (the owner is on Windows, so iOS is
   built in the cloud). Profiles:
   - `development`: dev client, staging API;

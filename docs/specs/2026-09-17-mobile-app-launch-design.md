@@ -520,7 +520,8 @@ Register) for the consolidated list.
 
 ## 10. Apple requirements
 
-- **Apple Developer Program** enrollment (annual fee) — not yet done. **As an
+- **Apple Developer Program** enrollment (annual fee) — not yet done;
+  unblocked 2026-09-30, when the D-U-N-S number was secured. **As an
   organization under the owner's LLC** (D-U-N-S, legal name, website), then
   the **Small Business Program** for the 15% commission rate (2026-09-26).
 - **v1 scope note (2026-09-26):** the Promotional Offer and its signing
@@ -568,12 +569,13 @@ Register) for the consolidated list.
 
 ## 11. Google Play requirements
 
-- **Google Play Console** enrollment ($25 one-time) — not yet done. **As an
-  organization under the owner's LLC** (D-U-N-S verified, 2026-09-26).
-  Organization accounts are **exempt** from the closed-test requirement
-  (12 testers opted in for 14 straight days) that applies to personal
-  accounts created after 2023-11-13. The internal testing track is still
-  used, only so the owner can install release builds.
+- **Google Play Console** — **done 2026-09-30.** The owner's account was
+  converted from personal to **an organization under Budgts, LLC**, once the
+  D-U-N-S number was secured that day. Organization accounts are **exempt**
+  from the closed-test requirement (12 testers opted in for 14 straight
+  days) that applies to personal accounts created after 2023-11-13, so it no
+  longer applies to Budgts. The internal testing track is still used, only
+  so the owner can install release builds.
 - **v1 scope note (2026-09-26):** the multi-phase influencer offer below is
   deferred; v1 needs the subscription products with a 7-day free trial.
 - **Google Play Billing** integration — not started.
@@ -1164,10 +1166,11 @@ Restated here so nothing downstream infers permission to start on it:
 
 ### STORE/LEGAL DEPENDENCIES
 - Apple Developer Program enrollment (not yet done) — as an organization
-  under the owner's LLC (D-U-N-S in progress), then the Small Business
-  Program.
-- Google Play Console enrollment (not yet done) — as an organization under
-  the LLC; exempt from the 12-tester / 14-day closed test.
+  under the owner's LLC (D-U-N-S secured 2026-09-30), then the Small
+  Business Program.
+- ~~Google Play Console enrollment~~ — done 2026-09-30: converted from
+  personal to an organization under the LLC, so the 12-tester / 14-day
+  closed test no longer applies.
 - Plaid plan for paying users: Production access exists (2026-09-11), but
   the Trial caps at 10 Items (5 in use); move to Pay-as-you-go/Growth and
   read the per-Item price.

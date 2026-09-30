@@ -316,8 +316,10 @@ the data underneath (V1–V2) is trustworthy.
 ## Delivery track — Mobile App + App-Store Launch (active, 2026-09-26)
 
 Native iOS/Android apps (Expo) on the App Store and Google Play, sold by
-Budgts, LLC (organization accounts, so no Google 12-tester closed test; the
-D-U-N-S number is still pending on 2026-09-29). The apps will be the only
+Budgts, LLC (organization accounts. On 2026-09-30 the D-U-N-S number was
+secured and the Google Play account was converted from personal to
+organization, so Google's 12-tester / 14-day closed test no longer applies;
+Apple's organization enrollment is next). The apps will be the only
 product: at launch the browser app retires and budgts.com becomes the company
 website (owner decision 2026-09-29, launch spec §13a). Spec: `docs/specs/2026-09-17-mobile-app-launch-design.md`. Branch:
 `phase-m/mobile-launch`. The shelved Expo app and account-deletion work
@@ -342,10 +344,11 @@ program after launch.
 | 4 | Subscription: RevenueCat paywall/trial/restore, entitlement mirror, server-side gate on Plaid for the apps (app-only since 2026-09-29: no web plan status, no Manage Subscription page), Plaid connections removed after a lapse. **Before billing goes live:** a retention decision (the owner set `LEGAL_RECORD_RETENTION_YEARS=0`, "deleted right away", which the production build refuses once billing is live: decide how long payment records are kept and whether Path B anonymizes or deletes them), and the retained-billing-record purge job (the legal pages promise deletion "in line with our retention schedule" after `LEGAL_RECORD_RETENTION_YEARS`; nothing purges yet, `docs/security.md`); turning billing on (`BILLING_ENVIRONMENT=production` + the webhook secret + the RevenueCat secret API key, then a redeploy) is also what switches the Terms, Support and deletion screens to the paid wording (`billingLive()`), with prices from `src/lib/billing/plans.ts` | ⏳ |
 | 5 | Release: EAS Build/Submit, TestFlight + Play internal track, crash-free Sentry beta, App Review, staged rollout. Then retire the browser app (launch spec §13a): tell existing users first; swap the homepage's Sign in for the store buttons; send every retired address to a "Budgts now lives in the app" page; clear installed PWAs with a service-worker update; keep the legal, support and web-deletion pages plus `/api/*`, `/.well-known/*` and `/app/plaid-oauth`; update the legal copy; after parity, delete the web UI code | ⏳ |
 
-**Owner steps (parallel):** LLC formed (Budgts, LLC); D-U-N-S pending
-(2026-09-29), then enroll with Apple and Google right away; EIN + business
-bank account; Apple Developer (organization, $99/yr) + Small Business Program;
-Google Play Console (organization, $25); Plaid plan check (Production access
+**Owner steps (parallel):** LLC formed (Budgts, LLC); ~~D-U-N-S~~ (secured
+2026-09-30); ~~Google Play Console as an organization~~ (converted from
+personal 2026-09-30, so no 12-tester / 14-day closed test); EIN + business
+bank account; Apple Developer (organization, $99/yr; the D-U-N-S it needs is
+now available) + Small Business Program; Plaid plan check (Production access
 exists since 2026-09-11 — move off the 10-item Trial to Pay-as-you-go/Growth
 and read the per-bank price, then confirm pricing); Vercel Pro + Supabase
 Pro; ~~privacy policy + terms naming the LLC~~ (done, live 2026-09-28);

@@ -85,3 +85,10 @@ a failed load and a missing page. Its loading capture shows no lit tab (the path
    overrides). Java 17 is on PATH.
 6. The tool sets the device time zone to `America/New_York` (`service call alarm 3`) and the animation scales per set,
    restoring the scales to 1 at the end. It toggles airplane mode around the `offline` state.
+
+## By-eye review kits (owner, 2026-09-30: no automated device sign-in)
+
+`npx tsx tools/parity/review-kit.ts` copies the approved-PWA reference captures (`.tmp/parity/ref/android-412`, both
+motion sets) into `.tmp/parity/review-kit/<lane>/web/` with an `index.html` per lane (A, B, C, D-1, D-2, E, and F for
+Foundation's not-found/offline). The operator drops native screenshots into `<lane>/native/` under the same file names;
+each index then shows web and native side by side.

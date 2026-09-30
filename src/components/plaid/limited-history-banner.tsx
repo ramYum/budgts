@@ -29,7 +29,7 @@ export async function LimitedHistoryBanner() {
   return (
     <div className="mb-6 space-y-2">
       {messages.map((m, i) => (
-        <div key={i} className="px-warn flex items-start gap-2 px-2 py-1.5 text-sm leading-5 text-ink">
+        <div key={i} data-testid="limited-history-banner" className="px-warn flex items-start gap-2 px-2 py-1.5 text-sm leading-5 text-ink">
           <Icon name="warning" className="-my-0.5 text-warn" />
           <p>{m}</p>
         </div>

@@ -1,0 +1,4 @@
+{
+  "$comment": "Pixel-diff budget per screen/state as a share of compared pixels (0.006 = 0.6%). Lowering is allowed; raising needs the reviewer's sign-off in the commit note (phase3-plan.md, Task P5).",
+  "default": 0.006
+}

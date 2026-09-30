@@ -36,7 +36,7 @@ describe("BottomTabs (web bottom-nav.tsx)", () => {
 
   it("has the web bar's geometry: a 2px hairline, 12 over the icon, 8 under the label, at least 4 below", () => {
     const r = render(<BottomTabs active="(home)" onSelect={() => {}} />);
-    expect(flat(byTestId(r, "bottom-tabs").props.style)).toMatchObject({
+    expect(flat(byTestId(r, "bottom-nav").props.style)).toMatchObject({
       borderTopWidth: 2,
       borderTopColor: ROLE.hairline,
       backgroundColor: ROLE.surface,
@@ -105,7 +105,7 @@ describe("StatusBanners (web DeletionBanner + ReviewBanner)", () => {
     const finish = vi.fn();
     const r = render(<StatusBanners status={{ ...quiet, deletionInProgress: true }} onFinishDeleting={finish} onReview={() => {}} />);
     expect(textContent(byTestId(r, "deletion-banner"))).toBe("Your account is being deleted. It's read-only, so changes won't save. Finish deleting.");
-    byTestId(r, "deletion-banner-link").props.onPress();
+    hosts(r, "Text").find((t) => t.props.accessibilityRole === "link")!.props.onPress();
     expect(finish).toHaveBeenCalled();
     expect(r.root.findAll((n) => n.type === PixelFrame)[0]!.props.frame).toBe("px-wash");
   });
@@ -115,6 +115,6 @@ describe("StatusBanners (web DeletionBanner + ReviewBanner)", () => {
       <StatusBanners status={{ ...quiet, review: { excluded: "Advancial is excluded.", advisory: "A feed looks duplicated." } }} onFinishDeleting={() => {}} onReview={() => {}} />,
     );
     expect(r.root.findAll((n) => n.type === PixelFrame).map((f) => f.props.frame)).toEqual(["px-wash", "px-warn"]);
-    expect(textContent(byTestId(r, "review-advisory"))).toBe("Totals may be inaccurate. A feed looks duplicated. Review it in Settings.");
+    expect(textContent(byTestId(r, "review-banner-advisory"))).toBe("Totals may be inaccurate. A feed looks duplicated. Review it in Settings.");
   });
 });

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { AnchorHTMLAttributes, ButtonHTMLAttributes, CSSProperties, ReactNode, Ref, SelectHTMLAttributes } from "react";
 import { categoryIcon } from "@/lib/brand/category-icon";
+import { figureSizeOf } from "@/lib/brand/figure-size";
 import { Icon, type IconName } from "./icon";
 
 /** Shared design-system primitives. Components consume the semantic tokens in
@@ -181,6 +182,7 @@ export function ProgressBar({
   const fill = tone === "under" ? "var(--fill-under)" : tone === "growth" ? "var(--pos)" : "var(--fill-over)";
   return (
     <div
+      data-testid="progress-bar"
       className={`px-cells ${over ? "cells-over" : ""} ${className ?? ""}`}
       style={
         {
@@ -202,8 +204,7 @@ export function ProgressBar({
 /** The size for a screen's one money figure: the hero size, stepping down
  * past 13 characters on a phone rather than run out of its card. */
 export function figureSize(text: string): string {
-  if (text.length <= 13) return "t-num-xl";
-  return "t-num-lg md:text-[48px] md:leading-[56px]";
+  return figureSizeOf(text) === "hero" ? "t-num-xl" : "t-num-lg md:text-[48px] md:leading-[56px]";
 }
 
 /* ─── Chips, tags, badges ──────────────────────────────────────────────── */
@@ -222,7 +223,7 @@ export function SegmentedControl<T extends string>({
   label?: string;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label={label}>
+    <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label={label} data-testid="segmented">
       {options.map((o) => {
         const on = value === o.value;
         return (
@@ -231,6 +232,7 @@ export function SegmentedControl<T extends string>({
             type="button"
             onClick={() => onChange(o.value)}
             aria-pressed={on}
+            data-testid={`segment-${o.value}`}
             className={`px-chip press h-8 px-2 text-[15px] leading-6 ${on ? "font-semibold text-white" : "text-graphite hover:text-ink"}`}
           >
             {o.label}
@@ -263,6 +265,7 @@ export function Badge({
 }) {
   return (
     <span
+      data-testid="badge"
       className={`t-label-strong inline-flex h-6 items-center gap-1 whitespace-nowrap px-1.5 leading-none ${BADGE[tone]} ${className ?? ""}`}
     >
       {icon ? <Icon name={icon} size={12} /> : null}
@@ -291,13 +294,13 @@ export function SectionHead({
   className?: string;
 }) {
   return (
-    <div className={`flex min-h-6 items-center justify-between gap-3 ${className ?? ""}`}>
-      <As className="t-head text-ink">
+    <div className={`flex min-h-6 items-center justify-between gap-3 ${className ?? ""}`} data-testid="section-head">
+      <As className="t-head text-ink" data-testid="section-title">
         {title}
         {count !== undefined ? <span className="tnum ml-2 font-medium text-muted">{count}</span> : null}
       </As>
       {href && action ? (
-        <Link href={href} className="press -my-1 flex items-center text-[15px] leading-6 text-muted hover:text-ink">
+        <Link href={href} data-testid="section-link" className="press -my-1 flex items-center text-[15px] leading-6 text-muted hover:text-ink">
           {action}
           <Icon name="chevron-right" className="-mr-1.5" />
         </Link>
@@ -334,6 +337,7 @@ export function IconTile({
 }) {
   return (
     <span
+      data-testid="icon-tile"
       className={`inline-flex shrink-0 items-center justify-center ${size === undefined ? "h-8 w-8 md:h-10 md:w-10" : ""} ${TILE[tone]} ${className ?? ""}`}
       style={size === undefined ? undefined : { width: size, height: size }}
       aria-hidden
@@ -369,7 +373,7 @@ export function Chevron({ className }: { className?: string }) {
 /** An illustration stage: a white card on a grid of 2px dots, centred. */
 export function Stage({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={`px-card ${className ?? ""}`}>
+    <div className={`px-card ${className ?? ""}`} data-testid="stage">
       <div className="px-dots flex flex-col items-center justify-center gap-3 px-4 py-10">{children}</div>
     </div>
   );
@@ -392,9 +396,9 @@ export function EmptyState({
   className?: string;
 }) {
   return (
-    <div className={`px-card flex flex-col items-start gap-2 p-4 ${className ?? ""}`}>
+    <div className={`px-card flex flex-col items-start gap-2 p-4 ${className ?? ""}`} data-testid="empty-state">
       {icon ? <IconTile name={icon} className="mb-2" /> : null}
-      <p className="text-[15px] font-medium leading-6 text-ink">{title}</p>
+      <p className="text-[15px] font-medium leading-6 text-ink" data-testid="empty-state-title">{title}</p>
       {body ? <p className="max-w-md text-sm leading-5 text-muted">{body}</p> : null}
       {action ? <div className="pt-2">{action}</div> : null}
     </div>

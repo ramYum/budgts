@@ -2,11 +2,11 @@ import { useState } from "react";
 import { Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { requestAccountDeletion, type DeleteOutcome } from "../../lib/account/delete-account";
-import { authFetch } from "../../lib/auth/api";
-import { useAuth } from "../../lib/auth/auth-context";
-import { colors, fonts, radii } from "../../lib/theme";
-import { OutlineButton, PrimaryButton, TextLink } from "../../components/ui";
+import { requestAccountDeletion, type DeleteOutcome } from "../../../lib/account/delete-account";
+import { authFetch } from "../../../lib/auth/api";
+import { useAuth } from "../../../lib/auth/auth-context";
+import { colors, fonts, radii } from "../../../lib/theme";
+import { OutlineButton, PrimaryButton, TextLink } from "../../../components/ui";
 
 const MESSAGES: Partial<Record<DeleteOutcome["status"], string>> = {
   reauth_required: "For your security, please sign in again to confirm. Sign out, sign back in, then return here.",

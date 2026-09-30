@@ -30,12 +30,20 @@ export async function loadResource<T>(
   return { status: "error", kind: r.kind, message: LOAD_MESSAGES[r.kind] };
 }
 
-export type MutationErrorKind = "auth" | "network" | "unavailable";
+export type MutationErrorKind = "auth" | "network" | "unavailable" | "locked";
+
+/**
+ * A started account deletion has made the account read-only (the server's 423 `account_locked`): the web's words
+ * (src/lib/ownership.ts `LOCKED_MESSAGE`; tests/unit/mobile-locked-message.test.ts keeps them equal), never
+ * "something went wrong".
+ */
+export const LOCKED_MESSAGE = "Your account is being deleted, so changes are paused.";
 
 const MUTATION_MESSAGES: Record<MutationErrorKind, string> = {
   auth: "Your session has expired. Please sign in again.",
   network: "Couldn't reach Budgts. Check your connection and try again.",
   unavailable: "Something went wrong. Please try again.",
+  locked: LOCKED_MESSAGE,
 };
 
 export type MutationOutcome =
@@ -61,6 +69,7 @@ export async function mutate(fetcher: () => Promise<Response>): Promise<Mutation
     if (r.code === "conflict") return { status: "conflict" };
     if (r.code === "not_found") return { status: "missing" };
     if (r.code === "nothing_to_copy") return { status: "nothing_to_copy" };
+    if (r.code === "account_locked") return { status: "error", kind: "locked", message: MUTATION_MESSAGES.locked };
   }
   const kind: MutationErrorKind = r.kind === "auth" || r.kind === "network" ? r.kind : "unavailable";
   return { status: "error", kind, message: MUTATION_MESSAGES[kind] };

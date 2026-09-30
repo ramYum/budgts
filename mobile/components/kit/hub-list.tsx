@@ -1,6 +1,6 @@
 import { Children, type ReactNode } from "react";
 import { Pressable, View } from "react-native";
-import { COLOR, ROLE, type IconName } from "../../lib/brand/shared";
+import { COLOR, hubTestId, ROLE, type IconName } from "../../lib/brand/shared";
 import { IconTile } from "../brand/controls";
 import { PixelFrame } from "../brand/pixel-frame";
 import { Text } from "../brand/text";
@@ -9,10 +9,10 @@ import { SectionHead } from "./section-head";
 import { Chevron } from "./tiles";
 
 /** A hub's group (web `HubSection`): the heading, then its rows in one card divided by 1px rules (`px-card px-rows`). */
-export function HubSection({ title, children, testID }: { title: string; children: ReactNode; testID?: string }) {
+export function HubSection({ title, children }: { title: string; children: ReactNode }) {
   const rows = Children.toArray(children);
   return (
-    <View testID={testID} style={{ gap: 12 }}>
+    <View testID="hub-section" style={{ gap: 12 }}>
       <SectionHead title={title} />
       <PixelFrame frame="px-card" style={{ paddingHorizontal: 8, paddingVertical: 2 }}>
         {rows.map((row, i) => (
@@ -25,28 +25,32 @@ export function HubSection({ title, children, testID }: { title: string; childre
   );
 }
 
-/** One destination (web `HubRow`): its icon, its name, what's there (a count, a setting), a chevron. The whole row is the button. */
+/**
+ * One destination (web `HubRow`): its icon, its name, what's there (a count, a setting), a chevron. The whole row is the
+ * button, and goes to `href`; its test ids derive from `href` as the web's do (`hub-settings-profile`).
+ */
 export function HubRow({
+  href,
   label,
   icon,
   value,
-  onPress,
-  testID,
+  go,
 }: {
+  href: string;
   label: string;
   icon: IconName;
   /** a quiet summary on the right ("2 goals", "Light") */
   value?: string | number | null;
-  onPress: () => void;
-  testID?: string;
+  go: (href: string) => void;
 }) {
+  const testID = hubTestId(href);
   const shown = value !== undefined && value !== null ? String(value) : null;
   return (
     <Pressable
       testID={testID}
       accessibilityRole="link"
       accessibilityLabel={shown ? `${label}, ${shown}` : label}
-      onPress={onPress}
+      onPress={() => go(href)}
       style={({ pressed }) => [
         { flexDirection: "row", alignItems: "center", columnGap: 16, paddingVertical: 8 },
         pressStyle(pressed),
@@ -54,7 +58,7 @@ export function HubRow({
     >
       <IconTile name={icon} />
       <Text
-        testID={testID ? `${testID}-label` : undefined}
+        testID={`${testID}-label`}
         variant="listName"
         color={ROLE.ink}
         numberOfLines={1}
@@ -64,7 +68,7 @@ export function HubRow({
       </Text>
       {shown !== null ? (
         <Text
-          testID={testID ? `${testID}-value` : undefined}
+          testID={`${testID}-value`}
           variant="meta"
           color={ROLE.muted}
           numberOfLines={1}

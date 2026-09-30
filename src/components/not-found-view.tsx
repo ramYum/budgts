@@ -5,7 +5,7 @@ import { Badge, LinkButton, Stage } from "./ui";
  * words; the two ways out (Home, or Help). */
 export function NotFoundView() {
   return (
-    <div className="space-y-6 md:max-w-[720px]">
+    <div className="space-y-6 md:max-w-[720px]" data-testid="not-found">
       <Stage>
         <p className="px-figure-lg pl-1 tracking-[4px] text-ink" aria-hidden>
           404

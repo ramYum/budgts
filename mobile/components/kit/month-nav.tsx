@@ -27,20 +27,18 @@ function Step({ icon, label, onPress, testID }: { icon: IconName; label: string;
 export function MonthNav({
   month,
   onChange,
-  testID = "month-nav",
 }: {
   month: string;
   onChange: (month: string) => void;
-  testID?: string;
 }) {
   return (
-    <View testID={testID} style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-      <Text testID={`${testID}-label`} variant="bodyStrong" color={ROLE.ink} numberOfLines={1} style={{ fontVariant: ["tabular-nums"] }}>
+    <View testID="month-nav" style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+      <Text testID="month-label" variant="bodyStrong" color={ROLE.ink} numberOfLines={1} style={{ fontVariant: ["tabular-nums"] }}>
         {formatMonthLabel(month)}
       </Text>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-        <Step testID={`${testID}-prev`} icon="chevron-left" label="Previous month" onPress={() => onChange(shiftMonth(month, -1))} />
-        <Step testID={`${testID}-next`} icon="chevron-right" label="Next month" onPress={() => onChange(shiftMonth(month, 1))} />
+        <Step testID="month-prev" icon="chevron-left" label="Previous month" onPress={() => onChange(shiftMonth(month, -1))} />
+        <Step testID="month-next" icon="chevron-right" label="Next month" onPress={() => onChange(shiftMonth(month, 1))} />
       </View>
     </View>
   );

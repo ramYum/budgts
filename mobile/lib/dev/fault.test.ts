@@ -1,42 +1,55 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { devFault, faultResponse, setDevFaults } from "./fault";
+import { applyDevLink, devFaultResponse, devLinkParams, faultFor, parseDevLink, resetDevLink } from "./fault";
+import { parityClockMs } from "../motion/parity-clock";
 
-const g = globalThis as { __DEV__?: boolean };
+afterEach(() => resetDevLink());
 
-describe("dev-only fault injection (parity captures)", () => {
-  afterEach(() => {
-    g.__DEV__ = true;
-    setDevFaults({});
+describe("parity dev links", () => {
+  it("reads fail, hold and clock from a deep link and ignores anything else", () => {
+    expect(parseDevLink("budgts://budgets?fail=budgets,home&hold=activity&clock=4000&m=2026-09")).toEqual({
+      fail: ["budgets", "home"],
+      hold: ["activity"],
+      clockMs: 4000,
+    });
+    expect(parseDevLink("budgts://budgets")).toEqual({ fail: [], hold: [], clockMs: null });
+    expect(parseDevLink("budgts://x?clock=-5&fail=<script>")).toEqual({ fail: [], hold: [], clockMs: null });
   });
 
-  it("fails, drops or holds only the named endpoint and what is under it", () => {
-    setDevFaults({ fail: "home", hold: "budgets" });
-    expect(devFault("/api/mobile/home")).toEqual({ kind: "fail" });
-    expect(devFault("/api/mobile/home?month=2026-09")).toEqual({ kind: "fail" });
-    expect(devFault("/api/mobile/homework")).toBeNull();
-    expect(devFault("/api/mobile/budgets/copy")).toEqual({ kind: "hold" });
-    expect(devFault("/api/mobile/status")).toBeNull();
-    setDevFaults({ fail: "home:offline" });
-    expect(devFault("/api/mobile/home")).toEqual({ kind: "offline" });
+  it("each link replaces the last one's params", () => {
+    applyDevLink("budgts://?fail=home", true);
+    applyDevLink("budgts://budgets", true);
+    expect(devLinkParams(true)).toEqual({ fail: [], hold: [], clockMs: null });
   });
 
-  it("ignores anything that isn't a plain endpoint name", () => {
-    setDevFaults({ fail: "../../etc", hold: ["status", "x"] });
-    expect(devFault("/api/mobile/etc")).toBeNull();
-    expect(devFault("/api/mobile/status")).toEqual({ kind: "hold" });
+  it("fails or holds only the named endpoints", async () => {
+    applyDevLink("budgts://?fail=home&hold=activity", true);
+    expect(faultFor("/api/mobile/home?m=2026-09", true)).toBe("fail");
+    expect(faultFor("/api/mobile/activity", true)).toBe("hold");
+    expect(faultFor("/api/mobile/homework", true)).toBeNull();
+    expect(faultFor("/api/mobile/profile", true)).toBeNull();
+    const res = await devFaultResponse("/api/mobile/home", true);
+    expect(res?.status).toBe(503);
+    expect(await res?.json()).toEqual({ error: "parity_fault" });
   });
 
-  it("does nothing in a release build", () => {
-    setDevFaults({ fail: "home" });
-    g.__DEV__ = false;
-    expect(devFault("/api/mobile/home")).toBeNull();
-    setDevFaults({ fail: "home" });
-    g.__DEV__ = true;
-    expect(devFault("/api/mobile/home")).toBeNull(); // set while "release": nothing was stored
+  it("pins the parity clock", () => {
+    applyDevLink("budgts://?clock=1200", true);
+    expect(parityClockMs(true)).toBe(1200);
   });
 
-  it("answers the way each state needs", async () => {
-    expect((await faultResponse({ kind: "fail" })).status).toBe(503);
-    await expect(faultResponse({ kind: "offline" })).rejects.toBeInstanceOf(TypeError);
+  it("is inert when __DEV__ is false (release builds)", () => {
+    applyDevLink("budgts://?fail=home&clock=900", false);
+    expect(devLinkParams(true)).toEqual({ fail: [], hold: [], clockMs: null }); // nothing was taken
+    applyDevLink("budgts://?fail=home&clock=900", true);
+    expect(faultFor("/api/mobile/home", false)).toBeNull();
+    expect(devFaultResponse("/api/mobile/home", false)).toBeNull();
+    expect(parityClockMs(false)).toBeNull();
+    expect(devLinkParams(false)).toEqual({ fail: [], hold: [], clockMs: null });
+  });
+
+  it("defaults to off outside React Native (no __DEV__ global)", () => {
+    applyDevLink("budgts://?fail=home");
+    expect(devLinkParams(true).fail).toEqual([]);
+    expect(devFaultResponse("/api/mobile/home")).toBeNull();
   });
 });

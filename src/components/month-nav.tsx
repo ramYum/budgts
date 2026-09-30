@@ -17,13 +17,13 @@ export function MonthNav({ base, month }: { base: string; month: string }) {
   const step = "px-step press flex h-9 w-9 items-center justify-center text-ink";
 
   return (
-    <div className="flex items-center gap-3">
-      <p className="tnum whitespace-nowrap text-[15px] font-semibold leading-6 text-ink">{label}</p>
+    <div className="flex items-center gap-3" data-testid="month-nav">
+      <p data-testid="month-label" className="tnum whitespace-nowrap text-[15px] font-semibold leading-6 text-ink">{label}</p>
       <div className="flex items-center gap-2">
-        <Link href={`${base}?m=${prev}`} className={step} aria-label="Previous month">
+        <Link href={`${base}?m=${prev}`} className={step} aria-label="Previous month" data-testid="month-prev">
           <Icon name="chevron-left" />
         </Link>
-        <Link href={`${base}?m=${next}`} className={step} aria-label="Next month">
+        <Link href={`${base}?m=${next}`} className={step} aria-label="Next month" data-testid="month-next">
           <Icon name="chevron-right" />
         </Link>
       </div>

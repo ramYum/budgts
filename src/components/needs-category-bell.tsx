@@ -24,6 +24,7 @@ export function NeedsCategoryBell({ count }: { count: number }) {
     <Link
       href={HREF}
       aria-label={label}
+      data-testid="needs-category-bell"
       className="press relative grid h-10 w-10 place-items-center text-ink hover:text-graphite"
     >
       <Icon name="bell" />

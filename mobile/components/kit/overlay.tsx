@@ -48,7 +48,7 @@ export const useSheetFocus = () => useContext(SheetFocus);
  * edge-to-edge window no longer resizes for it) and scrolls the focused
  * field into view, `KEYBOARD_MARGIN` above the keyboard.
  */
-export function Overlay({ title, onClose, children, testID = "overlay" }: { title: string; onClose: () => void; children: ReactNode; testID?: string }) {
+export function Overlay({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   const reduced = useReducedMotion();
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
@@ -82,10 +82,10 @@ export function Overlay({ title, onClose, children, testID = "overlay" }: { titl
     <Modal transparent visible animationType="none" statusBarTranslucent navigationBarTranslucent onRequestClose={onClose}>
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
         <Animated.View style={[{ flex: 1, justifyContent: "flex-end", backgroundColor: SCRIM }, scrimIn]}>
-          <Pressable testID={`${testID}-scrim`} accessibilityLabel="Close" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} onPress={onClose} />
+          <Pressable accessibilityLabel="Close" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} onPress={onClose} />
           <Animated.View style={sheetIn}>
             <PixelFrame
-              testID={testID}
+              testID="sheet"
               frame="px-card-raised"
               accessibilityViewIsModal
               accessibilityLabel={title}
@@ -99,10 +99,10 @@ export function Overlay({ title, onClose, children, testID = "overlay" }: { titl
               >
                 <View ref={content} collapsable={false}>
                   <View style={{ marginBottom: 20, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                    <Text variant="pxFigure" color={ROLE.ink} accessibilityRole="header" style={{ flexShrink: 1 }}>
+                    <Text testID="sheet-title" variant="pxFigure" color={ROLE.ink} accessibilityRole="header" style={{ flexShrink: 1 }}>
                       {title}
                     </Text>
-                    <Pressable testID={`${testID}-close`} accessibilityRole="button" accessibilityLabel="Close" onPress={onClose} hitSlop={4}>
+                    <Pressable testID="sheet-close" accessibilityRole="button" accessibilityLabel="Close" onPress={onClose} hitSlop={4}>
                       {({ pressed }) => (
                         <PixelFrame
                           frame="px-step"

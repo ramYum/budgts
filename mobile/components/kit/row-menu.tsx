@@ -31,7 +31,7 @@ export function menuPosition(anchor: { x: number; y: number; width: number; heig
  * small lifted list of actions (Edit, Archive…) under it. Closes on a pick,
  * on a press anywhere outside it, and on Android's back.
  */
-export function RowMenu({ label, items, testID = "row-menu" }: { label: string; items: RowMenuItem[]; testID?: string }) {
+export function RowMenu({ label, items }: { label: string; items: RowMenuItem[] }) {
   const [at, setAt] = useState<{ top: number; right: number } | null>(null);
   const kebab = useRef<View>(null);
   const window = useWindowDimensions();
@@ -47,7 +47,7 @@ export function RowMenu({ label, items, testID = "row-menu" }: { label: string; 
     <>
       <Pressable
         ref={kebab}
-        testID={testID}
+        testID="row-menu"
         accessibilityRole="button"
         accessibilityLabel={label}
         accessibilityState={{ expanded: at !== null }}
@@ -59,7 +59,7 @@ export function RowMenu({ label, items, testID = "row-menu" }: { label: string; 
       </Pressable>
       {at ? (
         <Modal transparent visible animationType="none" statusBarTranslucent navigationBarTranslucent onRequestClose={close}>
-          <Pressable testID={`${testID}-outside`} accessibilityLabel="Close menu" style={{ flex: 1 }} onPress={close}>
+          <Pressable accessibilityLabel="Close menu" style={{ flex: 1 }} onPress={close}>
             <Animated.View
               style={[
                 { position: "absolute", top: at.top, right: at.right, transformOrigin: "top right" },
@@ -68,11 +68,10 @@ export function RowMenu({ label, items, testID = "row-menu" }: { label: string; 
                   : { animationName: POP_IN, animationDuration: "300ms", animationTimingFunction: steps(3, "jump-end"), animationFillMode: "backwards", ...timing },
               ]}
             >
-              <PixelFrame testID={`${testID}-list`} frame="px-card-raised" accessibilityRole="menu" accessibilityLabel={label} onStartShouldSetResponder={() => true} style={{ minWidth: 176, padding: 4 }}>
+              <PixelFrame frame="px-card-raised" accessibilityRole="menu" accessibilityLabel={label} onStartShouldSetResponder={() => true} style={{ minWidth: 176, padding: 4 }}>
                 {items.map((it) => (
                   <Pressable
                     key={it.label}
-                    testID={`${testID}-${it.label.toLowerCase().replace(/\W+/g, "-")}`}
                     accessibilityRole="menuitem"
                     accessibilityLabel={it.label}
                     accessibilityState={{ disabled: !!it.disabled }}

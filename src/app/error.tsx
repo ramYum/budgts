@@ -12,7 +12,7 @@ import { Button, LinkButton, Stage } from "@/components/ui";
 export default function RouteError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
   return (
     <StandaloneShell>
-      <div className="space-y-6">
+      <div className="space-y-6" data-testid="error-state">
         <Stage>
           <Robin mood="curious" size={88} />
           <span className="h-1 w-16 bg-hairline" aria-hidden />
@@ -24,7 +24,7 @@ export default function RouteError({ reset }: { error: Error & { digest?: string
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
-          <Button onClick={reset} icon="sync" size="lg">
+          <Button onClick={reset} icon="sync" size="lg" data-testid="error-retry">
             Try again
           </Button>
           <LinkButton href="/" variant="secondary" icon="home" size="lg">

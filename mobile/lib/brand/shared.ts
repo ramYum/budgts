@@ -11,3 +11,5 @@ export * from "../../../src/lib/brand/egg-art";
 export * from "../../../src/lib/brand/icons";
 export * from "../../../src/lib/crystal/roam";
 export * from "../../../src/lib/brand/category-icon";
+export * from "../../../src/lib/brand/figure-size";
+export * from "../../../src/lib/brand/test-ids";

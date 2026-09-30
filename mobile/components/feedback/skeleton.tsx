@@ -23,7 +23,7 @@ export const BAND = 0.6;
  * One loading block (web `.skeleton`): the sunken surface with a light sweep
  * crossing it every 1.4s, linear, forever; still with motion off.
  */
-export function Skeleton({ width, height, testID }: { width: DimensionValue; height: number; testID?: string }) {
+export function Skeleton({ width, height }: { width: DimensionValue; height: number }) {
   const reduced = useReducedMotion();
   const [w, setW] = useState(0);
   function measure(e: LayoutChangeEvent) {
@@ -31,7 +31,7 @@ export function Skeleton({ width, height, testID }: { width: DimensionValue; hei
     setW((prev) => (prev === next ? prev : next));
   }
   return (
-    <View testID={testID} onLayout={measure} style={{ width, height, backgroundColor: ROLE.surface2, overflow: "hidden" }}>
+    <View onLayout={measure} style={{ width, height, backgroundColor: ROLE.surface2, overflow: "hidden" }}>
       {w > 0 && !reduced ? (
         <Animated.View
           style={{
@@ -67,9 +67,9 @@ export function Skeleton({ width, height, testID }: { width: DimensionValue; hei
  * card, then a list card of four rows. Shaped like what's coming, so a tap
  * never feels dead.
  */
-export function ScreenSkeleton({ testID = "screen-skeleton" }: { testID?: string }) {
+export function ScreenSkeleton() {
   return (
-    <View testID={testID} accessible accessibilityLabel="Loading…" accessibilityState={{ busy: true }} accessibilityLiveRegion="polite">
+    <View testID="loading-skeleton" accessible accessibilityLabel="Loading…" accessibilityState={{ busy: true }} accessibilityLiveRegion="polite">
       <View style={{ marginBottom: 24, gap: 8 }}>
         <Skeleton width={192} height={24} />
         <Skeleton width={160} height={16} />

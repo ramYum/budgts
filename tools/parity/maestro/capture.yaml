@@ -1,0 +1,12 @@
+# Parity capture of one screen/state: open its deep link (with the dev-only ?fail= / ?hold= / ?clock= params,
+# mobile/lib/dev/fault.ts), wait for the screen root, let motion settle, take the screenshot OUT(.png) in the cwd.
+appId: com.budgts.app
+---
+- openLink: "${LINK}"
+- extendedWaitUntil:
+    visible:
+      id: "screen-root"
+    timeout: 45000
+- waitForAnimationToEnd:
+    timeout: 5000
+- takeScreenshot: "${OUT}"

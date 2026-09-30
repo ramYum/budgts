@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: "Offline" };
 export default function OfflinePage() {
   return (
     <StandaloneShell>
-      <div className="space-y-6">
+      <div className="space-y-6" data-testid="offline-state">
         <Stage>
           <Robin mood="sleepy" size={88} />
           <span className="h-1 w-20 bg-hairline" aria-hidden />

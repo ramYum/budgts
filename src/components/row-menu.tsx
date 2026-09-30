@@ -49,6 +49,7 @@ export function RowMenu({ label, items }: { label: string; items: RowMenuItem[] 
         type="button"
         aria-label={label}
         aria-haspopup="menu"
+        data-testid="row-menu"
         aria-expanded={open}
         aria-controls={open ? id : undefined}
         onClick={() => setOpen((o) => !o)}

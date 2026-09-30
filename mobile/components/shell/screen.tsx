@@ -68,11 +68,12 @@ export function Screen({
             <View style={{ paddingHorizontal: 24 }}>
               <StatusBanners
                 status={status}
-                onFinishDeleting={() => router.push("/delete-account")}
+                onFinishDeleting={() => router.push("/settings/delete-account")}
                 onReview={() => router.push("/settings")}
               />
             </View>
             <Animated.View
+              testID="screen-content"
               style={[
                 { paddingHorizontal: 24, paddingTop: 8 },
                 reduced

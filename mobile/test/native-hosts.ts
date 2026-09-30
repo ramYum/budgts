@@ -22,6 +22,7 @@ export const reactNativeMock = () => ({
   Text: host("Text"),
   TextInput: Object.assign(host("TextInput"), { State: { currentlyFocusedInput: () => null } }),
   Modal: host("Modal"),
+  Linking: { addEventListener: () => ({ remove: () => {} }), getInitialURL: async () => null, openURL: async () => {} },
   KeyboardAvoidingView: host("KeyboardAvoidingView"),
   Keyboard: { addListener: () => ({ remove: () => {} }), dismiss: () => {} },
   Pressable: host("Pressable"),

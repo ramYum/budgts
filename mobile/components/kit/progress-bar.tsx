@@ -35,14 +35,12 @@ export function ProgressBar({
   cells,
   start = 0,
   cellHeight = 8,
-  testID,
 }: {
   pct: number;
   tone?: ProgressTone;
   cells?: number;
   start?: number;
   cellHeight?: number;
-  testID?: string;
 }) {
   const reduced = useReducedMotion();
   const play = usePlay();
@@ -71,7 +69,7 @@ export function ProgressBar({
 
   return (
     <Animated.View
-      testID={testID}
+      testID="progress-bar"
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
       onLayout={fixedWidth ? undefined : measure}
@@ -89,7 +87,6 @@ export function ProgressBar({
     >
       {layout ? (
         <Animated.View
-          testID={testID ? `${testID}-sweep` : undefined}
           style={[
             { height: cellHeight, width: layout.sweepWidth, overflow: "hidden" },
             animate

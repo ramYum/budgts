@@ -7,9 +7,9 @@ appId: com.budgts.app
 - tapOn:
     id: "tab-more"
 - tapOn:
-    id: "more-settings"
+    id: "hub-settings"
 - tapOn:
-    id: "settings-delete-account"
+    id: "hub-settings-delete-account"
 - tapOn:
     id: "delete-confirm"
 - tapOn:

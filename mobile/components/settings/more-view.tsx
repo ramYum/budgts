@@ -13,7 +13,6 @@ import { pressStyle } from "../kit/press";
 function PlayGuide({ onPress }: { onPress: () => void }) {
   return (
     <Pressable
-      testID="more-play-guide"
       accessibilityRole="link"
       accessibilityLabel="Play welcome guide. A one-minute tour with Crystal."
       onPress={onPress}
@@ -48,31 +47,28 @@ function PlayGuide({ onPress }: { onPress: () => void }) {
  */
 export function MoreView({ hub, go }: { hub: MobileHub | null; go: (path: string) => void }) {
   return (
-    <View testID="more-view">
+    <View>
       <PageHeader title="More" />
       <View style={{ gap: 32 }}>
         <PlayGuide onPress={() => go("/tour")} />
 
         <HubSection title="Your money">
-          <HubRow testID="more-goals" label="Savings goals" icon="goals" value={hub ? plural(hub.goals, "goal", "goals") : null} onPress={() => go("/goals")} />
-          <HubRow testID="more-accounts" label="Accounts" icon="accounts" value={hub?.accounts} onPress={() => go("/accounts")} />
-          <HubRow testID="more-insights" label="Insights" icon="insights" onPress={() => go("/insights")} />
+          <HubRow href="/goals" label="Savings goals" icon="goals" value={hub ? plural(hub.goals, "goal", "goals") : null} go={go} />
+          <HubRow href="/accounts" label="Accounts" icon="accounts" value={hub?.accounts} go={go} />
+          <HubRow href="/insights" label="Insights" icon="insights" go={go} />
         </HubSection>
 
         <HubSection title="Banks & settings">
-          <HubRow
-            testID="more-banks"
-            label="Connected banks"
+          <HubRow href="/connected-banks" label="Connected banks"
             icon="bank"
-            value={hub && hub.banks !== null ? plural(hub.banks, "bank", "banks") : null}
-            onPress={() => go("/connected-banks")}
+            value={hub && hub.banks !== null ? plural(hub.banks, "bank", "banks") : null} go={go}
           />
-          <HubRow testID="more-settings" label="Settings" icon="settings" onPress={() => go("/settings")} />
+          <HubRow href="/settings" label="Settings" icon="settings" go={go} />
         </HubSection>
 
         <HubSection title="Help">
-          <HubRow testID="more-help" label="Help" icon="help" onPress={() => go("/help")} />
-          <HubRow testID="more-about" label="About Budgts" icon="about" value="V1" onPress={() => go("/about")} />
+          <HubRow href="/help" label="Help" icon="help" go={go} />
+          <HubRow href="/about" label="About Budgts" icon="about" value="V1" go={go} />
         </HubSection>
 
         <View

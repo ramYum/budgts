@@ -30,6 +30,8 @@ export type ButtonProps = Omit<PressableProps, "children" | "style"> & {
   size?: "md" | "lg";
   /** a leading icon */
   icon?: IconName;
+  /** a trailing icon (a chevron for "show more", a sync for "re-scan"), in the label's colour */
+  iconAfter?: IconName;
   /** a trailing arrow, for "go on" steps */
   arrow?: boolean;
   /** the web's pending state: the disabled frame and a muted label (pass the pending label, e.g. "Sending…"); busy to a screen reader */
@@ -42,6 +44,7 @@ export function Button({
   variant = "primary",
   size = "md",
   icon,
+  iconAfter,
   arrow,
   loading = false,
   disabled,
@@ -86,6 +89,7 @@ export function Button({
             <Text variant="button" color={color} numberOfLines={1}>
               {children}
             </Text>
+            {iconAfter ? <Icon name={iconAfter} color={color} /> : null}
             {arrow && !loading ? <Icon name="forward" color={color} /> : null}
           </PixelFrame>
         );
@@ -156,6 +160,7 @@ export const Field = forwardRef<TextInput, FieldProps>(function Field(
 /** A quiet text action ("Use a different email"), a full 44px touch target. */
 export function TextButton({
   icon,
+  iconAfter,
   children,
   color = ROLE.muted,
   onPress,
@@ -163,6 +168,8 @@ export function TextButton({
   testID,
 }: {
   icon?: IconName;
+  /** a trailing icon ("Show 12 more" ⌄) */
+  iconAfter?: IconName;
   children: string;
   color?: string;
   onPress: () => void;
@@ -193,6 +200,7 @@ export function TextButton({
           <Text variant="body" color={pressed ? ROLE.ink : color}>
             {children}
           </Text>
+          {iconAfter ? <Icon name={iconAfter} color={pressed ? ROLE.ink : color} /> : null}
         </>
       )}
     </Pressable>
@@ -212,6 +220,7 @@ const TILE: Record<TileTone, { frame: string; color: string }> = {
 export function IconTile({ name, tone = "gray", size = SPACE.tile }: { name: IconName; tone?: TileTone; size?: number }) {
   return (
     <PixelFrame
+      testID="icon-tile"
       frame={TILE[tone].frame}
       style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}
     >

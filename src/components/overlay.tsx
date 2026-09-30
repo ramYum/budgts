@@ -47,13 +47,15 @@ export function Overlay({
         role="dialog"
         aria-modal="true"
         aria-label={title}
+        data-testid="sheet"
       >
         <div className="mb-5 flex items-center justify-between gap-3">
-          <h2 className="px-figure text-ink">{title}</h2>
+          <h2 className="px-figure text-ink" data-testid="sheet-title">{title}</h2>
           <button
             type="button"
             onClick={onClose}
             aria-label="Close"
+            data-testid="sheet-close"
             className="px-step press flex h-9 w-9 shrink-0 items-center justify-center text-ink"
           >
             <Icon name="close" />

@@ -61,7 +61,7 @@ export function SpendingTrendCard({
   const signed = (v: number) => `${v > 0 ? "+" : v < 0 ? "−" : ""}${formatMoney(Math.abs(v), currency)}`;
 
   return (
-    <section className="px-card p-2 md:p-4">
+    <section className="px-card p-2 md:p-4" data-testid="spending-trend-card">
       {title ? <h2 className="mb-1 text-sm font-medium leading-5 text-muted">{title}</h2> : null}
       {figure === "change" && delta !== null ? (
         <>
@@ -205,7 +205,7 @@ export function SpendingBreakdownCard({
   const size = GRID * PITCH - (PITCH - DOT);
 
   return (
-    <section className="px-card p-2 md:p-4">
+    <section className="px-card p-2 md:p-4" data-testid="spending-breakdown-card">
       {header}
       <div className={layout === "row" ? "flex flex-col gap-6 sm:flex-row sm:items-center sm:gap-8" : "flex flex-col gap-6"}>
         <div

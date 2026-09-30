@@ -33,7 +33,6 @@ function Notice({
         </Text>
         {` ${body} `}
         <Text
-          testID={`${testID}-link`}
           variant="listName"
           color={ROLE.ink}
           accessibilityRole="link"
@@ -68,7 +67,7 @@ export function StatusBanners({
   const { deletionInProgress, review } = status;
   if (!deletionInProgress && !review.excluded && !review.advisory) return null;
   return (
-    <View testID="status-banners" style={{ paddingTop: 12, gap: 12 }}>
+    <View style={{ paddingTop: 12, gap: 12 }}>
       {deletionInProgress ? (
         <Notice
           testID="deletion-banner"
@@ -83,7 +82,7 @@ export function StatusBanners({
       ) : null}
       {review.excluded ? (
         <Notice
-          testID="review-excluded"
+          testID="review-banner-excluded"
           frame="px-wash"
           iconColor={COLOR.signal}
           lead="Excluded from totals."
@@ -95,7 +94,7 @@ export function StatusBanners({
       ) : null}
       {review.advisory ? (
         <Notice
-          testID="review-advisory"
+          testID="review-banner-advisory"
           frame="px-warn"
           iconColor={ROLE.warn}
           lead="Totals may be inaccurate."

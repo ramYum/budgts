@@ -15,9 +15,9 @@ import { ScreenSkeleton } from "./skeleton";
  * stage; that the data is safe; Try again, or Home. On a signed-in screen the
  * tab bar stays below it, one more way out.
  */
-export function ErrorState({ onRetry, onHome, testID = "error-state" }: { onRetry: () => void; onHome?: () => void; testID?: string }) {
+export function ErrorState({ onRetry, onHome }: { onRetry: () => void; onHome?: () => void }) {
   return (
-    <View testID={testID} accessibilityRole="alert" style={{ gap: 24 }}>
+    <View testID="error-state" accessibilityRole="alert" style={{ gap: 24 }}>
       <Stage>
         <Robin mood="curious" scale={4} />
         <View style={{ height: 4, width: 64, backgroundColor: ROLE.hairline }} />
@@ -31,11 +31,11 @@ export function ErrorState({ onRetry, onHome, testID = "error-state" }: { onRetr
         </Text>
       </View>
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
-        <Button testID={`${testID}-retry`} size="lg" icon="sync" onPress={onRetry}>
+        <Button testID="error-retry" size="lg" icon="sync" onPress={onRetry}>
           Try again
         </Button>
         {onHome ? (
-          <Button testID={`${testID}-home`} variant="secondary" size="lg" icon="home" onPress={onHome}>
+          <Button variant="secondary" size="lg" icon="home" onPress={onHome}>
             Home
           </Button>
         ) : null}
@@ -49,7 +49,7 @@ export function ErrorState({ onRetry, onHome, testID = "error-state" }: { onRetr
  * what happened, one way back. It also tries again by itself the moment the
  * connection returns (a NetInfo event, never a timer).
  */
-export function OfflineState({ onRetry, testID = "offline-state" }: { onRetry: () => void; testID?: string }) {
+export function OfflineState({ onRetry }: { onRetry: () => void }) {
   const retry = useRef(onRetry);
   useEffect(() => {
     retry.current = onRetry;
@@ -68,7 +68,7 @@ export function OfflineState({ onRetry, testID = "offline-state" }: { onRetry: (
     });
   }, []);
   return (
-    <View testID={testID} accessibilityRole="alert" style={{ gap: 24 }}>
+    <View testID="offline-state" accessibilityRole="alert" style={{ gap: 24 }}>
       <Stage>
         <Robin mood="sleepy" scale={4} />
         <View style={{ height: 4, width: 80, backgroundColor: ROLE.hairline }} />
@@ -85,7 +85,7 @@ export function OfflineState({ onRetry, testID = "offline-state" }: { onRetry: (
         </Text>
       </View>
       <View style={{ flexDirection: "row" }}>
-        <Button testID={`${testID}-retry`} size="lg" icon="sync" onPress={onRetry}>
+        <Button size="lg" icon="sync" onPress={onRetry}>
           Try again
         </Button>
       </View>

@@ -22,13 +22,13 @@ describe("Overlay (web overlay.tsx, the bottom sheet)", () => {
     const modal = hosts(r, "Modal")[0]!;
     expect(modal.props).toMatchObject({ transparent: true, animationType: "none" });
     modal.props.onRequestClose();
-    byTestId(r, "overlay-close").props.onPress();
-    byTestId(r, "overlay-scrim").props.onPress();
+    byTestId(r, "sheet-close").props.onPress();
+    hosts(r, "Pressable").find((p) => p.props.accessibilityLabel === "Close" && p.props.testID === undefined)!.props.onPress();
     expect(close).toHaveBeenCalledTimes(3);
     expect(hosts(r, "Animated.View").some((v) => flat(v.props.style).backgroundColor === SCRIM)).toBe(true);
-    expect(byTestId(r, "overlay").props.accessibilityLabel).toBe("New budget");
+    expect(byTestId(r, "sheet").props.accessibilityLabel).toBe("New budget");
     expect(r.root.findAll((n) => n.type === PixelFrame).map((f) => f.props.frame)).toEqual(["px-card-raised", "px-step"]);
-    expect(textContent(byTestId(r, "overlay"))).toContain("New budget");
+    expect(textContent(byTestId(r, "sheet"))).toContain("New budget");
   });
 
   it("pads above the keyboard on both platforms and keeps the home indicator clear", () => {
@@ -83,9 +83,9 @@ describe("Overlay (web overlay.tsx, the bottom sheet)", () => {
 
 describe("RowMenu (web row-menu.tsx)", () => {
   it("is a 40px kebab button named for its row", () => {
-    const r = render(<RowMenu testID="m" label="Actions for Rent" items={[{ label: "Edit", icon: "edit", onSelect: () => {} }]} />);
-    expect(byTestId(r, "m").props).toMatchObject({ accessibilityRole: "button", accessibilityLabel: "Actions for Rent" });
-    expect(flat(byTestId(r, "m").props.style({ pressed: false }))).toMatchObject({ width: 40, height: 40 });
+    const r = render(<RowMenu label="Actions for Rent" items={[{ label: "Edit", icon: "edit", onSelect: () => {} }]} />);
+    expect(byTestId(r, "row-menu").props).toMatchObject({ accessibilityRole: "button", accessibilityLabel: "Actions for Rent" });
+    expect(flat(byTestId(r, "row-menu").props.style({ pressed: false }))).toMatchObject({ width: 40, height: 40 });
   });
 
   it("opens under the kebab, right-aligned to it, inside the screen", () => {
@@ -101,25 +101,25 @@ describe("Select", () => {
   ];
 
   it("shows the label above a 44px field with the chosen option and a chevron", () => {
-    const r = render(<Select testID="type" label="Type" value="savings" options={options} onChange={() => {}} />);
+    const r = render(<Select label="Type" value="savings" options={options} onChange={() => {}} />);
     expect(texts(r)).toEqual(["Type", "Savings"]);
-    expect(byTestId(r, "type").props.accessibilityLabel).toBe("Type, Savings");
+    expect(hosts(r, "Pressable")[0]!.props.accessibilityLabel).toBe("Type, Savings");
     expect(r.root.findAll((n) => n.type === PixelFrame)[0]!.props.frame).toBe("px-field");
   });
 
   it("opens a sheet of the options, the chosen one ticked; a pick closes it", () => {
     const pick = vi.fn();
-    const r = render(<Select testID="type" label="Type" value="checking" options={options} onChange={pick} />);
-    act(() => byTestId(r, "type").props.onPress());
-    expect(byTestId(r, "type-option-checking").props.accessibilityState).toEqual({ selected: true });
-    act(() => byTestId(r, "type-option-savings").props.onPress());
+    const r = render(<Select label="Type" value="checking" options={options} onChange={pick} />);
+    act(() => hosts(r, "Pressable")[0]!.props.onPress());
+    expect(hosts(r, "Pressable").find((p) => p.props.accessibilityLabel === "Checking")!.props.accessibilityState).toEqual({ selected: true });
+    act(() => hosts(r, "Pressable").find((p) => p.props.accessibilityLabel === "Savings")!.props.onPress());
     expect(pick).toHaveBeenCalledWith("savings");
-    expect(r.root.findAll((n) => n.props.testID === "type-sheet")).toHaveLength(0);
+    expect(r.root.findAll((n) => n.props.testID === "sheet")).toHaveLength(0);
   });
 
   it("shows the placeholder in the web's placeholder grey when nothing is chosen, and red when invalid", () => {
-    const r = render(<Select testID="t" label="Account" value={null} options={options} onChange={() => {}} invalid />);
-    expect(textContent(byTestId(r, "t"))).toContain("Choose…");
+    const r = render(<Select label="Account" value={null} options={options} onChange={() => {}} invalid />);
+    expect(textContent(hosts(r, "Pressable")[0]!)).toContain("Choose…");
     expect(r.root.findAll((n) => n.type === PixelFrame)[0]!.props.state).toBe("[data-invalid='true']");
     void COLOR;
     void ROLE;

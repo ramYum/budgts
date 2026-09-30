@@ -5,7 +5,7 @@ import { useSyncExternalStore } from "react";
  * "home")`; every list that shows that data reads `useVersion(topic)` as part of its fetch key and so reloads on its own — no
  * screen has to know who else displays the data, and nothing is left stale after a save.
  */
-export type Topic = "transactions" | "budgets" | "accounts" | "home";
+export type Topic = "transactions" | "budgets" | "accounts" | "home" | "goals";
 
 const versions = new Map<Topic, number>();
 const listeners = new Set<() => void>();

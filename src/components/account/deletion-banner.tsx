@@ -21,7 +21,7 @@ export function DeletionNotice() {
   return (
     // the pages' own column, like the review banner
     <div className="mx-auto w-full max-w-[1136px] px-6 pt-3 md:px-12 md:pt-8">
-      <div className="px-wash flex items-start gap-3 p-3 text-[15px] leading-6 text-ink md:p-4" role="status">
+      <div className="px-wash flex items-start gap-3 p-3 text-[15px] leading-6 text-ink md:p-4" role="status" data-testid="deletion-banner">
         <Icon name="warning" className="text-signal" />
         <p className="text-pretty">
           <span className="font-semibold text-signal-ink">Your account is being deleted.</span> It&apos;s read-only, so

@@ -57,7 +57,7 @@ export function PixelFrame({ frame, state = "", raise = false, style, children, 
           accessibilityElementsHidden
           importantForAccessibility="no-hide-descendants"
         >
-          <Svg width="100%" height="100%" testID={rest.testID ? `${rest.testID}-frame` : undefined}>
+          <Svg width="100%" height="100%">
             {raise ? (
               <Path d={[paths.fill, paths.line].filter(Boolean).join("")} fill={RAISE.color} transform={`translate(0 ${RAISE.y})`} />
             ) : null}

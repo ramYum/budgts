@@ -35,7 +35,6 @@ export function PageHeader({
   month,
   action,
   children,
-  testID = "page-header",
 }: {
   title: string;
   subtitle?: string;
@@ -43,28 +42,27 @@ export function PageHeader({
   month?: ReactNode;
   action?: ReactNode;
   children?: ReactNode;
-  testID?: string;
 }) {
   return (
-    <View testID={testID} style={{ marginBottom: 20 }}>
+    <View testID="page-header" style={{ marginBottom: 20 }}>
       <View style={{ gap: 16 }}>
         <View style={{ flexDirection: "row", alignItems: "center", columnGap: 8 }}>
           <View style={{ flex: 1, minWidth: 0, minHeight: 40, flexDirection: "row", alignItems: "center", gap: 8 }}>
             {onBack ? <BackButton onPress={onBack} /> : null}
             <View style={{ flexShrink: 1, minWidth: 0 }}>
-              <Text testID={`${testID}-title`} variant="pxTitle" color={ROLE.ink} accessibilityRole="header">
+              <Text testID="page-title" variant="pxTitle" color={ROLE.ink} accessibilityRole="header">
                 {title}
               </Text>
               {subtitle ? (
-                <Text variant="body" color={ROLE.muted} style={{ marginTop: 4, lineHeight: 20 }}>
+                <Text testID="page-subtitle" variant="body" color={ROLE.muted} style={{ marginTop: 4, lineHeight: 20 }}>
                   {subtitle}
                 </Text>
               ) : null}
             </View>
           </View>
-          {action ? <View>{action}</View> : null}
+          {action ? <View testID="page-action">{action}</View> : null}
         </View>
-        {month ? <View>{month}</View> : null}
+        {month ? <View testID="page-month">{month}</View> : null}
       </View>
       {children}
     </View>

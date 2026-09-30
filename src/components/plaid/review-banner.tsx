@@ -29,7 +29,7 @@ export async function ReviewBanner() {
     // the pages' own column, so the warning lines up with what it qualifies
     <div className="mx-auto w-full max-w-[1136px] space-y-3 px-6 pt-3 md:px-12 md:pt-8">
       {excluded ? (
-        <div className="px-wash flex items-start gap-3 p-3 text-[15px] leading-6 text-ink md:p-4">
+        <div className="px-wash flex items-start gap-3 p-3 text-[15px] leading-6 text-ink md:p-4" data-testid="review-banner-excluded">
           <Icon name="warning" className="text-signal" />
           <p>
             <span className="font-semibold text-signal-ink">Excluded from totals.</span> {excluded}{" "}
@@ -41,7 +41,7 @@ export async function ReviewBanner() {
         </div>
       ) : null}
       {advisory ? (
-        <div className="px-warn flex items-start gap-3 p-3 text-[15px] leading-6 text-ink md:p-4">
+        <div className="px-warn flex items-start gap-3 p-3 text-[15px] leading-6 text-ink md:p-4" data-testid="review-banner-advisory">
           <Icon name="warning" className="text-warn" />
           <p>
             <span className="font-semibold">Totals may be inaccurate.</span> {advisory}{" "}

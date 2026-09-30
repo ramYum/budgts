@@ -34,41 +34,38 @@ export function SettingsView({
   onSignOut: () => void;
 }) {
   return (
-    <View testID="settings-view">
+    <View>
       <PageHeader title="Settings" onBack={onBack} />
       <View style={{ gap: 32 }}>
         <HubSection title="Your account">
-          <HubRow testID="settings-profile" label="Profile" icon="profile" value={email} onPress={() => go("/settings/profile")} />
-          <HubRow testID="settings-security" label="Security" icon="security" onPress={() => go("/settings/security")} />
-          <HubRow testID="settings-delete-account" label="Delete account" icon="user-x" onPress={() => go("/delete-account")} />
+          <HubRow href="/settings/profile" label="Profile" icon="profile" value={email} go={go} />
+          <HubRow href="/settings/security" label="Security" icon="security" go={go} />
+          <HubRow href="/settings/delete-account" label="Delete account" icon="user-x" go={go} />
         </HubSection>
 
         <HubSection title="Your money">
-          <HubRow testID="settings-categories" label="Categories" icon="categories" value={hub?.categories} onPress={() => go("/settings/categories")} />
-          <HubRow testID="settings-budgets" label="Budgets" icon="budgets" value={hub ? `${hub.budgets} set` : null} onPress={() => go("/budgets")} />
-          <HubRow testID="settings-goals" label="Savings goals" icon="goals" value={hub?.goals} onPress={() => go("/goals")} />
+          <HubRow href="/settings/categories" label="Categories" icon="categories" value={hub?.categories} go={go} />
+          <HubRow href="/budgets" label="Budgets" icon="budgets" value={hub ? `${hub.budgets} set` : null} go={go} />
+          <HubRow href="/goals" label="Savings goals" icon="goals" value={hub?.goals} go={go} />
         </HubSection>
 
         <HubSection title="Connected banks">
-          <HubRow
-            testID="settings-connected-banks"
-            label="Connected banks"
+          <HubRow href="/connected-banks" label="Connected banks"
             icon="bank"
-            value={hub && hub.banks !== null ? plural(hub.banks, "bank", "banks") : null}
-            onPress={() => go("/connected-banks")}
+            value={hub && hub.banks !== null ? plural(hub.banks, "bank", "banks") : null} go={go}
           />
-          <HubRow testID="settings-accounts" label="Manage accounts" icon="accounts" value={hub?.accounts} onPress={() => go("/accounts")} />
+          <HubRow href="/accounts" label="Manage accounts" icon="accounts" value={hub?.accounts} go={go} />
         </HubSection>
 
         <HubSection title="App">
-          <HubRow testID="settings-appearance" label="Appearance" icon="appearance" value="Light" onPress={() => go("/settings/appearance")} />
-          <HubRow testID="settings-help" label="Help" icon="help" onPress={() => go("/help")} />
-          <HubRow testID="settings-about" label="About Budgts" icon="about" value="V1" onPress={() => go("/about")} />
+          <HubRow href="/settings/appearance" label="Appearance" icon="appearance" value="Light" go={go} />
+          <HubRow href="/help" label="Help" icon="help" go={go} />
+          <HubRow href="/about" label="About Budgts" icon="about" value="V1" go={go} />
         </HubSection>
 
         <View style={{ gap: 12 }}>
           <SectionHead title="Data" />
-          <PixelFrame testID="settings-export" frame="px-card" style={{ flexDirection: "row", alignItems: "center", gap: 12, padding: 12 }}>
+          <PixelFrame frame="px-card" style={{ flexDirection: "row", alignItems: "center", gap: 12, padding: 12 }}>
             <IconTile name="download" />
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text variant="listName" color={ROLE.ink}>
@@ -78,18 +75,18 @@ export function SettingsView({
                 All of them, as a CSV file.
               </Text>
             </View>
-            <Button testID="settings-export-button" variant="secondary" icon="download" loading={exporting} onPress={onExport}>
+            <Button variant="secondary" icon="download" loading={exporting} onPress={onExport}>
               Export
             </Button>
           </PixelFrame>
           {exportError ? (
-            <Text testID="settings-export-error" variant="meta" color={COLOR.signalInk} accessibilityRole="alert">
+            <Text variant="meta" color={COLOR.signalInk} accessibilityRole="alert">
               {exportError}
             </Text>
           ) : null}
         </View>
 
-        <Button testID="settings-sign-out" variant="danger" size="lg" icon="sign-out" onPress={onSignOut}>
+        <Button variant="danger" size="lg" icon="sign-out" onPress={onSignOut}>
           Sign out
         </Button>
       </View>

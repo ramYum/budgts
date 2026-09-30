@@ -1,13 +1,11 @@
 import { useCallback, useEffect, useRef } from "react";
-import { Stack, useGlobalSearchParams } from "expo-router";
+import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
 import { LoadingScreenProvider } from "../components/loading-screen";
 import { AuthProvider, useAuth } from "../lib/auth/auth-context";
 import { FONT_SOURCES } from "../lib/brand/fonts";
-import { setDevFaults } from "../lib/dev/fault";
-import { ParityClockProvider, parseClockParam } from "../lib/motion/parity-clock";
 import { ROLE } from "../lib/brand/shared";
 import { registerSupabaseAutoRefresh } from "../lib/supabase/auto-refresh";
 
@@ -21,12 +19,6 @@ SplashScreen.setOptions({ fade: true, duration: 200 });
 
 function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
   const { session, loading } = useAuth();
-  // Development builds: `?clock=<ms>` freezes motion for parity captures (lib/motion/parity-clock.tsx).
-  const { clock, fail, hold } = useGlobalSearchParams<{ clock?: string; fail?: string; hold?: string }>();
-  // Development builds: `?fail=` / `?hold=` fault one endpoint for parity captures (lib/dev/fault.ts).
-  useEffect(() => {
-    if (__DEV__) setDevFaults({ fail, hold });
-  }, [fail, hold]);
   const ready = fontsReady && !loading;
 
   const splashHidden = useRef(false);
@@ -41,7 +33,6 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
   // nor of a system font.
   return (
     <LoadingScreenProvider loading={!ready} onLayout={hideSplash}>
-      <ParityClockProvider frozenAtMs={__DEV__ ? parseClockParam(clock) : null}>
       {ready ? (
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: ROLE.bg } }}>
           <Stack.Protected guard={!session}>
@@ -57,7 +48,6 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
           </Stack.Protected>
         </Stack>
       ) : null}
-      </ParityClockProvider>
     </LoadingScreenProvider>
   );
 }

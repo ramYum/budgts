@@ -12,9 +12,9 @@ appId: com.budgts.app
 - tapOn:
     id: "tab-more"
 - tapOn:
-    id: "more-settings"
+    id: "hub-settings"
 - tapOn:
-    id: "settings-connected-banks"
+    id: "hub-connected-banks"
 - tapOn:
     id: "connect-bank"
 - assertVisible:

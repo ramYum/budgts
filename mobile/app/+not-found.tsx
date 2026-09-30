@@ -39,10 +39,10 @@ export default function NotFoundScreen() {
           </Text>
         </View>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
-          <Button testID="not-found-home" size="lg" icon="home" onPress={() => router.replace("/")}>
+          <Button size="lg" icon="home" onPress={() => router.replace("/")}>
             Go to Home
           </Button>
-          <Button testID="not-found-help" variant="secondary" size="lg" icon="help" onPress={() => router.replace("/help")}>
+          <Button variant="secondary" size="lg" icon="help" onPress={() => router.replace("/help")}>
             Get help
           </Button>
         </View>

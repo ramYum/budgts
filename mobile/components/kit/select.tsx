@@ -23,7 +23,6 @@ export function Select<T extends string>({
   placeholder = "Choose…",
   invalid = false,
   disabled = false,
-  testID = "select",
 }: {
   label: string;
   value: T | null;
@@ -32,7 +31,6 @@ export function Select<T extends string>({
   placeholder?: string;
   invalid?: boolean;
   disabled?: boolean;
-  testID?: string;
 }) {
   const [open, setOpen] = useState(false);
   const field = useRef<View>(null);
@@ -47,7 +45,6 @@ export function Select<T extends string>({
       </Text>
       <Pressable
         ref={field}
-        testID={testID}
         accessibilityRole="button"
         accessibilityLabel={`${label}, ${chosen?.label ?? placeholder}`}
         accessibilityState={{ disabled, expanded: open }}
@@ -71,14 +68,13 @@ export function Select<T extends string>({
         )}
       </Pressable>
       {open ? (
-        <Overlay title={label} onClose={() => setOpen(false)} testID={`${testID}-sheet`}>
+        <Overlay title={label} onClose={() => setOpen(false)}>
           <View accessibilityRole="radiogroup" accessibilityLabel={label}>
             {options.map((o) => {
               const on = o.value === value;
               return (
                 <Pressable
                   key={o.value}
-                  testID={`${testID}-option-${o.value}`}
                   accessibilityRole="radio"
                   accessibilityState={{ selected: on }}
                   accessibilityLabel={o.label}

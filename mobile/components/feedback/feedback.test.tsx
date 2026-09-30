@@ -21,9 +21,9 @@ const emit = (isConnected: boolean) => act(() => net.listeners.forEach((l) => l(
 
 describe("Skeleton (web .skeleton)", () => {
   it("is the sunken surface with a #e8e8e8 band sweeping across every 1.4s, forever", () => {
-    const r = render(<Skeleton testID="sk" width={100} height={16} />);
-    expect(flat(byTestId(r, "sk").props.style)).toMatchObject({ width: 100, height: 16, backgroundColor: ROLE.surface2, overflow: "hidden" });
-    act(() => byTestId(r, "sk").props.onLayout({ nativeEvent: { layout: { width: 100, height: 16 } } }));
+    const r = render(<Skeleton width={100} height={16} />);
+    expect(flat(hosts(r, "View")[0]!.props.style)).toMatchObject({ width: 100, height: 16, backgroundColor: ROLE.surface2, overflow: "hidden" });
+    act(() => hosts(r, "View")[0]!.props.onLayout({ nativeEvent: { layout: { width: 100, height: 16 } } }));
     const band = flat(hosts(r, "Animated.View")[0]!.props.style);
     expect(band).toMatchObject({ width: 60, animationDuration: "1400ms", animationIterationCount: "infinite", animationTimingFunction: "linear" });
     expect(band.animationName).toEqual({ from: { transform: [{ translateX: -80 }] }, to: { transform: [{ translateX: 120 }] } });
@@ -33,8 +33,8 @@ describe("Skeleton (web .skeleton)", () => {
   it("holds still with motion off", () => {
     reducedMotion.value = true;
     try {
-      const r = render(<Skeleton testID="sk" width={100} height={16} />);
-      act(() => byTestId(r, "sk").props.onLayout({ nativeEvent: { layout: { width: 100, height: 16 } } }));
+      const r = render(<Skeleton width={100} height={16} />);
+      act(() => hosts(r, "View")[0]!.props.onLayout({ nativeEvent: { layout: { width: 100, height: 16 } } }));
       expect(hosts(r, "Animated.View")).toHaveLength(0);
     } finally {
       reducedMotion.value = false;
@@ -43,7 +43,7 @@ describe("Skeleton (web .skeleton)", () => {
 
   it("the screen skeleton is the web's loading.tsx on a phone: title, lead card, four rows, busy to a screen reader", () => {
     const r = render(<ScreenSkeleton />);
-    expect(byTestId(r, "screen-skeleton").props).toMatchObject({ accessibilityLabel: "Loading…", accessibilityState: { busy: true } });
+    expect(byTestId(r, "loading-skeleton").props).toMatchObject({ accessibilityLabel: "Loading…", accessibilityState: { busy: true } });
     const sizes = r.root.findAll((n) => n.type === Skeleton).map((s) => [s.props.width, s.props.height]);
     expect(sizes.slice(0, 5)).toEqual([
       [192, 24],
@@ -64,8 +64,8 @@ describe("ErrorState / OfflineState (web error.tsx, offline/page.tsx)", () => {
     const all = textContent(byTestId(r, "error-state"));
     for (const t of ["Something went wrong", "Your data is safe.", "Try again", "Home"]) expect(all).toContain(t);
     expect(r.root.findByType(Robin).props.mood).toBe("curious");
-    byTestId(r, "error-state-retry").props.onPress();
-    byTestId(r, "error-state-home").props.onPress();
+    byTestId(r, "error-retry").props.onPress();
+    hosts(r, "Pressable").find((p) => p.props.accessibilityLabel === "Home")!.props.onPress();
     expect([retry.mock.calls.length, home.mock.calls.length]).toEqual([1, 1]);
   });
 

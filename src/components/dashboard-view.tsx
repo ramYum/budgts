@@ -420,13 +420,13 @@ export function DashboardView({
             savingsRate={tiles.savingsRate}
             className="absolute inset-x-4 bottom-[calc(100%-2px)] md:inset-x-10"
           />
-          <div className="px-card-raised p-2 md:p-6">
+          <div className="px-card-raised p-2 md:p-6" data-testid="money-left-card">
             <div className="flex flex-col gap-5 md:flex-row md:gap-10">
               <div className="min-w-0 flex-1">
                 <h2 id="home-money-left" className="text-sm font-medium leading-5 text-muted">
                   Money left
                 </h2>
-                <p className={`${figureSize(moneyLeft)} tnum mt-3 ${negative ? "text-neg" : "text-ink"}`}>
+                <p className={`${figureSize(moneyLeft)} tnum mt-3 ${negative ? "text-neg" : "text-ink"}`} data-testid="money-left-figure">
                   <RollingAmount value={tiles.netSavings} currency={currency} />
                 </p>
                 <p

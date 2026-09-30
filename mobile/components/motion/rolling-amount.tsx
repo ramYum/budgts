@@ -82,13 +82,11 @@ export function RollingAmount({
   currency,
   variant = "tNumXl",
   color = ROLE.ink,
-  testID,
 }: {
   value: number;
   currency: string;
   variant?: TypeRoleName;
   color?: string;
-  testID?: string;
 }) {
   const reduced = useReducedMotion();
   const play = usePlay() && !reduced;
@@ -97,7 +95,7 @@ export function RollingAmount({
 
   if (reduced) {
     return (
-      <Text testID={testID} variant={variant} color={color} style={{ fontVariant: ["tabular-nums"] }}>
+      <Text testID="rolling-amount" variant={variant} color={color} style={{ fontVariant: ["tabular-nums"] }}>
         {text}
       </Text>
     );
@@ -106,7 +104,7 @@ export function RollingAmount({
   const digitCount = chars.filter(isDigit).length;
   let seen = 0;
   return (
-    <View testID={testID} accessible accessibilityRole="text" accessibilityLabel={text} style={{ flexDirection: "row", alignItems: "flex-start" }}>
+    <View testID="rolling-amount" accessible accessibilityRole="text" accessibilityLabel={text} style={{ flexDirection: "row", alignItems: "flex-start" }}>
       {chars.map((ch, i) => {
         const key = chars.length - 1 - i;
         if (!isDigit(ch)) {

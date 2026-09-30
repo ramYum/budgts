@@ -67,7 +67,7 @@ export function AppHeader({
   return (
     <View testID="app-header" style={{ paddingTop: insets.top, backgroundColor: translucent ? HEADER_TRANSLUCENT_BG : ROLE.bg }}>
       <View style={{ height: HEADER_HEIGHT, paddingHorizontal: 24, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-        <Pressable testID="header-home" accessibilityRole="link" accessibilityLabel="Budgts home" onPress={onHome} style={({ pressed }) => pressStyle(pressed)}>
+        <Pressable testID="app-logo" accessibilityRole="link" accessibilityLabel="Budgts home" onPress={onHome} style={({ pressed }) => pressStyle(pressed)}>
           <Logo size={22} />
         </Pressable>
         {needsCategoryCount !== null ? <NeedsCategoryBell count={needsCategoryCount} onPress={onBell} /> : null}

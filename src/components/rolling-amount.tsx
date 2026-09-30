@@ -28,7 +28,7 @@ export function RollingAmount({ value, currency }: { value: number; currency: st
   let seen = 0;
 
   return (
-    <span className="roll">
+    <span className="roll" data-testid="rolling-amount">
       <span className="sr-only">{text}</span>
       <span aria-hidden>
         {chars.map((ch, i) => {

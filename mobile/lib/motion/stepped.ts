@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useFrameCallback, useSharedValue, type FrameInfo, type SharedValue } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
+import { parityClockMs } from "./parity-clock";
 
 /**
  * Sprite timing for the apps' motion: the web's `steps()` animations
@@ -40,6 +41,8 @@ export function stepAt(elapsedMs: number, { stepMs, intro, loop }: SteppedTimeli
  */
 export function useSteppedClock(timeline: SteppedTimeline, running: boolean): SharedValue<number> {
   const { stepMs, intro, loop } = timeline;
+  // A parity capture's frozen frame (dev builds only; null otherwise): show the step at that ms, run no clock.
+  const pinned = running ? parityClockMs() : null;
   const step = useSharedValue(0);
   const start = useSharedValue(-1);
   const told = useSharedValue(false); // a one-shot's end reported to React, once
@@ -63,12 +66,12 @@ export function useSteppedClock(timeline: SteppedTimeline, running: boolean): Sh
   // A new timeline, or the clock switched on again, starts from the top.
   useEffect(() => {
     start.value = -1;
-    step.value = 0;
+    step.value = pinned === null ? 0 : stepAt(pinned, { stepMs, intro, loop });
     told.value = false;
     setPlayed(false);
-  }, [stepMs, intro, loop, running, start, step, told]);
+  }, [stepMs, intro, loop, running, pinned, start, step, told]);
 
-  const active = running && !played;
+  const active = running && !played && pinned === null;
   useEffect(() => {
     clock.setActive(active);
     return () => clock.setActive(false);

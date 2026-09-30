@@ -15,7 +15,7 @@ import { Badge } from "./tiles";
 
 describe("HubRow / HubSection (web hub-list.tsx)", () => {
   it("is the web row: 32px tile, 16px gap, 8px vertical padding, 15/24 medium label, 13/20 muted value", () => {
-    const r = render(<HubRow testID="hub-goals" label="Savings goals" icon="goals" value="2 goals" onPress={() => {}} />);
+    const r = render(<HubRow href="/goals" label="Savings goals" icon="goals" value="2 goals" go={() => {}} />);
     const row = byTestId(r, "hub-goals");
     expect(row.props.accessibilityLabel).toBe("Savings goals, 2 goals");
     expect(flat(row.props.style({ pressed: false }))).toMatchObject({ flexDirection: "row", columnGap: 16, paddingVertical: 8 });
@@ -26,15 +26,15 @@ describe("HubRow / HubSection (web hub-list.tsx)", () => {
   });
 
   it("presses feel like the web's .press (0.98)", () => {
-    const r = render(<HubRow testID="row" label="Help" icon="help" onPress={() => {}} />);
-    expect(flat(byTestId(r, "row").props.style({ pressed: true })).transform).toEqual([{ scale: 0.98 }]);
+    const r = render(<HubRow href="/help" label="Help" icon="help" go={() => {}} />);
+    expect(flat(byTestId(r, "hub-help").props.style({ pressed: true })).transform).toEqual([{ scale: 0.98 }]);
   });
 
   it("a section is its heading, then one px-card whose rows are divided by 1px rules", () => {
     const r = render(
       <HubSection title="Your money">
-        <HubRow label="Savings goals" icon="goals" onPress={() => {}} />
-        <HubRow label="Accounts" icon="accounts" onPress={() => {}} />
+        <HubRow href="/goals" label="Savings goals" icon="goals" go={() => {}} />
+        <HubRow href="/accounts" label="Accounts" icon="accounts" go={() => {}} />
       </HubSection>,
     );
     expect(texts(r)).toContain("Your money");
@@ -51,7 +51,7 @@ describe("PageHeader (web page-header.tsx)", () => {
   it("sets the title in the pixel title role, with a back arrow only when there is somewhere to go back to", () => {
     const back = vi.fn();
     const r = render(<PageHeader title="Settings" onBack={back} />);
-    expect(flat(byTestId(r, "page-header-title").props.style)).toMatchObject(textStyle("pxTitle"));
+    expect(flat(byTestId(r, "page-title").props.style)).toMatchObject(textStyle("pxTitle"));
     byTestId(r, "page-back").props.onPress();
     expect(back).toHaveBeenCalled();
     expect(render(<PageHeader title="More" />).root.findAll((n) => n.props.testID === "page-back")).toHaveLength(0);
@@ -62,9 +62,9 @@ describe("PageHeader (web page-header.tsx)", () => {
 describe("SectionHead", () => {
   it("heads a section in t-head ink and links on the right", () => {
     const go = vi.fn();
-    const r = render(<SectionHead testID="sh" title="Recent activity" action="See all" onAction={go} />);
+    const r = render(<SectionHead title="Recent activity" action="See all" onAction={go} />);
     expect(texts(r)).toEqual(["Recent activity", "See all"]);
-    byTestId(r, "sh-action").props.onPress();
+    byTestId(r, "section-link").props.onPress();
     expect(go).toHaveBeenCalled();
   });
 });
@@ -84,8 +84,8 @@ describe("SegmentedControl", () => {
     );
     const frames = r.root.findAll((n) => n.type === PixelFrame);
     expect(frames.map((f) => f.props.state)).toEqual(["[aria-pressed='true']", ""]);
-    expect(byTestId(r, "segmented-month").props.accessibilityState).toEqual({ selected: true });
-    byTestId(r, "segmented-all").props.onPress();
+    expect(byTestId(r, "segment-month").props.accessibilityState).toEqual({ selected: true });
+    byTestId(r, "segment-all").props.onPress();
     expect(pick).toHaveBeenCalledWith("all");
   });
 });
@@ -95,26 +95,26 @@ describe("MonthNav", () => {
     const go = vi.fn();
     const r = render(<MonthNav month="2026-01" onChange={go} />);
     expect(texts(r)).toContain("January 2026");
-    byTestId(r, "month-nav-prev").props.onPress();
-    byTestId(r, "month-nav-next").props.onPress();
+    byTestId(r, "month-prev").props.onPress();
+    byTestId(r, "month-next").props.onPress();
     expect(go.mock.calls).toEqual([["2025-12"], ["2026-02"]]);
   });
 });
 
 describe("Badge, EmptyState, Stage dots", () => {
   it("a badge is 24px tall in 12px semibold on its tone's frame", () => {
-    const r = render(<Badge testID="b" tone="growth">Connected</Badge>);
-    const frame = byTestId(r, "b");
+    const r = render(<Badge tone="growth">Connected</Badge>);
+    const frame = byTestId(r, "badge");
     expect(flat(frame.props.style)).toMatchObject({ height: 24, paddingHorizontal: 6 });
     expect(r.root.findByType(PixelFrame).props.frame).toBe("px-badge-growth");
   });
 
   it("an empty state says what is missing and offers one action", () => {
     const r = render(
-      <EmptyState testID="e" icon="goals" title="No goals yet" body="Set one up." action={<Button onPress={() => {}}>Add goal</Button>} />,
+      <EmptyState icon="goals" title="No goals yet" body="Set one up." action={<Button onPress={() => {}}>Add goal</Button>} />,
     );
     expect(texts(r)).toEqual(["No goals yet", "Set one up.", "Add goal"]);
-    expect(flat(byTestId(r, "e").props.style)).toMatchObject({ padding: 16, gap: 8 });
+    expect(flat(byTestId(r, "empty-state").props.style)).toMatchObject({ padding: 16, gap: 8 });
   });
 
   it("draws the web's 2px dot grid on whole device pixels", () => {

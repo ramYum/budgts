@@ -26,7 +26,7 @@ export function dotsPath(width: number, height: number, ratio: number): string {
 }
 
 /** An illustration stage (web `Stage`): a white card on a grid of 2px dots, its content centred. */
-export function Stage({ children, testID }: { children: ReactNode; testID?: string }) {
+export function Stage({ children }: { children: ReactNode }) {
   const [size, setSize] = useState<{ width: number; height: number } | null>(null);
   const ratio = PixelRatio.get();
   const d = useMemo(() => (size ? dotsPath(size.width, size.height, ratio) : ""), [size, ratio]);
@@ -35,7 +35,7 @@ export function Stage({ children, testID }: { children: ReactNode; testID?: stri
     setSize((prev) => (prev && prev.width === width && prev.height === height ? prev : { width, height }));
   }
   return (
-    <PixelFrame testID={testID} frame="px-card">
+    <PixelFrame testID="stage" frame="px-card">
       <View onLayout={measure} style={{ alignItems: "center", justifyContent: "center", gap: 12, paddingHorizontal: 16, paddingVertical: 40 }}>
         {d ? (
           <View pointerEvents="none" style={{ position: "absolute", left: 0, top: 0, right: 0, bottom: 0 }}>
@@ -56,22 +56,20 @@ export function EmptyState({
   body,
   action,
   icon,
-  testID,
 }: {
   title: string;
   body?: string;
   action?: ReactNode;
   icon?: IconName;
-  testID?: string;
 }) {
   return (
-    <PixelFrame testID={testID} frame="px-card" style={{ alignItems: "flex-start", gap: 8, padding: 16 }}>
+    <PixelFrame testID="empty-state" frame="px-card" style={{ alignItems: "flex-start", gap: 8, padding: 16 }}>
       {icon ? (
         <View style={{ marginBottom: 8 }}>
           <IconTile name={icon} />
         </View>
       ) : null}
-      <Text variant="listName" color={ROLE.ink}>
+      <Text testID="empty-state-title" variant="listName" color={ROLE.ink}>
         {title}
       </Text>
       {body ? (

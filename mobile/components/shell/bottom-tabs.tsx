@@ -1,7 +1,7 @@
 import { Pressable, View } from "react-native";
 import Animated, { steps, useReducedMotion } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { COLOR, ROLE, type IconName } from "../../lib/brand/shared";
+import { COLOR, ROLE, tabTestId, type IconName } from "../../lib/brand/shared";
 import { useMotionTiming } from "../../lib/motion/parity-clock";
 import { Icon } from "../brand/icon";
 import { Text } from "../brand/text";
@@ -63,7 +63,7 @@ export function BottomTabs({ active, onSelect }: { active: TabRoute; onSelect: (
   const insets = useSafeAreaInsets();
   return (
     <View
-      testID="bottom-tabs"
+      testID="bottom-nav"
       accessibilityRole="tablist"
       style={{
         flexDirection: "row",
@@ -78,7 +78,7 @@ export function BottomTabs({ active, onSelect }: { active: TabRoute; onSelect: (
         return (
           <Pressable
             key={tab.route}
-            testID={`tab-${tab.label.toLowerCase()}`}
+            testID={tabTestId(tab.label)}
             accessibilityRole="tab"
             accessibilityLabel={tab.label}
             accessibilityState={{ selected: on }}

@@ -14,9 +14,9 @@ function layoutTo(r: ReturnType<typeof render>, testID: string, width: number) {
 
 describe("ProgressBar (web .px-bar)", () => {
   it("draws the fitted cells once measured: the track, then the lit cells in the tone's fill", () => {
-    const r = render(<ProgressBar testID="bar" pct={50} tone="under" />);
+    const r = render(<ProgressBar pct={50} tone="under" />);
     expect(hosts(r, "Path")).toHaveLength(0); // nothing until the bar knows its width
-    layoutTo(r, "bar", 342);
+    layoutTo(r, "progress-bar", 342);
     const [track, lit] = hosts(r, "Path");
     expect(track!.props.fill).toBe(ROLE.track);
     expect(lit!.props.fill).toBe(TONE_FILL.under);
@@ -25,35 +25,35 @@ describe("ProgressBar (web .px-bar)", () => {
   });
 
   it("sweeps its cells in whole steps over 352ms, `start` steps after the page's first", () => {
-    const r = render(<ProgressBar testID="bar" pct={50} start={2} />);
-    layoutTo(r, "bar", 342);
-    const sweep = flat(byTestId(r, "bar-sweep").props.style);
+    const r = render(<ProgressBar pct={50} start={2} />);
+    layoutTo(r, "progress-bar", 342);
+    const sweep = flat(hosts(r, "Animated.View")[1]!.props.style);
     expect(sweep).toMatchObject({ animationDuration: "352ms", animationDelay: `${2 * 22 + 300}ms`, animationFillMode: "backwards" });
     expect(sweep.animationTimingFunction).toEqual({ steps: 34, modifier: "jump-start" });
   });
 
   it("an over row is full and red, and flashes twice once full; nothing moves with reduced motion", () => {
-    const r = render(<ProgressBar testID="bar" pct={130} tone="over" />);
-    layoutTo(r, "bar", 100);
+    const r = render(<ProgressBar pct={130} tone="over" />);
+    layoutTo(r, "progress-bar", 100);
     const [track, lit] = hosts(r, "Path");
     expect((lit!.props.d as string).match(/M/g)!.length).toBe((track!.props.d as string).match(/M/g)!.length);
     expect(lit!.props.fill).toBe(COLOR.signal);
-    expect(flat(byTestId(r, "bar").props.style).animationDuration).toBe("720ms");
+    expect(flat(byTestId(r, "progress-bar").props.style).animationDuration).toBe("720ms");
     reducedMotion.value = true;
     try {
-      const still = render(<ProgressBar testID="still" pct={130} tone="over" />);
-      layoutTo(still, "still", 100);
-      expect(flat(byTestId(still, "still").props.style).animationName).toBeUndefined();
-      expect(flat(byTestId(still, "still-sweep").props.style).animationName).toBeUndefined();
+      const still = render(<ProgressBar pct={130} tone="over" />);
+      layoutTo(still, "progress-bar", 100);
+      expect(flat(byTestId(still, "progress-bar").props.style).animationName).toBeUndefined();
+      expect(flat(hosts(still, "Animated.View")[1]!.props.style).animationName).toBeUndefined();
     } finally {
       reducedMotion.value = false;
     }
   });
 
   it("a zero share lights nothing; `cells` fixes the count and sizes the bar", () => {
-    const r = render(<ProgressBar testID="bar" pct={0} cells={5} />);
+    const r = render(<ProgressBar pct={0} cells={5} />);
     expect(hosts(r, "Path")).toHaveLength(1);
-    expect(flat(byTestId(r, "bar").props.style).width).toBe(5 * 8 + 4 * 2);
+    expect(flat(byTestId(r, "progress-bar").props.style).width).toBe(5 * 8 + 4 * 2);
   });
 });
 
@@ -102,8 +102,8 @@ describe("Reveal (web reveal.tsx)", () => {
 
 describe("RollingAmount (web rolling-amount.tsx)", () => {
   it("reads as the plain amount and rests on the final figure", () => {
-    const r = render(<RollingAmount testID="amt" value={123456} currency="USD" />);
-    expect(byTestId(r, "amt").props.accessibilityLabel).toBe("$1,234.56");
+    const r = render(<RollingAmount value={123456} currency="USD" />);
+    expect(byTestId(r, "rolling-amount").props.accessibilityLabel).toBe("$1,234.56");
     // every visible glyph column: $ , . and six ghost digits
     expect(texts(r).filter((t) => t.length === 1).join("")).toBe("$1,234.56");
   });

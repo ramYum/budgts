@@ -31,11 +31,11 @@ const BADGE: Record<BadgeTone, { frame: string; color: string }> = {
 };
 
 /** A small status chip (web `Badge`): 24px tall, 12px semibold, an optional 12px icon. */
-export function Badge({ tone = "gray", icon, children, testID }: { tone?: BadgeTone; icon?: IconName; children: string; testID?: string }) {
+export function Badge({ tone = "gray", icon, children }: { tone?: BadgeTone; icon?: IconName; children: string }) {
   const { frame, color } = BADGE[tone];
   return (
     <PixelFrame
-      testID={testID}
+      testID="badge"
       frame={frame}
       style={{ height: 24, paddingHorizontal: 6, flexDirection: "row", alignItems: "center", gap: 4, alignSelf: "flex-start" }}
     >

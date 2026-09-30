@@ -74,3 +74,6 @@ next-env.d.ts
 # vitest cache / superpowers agent scratch (local only)
 /.vitest/
 .superpowers/
+
+# parity captures, seeded-user lists and other regenerable tool output
+/.tmp/

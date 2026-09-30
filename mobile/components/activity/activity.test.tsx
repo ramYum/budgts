@@ -329,13 +329,13 @@ describe("Needs a category actions (web needs-category.tsx)", () => {
     expect(textContent(byTestId(r, "needs-category"))).toContain("Missing one? Choose + New category.");
     act(() => byTestId(r, "needs-category-picker").props.onPress());
     act(() => byTestId(r, "needs-category-picker-option-__new__").props.onPress());
-    expect(byTestId(r, "category-sheet").props.accessibilityLabel).toBe("New category for Merchant m1");
+    expect(byTestId(r, "sheet").props.accessibilityLabel).toBe("New category for Merchant m1");
     expect(onCategorize).not.toHaveBeenCalled();
     act(() => byTestId(r, "category-name").props.onChangeText("Coffee"));
     await act(async () => byTestId(r, "category-save").props.onPress());
     expect(onCreateCategory).toHaveBeenCalledWith(expect.objectContaining({ name: "Coffee", kind: "expense" }), "11111111-1111-4111-8111-111111111111");
     expect(onCategorize).toHaveBeenCalledWith("m1-1", { categoryId: "new-cat" });
-    expect(hostsWith(r, "category-sheet")).toHaveLength(0);
+    expect(hostsWith(r, "sheet")).toHaveLength(0);
   });
 
   it("cancelling the new category leaves the group as it was", async () => {
@@ -344,7 +344,7 @@ describe("Needs a category actions (web needs-category.tsx)", () => {
     act(() => byTestId(r, "needs-category-picker").props.onPress());
     act(() => byTestId(r, "needs-category-picker-option-__new__").props.onPress());
     await act(async () => byTestId(r, "category-cancel").props.onPress());
-    expect(hostsWith(r, "category-sheet")).toHaveLength(0);
+    expect(hostsWith(r, "sheet")).toHaveLength(0);
     expect(onCategorize).not.toHaveBeenCalled();
     expect(hostsWith(r, "needs-category-group")).toHaveLength(1);
   });

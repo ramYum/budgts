@@ -46,7 +46,7 @@ describe("CategorySheet", () => {
     const onDone = vi.fn();
     const newRequestId = vi.fn(() => "req-7");
     const r = render(<CategorySheet title="New category for Taco Bell" submitLabel="Add & use" save={save} newRequestId={newRequestId} onDone={onDone} />);
-    expect(byTestId(r, "category-sheet").props.accessibilityLabel).toBe("New category for Taco Bell");
+    expect(byTestId(r, "sheet").props.accessibilityLabel).toBe("New category for Taco Bell");
     expect(byTestId(r, "category-save").props.accessibilityLabel).toBe("Add & use");
     act(() => byTestId(r, "category-name").props.onChangeText("Tacos"));
     await press(r, "category-save");
@@ -59,7 +59,7 @@ describe("CategorySheet", () => {
   it("closing it is a Cancel", async () => {
     const onDone = vi.fn();
     const r = render(<CategorySheet title="Add category" submitLabel="Add" save={async () => ({ ok: true })} onDone={onDone} />);
-    await press(r, "category-sheet-close");
+    await press(r, "sheet-close");
     expect(onDone).toHaveBeenCalledWith();
   });
 });

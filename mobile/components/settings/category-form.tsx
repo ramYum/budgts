@@ -96,7 +96,6 @@ export function CategorySheet({
   save,
   newRequestId,
   onDone,
-  testID = "category-sheet",
 }: {
   title: string;
   submitLabel: string;
@@ -104,11 +103,10 @@ export function CategorySheet({
   save: (fields: CategoryFields, requestId: string | undefined) => Promise<CategoryWrite>;
   newRequestId?: () => string;
   onDone: (created?: CreatedCategory) => void;
-  testID?: string;
 }) {
   const [requestId] = useState(() => newRequestId?.());
   return (
-    <Overlay title={title} onClose={() => onDone()} testID={testID}>
+    <Overlay title={title} onClose={() => onDone()}>
       <CategoryForm initial={initial} submitLabel={submitLabel} save={(fields) => save(fields, requestId)} onDone={onDone} />
     </Overlay>
   );

@@ -46,18 +46,19 @@ export async function fetchLegalLive(
   }
 }
 
-export type LegalLink = { page: LegalPage; label: string; testID: string; url: string };
+export type LegalLink = { page: LegalPage; label: string; icon: "document" | "mail"; testID: string; url: string };
 
-const SETTINGS_LINKS: { page: LegalPage; label: string; testID: string }[] = [
-  { page: "privacy", label: "Privacy Policy", testID: "settings-privacy" },
-  { page: "terms", label: "Terms of Service", testID: "settings-terms" },
-  { page: "support", label: "Help & support", testID: "settings-support" },
+/** About's Legal rows, as the web's About page lists them (src/app/(app)/(dashboard)/about/page.tsx). */
+const ABOUT_LINKS: Omit<LegalLink, "url">[] = [
+  { page: "privacy", label: "Privacy policy", icon: "document", testID: "hub-privacy" },
+  { page: "terms", label: "Terms of service", icon: "document", testID: "hub-terms" },
+  { page: "support", label: "Support", icon: "mail", testID: "hub-support" },
 ];
 
-/** The links Settings shows: none until the pages are live, and never one without a configured base URL. */
-export function settingsLegalLinks(baseUrl: string | undefined, live: boolean): LegalLink[] {
+/** The legal rows About shows: none until the pages are live, and never one without a configured base URL. */
+export function legalLinks(baseUrl: string | undefined, live: boolean): LegalLink[] {
   if (!live) return [];
-  return SETTINGS_LINKS.flatMap((l) => {
+  return ABOUT_LINKS.flatMap((l) => {
     const url = legalUrl(baseUrl, l.page);
     return url ? [{ ...l, url }] : [];
   });

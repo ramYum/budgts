@@ -205,7 +205,10 @@ Each item needs a test or an explicit check before store submission.
   while a re-sign-in is under way (an hour, cleared on sign-out or the matching sign-in), a SIGNED_IN for another
   account is never shown; the phone signs out locally and sign-in says why. The expectation is kept in secure storage,
   because supabase-js saves the new session before announcing it: the next launch refuses a stored other-account
-  session before the first screen. A failed sign-out shows nobody, says so, and the next launch refuses again.
+  session before the first screen; until that check has run, no auth event reaches a screen. Offline, the local
+  sign-out still removes the session (auth-js clears it before reporting `/logout`'s error), so that counts as signed
+  out. Only if the session is still on the phone afterwards is it a failed sign-out: nobody is shown, sign-in says so,
+  and the next launch refuses the stored session again.
 - **Accepted risk: a hostile local app can deny a pending sign-in.** An app on the same phone that fires
   `budgts://auth/callback?code=junk` makes the app try that code; supabase-js (React Native) keeps a single PKCE
   verifier slot and deletes the verifier after any exchange attempt, so the user's real link then fails with

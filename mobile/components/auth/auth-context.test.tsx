@@ -8,12 +8,17 @@ const h = vi.hoisted(() => ({
   stored: "alice" as string | null,
   signOut: vi.fn(async (_opts?: unknown): Promise<{ error: unknown }> => ({ error: null })),
   disk: new Map<string, string>(),
+  gate: null as Promise<void> | null,
+  history: [] as (string | null)[],
 }));
 
 vi.mock("../../lib/supabase/client", () => ({
   supabase: {
     auth: {
-      getSession: async () => ({ data: { session: h.stored ? { user: { id: h.stored } } : null } }),
+      getSession: async () => {
+        if (h.gate) await h.gate;
+        return { data: { session: h.stored ? { user: { id: h.stored } } : null } };
+      },
       onAuthStateChange: (fn: Listener) => {
         h.listener = fn;
         return { data: { subscription: { unsubscribe: () => {} } } };
@@ -40,6 +45,7 @@ function Probe() {
   const auth = useAuth();
   seen = auth.session?.user.id ?? null;
   loading = auth.loading;
+  h.history.push(seen);
   return null;
 }
 
@@ -69,6 +75,8 @@ beforeEach(() => {
   h.signOut.mockReset();
   h.signOut.mockImplementation(async () => ({ error: null }));
   seen = undefined;
+  h.gate = null;
+  h.history = [];
   vi.useFakeTimers();
 });
 afterEach(() => vi.useRealTimers());
@@ -96,7 +104,23 @@ describe("AuthProvider and a re-sign-in", () => {
     expect(takeSignInProblem()).toBe("other_account");
   });
 
-  it("G2: a failed sign-out of the refused session shows nobody and says so", async () => {
+  it("Y-a: offline, the sign-out still removes the session locally: that's a sign-out, not a failure", async () => {
+    await mount();
+    await expectReauthAs("alice");
+    // auth-js removes the stored session and emits SIGNED_OUT, then reports /logout's network error
+    h.signOut.mockImplementation(async () => {
+      h.stored = null;
+      h.listener!("SIGNED_OUT", null);
+      return { error: new Error("network") };
+    });
+    fire("SIGNED_IN", "bob");
+    await flush();
+    expect(seen).toBeNull();
+    expect(refusalOf("bob")).toBe("other_account");
+    expect(takeSignInProblem()).toBe("other_account");
+  });
+
+  it("G2: a sign-out that leaves the session on the phone shows nobody and says so", async () => {
     h.signOut.mockImplementation(async () => ({ error: new Error("storage") }));
     await mount();
     await expectReauthAs("alice");
@@ -138,6 +162,26 @@ describe("Y1: the launch after a process killed mid re-sign-in", () => {
     expect(seen).toBe("alice");
     expect(h.signOut).not.toHaveBeenCalled();
     expect(takeReturnAfterSignIn("alice")).toBe("/settings/delete-account?step=confirm");
+  });
+
+  it("G-a: no auth event reaches the screen before the launch check has run", async () => {
+    await expectReauthAs("alice");
+    resetReauthGuard();
+    h.stored = "bob";
+    let open!: () => void;
+    h.gate = new Promise<void>((r) => (open = r));
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>,
+    );
+    fire("TOKEN_REFRESHED", "bob"); // a startup refresh of the stored session, before the launch check
+    fire("SIGNED_IN", "bob");
+    open();
+    await flush();
+    expect(h.history).not.toContain("bob");
+    expect(seen).toBeNull();
+    expect(takeSignInProblem()).toBe("other_account");
   });
 
   it("an ordinary launch (nothing stored) is untouched", async () => {

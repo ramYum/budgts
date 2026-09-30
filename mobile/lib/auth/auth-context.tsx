@@ -11,13 +11,17 @@ setAuthStore(secureKv);
 
 /**
  * Signs this phone out of a refused session (lib/auth/reauth-guard.ts), locally: the other account's sessions
- * elsewhere are theirs. If that fails (G2), sign-in says so; the refused session may still be stored, and the next
+ * elsewhere are theirs. It failed only if the session is still on the phone (G2): then sign-in says so, and the next
  * launch refuses it again (the stored expectation is only cleared by a completed sign-out).
  */
 async function signOutRefused(): Promise<boolean> {
   try {
     const { error } = await supabase.auth.signOut({ scope: "local" });
     if (!error) return true;
+    // auth-js removes the stored session (and emits SIGNED_OUT) before it reports a network or server error from
+    // /logout: offline, the phone IS signed out, and only the server-side revoke failed.
+    const { data } = await supabase.auth.getSession();
+    if (!data.session) return true;
   } catch {
     // reported below
   }
@@ -55,8 +59,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
     })();
 
     const { data: subscription } = supabase.auth.onAuthStateChange((event, nextSession) => {
-      // The launch read above decides the first session; its INITIAL_SESSION echo is not a second source.
-      if (!started && event === "INITIAL_SESSION") return;
+      // Nothing reaches a screen before the launch check above has run: it decides the first session, and a startup
+      // refresh (or any other event) of a stored session it may refuse must not slip in first.
+      if (!started) return;
       // A re-sign-in that came back as another account is never shown: sign this phone out. Deferred: the listener
       // must not call back into supabase-js while it is still announcing. If the sign-out fails, show nobody.
       if (reauthVerdict(event, nextSession?.user.id ?? null) === "reject") {

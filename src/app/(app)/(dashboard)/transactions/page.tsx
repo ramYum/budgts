@@ -65,7 +65,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
     let q = supabase
       .from("transactions")
       .select(
-        "id, amount, direction, occurred_at, description, note, is_transfer, category_id, account_id, category:categories(name,color), account:accounts!inner(name, is_archived)",
+        "id, amount, direction, occurred_at, description, note, is_transfer, category_id, account_id, source, category:categories(name,color), account:accounts!inner(name, is_archived)",
         { count },
       )
       .gte("occurred_at", start)

@@ -197,6 +197,34 @@ describe("mapAccountsFor", () => {
     expect(writes.map((w) => [w.table, w.value])).toEqual([["plaid_accounts", { account_id: "acct-9", link_state: "mapped" }]]);
   });
 
+  it("refuses an 'existing' entry pointing at an account the caller can't see (another user's), writing nothing", async () => {
+    const calls = fakeRunner();
+    const { supabase, writes } = fakeSupabase((t) => {
+      if (t === "plaid_items") return { data: { item_id: ITEM_ID } };
+      if (t === "accounts") return { data: null }; // RLS hides it
+      return {};
+    });
+    const r = await mapAccountsFor(supabase, USER, ITEM_ROW, [
+      { plaidAccountId: "pa0", mode: "new", name: "Checking", type: "checking" },
+      { plaidAccountId: "pa1", mode: "existing", existingAccountId: "someone-elses" },
+    ]);
+    expect(r).toEqual({ ok: false, error: "invalid", message: "That account is no longer available. Refresh and choose again." });
+    expect(writes).toEqual([]);
+    expect(calls.claim).toHaveLength(0);
+  });
+
+  it("refuses an 'existing' entry pointing at an archived account", async () => {
+    fakeRunner();
+    const { supabase, writes } = fakeSupabase((t) => {
+      if (t === "plaid_items") return { data: { item_id: ITEM_ID } };
+      if (t === "accounts") return { data: { id: "acct-9", is_archived: true } };
+      return {};
+    });
+    const r = await mapAccountsFor(supabase, USER, ITEM_ROW, [{ plaidAccountId: "pa1", mode: "existing", existingAccountId: "acct-9" }]);
+    expect(r).toMatchObject({ ok: false, error: "invalid" });
+    expect(writes).toEqual([]);
+  });
+
   it("leaves an 'ignore' entry unimported", async () => {
     fakeRunner();
     const { supabase, writes } = withItem();

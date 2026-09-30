@@ -11,7 +11,10 @@ vi.mock("@/lib/ingestion", async (orig) => ({
   landTransaction: (...a: unknown[]) => landTransaction(...a),
 }));
 const updateTransactionRow = vi.fn();
-vi.mock("@/server/transaction-update", () => ({ updateTransactionRow: (...a: unknown[]) => updateTransactionRow(...a) }));
+vi.mock("@/server/transaction-update", async (orig) => ({
+  ...(await orig<typeof import("@/server/transaction-update")>()),
+  updateTransactionRow: (...a: unknown[]) => updateTransactionRow(...a),
+}));
 
 import { LOCKED_MESSAGE, missingOrLocked, referencesVisible } from "./ownership";
 import { createManualTransaction, deleteTransactionById, updateManualTransaction } from "@/lib/transactions/commands";
@@ -27,6 +30,12 @@ const MINE = "11111111-1111-4111-8111-111111111111";
 const THEIRS = "99999999-9999-4999-8999-999999999999";
 const ROW = "22222222-2222-4222-8222-222222222222";
 
+/** The caller's own open manual account as `readOwnOpenAccount` reads it (one `accounts` row by id); THEIRS is invisible. */
+function accountRead(calls: FakeCall[]): FakeResult {
+  const id = calls.find((c) => c[0] === "eq" && c[1] === "id")?.[2];
+  return { data: id === MINE ? { id: MINE, name: "Mine", source: "manual", is_archived: false } : null };
+}
+
 /**
  * A caller who can see only MINE (in every referenced table): RLS makes THEIRS invisible, exactly like an unknown id.
  * `locked` makes `account_accepts_writes()` say no, and every update / delete match zero rows, as the write guard does.
@@ -39,6 +48,7 @@ function caller(opts: { locked?: boolean } = {}) {
         return { data: ids.filter((id) => id === MINE).map((id) => ({ id })) };
       }
       if (has(calls, "update") || has(calls, "delete")) return { data: opts.locked ? [] : [{ id: ROW }] };
+      if (_table === "accounts" && has(calls, "maybeSingle")) return accountRead(calls);
       if (has(calls, "maybeSingle")) return { data: { item_id: "item-1", merchant_entity_id: null } };
       return { data: [] };
     },
@@ -139,7 +149,8 @@ describe("every command refuses another user's id and writes nothing", () => {
       { plaidAccountId: "pa-1", mode: "new", name: "Checking", type: "checking" },
       { plaidAccountId: "pa-2", mode: "existing", existingAccountId: THEIRS },
     ]);
-    expect(r).toMatchObject({ ok: false, error: "not_found" });
+    // The hotfix's ownership check (readOwnOpenAccount): a target the caller can't see as its own open account.
+    expect(r).toMatchObject({ ok: false, error: "invalid" });
     expect(writes(log)).toEqual([]);
   });
 
@@ -167,7 +178,10 @@ describe("while an account deletion holds the lock, every refused write says so"
           const ids = (calls.find((c) => c[0] === "in")![2] as string[]) ?? [];
           return { data: ids.filter((id) => id === MINE).map((id) => ({ id })) };
         }
-        if (table === "transactions" && has(calls, "maybeSingle")) return { data: { is_transfer: false } };
+        if (table === "accounts" && has(calls, "maybeSingle")) return accountRead(calls);
+        if (table === "transactions" && has(calls, "maybeSingle")) {
+          return { data: { is_transfer: false, account_id: MINE, source: "manual", plaid_account_id: null } };
+        }
         if (table === "plaid_items") return { data: { item_id: "item-1" } };
         if (table === "budgets") return { data: [{ category_id: MINE, amount: 100 }] };
         return { data: null };

@@ -47,14 +47,22 @@ function fakeSupabase(tables: Record<string, { data: unknown; error?: { message:
 
 describe("cursor", () => {
   it("round-trips a position", () => {
-    const c = { occurredAt: "2026-09-10T12:00:00.000Z", id: UUID };
+    const c = { occurredAt: "2026-09-10T12:00:00.000Z", createdAt: "2026-09-10T15:04:05.123456+00:00", id: UUID };
     expect(decodeCursor(encodeCursor(c))).toEqual(c);
+  });
+
+  it("refuses a cursor without created_at (the order's second column)", () => {
+    const old = Buffer.from(JSON.stringify({ occurredAt: "2026-09-10T12:00:00.000Z", id: UUID })).toString("base64url");
+    expect(decodeCursor(old)).toBeNull();
   });
 
   it("rejects garbage and anything that could smuggle a PostgREST filter", () => {
     expect(decodeCursor("not-base64-json")).toBeNull();
-    const evil = (occurredAt: string, id: string) => Buffer.from(JSON.stringify({ occurredAt, id })).toString("base64url");
+    const ok = "2026-09-10T12:00:00.000Z";
+    const evil = (occurredAt: string, id: string, createdAt = ok) =>
+      Buffer.from(JSON.stringify({ occurredAt, createdAt, id })).toString("base64url");
     expect(decodeCursor(evil("2026-09-10T12:00:00Z),user_id.neq.x,and(a.eq.1", UUID))).toBeNull();
+    expect(decodeCursor(evil(ok, UUID, "2026-09-10T12:00:00Z),user_id.neq.x,and(a.eq.1"))).toBeNull();
     expect(decodeCursor(evil("2026-09-10T12:00:00.000Z", `${UUID}),id.neq.x`))).toBeNull();
     expect(decodeCursor(evil("2026-09-10T12:00:00.000Z", "not-a-uuid"))).toBeNull();
   });
@@ -139,6 +147,7 @@ describe("loadTransactionsPage", () => {
     amount: 1234,
     direction: "debit",
     occurred_at: `2026-09-${String(20 - i).padStart(2, "0")}T12:00:00+00:00`,
+    created_at: `2026-09-${String(20 - i).padStart(2, "0")}T15:00:00.00000${i}+00:00`,
     description: `Txn ${i}`,
     note: null,
     is_transfer: false,
@@ -159,8 +168,12 @@ describe("loadTransactionsPage", () => {
     expect(c).toContainEqual(["is", "removed_at", null]); // soft-deleted bank rows
     expect(c).toContainEqual(["is", "duplicate_of_id", null]); // confirmed duplicates
     expect(c).toContainEqual(["or", "source.neq.bank,plaid_account_id.not.is.null"]); // deliberately disconnected banks
-    expect(c).toContainEqual(["order", "occurred_at", { ascending: false }]);
-    expect(c).toContainEqual(["order", "id", { ascending: false }]);
+    // the web ledger's order (transactions/page.tsx), in that sequence
+    expect(c.filter((x) => x[0] === "order")).toEqual([
+      ["order", "occurred_at", { ascending: false }],
+      ["order", "created_at", { ascending: false }],
+      ["order", "id", { ascending: false }],
+    ]);
     expect(c).toContainEqual(["limit", 51]); // one extra row to know whether there is a next page
   });
 
@@ -177,19 +190,24 @@ describe("loadTransactionsPage", () => {
     expect(calls.transactions).toContainEqual(["ilike", "description", "%50\\%\\_off\\\\%"]);
   });
 
-  it("pages by (occurred_at, id) keyset, and reports the next cursor only when more rows exist", async () => {
+  it("pages by the (occurred_at, created_at, id) keyset, and reports the next cursor only when more rows exist", async () => {
     const rows = [row(1), row(2), row(3)];
-    const cursor = { occurredAt: "2026-09-19T12:00:00.000Z", id: UUID };
+    const cursor = { occurredAt: "2026-09-19T12:00:00.000Z", createdAt: "2026-09-19T15:00:00.000001+00:00", id: UUID };
     const { supabase, calls } = fakeSupabase({ transactions: { data: rows } });
 
     const page = await loadTransactionsPage(supabase, { month: "2026-09", plaidOn: false, limit: 2, cursor });
 
     expect(calls.transactions).toContainEqual([
       "or",
-      `occurred_at.lt.${cursor.occurredAt},and(occurred_at.eq.${cursor.occurredAt},id.lt.${cursor.id})`,
+      `occurred_at.lt.${cursor.occurredAt},and(occurred_at.eq.${cursor.occurredAt},created_at.lt.${cursor.createdAt}),` +
+        `and(occurred_at.eq.${cursor.occurredAt},created_at.eq.${cursor.createdAt},id.lt.${cursor.id})`,
     ]);
     expect(page.items.map((t) => t.id)).toEqual([rid(1), rid(2)]); // the extra row is not returned
-    expect(decodeCursor(page.nextCursor!)).toEqual({ occurredAt: "2026-09-18T12:00:00+00:00", id: rid(2) });
+    expect(decodeCursor(page.nextCursor!)).toEqual({
+      occurredAt: "2026-09-18T12:00:00+00:00",
+      createdAt: "2026-09-18T15:00:00.000002+00:00",
+      id: rid(2),
+    });
   });
 
   it("has no next cursor on the last page", async () => {

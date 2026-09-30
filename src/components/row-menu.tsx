@@ -17,7 +17,8 @@ export type RowMenuItem = {
  * (Edit, Archive…). Closes on a pick, on Escape (focus returns to the kebab)
  * and on a press anywhere outside it.
  */
-export function RowMenu({ label, items }: { label: string; items: RowMenuItem[] }) {
+/** `testId` (parity check, tools/parity) names the kebab; its list is `<testId>-list`, each item `<testId>-<label-slug>`. */
+export function RowMenu({ label, items, testId = "row-menu" }: { label: string; items: RowMenuItem[]; testId?: string }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const button = useRef<HTMLButtonElement>(null);
@@ -49,7 +50,7 @@ export function RowMenu({ label, items }: { label: string; items: RowMenuItem[] 
         type="button"
         aria-label={label}
         aria-haspopup="menu"
-        data-testid="row-menu"
+        data-testid={testId}
         aria-expanded={open}
         aria-controls={open ? id : undefined}
         onClick={() => setOpen((o) => !o)}
@@ -62,6 +63,7 @@ export function RowMenu({ label, items }: { label: string; items: RowMenuItem[] 
           id={id}
           role="menu"
           aria-label={label}
+          data-testid={`${testId}-list`}
           className="px-card-raised pop absolute right-0 top-full z-30 mt-1 min-w-44 p-1"
         >
           {items.map((it) => (
@@ -69,6 +71,7 @@ export function RowMenu({ label, items }: { label: string; items: RowMenuItem[] 
               <button
                 type="button"
                 role="menuitem"
+                data-testid={`${testId}-${it.label.toLowerCase().replace(/\W+/g, "-")}`}
                 disabled={it.disabled}
                 onClick={() => {
                   setOpen(false);

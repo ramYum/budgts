@@ -60,12 +60,12 @@ const DUST = [
 
 function CrystalScene() {
   return (
-    <div className="flex h-full flex-col items-center justify-center">
+    <div data-testid="scene-crystal" className="flex h-full flex-col items-center justify-center">
       {SPARKLES.map((p, i) => (
         <span key={i} className={s.sparkle} style={vars({ left: p.x, top: p.y, color: p.c, "--s": i })} />
       ))}
       <div className="relative">
-        <div className={s.drop}>
+        <div className={s.drop} data-testid="crystal-drop">
           <div className={s.squash}>
             <Robin size={104} mood="happy" />
           </div>
@@ -96,7 +96,7 @@ const PILLARS: { name: string; icon: IconName; tile: string }[] = [
 
 function WelcomeScene() {
   return (
-    <div className="flex h-full items-start justify-center gap-3 pt-[76px]">
+    <div data-testid="scene-welcome" className="flex h-full items-start justify-center gap-3 pt-[76px]">
       {PILLARS.map(({ name, icon, tile }, p) => (
         <Fragment key={name}>
           {p > 0 ? (
@@ -131,7 +131,7 @@ const FEED_CLASS = [s.feed0, s.feed1, s.feed2];
 
 function CaptureScene({ currency }: { currency: string }) {
   return (
-    <div className="flex h-full flex-col justify-center px-4">
+    <div data-testid="scene-auto-capture" className="flex h-full flex-col justify-center px-4">
       <div className="mb-2.5 flex items-center justify-between px-1">
         <span className={label}>Today</span>
         <span className="font-pixel flex items-center gap-1.5 text-[8px] uppercase text-pos">
@@ -165,11 +165,11 @@ function CaptureScene({ currency }: { currency: string }) {
 
 function CurrencyScene({ currency }: { currency: string }) {
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-3">
+    <div data-testid="scene-currency" className="flex h-full flex-col items-center justify-center gap-3">
       <span className={`${chip} bg-ink`}>This month</span>
       <span className="text-[13px] text-muted">Money Left</span>
       {/* keyed on the currency: a new choice re-sets the figure in place */}
-      <span key={currency} className={`${s.amount} tnum text-[40px] font-semibold leading-none tracking-tight text-text`}>
+      <span key={currency} data-testid="scene-currency-amount" className={`${s.amount} tnum text-[40px] font-semibold leading-none tracking-tight text-text`}>
         {formatMoney(248000, currency)}
       </span>
       <ProgressBar pct={62} className="mt-2 w-44" />
@@ -190,7 +190,7 @@ function Tile({ name, tone, children }: { name: string; tone: string; children: 
 
 function BankScene() {
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-6">
+    <div data-testid="scene-bank" className="flex h-full flex-col items-center justify-center gap-6">
       <div className="flex items-start gap-4">
         <Tile name="Your bank" tone="px-tile text-ink">
           <Icon name="bank" />
@@ -199,7 +199,7 @@ function BankScene() {
           {Array.from({ length: 8 }, (_, d) => (
             <span key={d} className={s.dot} style={vars({ "--d": d })} />
           ))}
-          <span className={`${s.lock} pixel-corners flex h-5 w-5 items-center justify-center bg-primary-btn text-white`}>
+          <span data-testid="bank-lock" className={`${s.lock} pixel-corners flex h-5 w-5 items-center justify-center bg-primary-btn text-white`}>
             <Icon name="security" size={12} />
           </span>
         </span>
@@ -216,7 +216,7 @@ function BankScene() {
 
 function SortScene({ currency }: { currency: string }) {
   return (
-    <div className="flex h-full flex-col justify-center gap-2.5 px-4">
+    <div data-testid="scene-auto-sort" className="flex h-full flex-col justify-center gap-2.5 px-4">
       <div className="px-card relative flex items-center gap-3 px-1.5 py-1.5">
         <span className={`${s.stack} h-10 w-10 shrink-0`}>
           <span className="px-tile flex items-center justify-center text-muted">
@@ -271,7 +271,7 @@ const OUT = 135748;
 
 function MoneyLeftScene({ currency }: { currency: string }) {
   return (
-    <div className="flex h-full flex-col justify-center px-5">
+    <div data-testid="scene-money-left" className="flex h-full flex-col justify-center px-5">
       <div className="px-card p-2 text-left">
         <div className="flex items-center justify-between">
           <span className="text-[12px] text-muted">Money Left</span>
@@ -334,7 +334,7 @@ function PlanRow({
 function PlanScene({ currency }: { currency: string }) {
   const m = (minor: number) => formatMoney(minor, currency);
   return (
-    <div className="flex h-full flex-col justify-center gap-2.5 px-4">
+    <div data-testid="scene-plan" className="flex h-full flex-col justify-center gap-2.5 px-4">
       <PlanRow
         icon={<CategoryIcon name="Food / Groceries" size={32} />}
         kind="Budget"
@@ -385,7 +385,7 @@ const CONFETTI = Array.from({ length: 20 }, (_, i) => {
 
 function DoneScene() {
   return (
-    <div className="flex h-full flex-col">
+    <div data-testid="scene-done" className="flex h-full flex-col">
       {CONFETTI.map((p, i) => (
         <span
           key={i}

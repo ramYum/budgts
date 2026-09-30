@@ -23,13 +23,13 @@ export default async function AccountDeletedPage({ searchParams }: PageProps<"/a
 
   return (
     <StandaloneShell>
-      <div className="space-y-6">
+      <div className="space-y-6" data-testid="account-deleted">
         <Stage>
           <Robin mood="sleepy" size={88} />
           <span className="h-1 w-20 bg-hairline" aria-hidden />
         </Stage>
         <div className="space-y-2">
-          <h1 className="px-figure text-ink">Your account is deleted</h1>
+          <h1 className="px-figure text-ink" data-testid="page-title">Your account is deleted</h1>
           <p className="text-pretty text-base leading-6 text-muted">
             Your transactions, budgets, goals and bank connections are gone, and you&apos;re signed out everywhere. Thanks
             for budgeting with us.
@@ -37,7 +37,7 @@ export default async function AccountDeletedPage({ searchParams }: PageProps<"/a
         </div>
 
         {store ? (
-          <div className="px-warn flex items-start gap-3 p-3" role="status">
+          <div className="px-warn flex items-start gap-3 p-3" role="status" data-testid="account-deleted-store">
             <Icon name="warning" className="text-warn" />
             <p className="text-pretty text-[15px] leading-6 text-ink">
               {DELETION_SUBSCRIPTION_NOTICE} To stop being charged, cancel it in the{" "}
@@ -55,7 +55,7 @@ export default async function AccountDeletedPage({ searchParams }: PageProps<"/a
 
         {/* Retention 0 (owner, 2026-09-28): nothing is kept, so there is nothing to say here. */}
         {keeps ? (
-          <p className="text-pretty text-[13px] leading-5 text-muted">
+          <p className="text-pretty text-[13px] leading-5 text-muted" data-testid="account-deleted-kept">
             If you ever paid for a subscription, we keep those billing records without your email or sign-in details.
             {legal ? (
               <>
@@ -69,7 +69,7 @@ export default async function AccountDeletedPage({ searchParams }: PageProps<"/a
           </p>
         ) : null}
 
-        <LinkButton href="/sign-in" size="lg" className="w-full sm:w-auto">
+        <LinkButton href="/sign-in" size="lg" className="w-full sm:w-auto" data-testid="account-deleted-done">
           Done
         </LinkButton>
       </div>

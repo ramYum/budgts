@@ -41,13 +41,13 @@ export default async function SettingsPage() {
           </div>
           <section className="order-5 space-y-3 lg:order-none">
             <SectionHead title="Data" />
-            <div className="px-card flex items-center gap-3 p-3 md:gap-4 md:p-4">
+            <div className="px-card flex items-center gap-3 p-3 md:gap-4 md:p-4" data-testid="settings-export">
               <IconTile name="download" />
               <div className="min-w-0 flex-1">
                 <p className="text-[15px] font-medium leading-6 text-ink">Export transactions</p>
                 <p className="text-[13px] leading-5 text-muted">All of them, as a CSV file.</p>
               </div>
-              <a href="/api/export/transactions" download className={buttonClass("secondary")}>
+              <a href="/api/export/transactions" download className={buttonClass("secondary")} data-testid="settings-export-button">
                 <Icon name="download" />
                 Export
               </a>
@@ -75,7 +75,7 @@ export default async function SettingsPage() {
             </HubSection>
           </div>
           <form action={signOut} className="order-6 lg:order-none">
-            <button type="submit" className={buttonClass("danger", "w-full lg:w-auto", "lg")}>
+            <button type="submit" className={buttonClass("danger", "w-full lg:w-auto", "lg")} data-testid="settings-sign-out">
               <Icon name="sign-out" />
               Sign out
             </button>

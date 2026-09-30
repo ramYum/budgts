@@ -33,7 +33,7 @@ export default function SecurityPage() {
     <>
       <PageHeader title="Security" back="/settings" />
       <div className="space-y-6 md:max-w-[720px]">
-        <section className="px-card-raised flex items-center gap-4 p-2 md:p-4">
+        <section className="px-card-raised flex items-center gap-4 p-2 md:p-4" data-testid="security-lead">
           <span className="px-tile-growth flex h-14 w-14 shrink-0 items-center justify-center text-pos" aria-hidden>
             <Icon name="shield" />
           </span>
@@ -43,7 +43,7 @@ export default function SecurityPage() {
           </div>
         </section>
 
-        <ul className="px-card px-rows p-2 md:p-4">
+        <ul className="px-card px-rows p-2 md:p-4" data-testid="security-facts">
           {FACTS.map((f) => (
             <li key={f.title} className="flex items-start gap-3 py-2.5 first:pt-0 last:pb-0 md:gap-4">
               <IconTile name={f.icon} />
@@ -62,7 +62,7 @@ export default function SecurityPage() {
         <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] leading-5 text-muted">
           <Icon name="bank" size={12} />
           Bank connections by Plaid ·
-          <Link href="/help/how-it-works" className="font-medium text-ink hover:underline">
+          <Link href="/help/how-it-works" className="font-medium text-ink hover:underline" data-testid="security-how-it-works">
             How Budgts works
           </Link>
         </p>

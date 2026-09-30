@@ -42,42 +42,42 @@ export default async function ProfilePage() {
     <>
       <PageHeader title="Profile" back="/settings" />
       <div className="space-y-8 md:max-w-[720px]">
-        <section className="px-card-raised flex items-center gap-4 p-2 md:p-4">
+        <section className="px-card-raised flex items-center gap-4 p-2 md:p-4" data-testid="profile-card">
           <span className="px-tile-ink flex h-14 w-14 shrink-0 items-center justify-center" aria-hidden>
             <span className="px-figure leading-none text-white">{(name || email || "?")[0]}</span>
           </span>
           <div className="min-w-0">
-            <p className="px-figure truncate text-ink">{name || "You"}</p>
+            <p className="px-figure truncate text-ink" data-testid="profile-name">{name || "You"}</p>
             <p className="text-[15px] leading-6 text-muted">Signs in with {signsInWith}</p>
           </div>
         </section>
 
         <section className="space-y-3">
           <SectionHead title="Details" />
-          <dl className="px-card px-rows p-2 md:p-4">
+          <dl className="px-card px-rows p-2 md:p-4" data-testid="profile-details">
             <div className="flex items-center gap-3 pb-3">
               <div className="min-w-0 flex-1">
                 <dt className="text-[13px] leading-5 text-muted">Email</dt>
-                <dd className="truncate text-[15px] font-medium leading-6 text-ink">{email}</dd>
+                <dd className="truncate text-[15px] font-medium leading-6 text-ink" data-testid="profile-email">{email}</dd>
               </div>
-              <CopyButton value={email} label="Copy email" />
+              <CopyButton value={email} label="Copy email" testId="profile-copy-email" />
             </div>
             <div className="py-3">
               <dt className="text-[13px] leading-5 text-muted">Currency</dt>
-              <dd className="text-[15px] font-medium leading-6 text-ink">
+              <dd className="text-[15px] font-medium leading-6 text-ink" data-testid="profile-currency">
                 {currency} · {currencyName}
               </dd>
             </div>
             <div className="py-3">
               <dt className="text-[13px] leading-5 text-muted">Time zone</dt>
-              <dd className="text-[15px] font-medium leading-6 text-ink">{timeZoneLabel(timeZone)}</dd>
+              <dd className="text-[15px] font-medium leading-6 text-ink" data-testid="profile-time-zone">{timeZoneLabel(timeZone)}</dd>
             </div>
             <div className="flex items-center gap-3 pt-3">
               <div className="min-w-0 flex-1">
                 <dt className="text-[13px] leading-5 text-muted">Sign-in methods</dt>
-                <dd className="text-[15px] font-medium leading-6 text-ink">{providers.join(" · ")}</dd>
+                <dd className="text-[15px] font-medium leading-6 text-ink" data-testid="profile-methods">{providers.join(" · ")}</dd>
               </div>
-              <Badge tone="growth" icon="check">
+              <Badge tone="growth" icon="check" testId="profile-methods-count">
                 {providers.length} active
               </Badge>
             </div>

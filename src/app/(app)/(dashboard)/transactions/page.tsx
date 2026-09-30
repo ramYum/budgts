@@ -174,7 +174,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
       </Suspense>
 
       {categoryFilter ? (
-        <div className="px-band mb-6 flex items-center justify-between gap-3 px-2 py-1 text-[15px] leading-6 text-ink">
+        <div className="px-band mb-6 flex items-center justify-between gap-3 px-2 py-1 text-[15px] leading-6 text-ink" data-testid="category-band">
           <span className="flex min-w-0 items-center gap-2">
             <Icon name="categories" className="text-graphite" />
             <span className="truncate">
@@ -186,6 +186,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
           </span>
           <Link
             href={`/transactions?m=${m}`}
+            data-testid="category-band-clear"
             className="press -my-1 flex shrink-0 items-center gap-1 font-medium text-graphite hover:text-ink"
           >
             Clear
@@ -214,7 +215,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
 
         <div className="min-w-0 space-y-6 xl:col-start-1 xl:row-start-1">
           {showConnectPrompt ? (
-            <div className="px-card flex flex-col items-start gap-3 p-3 sm:flex-row sm:items-center md:p-4">
+            <div className="px-card flex flex-col items-start gap-3 p-3 sm:flex-row sm:items-center md:p-4" data-testid="connect-bank-card">
               <IconTile name="bank" />
               <p className="flex-1 text-[15px] leading-6 text-graphite">
                 Connect a bank to fill this in on its own, or add a transaction by hand.

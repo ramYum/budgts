@@ -21,7 +21,7 @@ export default function AboutPage() {
     <>
       <PageHeader title="About" back="/more" />
       <div className="space-y-8 md:max-w-[720px]">
-        <section className="px-card">
+        <section className="px-card" data-testid="about-stage">
           <div className="px-dots flex flex-col items-center gap-2 px-4 py-6 md:py-8">
             <Robin size={88} mood="normal" />
             <span className="h-1 w-20 bg-hairline" aria-hidden />
@@ -33,14 +33,14 @@ export default function AboutPage() {
         </section>
 
         <section className="space-y-2">
-          <h2 className="px-figure text-ink">A brighter way to budget.</h2>
+          <h2 className="px-figure text-ink" data-testid="about-lead">A brighter way to budget.</h2>
           <p className="text-[15px] leading-6 text-muted">
             Budgts helps you take control of your money with simple tools, clear insights and a little encouragement
             along the way.
           </p>
         </section>
 
-        <dl className="px-card px-rows p-2 md:p-4">
+        <dl className="px-card px-rows p-2 md:p-4" data-testid="about-details">
           {DETAILS.map(([label, value]) => (
             <div key={label} className="flex items-baseline justify-between gap-4 py-3.5 first:pt-0 last:pb-0">
               <dt className="text-[15px] leading-6 text-muted">{label}</dt>
@@ -51,7 +51,7 @@ export default function AboutPage() {
 
         {/* The public pages, once the owner facts behind them are set (src/lib/legal/config.ts). */}
         {legalPagesLive() ? (
-          <HubSection title="Legal">
+          <HubSection title="Legal" testId="about-legal">
             <HubRow href="/privacy" label="Privacy policy" icon="document" />
             <HubRow href="/terms" label="Terms of service" icon="document" />
             <HubRow href="/support" label="Support" icon="mail" />

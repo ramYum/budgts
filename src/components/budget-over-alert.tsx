@@ -63,12 +63,13 @@ export function BudgetOverAlert({
   }
 
   return (
-    <div className="px-warn relative flex items-start gap-3 p-3 pr-12 text-[15px] leading-6 text-ink md:p-4 md:pr-14">
+    <div data-testid="home-over-alert" className="px-warn relative flex items-start gap-3 p-3 pr-12 text-[15px] leading-6 text-ink md:p-4 md:pr-14">
       <Icon name="warning" className="text-warn" />
       <button
         type="button"
         onClick={dismiss}
         aria-label="Dismiss"
+        data-testid="home-over-alert-dismiss"
         className="press absolute right-2 top-2 flex h-9 w-9 items-center justify-center text-muted hover:text-ink"
       >
         <Icon name="close" />
@@ -76,7 +77,7 @@ export function BudgetOverAlert({
       <p className="tnum">
         This month&apos;s budgets add up to {formatMoney(budgeted, currency)}, more than the{" "}
         {formatMoney(income, currency)} you&apos;ve brought in so far.{" "}
-        <Link href="/budgets" className="font-medium underline underline-offset-2">
+        <Link href="/budgets" className="font-medium underline underline-offset-2" data-testid="home-over-alert-review">
           Review your budgets
         </Link>
         .

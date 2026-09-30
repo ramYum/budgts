@@ -39,12 +39,12 @@ export function CategoryForm({
 
       <label className={label}>
         Name
-        <input className={field} name="name" defaultValue={initial?.name ?? ""} maxLength={40} required autoFocus />
+        <input className={field} data-testid="category-name" name="name" defaultValue={initial?.name ?? ""} maxLength={40} required autoFocus />
       </label>
 
       <label className={label}>
         Type
-        <Select name="kind" defaultValue={initial?.kind ?? "expense"}>
+        <Select data-testid="category-kind" name="kind" defaultValue={initial?.kind ?? "expense"}>
           <option value="expense">Expense</option>
           <option value="income">Income</option>
         </Select>
@@ -53,14 +53,14 @@ export function CategoryForm({
       <input type="hidden" name="color" value={initial?.color ?? CATEGORY_COLORS[0]} />
 
       {state.fieldError || state.error ? (
-        <p className="text-sm text-neg">{state.fieldError ?? state.error}</p>
+        <p className="text-sm text-neg" data-testid="category-form-error">{state.fieldError ?? state.error}</p>
       ) : null}
 
       <div className="flex gap-3 pt-2">
-        <Button type="submit" disabled={pending} className="flex-1">
+        <Button type="submit" disabled={pending} className="flex-1" data-testid="category-save">
           {pending ? "Saving…" : submitLabel}
         </Button>
-        <Button variant="secondary" onClick={() => onDone()}>
+        <Button variant="secondary" onClick={() => onDone()} data-testid="category-cancel">
           Cancel
         </Button>
       </div>

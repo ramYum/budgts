@@ -27,7 +27,7 @@ export async function BankConnections() {
       <PageHeader title="Connected banks" back="/more" backOnDesktop={false} />
       <div className="space-y-6 md:max-w-[720px]">
         {banks.length === 0 ? (
-          <div className="px-card-raised flex flex-col items-start gap-4 p-2 md:p-6">
+          <div className="px-card-raised flex flex-col items-start gap-4 p-2 md:p-6" data-testid="connected-banks-empty">
             <IconTile name="bank" />
             <p className="text-[15px] leading-6 text-ink">
               Connect a bank and Budgts imports its transactions for you, categories filled in, ready to check.

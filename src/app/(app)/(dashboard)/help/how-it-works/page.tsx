@@ -60,15 +60,15 @@ export default function HowItWorksPage() {
       <PageHeader title="How Budgts works" back="/help" />
       <div className="space-y-6 md:max-w-[720px]">
         <div className="space-y-2">
-          <h2 className="px-figure text-balance text-ink">You spend. Budgts keeps track.</h2>
+          <h2 className="px-figure text-balance text-ink" data-testid="how-it-works-lead">You spend. Budgts keeps track.</h2>
           <p className="text-[15px] leading-6 text-muted">
             Connect your accounts, spend normally, and Budgts organizes everything, so you don&apos;t have to.
           </p>
         </div>
 
-        <ol className="px-card px-2 py-3 md:px-4 md:py-6">
+        <ol className="px-card px-2 py-3 md:px-4 md:py-6" data-testid="how-it-works-steps">
           {STEPS.map((s, i) => (
-            <li key={s.heading} className="relative flex gap-3 pb-6 last:pb-0 md:gap-4">
+            <li key={s.heading} className="relative flex gap-3 pb-6 last:pb-0 md:gap-4" data-testid="how-it-works-step">
               {/* the dotted thread from one step to the next */}
               {i < STEPS.length - 1 ? (
                 <span className="px-rule-v absolute bottom-0 left-[15px] top-10" aria-hidden />
@@ -90,13 +90,13 @@ export default function HowItWorksPage() {
           ))}
         </ol>
 
-        <div className="px-card-raised flex flex-col items-start gap-4 p-3 sm:flex-row sm:items-center md:p-4">
+        <div className="px-card-raised flex flex-col items-start gap-4 p-3 sm:flex-row sm:items-center md:p-4" data-testid="how-it-works-guide">
           <Mascot mood="happy" size={80} />
           <div className="min-w-0 flex-1">
             <p className="text-[15px] font-medium leading-6 text-ink">Want Crystal to walk you through it?</p>
             <p className="text-[13px] leading-5 text-muted">The welcome guide takes about a minute.</p>
           </div>
-          <PrimaryLinkButton href="/tour" arrow>
+          <PrimaryLinkButton href="/tour" arrow data-testid="how-it-works-open-guide">
             Open the welcome guide
           </PrimaryLinkButton>
         </div>

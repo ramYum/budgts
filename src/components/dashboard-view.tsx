@@ -63,7 +63,7 @@ function WhereRow({ b, month, currency, row }: { b: DashboardBar; month: string;
   const over = b.state === "over" && b.budget > 0;
 
   return (
-    <li className="rise relative py-3 first:pt-0 last:pb-0 md:py-4" style={at(row * 60 + 240)}>
+    <li className="rise relative py-3 first:pt-0 last:pb-0 md:py-4" style={at(row * 60 + 240)} data-testid="home-where-row">
       <div className="flex items-center gap-3 md:gap-4">
         <CategoryIcon name={b.name} tone={unplanned || over ? "wash" : "gray"} />
         <div className="min-w-0 flex-1 space-y-1.5 md:space-y-2">
@@ -95,6 +95,7 @@ function WhereRow({ b, month, currency, row }: { b: DashboardBar; month: string;
               <Link
                 href={`/budgets?m=${month}&edit=${b.categoryId}`}
                 className={`relative z-[1] shrink-0 font-semibold hover:underline ${unplanned ? "text-neg" : "text-ink"}`}
+                data-testid="home-where-set-budget"
               >
                 Set budget
               </Link>
@@ -236,11 +237,11 @@ export function DashboardView({
   const stepsDone = steps.filter((s) => s.done).length;
 
   const whereItWent = (
-    <section className="space-y-3">
+    <section className="space-y-3" data-testid="home-where">
       <SectionHead title="Where it went" href={`/budgets?m=${month}`} action="Budgets" />
       {tiles.budgeted > 0 && tiles.spent > 0 ? (
         tiles.leftToSpend < 0 ? (
-          <p className="tnum flex items-center gap-2 text-[15px] leading-6 text-ink">
+          <p className="tnum flex items-center gap-2 text-[15px] leading-6 text-ink" data-testid="home-where-summary">
             <Icon name="warning" className="text-signal" />
             <span>
               <span className="font-semibold text-neg">{formatMoney(-tiles.leftToSpend, currency)} over</span> your{" "}
@@ -248,21 +249,21 @@ export function DashboardView({
             </span>
           </p>
         ) : (
-          <p className="tnum text-[15px] leading-6 text-muted">
+          <p className="tnum text-[15px] leading-6 text-muted" data-testid="home-where-summary">
             <span className="font-semibold text-ink">{formatMoney(tiles.leftToSpend, currency)} left</span> of your{" "}
             {formatMoney(tiles.budgeted, currency)} budget
           </p>
         )
       ) : null}
       {tiles.spent === 0 ? (
-        <div className="px-card p-2 md:p-4">
+        <div className="px-card p-2 md:p-4" data-testid="home-where-empty">
           <Mascot mood="sleepy" size={60} />
           <p className="mt-4 text-[15px] font-medium leading-6 text-ink">No spending yet this month</p>
           <p className="text-sm leading-5 text-muted">Your categories are ready. Spending shows up here as it happens.</p>
           {expenseCategories.length > 0 ? (
             <ul className="mt-4 flex flex-wrap gap-2" aria-label="Your categories">
               {expenseCategories.map((c) => (
-                <li key={c.id} className="px-badge inline-flex h-8 items-center gap-1.5 px-1.5 text-sm text-graphite">
+                <li key={c.id} className="px-badge inline-flex h-8 items-center gap-1.5 px-1.5 text-sm text-graphite" data-testid="home-category-chip">
                   <Icon name={categoryIcon(c.name)} size={12} />
                   {c.name}
                 </li>
@@ -271,7 +272,7 @@ export function DashboardView({
           ) : null}
         </div>
       ) : bars.length === 0 ? (
-        <div className="px-card p-3 text-[15px] leading-6 text-muted md:p-4">
+        <div className="px-card p-3 text-[15px] leading-6 text-muted md:p-4" data-testid="home-where-no-budgets">
           Set a budget on the{" "}
           <Link href="/budgets" className="font-medium text-ink underline underline-offset-2">
             Budgets
@@ -279,7 +280,7 @@ export function DashboardView({
           screen to see how you&apos;re tracking.
         </div>
       ) : (
-        <ul className="px-card px-rows p-2 md:p-4">
+        <ul className="px-card px-rows p-2 md:p-4" data-testid="home-where-rows">
           {bars.map((b, row) => (
             <WhereRow key={b.categoryId} b={b} month={month} currency={currency} row={row} />
           ))}
@@ -296,6 +297,7 @@ export function DashboardView({
           : `/transactions?m=${month}&category=${suggestion.categoryId}`
       }
       className="px-wash press flex items-center gap-3 p-2 md:gap-4 md:p-4"
+      data-testid="home-change"
     >
       {/* the idea lamp switches on */}
       <span className="lamp" style={at(380)}>
@@ -326,7 +328,7 @@ export function DashboardView({
 
   const savingsCard =
     savings.activeCount > 0 ? (
-      <section className="space-y-3">
+      <section className="space-y-3" data-testid="home-savings">
         <SectionHead title="Savings" href="/goals" action="Goals" />
         <div className="px-card p-2 md:p-4">
           <div className="flex items-center justify-between gap-3">
@@ -351,10 +353,10 @@ export function DashboardView({
     ) : null;
 
   const recentCard = (
-    <section className="space-y-3">
+    <section className="space-y-3" data-testid="home-recent">
       <SectionHead title="Recent activity" href="/transactions" action="See all" />
       {recent.length === 0 ? (
-        <div className="px-card p-2 md:p-4">
+        <div className="px-card p-2 md:p-4" data-testid="home-recent-empty">
           <IconTile name="receipt" />
           <p className="mt-4 text-[15px] font-medium leading-6 text-ink">Nothing recorded yet</p>
           <p className="text-sm leading-5 text-muted">
@@ -365,9 +367,9 @@ export function DashboardView({
           </div>
         </div>
       ) : (
-        <ul className="px-card px-rows p-2 md:p-4">
+        <ul className="px-card px-rows p-2 md:p-4" data-testid="home-recent-rows">
           {recent.map((r, k) => (
-            <li key={r.id} className="rise flex items-center gap-3 py-3 md:gap-4 first:pt-0 last:pb-0" style={at(k * 60 + 200)}>
+            <li key={r.id} className="rise flex items-center gap-3 py-3 md:gap-4 first:pt-0 last:pb-0" style={at(k * 60 + 200)} data-testid="home-recent-row">
               <CategoryIcon name={r.isTransfer ? "Transfer" : (r.category?.name ?? "")} />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[15px] font-medium leading-6 text-ink">
@@ -391,7 +393,7 @@ export function DashboardView({
   );
 
   return (
-    <div>
+    <div data-testid="home-view">
       <PageHeader
         title={<Greeting name={name} />}
         month={<MonthNav base="/" month={month} />}
@@ -414,22 +416,23 @@ export function DashboardView({
 
       {/* the hero: one number, stated plainly; Crystal perches on its frame */}
       <Reveal i={next()}>
-        <section className="relative mt-12 md:mt-0" aria-labelledby="home-money-left">
+        <section className="relative mt-12 md:mt-0" aria-labelledby="home-money-left" data-testid="home-money-left">
           <CrystalPerch
             name={name}
             savingsRate={tiles.savingsRate}
             className="absolute inset-x-4 bottom-[calc(100%-2px)] md:inset-x-10"
           />
-          <div className="px-card-raised p-2 md:p-6" data-testid="money-left-card">
+          <div className="px-card-raised p-2 md:p-6">
             <div className="flex flex-col gap-5 md:flex-row md:gap-10">
               <div className="min-w-0 flex-1">
                 <h2 id="home-money-left" className="text-sm font-medium leading-5 text-muted">
                   Money left
                 </h2>
-                <p className={`${figureSize(moneyLeft)} tnum mt-3 ${negative ? "text-neg" : "text-ink"}`} data-testid="money-left-figure">
+                <p className={`${figureSize(moneyLeft)} tnum mt-3 ${negative ? "text-neg" : "text-ink"}`}>
                   <RollingAmount value={tiles.netSavings} currency={currency} />
                 </p>
                 <p
+                  data-testid="home-hero-line"
                   className={`rise tnum mt-2 text-[15px] leading-6 ${negative ? "text-neg" : "text-muted"}`}
                   style={at(560)}
                 >
@@ -459,13 +462,13 @@ export function DashboardView({
                     Came in
                     <AddIncome accounts={accounts} categories={categories} defaultDate={defaultDate} variant="icon" />
                   </dt>
-                  <dd className={`t-num ${tiles.income > 0 ? "text-pos" : "text-ink"}`}>
+                  <dd className={`t-num ${tiles.income > 0 ? "text-pos" : "text-ink"}`} data-testid="home-came-in">
                     {signed(tiles.income, currency, "in")}
                   </dd>
                 </div>
                 <div>
                   <dt className="flex min-h-7 items-center text-sm leading-5 text-muted">Went out</dt>
-                  <dd className="t-num text-ink">{signed(tiles.spent, currency, "out")}</dd>
+                  <dd className="t-num text-ink" data-testid="home-went-out">{signed(tiles.spent, currency, "out")}</dd>
                 </div>
               </dl>
             </div>

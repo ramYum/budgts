@@ -56,7 +56,7 @@ export function OnboardingWizardContent({
         onSkip: nav.isLast ? undefined : nav.jumpToLast,
       };
       const next = (
-        <PrimaryButton arrow onClick={nav.next} className="w-full">
+        <PrimaryButton arrow onClick={nav.next} className="w-full" data-testid="tour-primary">
           {copy.cta}
         </PrimaryButton>
       );
@@ -75,6 +75,7 @@ export function OnboardingWizardContent({
                   <label className={labelClass}>
                     <span>Currency</span>
                     <Select
+                      data-testid="onboarding-currency"
                       name="currency"
                       defaultValue={defaultCurrency}
                       onChange={(e) => setCurrency(e.target.value)}
@@ -86,8 +87,8 @@ export function OnboardingWizardContent({
                       ))}
                     </Select>
                   </label>
-                  {state.error ? <p className="text-sm text-neg">{state.error}</p> : null}
-                  <PrimaryButton type="submit" arrow={!pending} disabled={pending} className="w-full">
+                  {state.error ? <p className="text-sm text-neg" data-testid="onboarding-error">{state.error}</p> : null}
+                  <PrimaryButton type="submit" arrow={!pending} disabled={pending} className="w-full" data-testid="tour-primary">
                     {pending ? "Saving…" : copy.cta}
                   </PrimaryButton>
                 </form>

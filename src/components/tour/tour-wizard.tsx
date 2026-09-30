@@ -89,7 +89,7 @@ export function TourWizard({
       <p className="sr-only" aria-live="polite">
         {`Step ${offset + index + 1} of ${total}: ${step.label}`}
       </p>
-      <div key={step.id} ref={stageRef} data-dir={dir} className={`${s.stage} flex w-full justify-center`}>
+      <div key={step.id} ref={stageRef} data-dir={dir} data-testid={`tour-step-${step.id}`} className={`${s.stage} flex w-full justify-center`}>
         {step.render(nav)}
       </div>
     </div>

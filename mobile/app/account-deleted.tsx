@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { AccountDeletedView } from "../components/settings/account-deleted-view";
 import { StandaloneShell } from "../components/settings/standalone-shell";
 import { legalUrl } from "../lib/legal";
+import { openInBrowser } from "../lib/open-in-browser";
 
 const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL;
 
@@ -14,6 +16,7 @@ const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL;
 export default function AccountDeletedScreen() {
   const router = useRouter();
   const { store, keeps, legal } = useLocalSearchParams<{ store?: string; keeps?: string; legal?: string }>();
+  const [linkError, setLinkError] = useState<string | null>(null);
   const privacy = legal === "1" ? legalUrl(API_BASE, "privacy") : null;
   return (
     <StandaloneShell>
@@ -21,7 +24,8 @@ export default function AccountDeletedScreen() {
         store={store === "1"}
         keeps={keeps === "1"}
         privacyUrl={privacy ? `${privacy}#deleting-your-data` : null}
-        openUrl={(url) => void WebBrowser.openBrowserAsync(url)}
+        openUrl={(url) => void openInBrowser(url, WebBrowser.openBrowserAsync).then(setLinkError)}
+        linkError={linkError}
         onDone={() => router.replace("/sign-in")}
       />
     </StandaloneShell>

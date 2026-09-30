@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { View } from "react-native";
+import { AccessibilityInfo, View } from "react-native";
 import { COLOR, ROLE, type IconName } from "../../lib/brand/shared";
 import type { DeleteOutcome } from "../../lib/account/delete-account";
 import {
@@ -234,7 +234,7 @@ function Reauth({ screen, stale, a }: { screen: DeleteScreen; stale: boolean; a:
       </TileCard>
 
       {error ? (
-        <Text testID="delete-reauth-error" variant="body" color={ROLE.neg} accessibilityRole="alert" style={{ fontSize: 14, lineHeight: 20 }}>
+        <Text testID="delete-reauth-error" variant="small" color={ROLE.neg} accessibilityRole="alert">
           {error}
         </Text>
       ) : null}
@@ -279,7 +279,16 @@ function Confirm({ screen, onDelete, a }: { screen: DeleteScreen; onDelete: () =
         </Para>
         <Field
           testID="delete-confirm-word"
-          label={`Type ${CONFIRM_WORD} to confirm`}
+          label={
+            <>
+              {"Type "}
+              <Text testID="delete-confirm-word-strong" variant="smallStrong" color={ROLE.ink}>
+                {CONFIRM_WORD}
+              </Text>
+              {" to confirm"}
+            </>
+          }
+          accessibilityLabel={`Type ${CONFIRM_WORD} to confirm`}
           value={typed}
           onChangeText={setTyped}
           autoComplete="off"
@@ -406,6 +415,18 @@ export function DeleteAccountFlow({ screen, step, actions: a }: { screen: Delete
     }
   }, [screen]);
 
+  const subtitle = stage === "error" ? ERROR_COPY[error].title : STAGE_TITLE[stage];
+
+  // Each stage change is spoken (VoiceOver ignores live regions), never the first render.
+  const announced = useRef(false);
+  useEffect(() => {
+    if (!announced.current) {
+      announced.current = true;
+      return;
+    }
+    AccessibilityInfo.announceForAccessibility(subtitle);
+  }, [subtitle]);
+
   const onBusy = a.onBusy;
   useEffect(() => {
     onBusy?.(stage === "deleting");
@@ -423,8 +444,6 @@ export function DeleteAccountFlow({ screen, step, actions: a }: { screen: Delete
     if (next.error) setError(next.error);
     setStage(next.stage);
   }
-
-  const subtitle = stage === "error" ? ERROR_COPY[error].title : STAGE_TITLE[stage];
 
   return (
     <View testID="delete-account-view" style={{ gap: 24 }}>

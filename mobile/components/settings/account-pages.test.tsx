@@ -1,6 +1,6 @@
 import { act } from "react-test-renderer";
 import { describe, expect, it, vi } from "vitest";
-import { byTestId, flat, render, textContent, texts } from "../../test/render";
+import { byTestId, flat, hosts, render, textContent, texts } from "../../test/render";
 import { AppearanceView } from "./appearance-view";
 import { CopyButton } from "./copy-button";
 import { ProfileView, avatarLetter, signsInWith, type ProfileDetails } from "./profile-view";
@@ -75,7 +75,9 @@ describe("CopyButton (web copy-button.tsx)", () => {
     });
     expect(copy).toHaveBeenCalledWith("a@b.co");
     expect(texts(byTestId(r, "copy-button-copied"))).toEqual(["Copied"]);
-    expect(flat(byTestId(r, "copy-button-copied").props.style).animationDuration).toBe("300ms");
+    // the chip pops in: its wrapper plays pop-in (the id is on the Badge itself, the parity contract)
+    const pop = hosts(r, "Animated.View").find((v) => flat(v.props.style).animationDuration !== undefined);
+    expect(flat(pop!.props.style).animationDuration).toBe("300ms");
   });
 
   it("confirms nothing when the clipboard refuses", async () => {

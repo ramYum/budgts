@@ -10,12 +10,16 @@ import { parseHub, type MobileHub } from "./status-api";
  * no value and stay usable, as the web's rows are links first.
  */
 export function useHub(): MobileHub | null {
-  const budgets = useVersion("budgets");
+  // every topic a count moves with: goals, accounts and banks, categories (their writes invalidate transactions),
+  // budgets
+  const goals = useVersion("goals");
   const accounts = useVersion("accounts");
+  const transactions = useVersion("transactions");
+  const budgets = useVersion("budgets");
   const { state } = useResource(
     "hub",
     (session) => loadResource(() => authFetch("/api/mobile/hub", session), parseHub),
-    { version: `${budgets}:${accounts}` },
+    { version: `${goals}:${accounts}:${transactions}:${budgets}` },
   );
   return state.status === "ready" ? state.data : null;
 }

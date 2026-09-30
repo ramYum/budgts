@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Pressable, View } from "react-native";
+import { AccessibilityInfo, Pressable, View } from "react-native";
 import Animated, { steps, useReducedMotion } from "react-native-reanimated";
 import { COLOR, ROLE } from "../../lib/brand/shared";
 import { POP_IN, POP_MS } from "../../lib/motion/css";
@@ -38,6 +38,7 @@ export function CopyButton({
     try {
       await copy(value);
       setCopied(true);
+      AccessibilityInfo.announceForAccessibility("Copied");
     } catch {
       // the clipboard refused: nothing to confirm
     }
@@ -48,7 +49,6 @@ export function CopyButton({
       <View accessibilityLiveRegion="polite">
         {copied ? (
           <Animated.View
-            testID={`${testID}-copied`}
             style={
               reduced
                 ? null
@@ -61,7 +61,7 @@ export function CopyButton({
                   }
             }
           >
-            <Badge tone="growth" icon="check">
+            <Badge tone="growth" icon="check" testID={`${testID}-copied`}>
               Copied
             </Badge>
           </Animated.View>

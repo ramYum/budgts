@@ -6,21 +6,18 @@ import { CategoriesView, type CategoryActions } from "../../../../../components/
 import { useBack } from "../../../../../components/settings/use-back";
 import { Screen } from "../../../../../components/shell/screen";
 import { invalidate } from "../../../../../lib/api/invalidate";
-import { loadResource } from "../../../../../lib/api/load";
 import { jsonInit } from "../../../../../lib/api/request";
-import { useResource } from "../../../../../lib/api/use-resource";
 import { authFetch } from "../../../../../lib/auth/api";
 import { useAuth } from "../../../../../lib/auth/auth-context";
-import { createBody, parseCategorySettings, writeCategory, type CategoryWrite } from "../../../../../lib/categories/manage";
+import { useCategorySettings } from "../../../../../lib/categories/use-category-settings";
+import { createBody, writeCategory, type CategoryWrite } from "../../../../../lib/categories/manage";
 
 /** Settings → Categories: the web's /settings/categories (components/settings/categories-view.tsx). */
 export default function CategoriesScreen() {
   const router = useRouter();
   const onBack = useBack("/settings");
   const { session, signOut } = useAuth();
-  const { state, refreshing, refresh, reload } = useResource("category-settings", (s) =>
-    loadResource(() => authFetch("/api/mobile/settings/categories", s), parseCategorySettings),
-  );
+  const { state, refreshing, refresh, reload } = useCategorySettings();
 
   /** After a write: the list re-reads quietly, and every screen showing category names or counts reloads. */
   async function settle(result: CategoryWrite): Promise<CategoryWrite> {

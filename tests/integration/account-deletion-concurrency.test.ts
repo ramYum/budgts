@@ -52,7 +52,7 @@ async function createRealUser(): Promise<string> {
   return data.user.id;
 }
 
-/** A user with two manual transactions, returned in the physical order a cascade scan will visit them. */
+/** A user with two manual transactions, in physical (ctid) order. Not necessarily the order a cascade visits them in. */
 async function seedUserWithTwoTransactions() {
   const userId = await createRealUser();
   const accountId = await mainAccountId(userId);
@@ -65,17 +65,52 @@ async function seedUserWithTwoTransactions() {
   return { userId, accountId, categoryId, first: rows[0].id, last: rows[1].id };
 }
 
-/** Resolves once a backend is waiting on a lock inside GoTrue's `DELETE FROM auth.users` (the cascade runs inside it). */
-async function waitForAuthUserDeleteToBlock(timeoutMs = 15_000) {
+/** Resolves with the backend pid once a backend is waiting on a lock inside GoTrue's `DELETE FROM auth.users` (the
+ * cascade runs inside it). */
+async function waitForAuthUserDeleteToBlock(timeoutMs = 15_000): Promise<number> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    const rows = await pg`
-      select 1 from pg_stat_activity
+    const rows = await pg<{ pid: number }[]>`
+      select pid from pg_stat_activity
       where datname = current_database() and wait_event_type = 'Lock' and query ilike '%delete from%users%'`;
-    if (rows.length) return;
+    if (rows.length) return rows[0].pid;
     await sleep(50);
   }
   throw new Error("the deletion never blocked on a lock; the scenario did not set up");
+}
+
+/**
+ * Watches for the lock cycle itself: each backend listed in the other's `pg_blocking_pids()`. Resolves true the moment
+ * both wait on each other, false once `settled` resolves without that having happened (no cycle formed). The deletion's
+ * 1 s `deadlock_timeout` breaks a real cycle, so it stays observable for about a second, far longer than one probe.
+ */
+async function watchForLockCycle(a: number, b: number, settled: Promise<unknown>): Promise<boolean> {
+  let done = false;
+  settled.then(
+    () => {
+      done = true;
+    },
+    () => {
+      done = true;
+    },
+  );
+  while (!done) {
+    const [row] = await pg<{ cycle: boolean }[]>`
+      select (${b}::int = any(pg_blocking_pids(${a}::int)) and ${a}::int = any(pg_blocking_pids(${b}::int))) as cycle`;
+    if (row.cycle) return true;
+    await sleep(20);
+  }
+  return false;
+}
+
+/** The order the `auth.users` delete cascades into these tables: its FK triggers fire in trigger-name order. */
+async function cascadeOrder(tables: string[]): Promise<string[]> {
+  const rows = await pg<{ tbl: string }[]>`
+    select c.conrelid::regclass::text as tbl
+    from pg_trigger t join pg_constraint c on c.oid = t.tgconstraint
+    where t.tgrelid = 'auth.users'::regclass and c.conrelid::regclass::text = any(${tables})
+    group by 1 order by min(t.tgname)`;
+  return rows.map((r) => r.tbl);
 }
 
 async function deadlockCount(): Promise<number> {
@@ -169,68 +204,64 @@ describe("deleteAccount (Path A) against a concurrent writer — real Postgres +
   }, 60_000);
 
   it("survives a lock cycle with a writer that touches the user's rows in the opposite order: the account ends up fully deleted", async () => {
-    // Which of the user's rows a cascade reaches LAST is decided by Postgres (the FK triggers fire in name order and
-    // those names embed OIDs, so it differs from one database to the next). A cycle needs the writer to hold the row the
-    // cascade reaches last, so try both holds: every attempt must satisfy the guarantees, and a real deadlock must
-    // have been produced by at least one (otherwise the scenario proved nothing).
-    const attempts: string[] = [];
-    let sawDeadlock = false;
-    for (const hold of ["last", "first"] as const) {
-      const u = await seedUserWithTwoTransactions();
-      const held = hold === "last" ? u.last : u.first;
-      const wanted = hold === "last" ? u.first : u.last;
-      const deadlocksBefore = await deadlockCount();
-      let deletion!: Promise<DeleteAccountResult>;
-      vi.restoreAllMocks(); // a spy on an already-spied method would call itself
-      const authCalls = recordAuthDeleteUserCalls();
+    // The cycle is built so it forms on every run: the writer holds one of the user's `budgets` rows, which the
+    // cascade reaches only AFTER it has deleted (and so locked) every `transactions` row, then reaches for one of
+    // those rows. (Holding one of two transactions rows and guessing the cascade's visiting order from ctid was a coin
+    // toss.) The `accounts` row cannot play this part here: the cascade reaches `accounts` BEFORE `transactions`. The
+    // cascade fires its FK triggers in trigger-name order, so that order is asserted first: if a migration ever
+    // changes it, this says why rather than failing obscurely. The cycle is observed directly through
+    // pg_blocking_pids, not inferred from pg_stat_database.deadlocks, which the victim backend flushes asynchronously.
+    expect(await cascadeOrder(["transactions", "budgets"]), "the auth.users cascade must reach transactions before budgets").toEqual([
+      "transactions",
+      "budgets",
+    ]);
 
-      // The writer (a sync applying updates, or a transfer-pairing pass) locks one row...
-      const writerOutcome = await pg
-        .begin(async (tx) => {
-          await tx`update public.transactions set description = 'itest touch 1' where id = ${held}`;
+    const u = await seedUserWithTwoTransactions();
+    const [{ id: budgetId }] = await pg<{ id: string }[]>`
+      insert into public.budgets (user_id, category_id, month, amount)
+      values (${u.userId}, ${u.categoryId}, '2026-09-01', 10000) returning id`;
+    let deletion!: Promise<DeleteAccountResult>;
+    let cycle = false;
+    const authCalls = recordAuthDeleteUserCalls();
 
-          // ...a real deletion starts and the cascade parks on that row after taking the earlier ones...
-          deletion = deleteAccount(admin, u.userId);
-          await waitForAuthUserDeleteToBlock();
+    // The writer (a sync applying updates, or a budget edit in flight) holds the budget row...
+    const writerOutcome = await pg
+      .begin(async (tx) => {
+        // A long deadlock_timeout for the writer only: the deletion (default 1 s) always runs deadlock detection
+        // first, so it is always the victim and its retry is what this test exercises.
+        await tx`set local deadlock_timeout = '30s'`;
+        const [{ pid: writerPid }] = await tx<{ pid: number }[]>`select pg_backend_pid() as pid`;
+        await tx`select id from public.budgets where id = ${budgetId} for update`;
+        // ...a real deletion starts, cascades through (and locks) every transactions row, and parks on the budget...
+        deletion = deleteAccount(admin, u.userId);
+        const deleterPid = await waitForAuthUserDeleteToBlock();
+        // ...then the writer reaches for a transactions row the cascade holds, which closes the cycle.
+        const touch = tx`update public.transactions set description = 'itest touch' where id = ${u.first}`.execute();
+        cycle = await watchForLockCycle(writerPid, deleterPid, touch);
+        await touch;
+      })
+      .then(
+        () => "writer committed" as const,
+        (e: { code?: string }) => e,
+      );
 
-          // ...then the writer reaches for the other row. If the cascade already holds it, that closes the cycle.
-          await tx`update public.transactions set description = 'itest touch 2' where id = ${wanted}`;
-        })
-        .then(
-          () => "writer committed" as const,
-          (e: { code?: string }) => e,
-        );
+    const result = await deletion;
+    const after = await snapshot(u.userId);
+    // What actually happened (visible in the failure message if an assertion below fails).
+    const observed = JSON.stringify({
+      writer: writerOutcome === "writer committed" ? writerOutcome : `aborted:${writerOutcome.code}`,
+      deletion: describeResult(result),
+      authDeleteUserCalls: authCalls,
+      lockCycle: cycle,
+      after,
+    });
 
-      const result = await deletion;
-      const after = await snapshot(u.userId);
-      await sleep(1_500); // pg_stat_database is flushed asynchronously
-      const deadlocks = (await deadlockCount()) - deadlocksBefore;
-
-      // What actually happened (visible in the failure message if an assertion below fails).
-      const observed = JSON.stringify({
-        hold,
-        writer: writerOutcome === "writer committed" ? writerOutcome : `aborted:${writerOutcome.code}`,
-        deletion: describeResult(result),
-        authDeleteUserCalls: authCalls,
-        deadlocksDetected: deadlocks,
-        after,
-      });
-      attempts.push(observed);
-      if (deadlocks >= 1) sawDeadlock = true;
-
-      if (result.ok) {
-        // User-visible success must mean the deletion completed...
-        expect(after, observed).toEqual(GONE);
-      } else {
-        // ...and a reported failure must mean nothing was half-deleted, so that a retry is safe.
-        expect(after, observed).toMatchObject({ authUserExists: true, transactions: 2, profiles: 1 });
-        expect(describeResult(await deleteAccount(admin, u.userId)), `retry after a reported failure: ${observed}`).toBe("ok(hard-delete)");
-      }
-      // The point of the fix: the user's request is not lost to a deadlock that a retry absorbs.
-      expect(describeResult(result), observed).toBe("ok(hard-delete)");
-      if (sawDeadlock) break;
-    }
-    expect(sawDeadlock, `the scenario must really deadlock in at least one hold order: ${attempts.join(" || ")}`).toBe(true);
+    expect(cycle, `the scenario must really form a lock cycle: ${observed}`).toBe(true);
+    // The writer is never the victim (see its deadlock_timeout), so it always commits.
+    expect(writerOutcome, observed).toBe("writer committed");
+    // The point of the fix: the user's request is not lost to a deadlock that a retry absorbs, and success means gone.
+    expect(describeResult(result), observed).toBe("ok(hard-delete)");
+    expect(after, observed).toEqual(GONE);
   }, 120_000);
 
   // The Plaid removal is the one irreversible step and it runs BEFORE the auth delete. This records what

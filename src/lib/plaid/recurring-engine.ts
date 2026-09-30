@@ -80,14 +80,35 @@ export interface RecurringStore {
   ): Promise<void>;
   /** Advance the user's watermark after a successful run. */
   markScanned(userId: string, at: string): Promise<void>;
+  /**
+   * The database's own clock, read at the moment of the call. The scan
+   * window is compared with `transactions.created_at`, which the database
+   * stamps, so it must be measured on the same clock: an app-server clock
+   * running behind hides rows just written, one running ahead lets rows
+   * land at or before the saved watermark and be skipped for good.
+   */
+  currentTime(): Promise<string>;
 }
+
+/**
+ * How far before the saved watermark the next scan reaches back.
+ * `created_at` is the inserting transaction's START time (`now()`), so a
+ * sync transaction that began before a scan and committed after it lands
+ * with `created_at` at or before that scan's watermark while having been
+ * invisible to it. Every sync runs inside a Vercel function (`maxDuration`
+ * 300 s today; 800 s is the platform ceiling), and a function that dies
+ * mid-transaction rolls it back, so no committed sync transaction stays
+ * open longer than that. 15 minutes clears the ceiling with margin. Safe
+ * because every write here is an idempotent upsert: re-evaluating a group
+ * touched in the overlap recomputes the same series.
+ */
+export const RECURRING_SCAN_OVERLAP_MS = 15 * 60_000;
 
 export interface RunRecurringDetectionDeps {
   userId: string;
   /** `profiles.recurring_last_scan_at` — null means never scanned. */
   watermark: string | null;
   store: RecurringStore;
-  now?: () => Date;
 }
 
 export interface RunRecurringDetectionOutcome {
@@ -98,16 +119,19 @@ export interface RunRecurringDetectionOutcome {
 }
 
 export async function runRecurringDetectionForUser(deps: RunRecurringDetectionDeps): Promise<RunRecurringDetectionOutcome> {
-  const { userId, watermark, store, now = () => new Date() } = deps;
+  const { userId, watermark, store } = deps;
 
-  // Captured ONCE, before discovery, and persisted as-is at the end (never a
-  // later `now()`) -- this is the fix for the watermark race (review
-  // finding B1): a transaction created after this exact instant is
-  // therefore guaranteed `created_at > newWatermark` on the next run,
+  // Read ONCE from the database clock, before discovery, and persisted as-is
+  // at the end (never a later reading) -- this is the fix for the watermark
+  // race (review finding B1): a transaction created after this exact instant
+  // is therefore guaranteed `created_at > newWatermark` on the next run,
   // whether it lands one millisecond or one hour into this run's duration.
-  const scanStartTime = now().toISOString();
+  const scanStartTime = await store.currentTime();
+  const since = watermark
+    ? new Date(new Date(watermark).getTime() - RECURRING_SCAN_OVERLAP_MS).toISOString()
+    : null;
 
-  const groups = await store.findCandidateGroups(userId, watermark, scanStartTime);
+  const groups = await store.findCandidateGroups(userId, since, scanStartTime);
 
   let updatedCount = 0;
   let newlyActiveCount = 0;

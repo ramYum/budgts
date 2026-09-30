@@ -60,15 +60,15 @@ function AccountForm({
   }, [state.ok, onDone]);
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form action={formAction} className="space-y-4" data-testid="account-form">
       {initial ? <input type="hidden" name="id" value={initial.id} /> : null}
       <label className={labelClass}>
         Name
-        <input className={fieldClass} name="name" defaultValue={initial?.name ?? ""} maxLength={40} required autoFocus />
+        <input className={fieldClass} data-testid="account-form-name" name="name" defaultValue={initial?.name ?? ""} maxLength={40} required autoFocus />
       </label>
       <label className={labelClass}>
         Type
-        <Select name="type" defaultValue={initial?.type ?? "checking"}>
+        <Select data-testid="account-form-type" name="type" defaultValue={initial?.type ?? "checking"}>
           {ACCOUNT_TYPES.map((t) => (
             <option key={t} value={t}>
               {typeLabel(t)}
@@ -77,13 +77,13 @@ function AccountForm({
         </Select>
       </label>
       {state.fieldError || state.error ? (
-        <p className="text-sm text-neg">{state.fieldError ?? state.error}</p>
+        <p className="text-sm text-neg" data-testid="account-form-error">{state.fieldError ?? state.error}</p>
       ) : null}
       <div className="flex gap-3 pt-2">
-        <Button type="submit" disabled={pending} className="flex-1">
+        <Button type="submit" disabled={pending} className="flex-1" data-testid="account-form-submit">
           {pending ? "Saving…" : submitLabel}
         </Button>
-        <Button variant="secondary" onClick={onDone}>
+        <Button variant="secondary" onClick={onDone} data-testid="account-form-cancel">
           Cancel
         </Button>
       </div>
@@ -97,7 +97,7 @@ export function AddAccountButton() {
   const [adding, setAdding] = useState(false);
   return (
     <>
-      <Button icon="plus" onClick={() => setAdding(true)} aria-label="Add account">
+      <Button icon="plus" onClick={() => setAdding(true)} aria-label="Add account" data-testid="accounts-add">
         <span className="md:hidden">Add</span>
         <span className="hidden md:inline">Add account</span>
       </Button>
@@ -123,14 +123,14 @@ function AccountRow({
 }) {
   const archiveLabel = a.is_archived ? "Restore" : "Archive";
   return (
-    <li className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0 md:gap-4">
+    <li className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0 md:gap-4" data-testid={`account-row-${a.id}`}>
       <IconTile name={TYPE_ICON[a.type] ?? "wallet"} />
       <div className={`min-w-0 flex-1 ${a.is_archived ? "opacity-60" : ""}`}>
-        <p className="truncate text-[15px] font-medium leading-6 text-ink">
+        <p className="truncate text-[15px] font-medium leading-6 text-ink" data-testid={`account-row-${a.id}-name`}>
           {a.name}
           {a.mask && !a.name.includes(a.mask) ? <span className="tnum"> ••{a.mask}</span> : null}
         </p>
-        <p className="truncate text-[13px] leading-5 text-muted">
+        <p className="truncate text-[13px] leading-5 text-muted" data-testid={`account-row-${a.id}-meta`}>
           {typeLabel(a.type)} ·{" "}
           {a.txnCount === 0
             ? "nothing this month"
@@ -150,6 +150,7 @@ function AccountRow({
       <span className="-mr-2 md:hidden">
         <RowMenu
           label={`More for ${a.name}`}
+          testId={`account-row-${a.id}-menu`}
           items={[
             ...(!a.is_archived ? [{ label: "Edit", icon: "edit" as const, onSelect: onEdit }] : []),
             { label: archiveLabel, icon: "archive", onSelect: onToggle, disabled: pending },
@@ -174,7 +175,7 @@ export function AccountManager({ groups, archived }: { groups: AccountGroup[]; a
   };
 
   const section = (key: string, title: string, list: AccountItem[], aside?: ReactNode) => (
-    <section key={key} className="space-y-3">
+    <section key={key} className="space-y-3" data-testid={`accounts-group-${key}`}>
       <SectionHead title={title} aside={aside} />
       <ul className="px-card px-rows p-2 md:p-4">
         {list.map((a) => (

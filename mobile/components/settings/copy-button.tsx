@@ -2,13 +2,11 @@ import { useEffect, useState } from "react";
 import { Pressable, View } from "react-native";
 import Animated, { steps, useReducedMotion } from "react-native-reanimated";
 import { COLOR, ROLE } from "../../lib/brand/shared";
+import { POP_IN, POP_MS } from "../../lib/motion/css";
 import { useMotionTiming } from "../../lib/motion/parity-clock";
 import { Icon } from "../brand/icon";
 import { Badge } from "../kit/tiles";
 import { pressStyle } from "../kit/press";
-
-/** `@keyframes pop-in` (globals.css): the "Copied" chip steps in from 40%. */
-const POP_IN = { from: { opacity: 0, transform: [{ scale: 0.4 }] }, to: { opacity: 1, transform: [{ scale: 1 }] } };
 
 /**
  * Copies a value, then says so (web `CopyButton`): a green "Copied" chip pops
@@ -56,7 +54,7 @@ export function CopyButton({
                 ? null
                 : {
                     animationName: POP_IN,
-                    animationDuration: "300ms",
+                    animationDuration: `${POP_MS}ms`,
                     animationTimingFunction: steps(3, "jump-end"),
                     animationFillMode: "backwards",
                     ...timing,

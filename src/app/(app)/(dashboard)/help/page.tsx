@@ -37,7 +37,7 @@ export default function HelpPage() {
       <PageHeader title="Help" back="/more" />
       <div className="space-y-8 md:max-w-[720px]">
         <div className="grid gap-4 md:grid-cols-2 md:gap-6">
-          <Link href="/help/how-it-works" className="px-card press group flex items-center gap-4 p-2 md:p-4">
+          <Link href="/help/how-it-works" className="px-card press group flex items-center gap-4 p-2 md:p-4" data-testid="help-how-it-works">
             <IconTile name="list" tone="accent" />
             <span className="min-w-0 flex-1">
               <span className="block text-[15px] font-medium leading-6 text-ink group-hover:underline">
@@ -49,7 +49,7 @@ export default function HelpPage() {
             </span>
             <Chevron />
           </Link>
-          <Link href="/tour" className="px-card press group flex items-center gap-4 p-2 md:p-4">
+          <Link href="/tour" className="px-card press group flex items-center gap-4 p-2 md:p-4" data-testid="help-replay-guide">
             <span className="px-tile-wash flex h-10 w-10 shrink-0 items-center justify-center" aria-hidden>
               <Robin size={22} />
             </span>
@@ -65,15 +65,15 @@ export default function HelpPage() {
 
         <section className="space-y-3">
           <SectionHead title="Common questions" />
-          <div className="px-card px-rows px-2 py-0.5 md:px-4 md:py-1">
+          <div className="px-card px-rows px-2 py-0.5 md:px-4 md:py-1" data-testid="help-faq">
             {FAQ.map((item, i) => (
               <details key={item.q} className="group py-3" open={i === 0}>
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-1 text-[15px] font-medium leading-6 text-ink [&::-webkit-details-marker]:hidden">
+                <summary data-testid={`help-faq-${i}`} className="flex cursor-pointer list-none items-center justify-between gap-4 py-1 text-[15px] font-medium leading-6 text-ink [&::-webkit-details-marker]:hidden">
                   {item.q}
                   <Icon name="plus" className="group-open:hidden" />
                   <Icon name="minus" className="hidden group-open:block" />
                 </summary>
-                <p className="pb-1 pt-2 text-[15px] leading-6 text-muted">{item.a}</p>
+                <p className="pb-1 pt-2 text-[15px] leading-6 text-muted" data-testid={`help-faq-${i}-answer`}>{item.a}</p>
               </details>
             ))}
           </div>

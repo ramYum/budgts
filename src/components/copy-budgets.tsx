@@ -12,7 +12,7 @@ export function CopyBudgets({ month }: { month: string }) {
   return (
     <form action={action} className="flex items-center gap-3">
       <input type="hidden" name="month" value={month} />
-      <TextButton type="submit" disabled={pending} iconAfter="copy" className="font-semibold text-ink">
+      <TextButton type="submit" disabled={pending} iconAfter="copy" className="font-semibold text-ink" data-testid="budgets-copy">
         {pending ? "Copying…" : "Copy last month"}
       </TextButton>
       {state.error ? <span className="text-sm text-muted">{state.error}</span> : null}

@@ -68,10 +68,10 @@ const TxnDays = memo(function TxnDays({
     else groups.set(key, [it]);
   }
   return [...groups.entries()].map(([day, dayRows]) => (
-    <section key={day} className="[&:first-child>h3]:pt-4">
+    <section key={day} className="[&:first-child>h3]:pt-4" data-testid="txn-day">
       <h3 className="flex items-center justify-between gap-3 px-2 pb-1 pt-5 md:px-4 md:pt-6">
-        <span className="t-label-strong text-graphite">{formatDayHeading(day)}</span>
-        <span className="t-label tnum text-muted">
+        <span className="t-label-strong text-graphite" data-testid="txn-day-label">{formatDayHeading(day)}</span>
+        <span className="t-label tnum text-muted" data-testid="txn-day-total">
           {signedTotal(dayTotals.get(day) ?? 0, currency)}
         </span>
       </h3>
@@ -85,6 +85,7 @@ const TxnDays = memo(function TxnDays({
               <button
                 type="button"
                 onClick={() => onOpen(it)}
+                data-testid="txn-row"
                 aria-labelledby={`txn-${it.id}-title`}
                 aria-describedby={`txn-${it.id}-meta txn-${it.id}-amount`}
                 className="press group flex w-full items-center gap-3 py-3 text-left md:gap-4"
@@ -93,12 +94,14 @@ const TxnDays = memo(function TxnDays({
                 <span className="min-w-0 flex-1">
                   <span
                     id={`txn-${it.id}-title`}
+                    data-testid="txn-title"
                     className="block truncate text-[15px] font-medium leading-6 text-ink group-hover:underline"
                   >
                     {it.description || it.category?.name || "Transaction"}
                   </span>
                   <span
                     id={`txn-${it.id}-meta`}
+                    data-testid="txn-meta"
                     className={`block truncate text-sm leading-5 ${needsCategory ? "text-warn" : "text-muted"}`}
                   >
                     {it.is_transfer ? "Transfer" : needsCategory ? "Needs a category" : it.category?.name}
@@ -107,6 +110,7 @@ const TxnDays = memo(function TxnDays({
                 </span>
                 <span
                   id={`txn-${it.id}-amount`}
+                  data-testid="txn-amount"
                   className={`tnum shrink-0 text-[15px] font-semibold leading-6 ${
                     it.direction === "credit" ? "text-pos" : "text-ink"
                   }`}
@@ -142,7 +146,7 @@ function MoreRows({ remaining, onMore }: { remaining: number; onMore: () => void
     return () => io.disconnect();
   }, [onMore, remaining]);
   return (
-    <Button ref={ref} variant="secondary" onClick={onMore} className="w-full" iconAfter="chevron-down">
+    <Button ref={ref} variant="secondary" onClick={onMore} className="w-full" iconAfter="chevron-down" data-testid="show-more-rows">
       Show {Math.min(remaining, SLICE)} more
     </Button>
   );
@@ -231,7 +235,7 @@ export function TransactionList({
 
   if (items.length === 0) {
     return (
-      <div className="px-card flex flex-col items-start gap-2 p-4 md:p-6">
+      <div className="px-card flex flex-col items-start gap-2 p-4 md:p-6" data-testid="activity-empty">
         <Mascot mood="sleepy" size={60} />
         <p className="mt-2 text-[15px] font-medium leading-6 text-ink">No transactions this month yet.</p>
         <p className="text-sm leading-5 text-muted">
@@ -244,7 +248,7 @@ export function TransactionList({
 
   const searchBar = (
     <div className="space-y-3">
-      <label className="px-search flex h-[46px] items-center gap-2 px-2 text-graphite">
+      <label className="px-search flex h-[46px] items-center gap-2 px-2 text-graphite" data-testid="activity-search">
         <Icon name="search" />
         <input
           type="search"
@@ -279,7 +283,7 @@ export function TransactionList({
     return (
       <div className="space-y-6">
         {searchBar}
-        <p className="px-card p-4 text-center text-[15px] leading-6 text-muted md:p-6">No matching transactions.</p>
+        <p className="px-card p-4 text-center text-[15px] leading-6 text-muted md:p-6" data-testid="activity-no-match">No matching transactions.</p>
       </div>
     );
   }
@@ -302,7 +306,7 @@ export function TransactionList({
   return (
     <div className="space-y-6">
       {searchBar}
-      <div className="reveal px-card pb-1" style={{ ["--i" as string]: 1 }}>
+      <div className="reveal px-card pb-1" style={{ ["--i" as string]: 1 }} data-testid="activity-list">
         <TxnDays rows={visible} dayTotals={dayTotals} kinds={kinds} currency={currency} onOpen={setViewing} />
       </div>
       {filtered.length > visible.length ? (

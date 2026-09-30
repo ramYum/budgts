@@ -12,13 +12,13 @@ export default function AppearancePage() {
     <>
       <PageHeader title="Appearance" back="/settings" />
       <div className="md:max-w-[720px]">
-        <div className="px-card flex items-center gap-4 p-2 md:p-4">
+        <div className="px-card flex items-center gap-4 p-2 md:p-4" data-testid="appearance-light">
           <IconTile name="appearance" />
           <div className="min-w-0 flex-1">
             <p className="text-[15px] font-medium leading-6 text-ink">Light</p>
             <p className="text-[13px] leading-5 text-muted">Dark mode isn&apos;t available yet.</p>
           </div>
-          <Badge tone="ink">Active</Badge>
+          <Badge tone="ink" testId="appearance-active">Active</Badge>
         </div>
       </div>
     </>

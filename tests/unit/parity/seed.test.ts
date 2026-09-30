@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { assertStagingEnv, STAGING_REF } from "../../../tools/parity/env";
-import { LONG_MERCHANT, TRANSACTIONS, monthsBefore, parityEmail, seedDate } from "../../../tools/parity/data";
+import { GOALS, LONG_MERCHANT, TRANSACTIONS, monthsBefore, parityEmail, placeDay, seedDate } from "../../../tools/parity/data";
 
 const staging = `https://${STAGING_REF}.supabase.co`;
 
@@ -45,7 +45,24 @@ describe("parity ledger", () => {
 
   it("counts months back on the key, across a year boundary", () => {
     expect(monthsBefore("2026-02", 3)).toBe("2025-11");
-    expect(seedDate("2026-01", 1, 5)).toBe("2025-12-05");
+    expect(seedDate("2026-01-20", 1, 5)).toBe("2025-12-05");
+  });
+
+  it("never dates a row after today, on any day of the month", () => {
+    for (let d = 1; d <= 31; d++) {
+      const today = `2026-10-${String(d).padStart(2, "0")}`;
+      const dates = [...TRANSACTIONS.map((t) => seedDate(today, t.monthsBack, t.day)), ...GOALS.flatMap((g) => g.contributions.map((c) => seedDate(today, c.monthsBack, c.day)))];
+      expect(dates.every((x) => x <= today), today).toBe(true);
+      expect(dates.filter((x) => x.startsWith("2026-10")).length).toBe(TRANSACTIONS.filter((t) => t.monthsBack === 0).length + 2);
+    }
+  });
+
+  it("keeps this month's rows in order, all on today on the 1st, as written from the 28th", () => {
+    expect(seedDate("2026-10-01", 0, 15)).toBe("2026-10-01");
+    expect(seedDate("2026-10-01", 1, 15)).toBe("2026-09-15");
+    expect(seedDate("2026-09-30", 0, 15)).toBe("2026-09-15");
+    expect(seedDate("2026-10-14", 0, 28)).toBe("2026-10-14");
+    for (let t = 1; t <= 28; t++) for (let d = 1; d < 28; d++) expect(placeDay(d, t)).toBeLessThanOrEqual(placeDay(d + 1, t));
   });
 
   it("uses an undeliverable test domain", () => {

@@ -34,7 +34,13 @@ refuses any Supabase target but `uvowywszaiojboaxdmoz`. Nothing here opens `.env
 
 All financial writes use the app's own commands as the signed-in user (RLS applies). The service role sets only what no
 user action can: the deletion lock row, `plaid_accounts.needs_review`, and `plaid_items.created_at` (dated to the item's
-earliest row so the limited-history rule fires). Dates are fixed days of the user's current month and the 5 before it.
+earliest row so the limited-history rule fires).
+
+Dates follow the users' today in `America/New_York`: prior months use fixed days 1–28; this month's rows are squeezed in
+order into days 1..today (`placeDay`: `ceil(day × today / 28)`, identity from the 28th), so no row is ever after today
+and on the 1st every this-month row is dated today. The rows never change, so this month's totals and the `full`/`over`
+states are the same on any day; only the list's day grouping follows the calendar. Re-seed after a month rolls over
+(the users' "this month" is the month they were seeded in).
 
 ## Motion sets
 
@@ -60,7 +66,9 @@ a failed load and a missing page. Its loading capture shows no lit tab (the path
 
 - Crop each side to its `root` (web: the viewport; native: `screen-root`), compare the shared area top-left. The AVD is
   1080 px / 2.625 = 411.43 dp wide against the web's 412 CSS px (1082 px), so up to 2 px columns are not compared.
-- Geometry: every id on both sides, |Δx|,|Δy|,|Δw|,|Δh| ≤ 1 pt from the root. An id on one side only fails.
+- Geometry: only the ids in the contract (`screens.ts` `TESTIDS`, `inContract`) take part; `screen-root` is only the crop
+  rect and ids outside the contract are ignored. Every contract id on screen must be on both sides (one side only fails),
+  |Δx|,|Δy|,|Δw|,|Δh| ≤ 1 pt from the root. `NATIVE_ONLY` lists lane ids with no web counterpart, kept out of the contract.
 - Colours: ids tagged in `screens.ts` (`colors`) must be the token hex exactly at their sample point, on both sides.
 - Pixels: pixelmatch threshold 0.1, at most `budgets.json` (default 0.6% of compared pixels). Lower freely; raising a
   budget needs the reviewer's sign-off in the commit note.

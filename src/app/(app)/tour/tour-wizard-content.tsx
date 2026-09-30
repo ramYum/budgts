@@ -58,7 +58,7 @@ export function TourWizardContent({
               (document.getElementById(COMPLETE_FORM_ID) as HTMLFormElement | null)?.requestSubmit(),
       };
       const next = (
-        <PrimaryButton arrow onClick={nav.next} className="w-full">
+        <PrimaryButton arrow onClick={nav.next} className="w-full" data-testid="tour-primary">
           {copy.cta}
         </PrimaryButton>
       );
@@ -80,6 +80,7 @@ export function TourWizardContent({
                 <button
                   type="button"
                   onClick={nav.next}
+                  data-testid="tour-by-hand"
                   className="press inline-flex min-h-9 items-center px-2 text-sm font-medium text-muted hover:text-ink"
                 >
                   I&apos;ll add things by hand →
@@ -92,14 +93,14 @@ export function TourWizardContent({
             <TourCard
               {...shared}
               primary={
-                <PrimaryButton type="submit" form={COMPLETE_FORM_ID} arrow className="w-full">
+                <PrimaryButton type="submit" form={COMPLETE_FORM_ID} arrow className="w-full" data-testid="tour-primary">
                   {copy.cta}
                 </PrimaryButton>
               }
               footnote={
                 <>
                   Replay this guide, or read{" "}
-                  <Link href="/help/how-it-works" className="font-medium text-neg">
+                  <Link href="/help/how-it-works" className="font-medium text-neg" data-testid="tour-how-it-works">
                     How Budgts Works
                   </Link>
                   , anytime from Help.
@@ -120,7 +121,7 @@ export function TourWizardContent({
        * see docs/specs/2026-09-15-first-run-tour-design.md. */}
       <form id={COMPLETE_FORM_ID} action={formAction} className="hidden" aria-hidden />
       {state.error ? (
-        <p role="alert" className="fixed inset-x-0 top-4 z-50 px-6 text-center text-sm text-neg">
+        <p role="alert" className="fixed inset-x-0 top-4 z-50 px-6 text-center text-sm text-neg" data-testid="tour-error">
           {state.error}
         </p>
       ) : null}

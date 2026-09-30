@@ -5,9 +5,9 @@ import { hubTestId } from "@/lib/brand/test-ids";
 import { Chevron, IconTile, SectionHead } from "./ui";
 
 /** A hub section (More, Settings): a pixel heading over one card of rows. */
-export function HubSection({ title, children }: { title: string; children: ReactNode }) {
+export function HubSection({ title, children, testId = "hub-section" }: { title: string; children: ReactNode; testId?: string }) {
   return (
-    <section className="space-y-3" data-testid="hub-section">
+    <section className="space-y-3" data-testid={testId}>
       <SectionHead title={title} />
       <ul className="px-card px-rows px-2 py-0.5 md:px-4 md:py-1">{children}</ul>
     </section>

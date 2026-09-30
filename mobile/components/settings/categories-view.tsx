@@ -143,6 +143,7 @@ export function CategoriesView({ data, actions, onBack }: { data: CategorySettin
 
       {sheet?.mode === "add" ? (
         <CategorySheet
+          testID="category-sheet"
           title="Add category"
           submitLabel="Add"
           newRequestId={actions.newRequestId}
@@ -152,6 +153,7 @@ export function CategoriesView({ data, actions, onBack }: { data: CategorySettin
       ) : null}
       {sheet?.mode === "edit" ? (
         <CategorySheet
+          testID="category-sheet"
           title="Edit category"
           submitLabel="Save changes"
           initial={sheet.cat}

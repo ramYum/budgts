@@ -96,6 +96,7 @@ export function CategorySheet({
   save,
   newRequestId,
   onDone,
+  testID,
 }: {
   title: string;
   submitLabel: string;
@@ -103,10 +104,12 @@ export function CategorySheet({
   save: (fields: CategoryFields, requestId: string | undefined) => Promise<CategoryWrite>;
   newRequestId?: () => string;
   onDone: (created?: CreatedCategory) => void;
+  /** the sheet's parity id: Settings → Categories' sheets are "category-sheet" (web category-manager), the rest "sheet" */
+  testID?: string;
 }) {
   const [requestId] = useState(() => newRequestId?.());
   return (
-    <Overlay title={title} onClose={() => onDone()}>
+    <Overlay title={title} onClose={() => onDone()} testID={testID}>
       <CategoryForm initial={initial} submitLabel={submitLabel} save={(fields) => save(fields, requestId)} onDone={onDone} />
     </Overlay>
   );

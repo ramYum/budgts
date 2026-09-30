@@ -40,12 +40,13 @@ function Row({
   };
 
   return (
-    <li className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0 md:gap-4">
+    <li className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0 md:gap-4" data-testid="category-row">
       <span className={cat.is_archived ? "opacity-60" : ""}>
         <CategoryIcon name={cat.name} />
       </span>
       <Link
         href={`/transactions?m=${currentMonth}&category=${cat.id}`}
+        data-testid={`category-${cat.id}`}
         className={`group min-w-0 flex-1 ${cat.is_archived ? "opacity-60" : ""}`}
       >
         <span className="block truncate text-[15px] font-medium leading-6 text-ink group-hover:underline">
@@ -75,6 +76,7 @@ function Row({
       <span className="-mr-2 md:hidden">
         <RowMenu
           label={`More for ${cat.name}`}
+          testId={`category-menu-${cat.id}`}
           items={[
             ...(!cat.is_archived ? [{ label: "Edit", icon: "edit" as const, onSelect: () => onEdit(cat) }] : []),
             { label: archiveLabel, icon: "archive", onSelect: toggleArchive, disabled: pending },
@@ -90,12 +92,12 @@ export function AddCategoryButton() {
   const [adding, setAdding] = useState(false);
   return (
     <>
-      <Button icon="plus" onClick={() => setAdding(true)} aria-label="Add category">
+      <Button icon="plus" onClick={() => setAdding(true)} aria-label="Add category" data-testid="categories-add">
         <span className="md:hidden">Add</span>
         <span className="hidden md:inline">Add category</span>
       </Button>
       {adding ? (
-        <Overlay title="Add category" onClose={() => setAdding(false)}>
+        <Overlay title="Add category" onClose={() => setAdding(false)} testId="category-sheet">
           <CategoryForm action={createCategory} onDone={() => setAdding(false)} submitLabel="Add" />
         </Overlay>
       ) : null}
@@ -122,7 +124,7 @@ export function CategoryManager({
   return (
     <div className="space-y-8">
       {groups.map((g) => (
-        <section key={g.key} className="space-y-3">
+        <section key={g.key} className="space-y-3" data-testid={`categories-${g.key}`}>
           <SectionHead title={g.title} count={g.list.length} />
           <ul className="px-card px-rows p-2 md:p-4">
             {g.list.map((c) => (
@@ -133,7 +135,7 @@ export function CategoryManager({
       ))}
 
       {editing ? (
-        <Overlay title="Edit category" onClose={() => setEditing(null)}>
+        <Overlay title="Edit category" onClose={() => setEditing(null)} testId="category-sheet">
           <CategoryForm
             action={updateCategory}
             initial={editing as CategoryInitial}

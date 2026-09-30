@@ -17,6 +17,15 @@ export type GeometryRow = {
   ok: boolean;
 };
 
+/**
+ * Only the ids the contract lists take part (tools/parity/screens.ts `inContract`): a native-only id, a web-only id
+ * outside the contract and `screen-root` (the crop rect) are left out, while a contract id on one side only still fails
+ * in `compareGeometry`. Matches on the id, not the numbered key (`txn-row#3` → `txn-row`).
+ */
+export function contractBoxes<T extends KeyedBox>(boxes: T[], inContract: (id: string) => boolean): T[] {
+  return boxes.filter((b) => inContract(b.key.replace(/#\d+$/, "")));
+}
+
 /** Boxes relative to their screen root, keyed (`id`, `id#2`, …). Boxes wholly outside the root are dropped. */
 export function relativeBoxes(boxes: KeyedBox[], root: Rect): KeyedBox[] {
   return boxes

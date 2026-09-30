@@ -56,7 +56,7 @@ function GoalCard({
     });
 
   return (
-    <li className="reveal px-card flex flex-col p-2 md:p-4" style={{ ["--i" as string]: index + 2 }}>
+    <li className="reveal px-card flex flex-col p-2 md:p-4" style={{ ["--i" as string]: index + 2 }} data-testid="goal-card">
       <div className="flex items-start gap-3">
         <IconTile name="goals" tone={g.complete ? "growth" : "gray"} />
         <div className="min-w-0 flex-1">
@@ -128,7 +128,7 @@ export function GoalsView({
       />
 
       {items.length === 0 ? (
-        <div className="px-card-raised flex flex-col items-start gap-3 p-4 md:flex-row md:items-center md:gap-6 md:p-6">
+        <div className="px-card-raised flex flex-col items-start gap-3 p-4 md:flex-row md:items-center md:gap-6 md:p-6" data-testid="goals-empty">
           <Mascot mood="curious" size={72} />
           <div>
             <p className="px-figure text-ink">No goals yet</p>
@@ -140,13 +140,13 @@ export function GoalsView({
         </div>
       ) : (
         <>
-          <section className="reveal px-card-raised relative p-2 md:p-6" style={{ ["--i" as string]: 1 }}>
+          <section className="reveal px-card-raised relative p-2 md:p-6" style={{ ["--i" as string]: 1 }} data-testid="goals-hero">
             <div className="flex items-center gap-6">
               <div className="min-w-0 flex-1">
                 <h2 className="text-sm font-medium leading-5 text-muted">Total saved</h2>
-                <p className={`${figureSize(saved)} tnum mt-3 text-ink`}>{saved}</p>
+                <p className={`${figureSize(saved)} tnum mt-3 text-ink`} data-testid="goals-total">{saved}</p>
                 <ProgressBar className="mt-3 max-w-[616px]" pct={pct} tone="growth" cellHeight={12} />
-                <p className="tnum mt-3 text-[15px] leading-6 text-muted">
+                <p className="tnum mt-3 text-[15px] leading-6 text-muted" data-testid="goals-summary">
                   {pct}% of <span className="font-semibold text-ink">{formatMoney(summary.totalTarget, currency)}</span>{" "}
                   across {summary.activeCount} {summary.activeCount === 1 ? "goal" : "goals"}
                   {summary.completeCount > 0 ? ` · ${summary.completeCount} reached` : ""}

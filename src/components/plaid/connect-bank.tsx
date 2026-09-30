@@ -127,6 +127,7 @@ export function ConnectBank({
         icon="plus"
         onClick={start}
         disabled={busy}
+        data-testid="connect-bank"
         className={`${fullWidth ? "w-full" : ""} ${buttonClassName}`}
       >
         {phase === "starting" ? "Opening…" : phase === "exchanging" ? "Connecting…" : label}
@@ -136,8 +137,8 @@ export function ConnectBank({
         <LinkHandoff linkToken={linkToken} onSuccess={handleSuccess} onExit={handleExit} />
       ) : null}
 
-      {error ? <p className="text-sm text-neg">{error}</p> : null}
-      {notice ? <p className="text-sm text-muted">{notice}</p> : null}
+      {error ? <p className="text-sm text-neg" data-testid="connect-bank-error">{error}</p> : null}
+      {notice ? <p className="text-sm text-muted" data-testid="connect-bank-notice">{notice}</p> : null}
 
       {mapping ? (
         <Overlay title="Choose which accounts to import" onClose={cancelMapping}>

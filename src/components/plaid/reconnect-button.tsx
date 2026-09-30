@@ -13,7 +13,8 @@ type Phase = "idle" | "starting" | "linking" | "finishing";
  * mode against the existing Item — same access token, same cursor — then syncs,
  * which also flips the Item back to `active`.
  */
-export function ReconnectButton({ itemId }: { itemId: string }) {
+/** `testId` names the button for the parity check (tools/parity); its error line is `<testId>-error`. */
+export function ReconnectButton({ itemId, testId }: { itemId: string; testId?: string }) {
   const [phase, setPhase] = useState<Phase>("idle");
   const [linkToken, setLinkToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +58,7 @@ export function ReconnectButton({ itemId }: { itemId: string }) {
         type="button"
         onClick={start}
         disabled={busy}
+        data-testid={testId}
         className={buttonClass("primary")}
       >
         {phase === "starting" ? "Opening…" : phase === "finishing" ? "Finishing…" : "Reconnect"}
@@ -72,7 +74,7 @@ export function ReconnectButton({ itemId }: { itemId: string }) {
           }}
         />
       ) : null}
-      {error ? <p className="text-sm text-neg">{error}</p> : null}
+      {error ? <p className="text-sm text-neg" data-testid={testId ? `${testId}-error` : undefined}>{error}</p> : null}
     </div>
   );
 }

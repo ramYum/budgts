@@ -36,6 +36,7 @@ export function AddIncome({
           type="button"
           onClick={() => setOpen(true)}
           aria-label="Add income"
+          data-testid="home-add-income"
           className="press -my-1 grid h-7 w-7 place-items-center text-muted hover:text-ink"
         >
           <Icon name="plus" />

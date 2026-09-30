@@ -110,17 +110,17 @@ export function NeedsCategory({
   const hidden = expanded ? 0 : Math.max(0, visible.length - FIRST);
 
   return (
-    <section id="needs-category" className="px-card-raised scroll-mt-20 p-2 md:p-4">
+    <section id="needs-category" className="px-card-raised scroll-mt-20 p-2 md:p-4" data-testid="needs-category">
       <div className="flex items-center justify-between gap-3">
         <h2 className="t-head text-ink">
-          Needs a category <span className="tnum ml-1.5 font-medium text-signal-ink">{totalTxns}</span>
+          Needs a category <span className="tnum ml-1.5 font-medium text-signal-ink" data-testid="needs-category-total">{totalTxns}</span>
           <span className="sr-only">
             {" "}
             {totalTxns === 1 ? "transaction" : "transactions"} from {visible.length}{" "}
             {visible.length === 1 ? "merchant" : "merchants"}
           </span>
         </h2>
-        <TextButton iconAfter="sync" onClick={rescan} disabled={rescanning} className="-my-1.5 shrink-0 text-muted">
+        <TextButton iconAfter="sync" onClick={rescan} disabled={rescanning} className="-my-1.5 shrink-0 text-muted" data-testid="needs-category-rescan">
           {rescanning ? "Re-scanning…" : "Re-scan"}
         </TextButton>
       </div>
@@ -141,12 +141,13 @@ export function NeedsCategory({
           return (
             <li
               key={group.key}
+              data-testid="needs-category-group"
               className={`space-y-3 py-4 last:pb-0 ${!expanded && i >= FIRST ? "hidden xl:block" : ""}`}
             >
               <div className="flex items-center gap-3">
                 <IconTile name="tag" />
                 <div className="min-w-0 flex-1">
-                  <p className="break-words text-[15px] font-medium leading-6 text-ink">{group.label}</p>
+                  <p className="break-words text-[15px] font-medium leading-6 text-ink" data-testid="needs-category-label">{group.label}</p>
                   <p className="truncate text-sm leading-5 text-muted">
                     {group.count > 1
                       ? `${group.count} purchases · latest ${formatDayShort(first.occurred_at)}`
@@ -240,12 +241,13 @@ export function NeedsCategory({
           className="mt-4 w-full xl:hidden"
           iconAfter="chevron-down"
           onClick={() => setExpanded(true)}
+          data-testid="needs-category-more"
         >
           Show {hidden} more
         </Button>
       ) : null}
 
-      {error ? <p className="mt-3 text-sm text-neg">{error}</p> : null}
+      {error ? <p className="mt-3 text-sm text-neg" data-testid="needs-category-error">{error}</p> : null}
 
       {addingFor ? (
         <Overlay

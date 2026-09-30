@@ -63,7 +63,7 @@ describe("Categories (web /settings/categories)", () => {
     const r = render(<CategoriesView data={data} actions={a} onBack={() => {}} />);
     expect(byTestId(r, "categories-add").props.accessibilityLabel).toBe("Add category");
     await press(r, "categories-add");
-    expect(byTestId(r, "sheet").props.accessibilityLabel).toBe("Add category");
+    expect(byTestId(r, "category-sheet").props.accessibilityLabel).toBe("Add category");
     await press(r, "category-save");
     expect(textContent(byTestId(r, "category-form-error"))).toBe("Name is required");
     act(() => byTestId(r, "category-name").props.onChangeText("Pets"));
@@ -73,14 +73,14 @@ describe("Categories (web /settings/categories)", () => {
       [{ name: "Pets", kind: "expense", color: "#8b5cf6" }, "req-1"],
     ]);
     expect(a.newRequestId).toHaveBeenCalledTimes(1);
-    expect(has(r, "sheet")).toBe(false);
+    expect(has(r, "category-sheet")).toBe(false);
   });
 
   it("edits a category, keeping its colour", async () => {
     const a = actions();
     const r = render(<CategoriesView data={data} actions={a} onBack={() => {}} />);
     await pick(r, "category-menu-food", "Edit");
-    expect(byTestId(r, "sheet").props.accessibilityLabel).toBe("Edit category");
+    expect(byTestId(r, "category-sheet").props.accessibilityLabel).toBe("Edit category");
     act(() => byTestId(r, "category-name").props.onChangeText("Groceries"));
     await press(r, "category-save");
     expect(a.update).toHaveBeenCalledWith("food", { name: "Groceries", kind: "expense", color: "#22c55e" });

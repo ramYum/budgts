@@ -476,7 +476,7 @@ function DisconnectConfirm({ itemId, bankName: name, actions, onClose }: { itemI
         {`Budgts stops syncing ${name}. The transactions it already imported stay in your history and keep counting toward budgets.`}
       </Text>
 
-      <PixelFrame frame="px-badge-wash" style={{ padding: 8, flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
+      <PixelFrame testID="disconnect-purge-box" frame="px-badge-wash" style={{ padding: 8, flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
         <View style={{ marginTop: 4 }}>
           <Checkbox
             testID="disconnect-purge"

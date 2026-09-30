@@ -116,6 +116,7 @@ function Bubble({
     <span
       aria-hidden
       data-say={say}
+      data-testid={`crystal-say-${say}`}
       data-side={side}
       className={`crystal-say pointer-events-none absolute top-[6px] z-[1] w-max max-w-[136px] md:max-w-[240px] ${
         side === "left" ? "right-full mr-2" : "left-full ml-2"
@@ -274,7 +275,7 @@ export function CrystalPerch({
   return (
     // Her track: the card's top edge (the parent places it). She walks it on
     // the mover, which only ever translates.
-    <div ref={trackRef} className={`@container pointer-events-none h-11 ${className ?? ""}`}>
+    <div ref={trackRef} data-testid="crystal-perch" className={`@container pointer-events-none h-11 ${className ?? ""}`}>
       <div
         ref={moverRef}
         data-facing="right"
@@ -302,7 +303,7 @@ export function CrystalPerch({
           {speech?.kind === "tap" ? speech.text : ""}
         </span>
 
-        <button type="button" onClick={tap} aria-label="Say hi to Crystal" className="crystal-hit relative block">
+        <button type="button" onClick={tap} aria-label="Say hi to Crystal" className="crystal-hit relative block" data-testid="crystal">
           <span className="crystal-arrive block">
             <span className="crystal-land block">
               <span ref={arcRef} className="crystal-arc block">

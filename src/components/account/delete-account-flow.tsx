@@ -128,15 +128,16 @@ export function DeleteAccountFlow({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="delete-account-view">
       <header className="flex min-h-10 items-center gap-2 md:gap-4">
         {/* no way back while the server works (the answer would be lost), but the title keeps its place */}
         {stage === "deleting" ? <span className="h-9 w-9 shrink-0" aria-hidden /> : <BackLink href={SETTINGS} />}
         <div className="min-w-0">
-          <h1 className="px-title text-ink">Delete account</h1>
+          <h1 className="px-title text-ink" data-testid="page-title">Delete account</h1>
           <h2
             ref={heading}
             tabIndex={-1}
+            data-testid="delete-stage"
             className="mt-1 text-[15px] leading-5 text-muted outline-none"
             aria-live="polite"
           >
@@ -183,7 +184,7 @@ function Intro({
   return (
     <>
       {inProgress ? (
-        <div className="px-warn flex items-start gap-3 p-3" role="status">
+        <div className="px-warn flex items-start gap-3 p-3" role="status" data-testid="delete-in-progress">
           <Icon name="warning" className="text-warn" />
           <p className="text-pretty text-[15px] leading-6 text-ink">
             <span className="font-semibold">Deletion already started.</span> Your account is read-only until it finishes.
@@ -192,7 +193,7 @@ function Intro({
         </div>
       ) : null}
 
-      <section className="px-card space-y-4 p-2 md:p-3" aria-label="What happens">
+      <section className="px-card space-y-4 p-2 md:p-3" aria-label="What happens" data-testid="delete-what-happens">
         <div className="space-y-2">
           <h3 className="t-head text-ink">What&apos;s deleted</h3>
           <ul className="space-y-2">
@@ -204,7 +205,7 @@ function Intro({
         <div className="px-rule" aria-hidden />
         <div className="space-y-1">
           <h3 className="t-head text-ink">What&apos;s kept</h3>
-          <p className="text-pretty text-[15px] leading-6 text-graphite">
+          <p className="text-pretty text-[15px] leading-6 text-graphite" data-testid="delete-kept">
             {keepsRecords
               ? "Only if you ever paid for a subscription: those billing records, with your email and sign-in details removed."
               : "Nothing. Your data is deleted right away."}
@@ -215,10 +216,10 @@ function Intro({
       {billing ? <StoreNotice /> : null}
 
       <div className="flex flex-col gap-3 sm:flex-row">
-        <Button size="lg" arrow onClick={onContinue} className="w-full sm:w-auto">
+        <Button size="lg" arrow onClick={onContinue} className="w-full sm:w-auto" data-testid="delete-continue">
           Continue
         </Button>
-        <LinkButton href={SETTINGS} variant="secondary" size="lg" className="w-full sm:w-auto">
+        <LinkButton href={SETTINGS} variant="secondary" size="lg" className="w-full sm:w-auto" data-testid="delete-keep">
           Keep my account
         </LinkButton>
       </div>
@@ -238,7 +239,7 @@ function Fact({ icon, children }: { icon: "receipt" | "bank" | "sign-out"; child
 /** Deleting never cancels a store subscription (owner-approved wording): said before, with the stores' own pages. */
 function StoreNotice() {
   return (
-    <div className="px-warn flex items-start gap-3 p-3">
+    <div className="px-warn flex items-start gap-3 p-3" data-testid="delete-store-notice">
       <Icon name="warning" className="text-warn" />
       <p className="text-pretty text-[15px] leading-6 text-ink">
         {DELETION_SUBSCRIPTION_NOTICE} Cancel it first in the{" "}
@@ -260,7 +261,7 @@ function Reauth({ email, google, stale }: { email: string; google: boolean; stal
 
   if (state.sent) {
     return (
-      <section className="px-card flex items-start gap-3 p-2 md:p-3" role="status">
+      <section className="px-card flex items-start gap-3 p-2 md:p-3" role="status" data-testid="delete-link-sent">
         <IconTile name="mail" />
         <div className="min-w-0 space-y-1 pt-1 md:pt-2">
           <p className="text-[15px] font-medium leading-6 text-ink">Check your email</p>
@@ -269,7 +270,7 @@ function Reauth({ email, google, stale }: { email: string; google: boolean; stal
             here to confirm.
           </p>
           <form action={action}>
-            <TextButton type="submit" icon="sync" disabled={pending}>
+            <TextButton type="submit" icon="sync" disabled={pending} data-testid="delete-send-again">
               {pending ? "Sending…" : "Send it again"}
             </TextButton>
           </form>
@@ -281,7 +282,7 @@ function Reauth({ email, google, stale }: { email: string; google: boolean; stal
   return (
     <>
       {stale ? (
-        <div className="px-warn flex items-start gap-3 p-3" role="alert">
+        <div className="px-warn flex items-start gap-3 p-3" role="alert" data-testid="delete-stale">
           <Icon name="warning" className="text-warn" />
           <p className="text-pretty text-[15px] leading-6 text-ink">
             It&apos;s been more than {REAUTH_WINDOW_MINUTES} minutes since you signed in. Nothing was deleted.
@@ -298,14 +299,14 @@ function Reauth({ email, google, stale }: { email: string; google: boolean; stal
       </section>
 
       {state.error ? (
-        <p className="text-sm text-neg" role="alert">
+        <p className="text-sm text-neg" role="alert" data-testid="delete-reauth-error">
           {state.error}
         </p>
       ) : null}
 
       <div className="space-y-3">
         <form action={action}>
-          <button className={buttonClass("primary", "w-full", "lg")} type="submit" disabled={pending}>
+          <button className={buttonClass("primary", "w-full", "lg")} type="submit" disabled={pending} data-testid="delete-send-link">
             {pending ? "Sending…" : "Email me a sign-in link"}
             {pending ? null : <Icon name="forward" />}
           </button>
@@ -318,14 +319,14 @@ function Reauth({ email, google, stale }: { email: string; google: boolean; stal
               <span className="px-rule flex-1" />
             </div>
             <form action={reauthWithGoogle}>
-              <button className={buttonClass("secondary", "w-full", "lg")} type="submit">
+              <button className={buttonClass("secondary", "w-full", "lg")} type="submit" data-testid="delete-google">
                 <Icon name="google" />
                 Continue with Google
               </button>
             </form>
           </>
         ) : null}
-        <LinkButton href={SETTINGS} variant="secondary" size="lg" className="w-full">
+        <LinkButton href={SETTINGS} variant="secondary" size="lg" className="w-full" data-testid="delete-keep">
           Keep my account
         </LinkButton>
       </div>
@@ -355,6 +356,7 @@ function Confirm({ email, inProgress, onDelete }: { email: string; inProgress: b
           </span>
           <input
             className={fieldClass}
+            data-testid="delete-confirm-word"
             value={typed}
             onChange={(e) => setTyped(e.target.value)}
             autoComplete="off"
@@ -367,11 +369,11 @@ function Confirm({ email, inProgress, onDelete }: { email: string; inProgress: b
       </section>
 
       <div className="flex flex-col gap-3 sm:flex-row">
-        <button type="submit" disabled={!ready} className={buttonClass("primary", "w-full sm:w-auto disabled:opacity-60", "lg")}>
+        <button type="submit" disabled={!ready} className={buttonClass("primary", "w-full sm:w-auto disabled:opacity-60", "lg")} data-testid="delete-submit">
           <Icon name="trash" />
           Delete my account
         </button>
-        <LinkButton href={SETTINGS} variant="secondary" size="lg" className="w-full sm:w-auto">
+        <LinkButton href={SETTINGS} variant="secondary" size="lg" className="w-full sm:w-auto" data-testid="delete-keep">
           Keep my account
         </LinkButton>
       </div>
@@ -381,7 +383,7 @@ function Confirm({ email, inProgress, onDelete }: { email: string; inProgress: b
 
 function Deleting() {
   return (
-    <section className="px-card space-y-4 p-2 md:p-3" role="status" aria-busy="true">
+    <section className="px-card space-y-4 p-2 md:p-3" role="status" aria-busy="true" data-testid="delete-deleting">
       <div className="flex items-start gap-3">
         <IconTile name="pending" />
         <p className="text-pretty pt-1 text-[15px] leading-6 text-graphite md:pt-2">
@@ -424,7 +426,7 @@ function ErrorState({ kind, supportEmail, onRetry }: { kind: ErrorKind; supportE
   const copy = ERROR_COPY[kind];
   return (
     <>
-      <div className="px-wash flex items-start gap-3 p-3" role="alert">
+      <div className="px-wash flex items-start gap-3 p-3" role="alert" data-testid="delete-error">
         <Icon name="warning" className="text-signal" />
         <p className="text-pretty text-[15px] leading-6 text-ink">{copy.body}</p>
       </div>
@@ -432,15 +434,15 @@ function ErrorState({ kind, supportEmail, onRetry }: { kind: ErrorKind; supportE
       {/* A bank Plaid won't remove: disconnecting it is the next step, retrying comes after. */}
       <div className="flex flex-col gap-3 sm:flex-row">
         {kind === "plaid" ? (
-          <LinkButton href="/connected-banks" size="lg" icon="bank" className="w-full sm:w-auto">
+          <LinkButton href="/connected-banks" size="lg" icon="bank" className="w-full sm:w-auto" data-testid="delete-connected-banks">
             Connected banks
           </LinkButton>
         ) : null}
-        <Button size="lg" icon="sync" variant={kind === "plaid" ? "secondary" : "primary"} onClick={onRetry} className="w-full sm:w-auto">
+        <Button size="lg" icon="sync" variant={kind === "plaid" ? "secondary" : "primary"} onClick={onRetry} className="w-full sm:w-auto" data-testid="delete-retry">
           Try again
         </Button>
         {kind === "plaid" || kind === "incomplete" ? null : (
-          <LinkButton href={SETTINGS} variant="secondary" size="lg" className="w-full sm:w-auto">
+          <LinkButton href={SETTINGS} variant="secondary" size="lg" className="w-full sm:w-auto" data-testid="delete-back-to-settings">
             Back to Settings
           </LinkButton>
         )}
@@ -475,7 +477,7 @@ function SignedOut({ legalLive, go }: { legalLive: boolean; go: (url: string) =>
           Your session ended, so nothing was deleted. Sign in again and you&apos;ll come back here.
         </p>
       </section>
-      <Button size="lg" arrow onClick={() => void signInAgain()} className="w-full sm:w-auto">
+      <Button size="lg" arrow onClick={() => void signInAgain()} className="w-full sm:w-auto" data-testid="delete-sign-in-again">
         Sign in again
       </Button>
       {legalLive ? (

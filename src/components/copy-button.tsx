@@ -6,7 +6,8 @@ import { Badge } from "./ui";
 
 /** Copies a value, then says so: a green "Copied" chip steps in beside the
  * button for a moment (the result of a copy is otherwise invisible). */
-export function CopyButton({ value, label }: { value: string; label: string }) {
+/** `testId` names the button for the parity check (tools/parity); the confirmation badge is `<testId>-copied`. */
+export function CopyButton({ value, label, testId }: { value: string; label: string; testId?: string }) {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -28,7 +29,7 @@ export function CopyButton({ value, label }: { value: string; label: string }) {
     <span className="flex shrink-0 items-center gap-2">
       <span aria-live="polite">
         {copied ? (
-          <Badge tone="growth" icon="check" className="pop">
+          <Badge tone="growth" icon="check" className="pop" testId={testId ? `${testId}-copied` : undefined}>
             Copied
           </Badge>
         ) : null}
@@ -37,6 +38,7 @@ export function CopyButton({ value, label }: { value: string; label: string }) {
         type="button"
         onClick={copy}
         aria-label={label}
+        data-testid={testId}
         className="press grid h-10 w-10 place-items-center text-ink hover:text-graphite"
       >
         <Icon name="copy" />

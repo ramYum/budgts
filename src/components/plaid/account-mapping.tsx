@@ -80,10 +80,11 @@ export function AccountMapping({
   if (state.ok && state.warning) {
     return (
       <div className="space-y-3">
-        <p className="text-sm text-muted">{state.warning}</p>
+        <p className="text-sm text-muted" data-testid="account-mapping-warning">{state.warning}</p>
         <button
           type="button"
           onClick={onDone}
+          data-testid="account-mapping-done"
           className={buttonClass("primary", "w-full")}
         >
           Done
@@ -93,7 +94,7 @@ export function AccountMapping({
   }
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form action={formAction} className="space-y-4" data-testid="account-mapping">
       <input type="hidden" name="plaidItemId" value={plaidItemId} />
       <input type="hidden" name="entries" value={JSON.stringify(entries)} readOnly />
 
@@ -105,7 +106,7 @@ export function AccountMapping({
         {plaidAccounts.map((a, i) => {
           const r = rows[i];
           return (
-            <li key={a.plaidAccountId} className="px-card space-y-3 p-3">
+            <li key={a.plaidAccountId} className="px-card space-y-3 p-3" data-testid={`account-mapping-row-${i}`}>
               <div className="flex items-baseline justify-between gap-2">
                 <span className="truncate text-[15px] font-medium leading-6 text-ink">{accountLabel(a)}</span>
                 <span className="shrink-0 text-sm text-muted">{a.subtype ?? a.type ?? "account"}</span>
@@ -115,6 +116,7 @@ export function AccountMapping({
                 Import as
                 <select
                   className={field}
+                  data-testid={`account-mapping-mode-${i}`}
                   value={r.mode}
                   onChange={(e) => update(i, { mode: e.target.value as Mode })}
                 >
@@ -130,6 +132,7 @@ export function AccountMapping({
                 <div className="flex gap-2">
                   <input
                     className={`${field} min-w-0 flex-1`}
+                    data-testid={`account-mapping-name-${i}`}
                     value={r.name}
                     onChange={(e) => update(i, { name: e.target.value })}
                     maxLength={40}
@@ -137,6 +140,7 @@ export function AccountMapping({
                   />
                   <select
                     className={`${field} w-28 shrink-0`}
+                    data-testid={`account-mapping-type-${i}`}
                     value={r.type}
                     onChange={(e) => update(i, { type: e.target.value as AccountType })}
                     aria-label="New account type"
@@ -153,6 +157,7 @@ export function AccountMapping({
               {r.mode === "existing" ? (
                 <select
                   className={field}
+                  data-testid={`account-mapping-existing-${i}`}
                   value={r.existingAccountId}
                   onChange={(e) => update(i, { existingAccountId: e.target.value })}
                   aria-label="Existing account"
@@ -170,12 +175,13 @@ export function AccountMapping({
       </ul>
 
       {state.fieldError || state.error ? (
-        <p className="text-sm text-neg">{state.fieldError ?? state.error}</p>
+        <p className="text-sm text-neg" data-testid="account-mapping-error">{state.fieldError ?? state.error}</p>
       ) : null}
 
       <button
         type="submit"
         disabled={pending}
+        data-testid="account-mapping-save"
         className={buttonClass("primary", "w-full")}
       >
         {pending ? "Saving…" : "Import transactions"}

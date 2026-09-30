@@ -13,6 +13,7 @@ import { pressStyle } from "../kit/press";
 function PlayGuide({ onPress }: { onPress: () => void }) {
   return (
     <Pressable
+      testID="more-play-guide"
       accessibilityRole="link"
       accessibilityLabel="Play welcome guide. A one-minute tour with Crystal."
       onPress={onPress}

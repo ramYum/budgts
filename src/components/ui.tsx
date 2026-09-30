@@ -257,15 +257,18 @@ export function Badge({
   icon,
   children,
   className,
+  testId = "badge",
 }: {
   tone?: BadgeTone;
   icon?: IconName;
   children: ReactNode;
   className?: string;
+  /** the parity check's id (tools/parity); a screen names a badge it compares on its own */
+  testId?: string;
 }) {
   return (
     <span
-      data-testid="badge"
+      data-testid={testId}
       className={`t-label-strong inline-flex h-6 items-center gap-1 whitespace-nowrap px-1.5 leading-none ${BADGE[tone]} ${className ?? ""}`}
     >
       {icon ? <Icon name={icon} size={12} /> : null}

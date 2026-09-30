@@ -65,7 +65,7 @@ export function SettingsView({
 
         <View style={{ gap: 12 }}>
           <SectionHead title="Data" />
-          <PixelFrame frame="px-card" style={{ flexDirection: "row", alignItems: "center", gap: 12, padding: 12 }}>
+          <PixelFrame testID="settings-export" frame="px-card" style={{ flexDirection: "row", alignItems: "center", gap: 12, padding: 12 }}>
             <IconTile name="download" />
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text variant="listName" color={ROLE.ink}>
@@ -75,7 +75,7 @@ export function SettingsView({
                 All of them, as a CSV file.
               </Text>
             </View>
-            <Button variant="secondary" icon="download" loading={exporting} onPress={onExport}>
+            <Button testID="settings-export-button" variant="secondary" icon="download" loading={exporting} onPress={onExport}>
               Export
             </Button>
           </PixelFrame>
@@ -86,7 +86,7 @@ export function SettingsView({
           ) : null}
         </View>
 
-        <Button variant="danger" size="lg" icon="sign-out" onPress={onSignOut}>
+        <Button testID="settings-sign-out" variant="danger" size="lg" icon="sign-out" onPress={onSignOut}>
           Sign out
         </Button>
       </View>

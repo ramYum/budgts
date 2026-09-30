@@ -27,7 +27,7 @@ export default async function MorePage() {
       <div className="space-y-8 md:max-w-[720px]">
         {/* Replays the welcome guide (/tour without ?new=1 opens with Crystal's
          * introduction; finishing or skipping it lands back on Home). */}
-        <Link href="/tour" className="px-card-raised press group flex items-center gap-4 p-2 md:p-4">
+        <Link href="/tour" className="px-card-raised press group flex items-center gap-4 p-2 md:p-4" data-testid="more-play-guide">
           <span className="px-tile-wash flex h-14 w-14 shrink-0 items-center justify-center" aria-hidden>
             <Robin size={44} />
           </span>

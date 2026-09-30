@@ -114,26 +114,27 @@ function BankCard({
       else setSyncMsg("Synced.");
     });
 
+  const tid = `bank-${bank.id}`;
   return (
-    <li className="px-card-raised p-2 md:p-6">
+    <li className="px-card-raised p-2 md:p-6" data-testid={tid}>
       <div className="flex items-start gap-4">
         <span className="px-tile flex h-14 w-14 shrink-0 items-center justify-center text-ink" aria-hidden>
           <Icon name="bank" />
         </span>
         <div className="min-w-0 flex-1 space-y-2">
-          <p className="truncate text-base font-medium leading-6 text-ink">{name}</p>
+          <p className="truncate text-base font-medium leading-6 text-ink" data-testid={`${tid}-name`}>{name}</p>
           <div className="flex flex-wrap items-center gap-2">
             {needsAttention ? (
-              <Badge tone="wash" icon="warning">
+              <Badge tone="wash" icon="warning" testId={`${tid}-status`}>
                 Needs attention
               </Badge>
             ) : (
-              <Badge tone="growth" icon="check">
+              <Badge tone="growth" icon="check" testId={`${tid}-status`}>
                 Connected
               </Badge>
             )}
             {sandbox ? <Badge tone="gray">Sandbox</Badge> : null}
-            <span className="flex items-center gap-1 text-sm leading-5 text-muted">
+            <span className="flex items-center gap-1 text-sm leading-5 text-muted" data-testid={`${tid}-synced`}>
               <Icon name="sync" size={12} />
               {bank.lastSyncedAt ? `Synced ${whenLabel(bank.lastSyncedAt, hydrated)}` : "Not synced yet"}
             </span>
@@ -142,13 +143,13 @@ function BankCard({
       </div>
 
       {needsAttention ? (
-        <div className="px-band mt-5 space-y-3 p-2">
+        <div className="px-band mt-5 space-y-3 p-2" data-testid={`${tid}-attention`}>
           <p className="text-[15px] leading-6 text-ink">
             {bank.status === "revoked"
               ? "Access to this bank was revoked. Reconnect to keep it syncing, or disconnect it."
               : "This connection needs you to sign in with your bank again."}
           </p>
-          <ReconnectButton itemId={bank.itemId} />
+          <ReconnectButton itemId={bank.itemId} testId={`${tid}-reconnect`} />
         </div>
       ) : null}
 
@@ -157,7 +158,7 @@ function BankCard({
           <SectionHead as="h3" title="Importing" count={importing.length} />
           <ul className="px-rows">
             {importing.map((a) => (
-              <li key={a.rowId} className="space-y-3 py-4 first:pt-2 last:pb-0">
+              <li key={a.rowId} className="space-y-3 py-4 first:pt-2 last:pb-0" data-testid={`account-${a.rowId}`}>
                 <div className="flex items-start gap-4">
                   <ImportToggle account={a} />
                   <div className="min-w-0 flex-1">
@@ -185,7 +186,7 @@ function BankCard({
           />
           <ul className="grid gap-x-8 gap-y-3 md:grid-cols-2">
             {notImporting.map((a) => (
-              <li key={a.rowId} className="min-w-0 space-y-2">
+              <li key={a.rowId} className="min-w-0 space-y-2" data-testid={`account-${a.rowId}`}>
                 <div className="flex items-center gap-4">
                   {a.linkState === "ignored" && a.mappedAccountName ? (
                     <ImportToggle account={a} />
@@ -209,7 +210,7 @@ function BankCard({
             ))}
           </ul>
           {hasUnmapped ? (
-            <Button variant="secondary" icon="list" onClick={() => setChoosing(true)}>
+            <Button variant="secondary" icon="list" onClick={() => setChoosing(true)} data-testid={`${tid}-choose`}>
               Choose accounts to import
             </Button>
           ) : null}
@@ -218,14 +219,14 @@ function BankCard({
 
       <div className="px-rule mt-6" aria-hidden />
       <div className="mt-5 flex flex-wrap items-center gap-3">
-        <Button variant="secondary" icon="sync" onClick={runSync} disabled={syncing}>
+        <Button variant="secondary" icon="sync" onClick={runSync} disabled={syncing} data-testid={`${tid}-sync`}>
           {syncing ? "Syncing…" : "Sync now"}
         </Button>
-        <Button variant="danger" icon="disconnect" onClick={() => setConfirming(true)}>
+        <Button variant="danger" icon="disconnect" onClick={() => setConfirming(true)} data-testid={`${tid}-disconnect`}>
           Disconnect
         </Button>
         {syncMsg ? (
-          <span className="text-sm leading-5 text-muted" role="status">
+          <span className="text-sm leading-5 text-muted" role="status" data-testid={`${tid}-sync-message`}>
             {syncMsg}
           </span>
         ) : null}
@@ -279,6 +280,7 @@ function ImportToggle({ account }: { account: ConnectedBankAccount }) {
         role="switch"
         aria-checked={importing}
         aria-label={`Importing ${account.name ?? "Account"}`}
+        data-testid={`import-${account.rowId}`}
         disabled={pending}
         title={
           importing
@@ -332,6 +334,7 @@ function ConnectToggle({ account, plaidItemId }: { account: ConnectedBankAccount
         role="switch"
         aria-checked={false}
         aria-label={`Connect ${account.name ?? "Account"}`}
+        data-testid={`connect-${account.rowId}`}
         disabled={pending}
         title="Not connected. Tap to start importing this account into a new Budgts account."
         className={switchClass}
@@ -391,7 +394,7 @@ function AccountReviewNotice({ account }: { account: ConnectedBankAccount }) {
 
   if (account.excludedFromCalculations) {
     return (
-      <div className="px-badge-wash space-y-2 p-2 text-sm leading-5 text-ink md:ml-[60px]">
+      <div className="px-badge-wash space-y-2 p-2 text-sm leading-5 text-ink md:ml-[60px]" data-testid={`excluded-${account.rowId}`}>
         <p>
           <span className="font-semibold text-signal-ink">Excluded from totals.</span> This account&apos;s bank feed
           showed unreliable data, so its transactions no longer count toward Money Left, budgets, or spending.
@@ -401,7 +404,7 @@ function AccountReviewNotice({ account }: { account: ConnectedBankAccount }) {
         <form action={exclusionAction}>
           <input type="hidden" name="plaidAccountRowId" value={account.rowId} />
           <input type="hidden" name="excluded" value="0" />
-          <Button type="submit" variant="secondary" disabled={exclusionPending}>
+          <Button type="submit" variant="secondary" disabled={exclusionPending} data-testid={`include-${account.rowId}`}>
             {exclusionPending ? "Saving…" : "Include again"}
           </Button>
         </form>
@@ -410,7 +413,7 @@ function AccountReviewNotice({ account }: { account: ConnectedBankAccount }) {
   }
 
   return (
-    <div className="px-warn space-y-2 p-2 text-sm leading-5 text-ink md:ml-[60px]">
+    <div className="px-warn space-y-2 p-2 text-sm leading-5 text-ink md:ml-[60px]" data-testid={`review-${account.rowId}`}>
       <p className="flex items-start gap-2">
         <Icon name="warning" className="-my-0.5 text-warn" />
         <span>{account.reviewReason}</span>
@@ -420,7 +423,7 @@ function AccountReviewNotice({ account }: { account: ConnectedBankAccount }) {
       <div className="flex flex-wrap gap-2">
         <form action={reviewAction}>
           <input type="hidden" name="plaidAccountRowId" value={account.rowId} />
-          <Button type="submit" variant="secondary" disabled={reviewPending}>
+          <Button type="submit" variant="secondary" disabled={reviewPending} data-testid={`mark-reviewed-${account.rowId}`}>
             {reviewPending ? "Saving…" : "Mark reviewed"}
           </Button>
         </form>
@@ -428,7 +431,7 @@ function AccountReviewNotice({ account }: { account: ConnectedBankAccount }) {
           <form action={exclusionAction}>
             <input type="hidden" name="plaidAccountRowId" value={account.rowId} />
             <input type="hidden" name="excluded" value="1" />
-            <Button type="submit" variant="danger" disabled={exclusionPending}>
+            <Button type="submit" variant="danger" disabled={exclusionPending} data-testid={`exclude-${account.rowId}`}>
               {exclusionPending ? "Saving…" : "Exclude from totals"}
             </Button>
           </form>
@@ -461,7 +464,7 @@ function DisconnectConfirm({
   }, [state.ok, onClose]);
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form action={formAction} className="space-y-4" data-testid="disconnect-confirm">
       <input type="hidden" name="itemId" value={itemId} />
       <input type="hidden" name="purge" value={purge ? "1" : "0"} />
 
@@ -470,9 +473,10 @@ function DisconnectConfirm({
         counting toward budgets.
       </p>
 
-      <label className="px-badge-wash flex items-start gap-2 p-2 text-[15px] leading-6 text-ink">
+      <label className="px-badge-wash flex items-start gap-2 p-2 text-[15px] leading-6 text-ink" data-testid="disconnect-purge-box">
         <input
           type="checkbox"
+          data-testid="disconnect-purge"
           checked={purge}
           onChange={(e) => setPurge(e.target.checked)}
           className="mt-1 h-4 w-4 accent-[var(--signal-ink)]"
@@ -480,13 +484,13 @@ function DisconnectConfirm({
         <span>Also delete the {bankName} transactions Budgts imported. This can&apos;t be undone.</span>
       </label>
 
-      {state.error ? <p className="text-sm text-neg">{state.error}</p> : null}
+      {state.error ? <p className="text-sm text-neg" data-testid="disconnect-error">{state.error}</p> : null}
 
       <div className="flex gap-3 pt-1">
-        <Button type="submit" variant="danger" disabled={pending} className="flex-1">
+        <Button type="submit" variant="danger" disabled={pending} className="flex-1" data-testid="disconnect-submit">
           {pending ? "Disconnecting…" : purge ? "Disconnect and delete" : "Disconnect"}
         </Button>
-        <Button variant="secondary" onClick={onClose}>
+        <Button variant="secondary" onClick={onClose} data-testid="disconnect-cancel">
           Cancel
         </Button>
       </div>

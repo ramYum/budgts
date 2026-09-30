@@ -215,6 +215,7 @@ function BudgetCard({
       <button
         type="button"
         onClick={onOpen}
+        data-testid="budget-card"
         className="px-card press flex w-full items-start gap-3 p-3 text-left md:gap-4 md:p-4"
       >
         <CategoryIcon name={b.name} tone={unplanned || over ? "wash" : "gray"} />
@@ -323,9 +324,9 @@ export function BudgetsView(
         ) : (
           <section className="space-y-3">
             <SectionHead title="All time" count={props.allTimeRows.length} />
-            <ul className="px-card px-rows p-2 md:p-4">
+            <ul className="px-card px-rows p-2 md:p-4" data-testid="budgets-all-time">
               {props.allTimeRows.map((r) => (
-                <li key={r.categoryId} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0 md:gap-4">
+                <li key={r.categoryId} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0 md:gap-4" data-testid="budgets-all-time-row">
                   <CategoryIcon name={r.name} />
                   <span className="flex-1 truncate text-[15px] font-medium leading-6 text-ink">{r.name}</span>
                   <span className="tnum text-[15px] font-semibold leading-6 text-ink">
@@ -352,11 +353,11 @@ export function BudgetsView(
       {header}
       {toolbar}
 
-      <section className="reveal px-card-raised p-2 md:p-6" style={{ ["--i" as string]: 1 }}>
+      <section className="reveal px-card-raised p-2 md:p-6" style={{ ["--i" as string]: 1 }} data-testid="budgets-hero">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:gap-10">
           <div className="min-w-0 flex-1">
             <h2 className="text-sm font-medium leading-5 text-muted">Remaining</h2>
-            <p className={`${figureSize(remaining)} tnum mt-3 ${tiles.leftToSpend < 0 ? "text-neg" : "text-ink"}`}>
+            <p className={`${figureSize(remaining)} tnum mt-3 ${tiles.leftToSpend < 0 ? "text-neg" : "text-ink"}`} data-testid="budgets-remaining">
               {remaining}
             </p>
             <p className="tnum mt-2 text-[15px] leading-6 text-muted">
@@ -366,7 +367,7 @@ export function BudgetsView(
             <ProgressBar className="mt-4 max-w-[480px]" pct={spentPct} tone={heroTone} cellHeight={12} />
           </div>
           {unplanned ? (
-            <div className="flex flex-col items-start gap-3 lg:w-[420px]">
+            <div className="flex flex-col items-start gap-3 lg:w-[420px]" data-testid="budgets-unplanned">
               <p className="px-warn flex items-start gap-2 px-2 py-1.5 text-sm leading-6 text-ink md:text-[15px]">
                 <Icon name="warning" className="text-warn" />
                 <span>

@@ -29,13 +29,14 @@ export function AddTransaction({
         <button
           type="button"
           onClick={() => setOpen(true)}
+          data-testid="home-add-transaction"
           className="press inline-flex min-h-9 items-center gap-1.5 text-[15px] font-semibold leading-6 text-ink hover:underline"
         >
           Add one by hand
           <Icon name="plus" />
         </button>
       ) : (
-        <Button icon="plus" onClick={() => setOpen(true)} aria-label="Add transaction">
+        <Button icon="plus" onClick={() => setOpen(true)} aria-label="Add transaction" data-testid="activity-add">
           <span className="md:hidden">Add</span>
           <span className="hidden md:inline">Add transaction</span>
         </Button>

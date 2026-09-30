@@ -98,6 +98,32 @@ export const TESTIDS = {
   ],
   charts: ["spending-trend-card", "spending-breakdown-card"],
   feedback: ["loading-skeleton", "error-state", "error-retry", "not-found", "offline-state"],
+  // Lane D-2 screens (native set; the web's data-testid of the same name is P2 work). Repeated ids are numbered.
+  budgets: [
+    "budgets-hero", // the Remaining card
+    "budgets-remaining", // its figure
+    "budgets-unplanned", // the "X has no budget" note and its button
+    "budgets-copy", // "Copy last month"
+    "budget-card", // one per category
+    "budgets-all-time", // the All time list card
+    "budgets-all-time-row", // one per category in it
+  ],
+  goals: [
+    "goals-hero", // the Total saved card
+    "goals-total", // its figure
+    "goals-summary", // "N% of $X across N goals"
+    "goal-card", // one per goal
+    "goals-empty", // Crystal's "No goals yet" card
+  ],
+  insights: [
+    "insights-money-left", // the Money left card
+    "insights-savings-rate", // the savings rate card
+    "insights-waffle", // its 10x10 waffle
+    "insights-suggestion", // "Where you could save"
+    "insights-breakdown", // the breakdown card (Spending / Income)
+    "insights-total", // its total
+    "insights-income-row", // one per income source
+  ],
 } as const;
 
 /** Hub rows and tabs derive their ids in one place, shared with the web components and the native atoms. */

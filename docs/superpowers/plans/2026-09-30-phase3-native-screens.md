@@ -609,3 +609,10 @@ Not shared, on purpose: the budget trend, `savingsProgress` and every other figu
 - Geometry shared with the web: `src/lib/display/charts.ts` (`trendColumns`, `formatWhole`, `formatSignedChange`, `RING`, `ringSlices`, sizes, `RING_NEUTRALS`); the web's `spending-overview.tsx` now draws from it (zero-pixel refactor).
 - `components/charts/cell.tsx` `<Cell d color style>`: the web's `.cell` (`cell-in`, steps(3), 22ms a step after 220ms), respecting `usePlay`, Reduce Motion and the parity clock. `lib/motion/css.ts` gains `CELL_IN`, `cellDelayMs`, `POP_IN`, `POP_MS`.
 - `RollingAmount` takes `lineHeight` for a figure set tighter than its role (the ring's 15/20 total).
+
+### D4 as built (Budgets: the route contract other lanes link to)
+
+- **Route:** `/budgets` (`app/(app)/(tabs)/(budgets)/budgets.tsx`), the web's `/budgets?m=&range=&edit=`, read by `mobile/lib/budgets/params.ts` exactly as `src/app/(app)/(dashboard)/budgets/page.tsx` reads them: `m` (`YYYY-MM`, else the user's current month), `range` (`all` for All time, anything else This month), `edit` (a category uuid: its sheet opens straight in "Monthly budget" edit mode; This month only, as on the web). An invalid value is ignored.
+- **Linking in:** `router.navigate(budgetsLink.edit(month, categoryId))` → `{ pathname: "/budgets", params: { m, edit } }` (Home's "Set budget", Lane B). A later link while the tab is open applies its params as a web navigation would (month, range, the sheet).
+- **Linking out:** the category sheet's "See transactions" → `router.navigate(budgetsLink.activity(month, categoryId))` → `/activity?m=&category=` (D1's contract above).
+- **Shared display figure:** "vs. last month" is `budgetTrendPct` in `src/lib/figures/budget-trend.ts`, moved verbatim out of the web `budgets-view.tsx` (zero-pixel: the web sheet captured before and after for the `full` and `over` users, Dining out and Groceries, 0 changed pixels at threshold 0). `src/lib/figures` (also `savings-pct.ts`: `savingsPct` / `savingsBarPct`, Goals and Home) is in `SHARED` (mobile/metro.shared.js); brand-purity follows the imports.

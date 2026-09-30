@@ -10,10 +10,8 @@ import { describe, expect, it } from "vitest";
  * its line here, and the list reaches [] at the Phase 3 close-out (Task Z1), when the three
  * legacy modules are deleted.
  */
-const LEGACY_ALLOWED = [
-  "components/parts.tsx",
-  "components/ui.tsx",
-];
+/** Empty since the Phase 3 close-out: the pre-redesign modules are deleted; this keeps them (and spinners) from returning. */
+const LEGACY_ALLOWED: string[] = [];
 
 const ROOT = join(__dirname, "..");
 const LEGACY_IMPORT = /from\s+["'](?:\.\.?\/)+(?:lib\/theme|components\/ui|components\/parts|theme|ui|parts)["']/;

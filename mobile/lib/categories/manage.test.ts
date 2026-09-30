@@ -53,6 +53,7 @@ describe("writeCategory", () => {
 
   it("reads each answer as the web's form says it", async () => {
     expect(await writeCategory(answering(200, { ok: true }))).toEqual({ ok: true });
+    expect(await writeCategory(answering(201, { id: "new-1", name: "Pets" }))).toEqual({ ok: true, created: { id: "new-1", name: "Pets" } });
     expect(await writeCategory(answering(422, { error: "invalid", fieldErrors: { name: "Name is required" } }))).toEqual({ ok: false, fieldError: "Name is required" });
     expect(await writeCategory(answering(404, { error: "not_found" }))).toEqual({ ok: false, error: "That category no longer exists. Refresh and try again." });
     expect(await writeCategory(answering(423, { error: "account_locked" }))).toEqual({ ok: false, error: LOCKED_MESSAGE });

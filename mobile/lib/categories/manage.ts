@@ -65,12 +65,18 @@ const FAILED_MESSAGE = "Couldn't save the category. Try again.";
 const NETWORK_MESSAGE = "Couldn't reach Budgts. Check your connection and try again.";
 const AUTH_MESSAGE = "Your session has expired. Please sign in again.";
 
-/** A write's outcome as the form shows it: done, a field's own message, or the form's message. */
-export type CategoryWrite = { ok: true } | { ok: false; fieldError?: string; error?: string };
+/** A category a create just made (`POST /api/mobile/categories` → 201 `{ id, name }`). */
+export type CreatedCategory = { id: string; name: string };
+
+/** A write's outcome as the form shows it: done (with the new category, for a create), a field's own message, or the form's message. */
+export type CategoryWrite = { ok: true; created?: CreatedCategory } | { ok: false; fieldError?: string; error?: string };
 
 export async function writeCategory(fetcher: () => Promise<Response>): Promise<CategoryWrite> {
-  const r = await apiRequest(fetcher, () => true);
-  if (r.ok) return { ok: true };
+  const r = await apiRequest(fetcher, (body): CreatedCategory | null => {
+    const b = body && typeof body === "object" ? (body as Record<string, unknown>) : {};
+    return typeof b.id === "string" && typeof b.name === "string" ? { id: b.id, name: b.name } : null;
+  });
+  if (r.ok) return r.data ? { ok: true, created: r.data } : { ok: true };
   if (r.kind === "auth") return { ok: false, error: AUTH_MESSAGE };
   if (r.kind === "network") return { ok: false, error: NETWORK_MESSAGE };
   if (r.kind === "rejected") {

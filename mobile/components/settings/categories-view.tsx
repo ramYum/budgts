@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Pressable, View } from "react-native";
 import { ROLE } from "../../lib/brand/shared";
 import {
-  NEW_CATEGORY_COLOR,
   categoryGroups,
   monthCountLine,
   type CategoryFields,
@@ -10,14 +9,13 @@ import {
   type CategoryWrite,
   type ManagedCategory,
 } from "../../lib/categories/manage";
-import { Button, Field } from "../brand/controls";
+import { Button } from "../brand/controls";
 import { Text } from "../brand/text";
-import { Overlay } from "../kit/overlay";
 import { PageHeader } from "../kit/page-header";
 import { RowMenu } from "../kit/row-menu";
 import { SectionHead } from "../kit/section-head";
-import { Select } from "../kit/select";
 import { CategoryIcon } from "../kit/tiles";
+import { CategorySheet } from "./category-form";
 import { RowsCard } from "./rows-card";
 
 export type CategoryActions = {
@@ -29,72 +27,6 @@ export type CategoryActions = {
   /** Activity, this month, filtered to the category (web `/transactions?m=…&category=…`) */
   openCategory: (id: string, month: string) => void;
 };
-
-const KINDS = [
-  { value: "expense" as const, label: "Expense" },
-  { value: "income" as const, label: "Income" },
-];
-
-/**
- * The category form (web category-form.tsx), in the bottom sheet: Name, Type,
- * the form's message, then the action and Cancel. A new category takes the
- * palette's first colour; an edit keeps its own.
- */
-export function CategoryForm({
-  initial,
-  submitLabel,
-  save,
-  onDone,
-}: {
-  initial?: ManagedCategory;
-  submitLabel: string;
-  save: (fields: CategoryFields) => Promise<CategoryWrite>;
-  onDone: () => void;
-}) {
-  const [name, setName] = useState(initial?.name ?? "");
-  const [kind, setKind] = useState<"expense" | "income">(initial?.kind ?? "expense");
-  const [pending, setPending] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-
-  async function submit() {
-    if (pending) return;
-    setPending(true);
-    setMessage(null);
-    const result = await save({ name, kind, color: initial?.color ?? NEW_CATEGORY_COLOR });
-    setPending(false);
-    if (result.ok) onDone();
-    else setMessage(result.fieldError ?? result.error ?? null);
-  }
-
-  return (
-    <View style={{ gap: 16 }}>
-      <Field
-        testID="category-name"
-        label="Name"
-        value={name}
-        onChangeText={setName}
-        maxLength={40}
-        autoFocus
-        returnKeyType="done"
-        onSubmitEditing={() => void submit()}
-      />
-      <Select testID="category-kind" label="Type" value={kind} options={KINDS} onChange={setKind} />
-      {message ? (
-        <Text testID="category-form-error" variant="body" color={ROLE.neg} accessibilityRole="alert" style={{ fontSize: 14, lineHeight: 20 }}>
-          {message}
-        </Text>
-      ) : null}
-      <View style={{ flexDirection: "row", gap: 12, paddingTop: 8 }}>
-        <Button testID="category-save" loading={pending} onPress={() => void submit()} style={{ flex: 1 }}>
-          {pending ? "Saving…" : submitLabel}
-        </Button>
-        <Button testID="category-cancel" variant="secondary" onPress={onDone}>
-          Cancel
-        </Button>
-      </View>
-    </View>
-  );
-}
 
 function Row({
   cat,
@@ -164,7 +96,7 @@ function Row({
  * Add and Edit open the category form in the bottom sheet.
  */
 export function CategoriesView({ data, actions, onBack }: { data: CategorySettings; actions: CategoryActions; onBack: () => void }) {
-  const [sheet, setSheet] = useState<{ mode: "add"; requestId: string } | { mode: "edit"; cat: ManagedCategory } | null>(null);
+  const [sheet, setSheet] = useState<{ mode: "add" } | { mode: "edit"; cat: ManagedCategory } | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   const close = () => setSheet(null);
 
@@ -174,7 +106,7 @@ export function CategoriesView({ data, actions, onBack }: { data: CategorySettin
         title="Categories"
         onBack={onBack}
         action={
-          <Button testID="categories-add" icon="plus" accessibilityLabel="Add category" onPress={() => setSheet({ mode: "add", requestId: actions.newRequestId() })}>
+          <Button testID="categories-add" icon="plus" accessibilityLabel="Add category" onPress={() => setSheet({ mode: "add" })}>
             Add
           </Button>
         }
@@ -210,14 +142,22 @@ export function CategoriesView({ data, actions, onBack }: { data: CategorySettin
       </View>
 
       {sheet?.mode === "add" ? (
-        <Overlay title="Add category" onClose={close} testID="category-sheet">
-          <CategoryForm submitLabel="Add" save={(fields) => actions.create(fields, sheet.requestId)} onDone={close} />
-        </Overlay>
+        <CategorySheet
+          title="Add category"
+          submitLabel="Add"
+          newRequestId={actions.newRequestId}
+          save={(fields, requestId) => actions.create(fields, requestId!)}
+          onDone={close}
+        />
       ) : null}
       {sheet?.mode === "edit" ? (
-        <Overlay title="Edit category" onClose={close} testID="category-sheet">
-          <CategoryForm initial={sheet.cat} submitLabel="Save changes" save={(fields) => actions.update(sheet.cat.id, fields)} onDone={close} />
-        </Overlay>
+        <CategorySheet
+          title="Edit category"
+          submitLabel="Save changes"
+          initial={sheet.cat}
+          save={(fields) => actions.update(sheet.cat.id, fields)}
+          onDone={close}
+        />
       ) : null}
     </View>
   );

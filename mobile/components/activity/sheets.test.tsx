@@ -15,6 +15,8 @@ vi.mock("@react-native-community/datetimepicker", () => ({
   DateTimePickerAndroid: { open: (o: (typeof picker.opened)[number]) => picker.opened.push(o) },
 }));
 
+vi.mock("expo-crypto", () => ({ randomUUID: () => "22222222-2222-4222-8222-222222222222" }));
+
 vi.mock("react-native-safe-area-context", () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
 
 const account = (id: string, name: string, selectable = true): MobileAccount => ({ id, name, type: "checking", source: "manual", archived: false, selectable });

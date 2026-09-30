@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import * as Crypto from "expo-crypto";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ActivityView } from "../../../../components/activity/activity-view";
 import { transferToggleDraft } from "../../../../components/activity/transaction-form";
@@ -16,6 +15,7 @@ import { useResource } from "../../../../lib/api/use-resource";
 import { parseCategories } from "../../../../lib/categories/categories-api";
 import { useProfile, useUserDates } from "../../../../lib/profile/profile-context";
 import { parseActivityExtras } from "../../../../lib/transactions/activity-api";
+import { newRequestId } from "../../../../lib/transactions/form";
 import type { MobileTransaction } from "../../../../lib/transactions/transactions-api";
 import { useLedger } from "../../../../lib/transactions/use-ledger";
 import { useTransactionCommands } from "../../../../lib/transactions/use-transaction-commands";
@@ -132,7 +132,7 @@ export default function ActivityScreen() {
         onCategorize={commands.categorize}
         onRescan={commands.rescan}
         onCreateCategory={commands.createCategory}
-        newRequestId={() => Crypto.randomUUID()}
+        newRequestId={newRequestId}
         onAdd={() => setSheet({ kind: "add" })}
         onOpen={(t) => setSheet({ kind: "view", t })}
       />

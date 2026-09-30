@@ -1,4 +1,4 @@
-import * as Crypto from "expo-crypto";
+import { newRequestId } from "../../../../../lib/transactions/form";
 import { useRouter, type Href } from "expo-router";
 import { ScreenSkeleton } from "../../../../../components/feedback/skeleton";
 import { LoadFailure } from "../../../../../components/feedback/states";
@@ -38,7 +38,7 @@ export default function CategoriesScreen() {
       settle(await writeCategory(() => authFetch(`/api/mobile/categories/${id}`, session, jsonInit("PATCH", fields)))),
     setArchived: async (id, archived) =>
       settle(await writeCategory(() => authFetch(`/api/mobile/categories/${id}`, session, jsonInit("PATCH", { archived })))),
-    newRequestId: () => Crypto.randomUUID(),
+    newRequestId,
     openCategory: (id, month) => router.push(`/activity?m=${month}&category=${id}` as Href),
   };
 

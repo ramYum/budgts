@@ -154,23 +154,24 @@ export type MobileTransaction = {
 
 export type TransactionsPage = { items: MobileTransaction[]; nextCursor: string | null };
 
-export type TransactionsCursor = { occurredAt: string; id: string };
+/** A row's position in the web ledger's order: occurred_at, then created_at, then id, all newest first. */
+export type TransactionsCursor = { occurredAt: string; createdAt: string; id: string };
 
 // The cursor's fields are interpolated into a PostgREST `or()` filter, so they are validated strictly: anything that is not a
-// plain ISO timestamp and a UUID is refused, which also rules out smuggling extra filter clauses through a forged cursor.
+// plain ISO timestamp (twice) and a UUID is refused, which also rules out smuggling extra filter clauses through a forged cursor.
 const ISO_TS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?(Z|[+-]\d{2}:\d{2})$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function encodeCursor(c: TransactionsCursor): string {
-  return Buffer.from(JSON.stringify({ occurredAt: c.occurredAt, id: c.id })).toString("base64url");
+  return Buffer.from(JSON.stringify({ occurredAt: c.occurredAt, createdAt: c.createdAt, id: c.id })).toString("base64url");
 }
 
 export function decodeCursor(raw: string): TransactionsCursor | null {
   try {
     const v = JSON.parse(Buffer.from(raw, "base64url").toString("utf8")) as Partial<TransactionsCursor>;
-    if (typeof v.occurredAt !== "string" || typeof v.id !== "string") return null;
-    if (!ISO_TS.test(v.occurredAt) || !UUID.test(v.id)) return null;
-    return { occurredAt: v.occurredAt, id: v.id };
+    if (typeof v.occurredAt !== "string" || typeof v.createdAt !== "string" || typeof v.id !== "string") return null;
+    if (!ISO_TS.test(v.occurredAt) || !ISO_TS.test(v.createdAt) || !UUID.test(v.id)) return null;
+    return { occurredAt: v.occurredAt, createdAt: v.createdAt, id: v.id };
   } catch {
     return null;
   }
@@ -202,6 +203,7 @@ type Row = {
   amount: number;
   direction: "debit" | "credit";
   occurred_at: string;
+  created_at: string;
   description: string;
   note: string | null;
   is_transfer: boolean;
@@ -215,7 +217,7 @@ export async function loadTransactionsPage(supabase: SupabaseClient, q: Transact
   let query = supabase
     .from("transactions")
     .select(
-      "id, amount, direction, occurred_at, description, note, is_transfer, category:categories(id,name,color), account:accounts!inner(id,name,is_archived)",
+      "id, amount, direction, occurred_at, created_at, description, note, is_transfer, category:categories(id,name,color), account:accounts!inner(id,name,is_archived)",
     )
     .gte("occurred_at", start)
     .lt("occurred_at", end)
@@ -228,14 +230,18 @@ export async function loadTransactionsPage(supabase: SupabaseClient, q: Transact
   }
   if (q.categoryId) query = query.eq("category_id", q.categoryId);
   if (q.search) query = query.ilike("description", `%${likeLiteral(q.search)}%`);
+  // The web ledger's order (`transactions/page.tsx`): occurred_at, then created_at, then id, newest first. Manual entries on
+  // one day share occurred_at (noon UTC), so created_at is what orders them; the keyset follows the same three columns.
   if (q.cursor) {
+    const { occurredAt: o, createdAt: c, id } = q.cursor;
     query = query.or(
-      `occurred_at.lt.${q.cursor.occurredAt},and(occurred_at.eq.${q.cursor.occurredAt},id.lt.${q.cursor.id})`,
+      `occurred_at.lt.${o},and(occurred_at.eq.${o},created_at.lt.${c}),and(occurred_at.eq.${o},created_at.eq.${c},id.lt.${id})`,
     );
   }
 
   const { data, error } = await query
     .order("occurred_at", { ascending: false })
+    .order("created_at", { ascending: false })
     .order("id", { ascending: false })
     .limit(q.limit + 1); // one extra row tells us whether another page exists
   if (error) throw new Error("transactions_read_failed");
@@ -257,6 +263,6 @@ export async function loadTransactionsPage(supabase: SupabaseClient, q: Transact
       account: { id: r.account.id, name: r.account.name },
       uncategorized: r.category === null && !r.is_transfer,
     })),
-    nextCursor: rows.length > q.limit && last ? encodeCursor({ occurredAt: last.occurred_at, id: last.id }) : null,
+    nextCursor: rows.length > q.limit && last ? encodeCursor({ occurredAt: last.occurred_at, createdAt: last.created_at, id: last.id }) : null,
   };
 }

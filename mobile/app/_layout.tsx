@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Platform } from "react-native";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
@@ -8,13 +9,15 @@ import { AuthProvider, useAuth } from "../lib/auth/auth-context";
 import { FONT_SOURCES } from "../lib/brand/fonts";
 import { ROLE } from "../lib/brand/shared";
 import { registerSupabaseAutoRefresh } from "../lib/supabase/auto-refresh";
+import { SPLASH_FADE_MS, loaderMotionAfterMs } from "../lib/brand/splash-motion";
 
-// The native splash (app.json → expo-splash-screen: the resting egg on paper)
-// stays up until the loading screen has laid out the very same egg in the
-// very same place; then it fades over it and the egg rolls. `fade` is an
-// iOS switch (off by default there); Android's splash always fades out on
-// hide, over `duration` (expo-splash-screen's exit animation, 400ms unless set).
-const SPLASH_FADE_MS = 200;
+// The native splash (app.json → expo-splash-screen: the resting egg on paper).
+// iOS: it stays up until the loading screen has laid out the very same egg in
+// the very same place, then fades over it, and the egg rolls. Android: the
+// app window's own background is that egg on paper
+// (plugins/with-android-launch-egg.js), so the splash leaves at the window's
+// first frame and nothing waits on JavaScript; the loader then draws the same
+// egg over it and rolls straight away. `fade` is an iOS switch.
 SplashScreen.preventAutoHideAsync();
 SplashScreen.setOptions({ fade: true, duration: SPLASH_FADE_MS });
 
@@ -37,7 +40,7 @@ function RootNavigator({ fontsReady }: { fontsReady: boolean }) {
   // covers everything: no flash of the sign-in screen for a signed-in user,
   // nor of a system font.
   return (
-    <LoadingScreenProvider loading={!ready} onLayout={hideSplash} motionAfterMs={splashGone ? SPLASH_FADE_MS : null}>
+    <LoadingScreenProvider loading={!ready} onLayout={hideSplash} motionAfterMs={loaderMotionAfterMs(Platform.OS, splashGone)}>
       {ready ? (
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: ROLE.bg } }}>
           <Stack.Protected guard={!session}>

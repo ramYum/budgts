@@ -1,16 +1,18 @@
 diff --git a/node_modules/expo-splash-screen/android/src/main/java/expo/modules/splashscreen/SplashScreenManager.kt b/node_modules/expo-splash-screen/android/src/main/java/expo/modules/splashscreen/SplashScreenManager.kt
-index 0dcb89e..52ac93b 100644
+index 0dcb89e..d8071ff 100644
 --- a/node_modules/expo-splash-screen/android/src/main/java/expo/modules/splashscreen/SplashScreenManager.kt
 +++ b/node_modules/expo-splash-screen/android/src/main/java/expo/modules/splashscreen/SplashScreenManager.kt
-@@ -54,6 +54,11 @@ object SplashScreenManager {
+@@ -54,6 +54,13 @@ object SplashScreenManager {
    }
  
    fun registerOnActivity(mainActivity: Activity) {
-+    // Every activity holds its own splash until the app says it has drawn. The flag lives
-+    // as long as the process, so without this a second MainActivity in the same process
-+    // (a relaunch after Back, a reload) found it already cleared and dropped its splash on
-+    // the first frame, before React had drawn anything.
-+    keepSplashScreenOnScreen = true
++    // Budgts: never hold the activity's first draw back. The app window's background is
++    // the launch screen itself (the splash's egg on paper, plugins/with-android-launch-egg.js),
++    // so the splash may leave at the window's first frame. Holding that draw until JS called
++    // hide() left the window undrawn, and black, whenever anything else ended the splash
++    // first: React Native's "Loading from Metro" popup in debug builds, or a second activity
++    // in a warm process (this flag lives as long as the process).
++    keepSplashScreenOnScreen = false
      splashScreen = mainActivity.installSplashScreen()
      ReactMarker.addListener(contentAppearedListener)
  

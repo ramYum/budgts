@@ -3,6 +3,7 @@ import { useRouter, type Href } from "expo-router";
 import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import { SettingsView } from "../../../../../components/settings/settings-view";
+import { useBack } from "../../../../../components/settings/use-back";
 import { Screen } from "../../../../../components/shell/screen";
 import { authFetch } from "../../../../../lib/auth/api";
 import { useAuth } from "../../../../../lib/auth/auth-context";
@@ -14,6 +15,7 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { session, signOut } = useAuth();
   const hub = useHub();
+  const onBack = useBack("/more");
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
 
@@ -41,7 +43,7 @@ export default function SettingsScreen() {
         email={session?.user.email ?? ""}
         hub={hub}
         go={(path) => router.push(path as Href)}
-        onBack={() => (router.canGoBack() ? router.back() : router.navigate("/more"))}
+        onBack={onBack}
         onExport={() => void onExport()}
         exporting={exporting}
         exportError={exportError}

@@ -224,7 +224,12 @@ describe("TourView (web tour-wizard-content.tsx)", () => {
     const r = view({ stepIds: ["done"], offset: 0, totalVisible: 1 });
     const link = byTestId(r, "tour-how-it-works");
     expect(link.type).toBe("Pressable");
-    expect(link.props.accessibilityLabel).toBe("How Budgts Works");
+    expect(link.props.accessibilityRole).toBe("link");
+    // a screen reader reads the whole sentence, as on the web, not just the link's words
+    expect(link.props.accessibilityLabel ?? textContent(link)).toBe("Replay this guide, or read How Budgts Works, anytime from Help.");
+    // and the line stays still when pressed: the web's link has no press effect
+    const pressedStyle = typeof link.props.style === "function" ? link.props.style({ pressed: true }) : link.props.style;
+    expect(flat(pressedStyle).transform ?? []).toEqual([]);
     // the words sit on a 16px line (text-xs): the slop brings the target to 44pt tall
     const slop = link.props.hitSlop as { top: number; bottom: number };
     expect(16 + slop.top + slop.bottom).toBeGreaterThanOrEqual(44);

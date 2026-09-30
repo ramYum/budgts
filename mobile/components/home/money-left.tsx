@@ -9,6 +9,7 @@ import { PixelFrame } from "../brand/pixel-frame";
 import { Text } from "../brand/text";
 import { ProgressBar } from "../kit/progress-bar";
 import { pressStyle } from "../kit/press";
+import { CrystalPerch } from "../crystal/crystal-perch";
 import { RollingAmount } from "../motion/rolling-amount";
 import { Rise } from "./rise";
 
@@ -58,7 +59,18 @@ function HeroLine({ home }: { home: MobileHome }) {
  * income plus) and Went out side by side, and the note on what the figure is.
  * Crystal perches on its top edge, in the 48px Home leaves above it.
  */
-export function MoneyLeftCard({ home, onAddIncome }: { home: MobileHome; onAddIncome: () => void }) {
+export function MoneyLeftCard({
+  home,
+  name,
+  awake,
+  onAddIncome,
+}: {
+  home: MobileHome;
+  name: string;
+  /** Home is the screen in front and the app is active (Crystal pauses otherwise) */
+  awake: boolean;
+  onAddIncome: () => void;
+}) {
   const { currency } = home;
   const negative = home.moneyLeft < 0;
   const figure = formatMoney(home.moneyLeft, currency);
@@ -134,6 +146,8 @@ export function MoneyLeftCard({ home, onAddIncome }: { home: MobileHome; onAddIn
           </Text>
         </Rise>
       </PixelFrame>
+      {/* Crystal perches on the card's top edge; drawn after it so she stands in front */}
+      <CrystalPerch name={name} savingsRate={home.savingsRate} awake={awake} />
     </View>
   );
 }

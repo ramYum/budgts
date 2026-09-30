@@ -29,11 +29,14 @@ export function HomeView({
   onAddTransaction,
   notice = null,
   onRefresh,
+  awake = true,
 }: {
   home: MobileHome;
   /** a refresh failed while these numbers were on screen */
   notice?: string | null;
   onRefresh?: () => void;
+  /** Home is the screen in front and the app is active */
+  awake?: boolean;
   /** the user's categories, for the chips of a month with no spending; null while they load */
   categories: MobileCategory[] | null;
   name: string;
@@ -83,7 +86,7 @@ export function HomeView({
       ) : null}
 
       <Reveal i={i.hero} style={{ marginTop: 48 }}>
-        <MoneyLeftCard home={home} onAddIncome={onAddIncome} />
+        <MoneyLeftCard home={home} name={name} awake={awake} onAddIncome={onAddIncome} />
       </Reveal>
 
       <View style={{ marginTop: 32, gap: 32 }}>

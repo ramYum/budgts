@@ -68,6 +68,10 @@ function view(home: MobileHome, over: { categories?: MobileCategory[] | null } =
 
 const allText = (r: ReturnType<typeof render>) => texts(r).join("");
 
+// Crystal perches on the hero (components/crystal)
+vi.mock("react-native-reanimated", async () => (await import("../crystal/test-mocks")).reanimated());
+vi.mock("react-native", async () => (await import("../crystal/test-mocks")).reactNative());
+
 afterEach(() => resetOverAlertDismissals());
 
 describe("Home header", () => {
@@ -300,5 +304,15 @@ describe("a failed refresh", () => {
 
   it("shows nothing extra when the last refresh landed", () => {
     expect(view(full()).r.root.findAll((n) => n.props.testID === "home-refresh-notice")).toHaveLength(0);
+  });
+});
+
+describe("Crystal on the hero", () => {
+  it("perches on Money left, greeting by name with the month's note", () => {
+    const { r } = view(full());
+    const perch = byTestId(r, "home-money-left").findAll((n) => typeof n.type === "string" && n.props.testID === "crystal-perch");
+    expect(perch).toHaveLength(1);
+    expect(textContent(byTestId(r, "crystal-say-hello"))).toBe("Hi, Alex!");
+    expect(textContent(byTestId(r, "crystal-say-note"))).toBe("45% saved!");
   });
 });

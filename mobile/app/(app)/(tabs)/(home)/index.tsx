@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { useRouter, type Href } from "expo-router";
+import { useEffect, useState } from "react";
+import { AppState } from "react-native";
+import { useIsFocused, useRouter, type Href } from "expo-router";
 import { LoadFailure } from "../../../../components/feedback/states";
 import { ScreenSkeleton } from "../../../../components/feedback/skeleton";
 import { HomeView } from "../../../../components/home/home-view";
@@ -29,6 +30,13 @@ export default function HomeScreen() {
   // the chips of a month with no spending: the user's categories (not a figure)
   const categories = useResource("home-categories", (s) => loadResource(() => authFetch("/api/mobile/categories", s), parseCategories));
   useRealtimeRefresh(["budgets"]);
+  // Crystal walks only while Home is in front and the app is active (the web pauses her with the tab hidden)
+  const focused = useIsFocused();
+  const [appActive, setAppActive] = useState(AppState.currentState === "active");
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (s) => setAppActive(s === "active"));
+    return () => sub.remove();
+  }, []);
 
   const go = (path: string) => router.push(path as Href);
 
@@ -56,6 +64,7 @@ export default function HomeScreen() {
           onAddTransaction={() => router.push("/transaction")}
           notice={notice}
           onRefresh={() => void pull()}
+          awake={focused && appActive}
         />
       )}
     </Screen>

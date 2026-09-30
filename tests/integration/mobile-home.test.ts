@@ -154,7 +154,7 @@ describe("budgets and transactions over the native API (real staging)", () => {
 
   it("a retried create with the same requestId lands exactly once (no duplicate economic event)", async () => {
     const accountId = await mainAccountId(a.id);
-    const requestId = `itest-${crypto.randomUUID()}`;
+    const requestId = crypto.randomUUID(); // exactly what the app sends (mobile lib/transactions/form.ts newRequestId)
     const body = JSON.stringify({
       accountId,
       categoryId: null,

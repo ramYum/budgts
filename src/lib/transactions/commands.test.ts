@@ -67,6 +67,13 @@ describe("createManualTransaction", () => {
     expect(landTransaction.mock.calls[0][2]).toMatchObject({ source: "manual", sourceRef: "client:req-1234abcd" });
   });
 
+  it("accepts the app's request id, a bare v4 UUID (mobile newRequestId), as the dedupe key", async () => {
+    const id = "3f2b8c1e-9d4a-4e6b-8a7c-1b2c3d4e5f60";
+    const r = await createManualTransaction(supabase, "user-a", input(), id);
+    expect(r).toMatchObject({ ok: true });
+    expect(landTransaction.mock.calls[0][2]).toMatchObject({ source: "manual", sourceRef: `client:${id}` });
+  });
+
   it("rejects a malformed request id without saving", async () => {
     const r = await createManualTransaction(supabase, "user-a", input(), "bad id!");
     expect(r).toMatchObject({ ok: false, error: "invalid", fieldErrors: { requestId: expect.any(String) } });

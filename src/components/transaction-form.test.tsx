@@ -81,9 +81,47 @@ describe("TransactionForm", () => {
         note: null,
         isTransfer: false,
         accountId: "a1",
+        accountName: "Checking",
         categoryId: null,
       },
     });
     expect(screen.getByRole("combobox", { name: "Direction" })).toBeInTheDocument();
+  });
+
+  it("keeps an edited transaction on its own account when that account can't take new entries", async () => {
+    // e.g. a disconnected bank's account: left out of `accounts` (the new-entry
+    // list), but the row still belongs to it. The browser must not fall back to
+    // the first option and silently move the row on save.
+    const action = vi.fn().mockResolvedValue({});
+    const user = userEvent.setup();
+    renderForm(
+      {
+        submitLabel: "Save changes",
+        initial: {
+          id: "t1",
+          amount: 500,
+          direction: "debit",
+          occurredAt: "2026-09-10T00:00:00.000Z",
+          description: "Coffee",
+          note: null,
+          isTransfer: false,
+          accountId: "old-bank",
+          accountName: "Old Bank Checking",
+          categoryId: null,
+        },
+      },
+      action,
+    );
+
+    expect(screen.getByRole("combobox", { name: "Account" })).toHaveValue("old-bank");
+    expect(screen.getByRole("option", { name: "Old Bank Checking" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    expect((action.mock.calls[0][1] as FormData).get("accountId")).toBe("old-bank");
+  });
+
+  it("offers only entry-taking accounts on a new transaction", () => {
+    renderForm();
+    expect(screen.getAllByRole("option", { name: "Checking" })).toHaveLength(1);
+    expect(screen.getByRole("combobox", { name: "Account" })).toHaveValue("a1");
   });
 });

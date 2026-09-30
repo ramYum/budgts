@@ -12,7 +12,11 @@ const updateTransactionRow = vi.fn();
 vi.mock("@/lib/supabase/server", () => ({ createClient: () => createClient() }));
 vi.mock("next/navigation", () => ({ redirect: (url: string) => redirect(url) }));
 vi.mock("next/cache", () => ({ revalidatePath: (p: string, type?: string) => revalidatePath(p, type) }));
-vi.mock("@/server/transaction-update", () => ({ updateTransactionRow: (...a: unknown[]) => updateTransactionRow(...a) }));
+// The edited row already sits on ACCOUNT_ID, so the account guard in the command never needs to look the account up.
+vi.mock("@/server/transaction-update", () => ({
+  updateTransactionRow: (...a: unknown[]) => updateTransactionRow(...a),
+  readTransactionAccountId: async () => "33333333-3333-4333-8333-333333333333",
+}));
 
 const { updateTransaction } = await import("./transactions");
 

@@ -418,6 +418,7 @@ function toInitial(it: TxnListItem): TransactionInitial {
     note: it.note,
     isTransfer: it.is_transfer,
     accountId: it.account_id,
+    accountName: it.account?.name ?? "",
     categoryId: it.category_id,
   };
 }

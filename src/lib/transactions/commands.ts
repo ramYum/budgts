@@ -10,13 +10,21 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { failed, invalid, type Failed, type Invalid } from "@/lib/command-result";
 import { landTransaction, normalizeManual, supabaseTransactionStore } from "@/lib/ingestion";
 import { transactionFormSchema } from "@/lib/validation/transaction";
-import { updateTransactionRow } from "@/server/transaction-update";
+import { accountAcceptsEntries } from "@/lib/accounts/selectable-accounts";
+import { readTransactionAccountId, updateTransactionRow } from "@/server/transaction-update";
 
 /** JSON callers send `null` for "no category"; the form schema takes an empty string for that. */
 function toFormInput(raw: unknown): Record<string, unknown> {
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
   return { ...r, categoryId: r.categoryId ?? "" };
 }
+
+/** Refused when the chosen account is archived, belongs to a disconnected bank, or is not the caller's. */
+const ACCOUNT_CLOSED: Invalid = {
+  ok: false,
+  error: "invalid",
+  fieldErrors: { accountId: "That account can't take new transactions. Choose another account." },
+};
 
 /** A client-generated id that makes a retried create land once (see `createManualTransaction`). */
 const REQUEST_ID = /^[A-Za-z0-9-]{8,64}$/;
@@ -42,6 +50,7 @@ export async function createManualTransaction(
 
   const n = normalizeManual(parsed.data);
   try {
+    if (!(await accountAcceptsEntries(supabase, n.accountId))) return ACCOUNT_CLOSED;
     const row = await landTransaction(
       supabaseTransactionStore(supabase),
       userId,
@@ -61,6 +70,11 @@ export async function updateManualTransaction(supabase: SupabaseClient, id: stri
 
   const n = normalizeManual(parsed.data);
   try {
+    // Keeping the row's own account is always allowed (a disconnected bank's kept history can still be recategorized);
+    // moving it needs a target that can take entries. Never a silent move: see the account list in transaction-form.tsx.
+    const currentAccountId = await readTransactionAccountId(supabase, id);
+    if (currentAccountId === null) return { ok: false, error: "missing" };
+    if (n.accountId !== currentAccountId && !(await accountAcceptsEntries(supabase, n.accountId))) return ACCOUNT_CLOSED;
     const result = await updateTransactionRow(supabase, id, {
       accountId: n.accountId,
       categoryId: n.categoryId,

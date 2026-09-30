@@ -17,6 +17,18 @@ export interface UpdateTransactionFields {
 export type UpdateTransactionOutcome = { outcome: "ok" } | { outcome: "missing" } | { outcome: "conflict" };
 
 /**
+ * The row's current `account_id`, or `null` if it doesn't exist / isn't
+ * visible to this client (RLS). An edit compares against it so that keeping
+ * the row's own account is always allowed, even when that account can no
+ * longer take new entries (a disconnected bank's kept history).
+ */
+export async function readTransactionAccountId(supabase: SupabaseClient, id: string): Promise<string | null> {
+  const { data, error } = await supabase.from("transactions").select("account_id").eq("id", id).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ? (data.account_id as string) : null;
+}
+
+/**
  * The row's current `is_transfer`, or `null` if it doesn't exist / isn't
  * visible to this client (RLS, for the real request-scoped client).
  */

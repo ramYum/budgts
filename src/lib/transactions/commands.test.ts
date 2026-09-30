@@ -2,17 +2,26 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const landTransaction = vi.fn();
 const updateTransactionRow = vi.fn();
+const readTransactionAccountId = vi.fn();
+const accountAcceptsEntries = vi.fn();
 vi.mock("@/lib/ingestion", async (orig) => ({
   ...(await orig<typeof import("@/lib/ingestion")>()),
   landTransaction: (...a: unknown[]) => landTransaction(...a),
   supabaseTransactionStore: () => ({ __store: true }),
 }));
-vi.mock("@/server/transaction-update", () => ({ updateTransactionRow: (...a: unknown[]) => updateTransactionRow(...a) }));
+vi.mock("@/server/transaction-update", () => ({
+  updateTransactionRow: (...a: unknown[]) => updateTransactionRow(...a),
+  readTransactionAccountId: (...a: unknown[]) => readTransactionAccountId(...a),
+}));
+vi.mock("@/lib/accounts/selectable-accounts", () => ({
+  accountAcceptsEntries: (...a: unknown[]) => accountAcceptsEntries(...a),
+}));
 
 import { createManualTransaction, deleteTransactionById, updateManualTransaction } from "./commands";
 
 const ACCOUNT = "33333333-3333-4333-8333-333333333333";
 const CATEGORY = "44444444-4444-4444-8444-444444444444";
+const OTHER_ACCOUNT = "55555555-5555-4555-8555-555555555555";
 const supabase = { __as: "user-a" } as never;
 
 const input = (over: Record<string, unknown> = {}) => ({
@@ -30,7 +39,11 @@ const input = (over: Record<string, unknown> = {}) => ({
 beforeEach(() => {
   landTransaction.mockReset();
   updateTransactionRow.mockReset();
+  readTransactionAccountId.mockReset();
+  accountAcceptsEntries.mockReset();
   landTransaction.mockResolvedValue({ id: "new-id" });
+  readTransactionAccountId.mockResolvedValue(ACCOUNT);
+  accountAcceptsEntries.mockResolvedValue(true);
 });
 
 describe("createManualTransaction", () => {
@@ -69,6 +82,14 @@ describe("createManualTransaction", () => {
     expect(landTransaction).not.toHaveBeenCalled();
   });
 
+  it("refuses an account that can't take entries (archived, disconnected, not the caller's) without saving", async () => {
+    accountAcceptsEntries.mockResolvedValue(false);
+    const r = await createManualTransaction(supabase, "user-a", input());
+    expect(r).toMatchObject({ ok: false, error: "invalid", fieldErrors: { accountId: expect.any(String) } });
+    expect(accountAcceptsEntries).toHaveBeenCalledWith(supabase, ACCOUNT);
+    expect(landTransaction).not.toHaveBeenCalled();
+  });
+
   it("reports a storage failure with its message", async () => {
     landTransaction.mockRejectedValue(new Error("db down"));
     expect(await createManualTransaction(supabase, "user-a", input())).toEqual({ ok: false, error: "failed", message: "db down" });
@@ -87,6 +108,39 @@ describe("updateManualTransaction", () => {
       "txn-1",
       expect.objectContaining({ accountId: ACCOUNT, amount: 1234, isTransfer: true }),
     );
+  });
+
+  it("keeps the row's own account without re-checking it, even when it can no longer take new entries", async () => {
+    // A disconnected bank's account keeps its history; editing that history
+    // (a category, a note) must neither move it nor be refused.
+    accountAcceptsEntries.mockResolvedValue(false);
+    updateTransactionRow.mockResolvedValue({ outcome: "ok" });
+
+    expect(await updateManualTransaction(supabase, "txn-1", input())).toEqual({ ok: true });
+    expect(accountAcceptsEntries).not.toHaveBeenCalled();
+    expect(updateTransactionRow.mock.calls[0][2].accountId).toBe(ACCOUNT);
+  });
+
+  it("moves the row to another account only when that account can take entries", async () => {
+    updateTransactionRow.mockResolvedValue({ outcome: "ok" });
+
+    expect(await updateManualTransaction(supabase, "txn-1", input({ accountId: OTHER_ACCOUNT }))).toEqual({ ok: true });
+    expect(accountAcceptsEntries).toHaveBeenCalledWith(supabase, OTHER_ACCOUNT);
+    expect(updateTransactionRow.mock.calls[0][2].accountId).toBe(OTHER_ACCOUNT);
+  });
+
+  it("refuses a move to an account that can't take entries, leaving the row untouched", async () => {
+    accountAcceptsEntries.mockResolvedValue(false);
+
+    const r = await updateManualTransaction(supabase, "txn-1", input({ accountId: OTHER_ACCOUNT }));
+    expect(r).toMatchObject({ ok: false, error: "invalid", fieldErrors: { accountId: expect.any(String) } });
+    expect(updateTransactionRow).not.toHaveBeenCalled();
+  });
+
+  it("says missing when the row is gone or hidden by RLS, before writing anything", async () => {
+    readTransactionAccountId.mockResolvedValue(null);
+    expect(await updateManualTransaction(supabase, "t", input())).toEqual({ ok: false, error: "missing" });
+    expect(updateTransactionRow).not.toHaveBeenCalled();
   });
 
   it("maps a vanished row to missing and a concurrent change to conflict", async () => {

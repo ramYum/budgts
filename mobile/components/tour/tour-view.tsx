@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { Pressable, Text as RNText, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ROLE, SPACE } from "../../lib/brand/shared";
+import { MOTION, ROLE, SPACE } from "../../lib/brand/shared";
 import { textStyle } from "../../lib/brand/type";
 import { GUIDE_COPY, type TourStepId } from "../../lib/tour/shared";
 import { Button } from "../brand/controls";
@@ -65,6 +65,7 @@ export function TourView({
         dotIndex: offset + i,
         onBack: nav.isFirst ? undefined : nav.back,
         onSkip: nav.isLast ? undefined : () => void finish(),
+        skipDisabled: finishing,
       };
       const next = (
         <Button testID="tour-primary" arrow onPress={nav.next}>
@@ -106,18 +107,22 @@ export function TourView({
                 </Button>
               }
               footnote={
-                <RNText style={[textStyle("caption"), { color: ROLE.muted, textAlign: "center" }]}>
-                  {"Replay this guide, or read "}
-                  <RNText
-                    testID="tour-how-it-works"
-                    onPress={onHowItWorks}
-                    accessibilityRole="link"
-                    style={{ fontFamily: textStyle("tLabel").fontFamily, color: ROLE.neg }}
-                  >
-                    How Budgts Works
+                // The line's one link: the whole line is its touch target, grown to 44pt tall (a 16px line of words
+                // alone is too small to hit), drawn exactly as the web's sentence with its red link words.
+                <Pressable
+                  testID="tour-how-it-works"
+                  accessibilityRole="link"
+                  accessibilityLabel="How Budgts Works"
+                  onPress={onHowItWorks}
+                  hitSlop={{ top: 14, bottom: 14, left: 8, right: 8 }}
+                  style={({ pressed }) => ({ transform: pressed ? [{ scale: MOTION.pressScale }] : [] })}
+                >
+                  <RNText style={[textStyle("caption"), { color: ROLE.muted, textAlign: "center" }]}>
+                    {"Replay this guide, or read "}
+                    <RNText style={{ fontFamily: textStyle("tLabel").fontFamily, color: ROLE.neg }}>How Budgts Works</RNText>
+                    {", anytime from Help."}
                   </RNText>
-                  {", anytime from Help."}
-                </RNText>
+                </Pressable>
               }
             />
           );

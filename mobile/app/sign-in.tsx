@@ -21,6 +21,7 @@ import { BrandStage } from "../components/brand/brand-stage";
 import { Button, Field, Rule } from "../components/brand/controls";
 import { PixelFrame } from "../components/brand/pixel-frame";
 import { Text } from "../components/brand/text";
+import { SignInEntrance } from "../components/sign-in/entrance";
 import { SentState } from "../components/sign-in/sent-state";
 import { takeSignInProblem } from "../lib/auth/reauth-guard";
 
@@ -188,112 +189,108 @@ export default function SignInScreen() {
               }}
               style={{ width: "100%", maxWidth: 384, alignSelf: "center" }}
             >
-              <View style={{ marginBottom: 32 }}>
-                <BrandStage />
-              </View>
-
-              <PixelFrame frame="px-card-raised" style={{ padding: 20 }} testID="sign-in-card">
-                {sentTo ? (
-                  <SentState
-                    email={sentTo}
-                    onResend={() => void sendLink(sentTo)}
-                    waitSeconds={resendWait.seconds}
-                    waitKey={resendWait.key}
-                    resending={pending === "email"}
-                    error={error}
-                    onUseDifferentEmail={() => {
-                      setSentTo(null);
-                      setError(null);
-                      setTimeout(() => field.current?.focus(), 0);
-                    }}
-                  />
-                ) : (
-                  <View style={{ gap: 24 }}>
-                    <View style={{ gap: 4 }}>
-                      <Text variant="heading" accessibilityRole="header">
-                        Sign in
-                      </Text>
-                      <Text variant="body" color={ROLE.muted}>
-                        Track spending against your budget.
-                      </Text>
-                    </View>
-
-                    <View style={{ gap: 12 }} ref={form}>
-                      <Field
-                        ref={field}
-                        testID="sign-in-email"
-                        label="Email"
-                        placeholder="you@example.com"
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        autoComplete="email"
-                        textContentType="emailAddress"
-                        keyboardType="email-address"
-                        returnKeyType="send"
-                        value={email}
-                        onChangeText={setEmail}
-                        onSubmitEditing={() => void sendLink(email)}
-                        editable={!pending}
-                        invalid={invalidEmail}
-                      />
-                      {error ? (
-                        <Text variant="formLabel" color={ROLE.neg} accessibilityRole="alert" accessibilityLiveRegion="polite" testID="sign-in-error">
-                          {error}
+              <SignInEntrance stage={<BrandStage />} legal={legalLive ? <LegalLine /> : null}>
+                <PixelFrame frame="px-card-raised" style={{ padding: 20 }} testID="sign-in-card">
+                  {sentTo ? (
+                    <SentState
+                      email={sentTo}
+                      onResend={() => void sendLink(sentTo)}
+                      waitSeconds={resendWait.seconds}
+                      waitKey={resendWait.key}
+                      resending={pending === "email"}
+                      error={error}
+                      onUseDifferentEmail={() => {
+                        setSentTo(null);
+                        setError(null);
+                        setTimeout(() => field.current?.focus(), 0);
+                      }}
+                    />
+                  ) : (
+                    <View style={{ gap: 24 }}>
+                      <View style={{ gap: 4 }}>
+                        <Text variant="heading" accessibilityRole="header">
+                          Sign in
                         </Text>
-                      ) : null}
-                      <Button
-                        testID="sign-in-email-send"
-                        size="lg"
-                        arrow={pending !== "email"}
-                        disabled={pending !== null}
-                        onPress={() => void sendLink(email)}
-                      >
-                        {pending === "email" ? "Sending…" : "Email me a sign-in link"}
-                      </Button>
-                    </View>
+                        <Text variant="body" color={ROLE.muted}>
+                          Track spending against your budget.
+                        </Text>
+                      </View>
 
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-                      <Rule style={{ flex: 1 }} />
-                      <Text variant="caption" color={ROLE.muted}>
-                        or
-                      </Text>
-                      <Rule style={{ flex: 1 }} />
-                    </View>
-
-                    <View style={{ gap: 12 }}>
-                      <Button
-                        testID="sign-in-google"
-                        variant="secondary"
-                        size="lg"
-                        icon="google"
-                        loading={pending === "google"}
-                        disabled={pending !== null && pending !== "google"}
-                        onPress={() => void google()}
-                      >
-                        Continue with Google
-                      </Button>
-                      {showApple ? (
-                        // Apple's own button (App Store guideline 4.8 / HIG), the same height as Google's.
-                        <AppleAuthentication.AppleAuthenticationButton
-                          testID="sign-in-apple"
-                          buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
-                          buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-                          cornerRadius={0}
-                          style={{ height: SPACE.buttonLg, width: "100%" }}
-                          onPress={() => void apple()}
+                      <View style={{ gap: 12 }} ref={form}>
+                        <Field
+                          ref={field}
+                          testID="sign-in-email"
+                          label="Email"
+                          placeholder="you@example.com"
+                          autoCapitalize="none"
+                          autoCorrect={false}
+                          autoComplete="email"
+                          textContentType="emailAddress"
+                          keyboardType="email-address"
+                          returnKeyType="send"
+                          value={email}
+                          onChangeText={setEmail}
+                          onSubmitEditing={() => void sendLink(email)}
+                          editable={!pending}
+                          invalid={invalidEmail}
                         />
-                      ) : null}
+                        {error ? (
+                          <Text variant="formLabel" color={ROLE.neg} accessibilityRole="alert" accessibilityLiveRegion="polite" testID="sign-in-error">
+                            {error}
+                          </Text>
+                        ) : null}
+                        <Button
+                          testID="sign-in-email-send"
+                          size="lg"
+                          arrow={pending !== "email"}
+                          disabled={pending !== null}
+                          onPress={() => void sendLink(email)}
+                        >
+                          {pending === "email" ? "Sending…" : "Email me a sign-in link"}
+                        </Button>
+                      </View>
+
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+                        <Rule style={{ flex: 1 }} />
+                        <Text variant="caption" color={ROLE.muted}>
+                          or
+                        </Text>
+                        <Rule style={{ flex: 1 }} />
+                      </View>
+
+                      <View style={{ gap: 12 }}>
+                        <Button
+                          testID="sign-in-google"
+                          variant="secondary"
+                          size="lg"
+                          icon="google"
+                          loading={pending === "google"}
+                          disabled={pending !== null && pending !== "google"}
+                          onPress={() => void google()}
+                        >
+                          Continue with Google
+                        </Button>
+                        {showApple ? (
+                          // Apple's own button (App Store guideline 4.8 / HIG), the same height as Google's.
+                          <AppleAuthentication.AppleAuthenticationButton
+                            testID="sign-in-apple"
+                            buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                            buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                            cornerRadius={0}
+                            style={{ height: SPACE.buttonLg, width: "100%" }}
+                            onPress={() => void apple()}
+                          />
+                        ) : null}
+                      </View>
+
+                      <Text variant="meta" color={ROLE.muted} testID="sign-in-same-account">
+                        Already use Budgts on budgts.com? Sign in with the same email or Google account to keep your budget.
+                        {showApple ? " With Sign in with Apple, Hide My Email starts a separate, new account." : ""}
+                      </Text>
                     </View>
-
-                    <Text variant="meta" color={ROLE.muted} testID="sign-in-same-account">
-                      Already use Budgts on budgts.com? Sign in with the same email or Google account to keep your budget.
-                      {showApple ? " With Sign in with Apple, Hide My Email starts a separate, new account." : ""}
-                    </Text>
-                  </View>
-                )}
-              </PixelFrame>
-
-              {legalLive ? <LegalLine /> : null}
+                  )}
+                </PixelFrame>
+              </SignInEntrance>
             </View>
           </ScrollView>
         </View>

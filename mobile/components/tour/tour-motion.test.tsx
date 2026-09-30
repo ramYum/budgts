@@ -13,6 +13,10 @@ vi.mock("react-native", async () => ({
   BackHandler: { addEventListener: () => ({ remove: () => {} }) },
   AccessibilityInfo: { announceForAccessibility: () => {} },
 }));
+vi.mock("expo-router", async () => {
+  const { useEffect } = await import("react");
+  return { useFocusEffect: (cb: () => void | (() => void)) => useEffect(cb, [cb]) };
+});
 vi.mock("react-native-safe-area-context", () => ({ useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }) }));
 
 afterEach(() => {
@@ -44,6 +48,14 @@ describe("the card's entrance (guide.module.css .stage/.enter/.word)", () => {
     act(() => byTestId(r, "tour-back").props.onPress());
     parts = enters(r);
     expect(parts.every((s) => s.animationName === ENTER_BACK)).toBe(true);
+  });
+
+  it("keeps each heading word's keyframes one constant, so a re-render never replays the heading", () => {
+    const words = (r: ReturnType<typeof render>) =>
+      animated(r).filter((s) => JSON.stringify(s.animationName).includes("translateY\":13")).map((s) => s.animationName);
+    const a = words(render(<TourCard heading="One two" body="b" scene={null} dotCount={1} dotIndex={0} />));
+    const b = words(render(<TourCard heading="One two" body="b" scene={null} dotCount={1} dotIndex={0} />));
+    expect(a[0]).toBe(b[0]); // the same object, not an equal copy
   });
 
   it("raises the heading word by word, 45ms apart after 180ms, and pops the current cell in three steps", () => {

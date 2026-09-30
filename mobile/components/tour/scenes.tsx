@@ -469,7 +469,7 @@ function MoneyLeftScene({ currency }: { currency: string }) {
         </View>
         {/* 32px figure, leading-none: the 40px reel line box pulled in to 32; it rolls up like Home's */}
         <View style={{ marginTop: 8, height: 32, justifyContent: "center" }}>
-          <RollingAmount value={IN - OUT} currency={currency} variant="tNumXl" color={ROLE.text} />
+          <RollingAmount value={IN - OUT} currency={currency} variant="tNumXl" letterSpacing={-0.32} color={ROLE.text} />
         </View>
         <View style={{ marginTop: 12, flexDirection: "row", gap: 12 }}>
           <View style={{ flex: 1 }}>

@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { AccessibilityInfo, BackHandler, ScrollView, View } from "react-native";
+import { useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ROLE, SPACE } from "../../lib/brand/shared";
 import { DirectionContext, type Direction } from "./motion";
@@ -35,8 +36,8 @@ export function move(p: Position, delta: number, last: number): Position {
  * for the wizard's life (the caller resolves them once), so a refresh mid-guide never reshuffles the cards. `offset` /
  * `total` place these steps in the whole guide, so the announcement matches the progress cells across onboarding → tour.
  *
- * Native additions with the web's meaning: the Android back button steps back like the web's ← key (on the first card
- * it does what back does anywhere else), and each step is announced to TalkBack / VoiceOver like the web's live region.
+ * Native additions with the web's meaning: the Android back button steps back like the web's ← key while the guide is
+ * the focused screen (on the first card it does what back does anywhere else), and each step is announced to TalkBack / VoiceOver like the web's live region.
  */
 export function TourWizard({ steps, offset = 0, total = steps.length }: { steps: WizardStep[]; offset?: number; total?: number }) {
   const [{ index, dir }, setPosition] = useState<Position>({ index: 0, dir: "none" });
@@ -48,14 +49,17 @@ export function TourWizard({ steps, offset = 0, total = steps.length }: { steps:
 
   const indexRef = useRef(index);
   indexRef.current = index;
-  useEffect(() => {
-    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
-      if (indexRef.current === 0) return false;
-      setPosition((p) => move(p, -1, last));
-      return true;
-    });
-    return () => sub.remove();
-  }, [last]);
+  // Only while the guide is the screen in front: with How it works pushed over it, back belongs to that screen.
+  useFocusEffect(
+    useCallback(() => {
+      const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+        if (indexRef.current === 0) return false;
+        setPosition((p) => move(p, -1, last));
+        return true;
+      });
+      return () => sub.remove();
+    }, [last]),
+  );
 
   const announced = `Step ${offset + index + 1} of ${total}: ${step.label}`;
   useEffect(() => {

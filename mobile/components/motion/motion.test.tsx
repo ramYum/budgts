@@ -122,6 +122,21 @@ describe("RollingAmount (web rolling-amount.tsx)", () => {
     expect(reelWindow("pxFigureLg")).toEqual({ top: 0, height: textStyle("pxFigureLg").lineHeight });
   });
 
+  it("takes the figure's own letter spacing on every glyph, moving and still (the web's .tnum -0.01em)", () => {
+    const spacing = (el: ReturnType<typeof render>) => hosts(el, "Text").map((t) => flat(t.props.style).letterSpacing);
+    const moving = spacing(render(<RollingAmount value={166073} currency="USD" letterSpacing={-0.32} />));
+    expect(moving.length).toBeGreaterThan(1);
+    expect(new Set(moving)).toEqual(new Set([-0.32]));
+    reducedMotion.value = true;
+    try {
+      expect(spacing(render(<RollingAmount value={166073} currency="USD" letterSpacing={-0.32} />))).toEqual([-0.32]);
+    } finally {
+      reducedMotion.value = false;
+    }
+    // unset, each glyph keeps its role's own tracking
+    expect(spacing(render(<RollingAmount value={1200} currency="USD" />)).every((v) => v === textStyle("tNumXl").letterSpacing)).toBe(true);
+  });
+
   it("spins in left to right, 45ms a column after 120ms; plain text with reduced motion", () => {
     const r = render(<RollingAmount value={1200} currency="USD" />);
     const delays = hosts(r, "Animated.View").map((v) => flat(v.props.style).animationDelay);

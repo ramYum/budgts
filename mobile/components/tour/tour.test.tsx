@@ -5,6 +5,7 @@ import { formatMoney } from "../../lib/shared";
 import { GUIDE_COPY, type TourStepId } from "../../lib/tour/shared";
 import { byTestId, flat, hosts, render, textContent, texts } from "../../test/render";
 import { Text } from "../brand/text";
+import { RollingAmount } from "../motion/rolling-amount";
 import { OnboardingView } from "./onboarding-view";
 import { GuideScene } from "./scenes";
 import { HEADING_SPACE, Progress, TourCard } from "./tour-card";
@@ -27,7 +28,28 @@ vi.mock("react-native", async () => ({
 }));
 vi.mock("react-native-safe-area-context", () => ({ useSafeAreaInsets: () => ({ top: 24, bottom: 20, left: 0, right: 0 }) }));
 
+// expo-router's useFocusEffect: runs while the screen is focused; `blur()` is another screen pushed over it
+const focus = vi.hoisted(() => ({ cleanups: [] as (() => void)[] }));
+const blur = () => {
+  for (const c of focus.cleanups.splice(0)) c();
+};
+vi.mock("expo-router", async () => {
+  const { useEffect } = await import("react");
+  return {
+    useFocusEffect: (cb: () => void | (() => void)) =>
+      useEffect(() => {
+        const cleanup = cb();
+        if (cleanup) focus.cleanups.push(cleanup);
+        return () => {
+          const i = cleanup ? focus.cleanups.indexOf(cleanup) : -1;
+          if (i >= 0) focus.cleanups.splice(i, 1)[0]!();
+        };
+      }, [cb]),
+  };
+});
+
 beforeEach(() => {
+  blur();
   native.back.length = 0;
   native.announced.length = 0;
 });
@@ -105,6 +127,15 @@ describe("OnboardingView (web onboarding-wizard-content.tsx)", () => {
     act(() => void native.back.at(-1)!());
     // on the first card, back does what it does anywhere else
     expect(native.back.at(-1)!()).toBe(false);
+  });
+
+  it("leaves Android back to the screen on top while the guide isn't focused (How it works over it)", () => {
+    const r = view();
+    press(r, "tour-primary");
+    expect(step(r)).toBe("tour-step-welcome");
+    act(() => blur());
+    expect(native.back).toHaveLength(0); // the hidden guide no longer listens
+    expect(step(r)).toBe("tour-step-welcome");
   });
 
   it("previews and submits the chosen currency, pending until the shell moves on", async () => {
@@ -188,6 +219,27 @@ describe("TourView (web tour-wizard-content.tsx)", () => {
     byTestId(done, "tour-how-it-works").props.onPress();
     expect(open).toHaveBeenCalledOnce();
   });
+
+  it("gives the How Budgts Works link its own 44pt touch target without changing the line", () => {
+    const r = view({ stepIds: ["done"], offset: 0, totalVisible: 1 });
+    const link = byTestId(r, "tour-how-it-works");
+    expect(link.type).toBe("Pressable");
+    expect(link.props.accessibilityLabel).toBe("How Budgts Works");
+    // the words sit on a 16px line (text-xs): the slop brings the target to 44pt tall
+    const slop = link.props.hitSlop as { top: number; bottom: number };
+    expect(16 + slop.top + slop.bottom).toBeGreaterThanOrEqual(44);
+    expect(textContent(byTestId(r, "tour-footnote"))).toBe("Replay this guide, or read How Budgts Works, anytime from Help.");
+  });
+
+  it("disables Skip while the guide is being marked seen, so it can't be sent twice", async () => {
+    let resolve!: (v: string | null) => void;
+    const onFinish = vi.fn(() => new Promise<string | null>((res) => (resolve = res)));
+    const r = view({ onFinish });
+    act(() => byTestId(r, "tour-skip").props.onPress());
+    expect(byTestId(r, "tour-skip").props.disabled).toBe(true);
+    await act(async () => resolve("Something went wrong. Please try again."));
+    expect(byTestId(r, "tour-skip").props.disabled).toBe(false);
+  });
 });
 
 describe("GuideScene rest frames (web scenes.tsx, motion off)", () => {
@@ -206,6 +258,11 @@ describe("GuideScene rest frames (web scenes.tsx, motion off)", () => {
     const plan = texts(render(<GuideScene id="plan" currency="USD" />));
     expect(plan).toEqual(expect.arrayContaining([`${formatMoney(21150, "USD")} / ${formatMoney(40000, "USD")}`, `+${formatMoney(5000, "USD")}`]));
     expect(texts(render(<GuideScene id="done" currency="USD" />))).toEqual(expect.arrayContaining(["Home", " · What's left this month"]));
+  });
+
+  it("tracks Money Left's figure as the web's .tnum does (−0.01em of 32px), not the size's −0.03em", () => {
+    const r = render(<GuideScene id="money-left" currency="USD" />);
+    expect(r.root.findByType(RollingAmount).props).toMatchObject({ variant: "tNumXl", letterSpacing: -0.32 });
   });
 
   it("sizes Crystal as the web does: 104px tall on her introduction", () => {

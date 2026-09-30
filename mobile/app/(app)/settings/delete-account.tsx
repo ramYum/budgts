@@ -86,7 +86,7 @@ export default function DeleteAccountScreen() {
           apiBaseUrl: API_BASE,
           signInWithOtp: (args) => supabase.auth.signInWithOtp(args),
         });
-        if (result.sent) returnAfterSignIn(DELETE_ACCOUNT_CONFIRM_PATH);
+        if (result.sent && session) returnAfterSignIn(DELETE_ACCOUNT_CONFIRM_PATH, session.user.id);
         return result;
       },
       reauthWithGoogle: async () => {
@@ -101,7 +101,7 @@ export default function DeleteAccountScreen() {
       onKeep: toSettings,
       onConnectedBanks: () => router.push("/connected-banks"),
       onSignInAgain: () => {
-        returnAfterSignIn(DELETE_ACCOUNT_PATH);
+        if (session) returnAfterSignIn(DELETE_ACCOUNT_PATH, session.user.id);
         void signOut();
       },
       openUrl: (url) => void (url.startsWith("mailto:") ? Linking.openURL(url) : WebBrowser.openBrowserAsync(url)),

@@ -78,13 +78,13 @@ describe("Home header", () => {
     expect(title.props.accessibilityRole).toBe("header");
     expect(flat(title.props.style).columnGap).toBe(TITLE_WORD_GAP);
     expect(textContent(byTestId(r, "page-subtitle"))).toBe("You're doing well this month.");
-    expect(textContent(byTestId(r, "month-nav-label"))).toBe("September 2026");
+    expect(textContent(byTestId(r, "month-label"))).toBe("September 2026");
   });
 
   it("the arrows step the month", () => {
     const { r, props } = view(full());
-    act(() => byTestId(r, "month-nav-prev").props.onPress());
-    act(() => byTestId(r, "month-nav-next").props.onPress());
+    act(() => byTestId(r, "month-prev").props.onPress());
+    act(() => byTestId(r, "month-next").props.onPress());
     expect(props.onMonth.mock.calls).toEqual([["2026-08"], ["2026-10"]]);
   });
 });
@@ -260,7 +260,7 @@ describe("Recent activity", () => {
   it("the section links go where the web's go", () => {
     const { r, props } = view(full());
     for (const id of ["home-where", "home-savings", "home-recent"])
-      byTestId(r, id).findAll((n) => typeof n.type === "string" && n.props.testID === "section-head-action")[0]!.props.onPress();
+      byTestId(r, id).findAll((n) => typeof n.type === "string" && n.props.testID === "section-link")[0]!.props.onPress();
     expect(props.go.mock.calls.map((c) => c[0])).toEqual(["/budgets?m=2026-09", "/goals", "/activity"]);
   });
 });

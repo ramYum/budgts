@@ -10,15 +10,17 @@ export function SegmentedControl<T extends string>({
   options,
   onChange,
   label,
+  testID = "segmented",
 }: {
   value: T;
   options: { value: T; label: string }[];
   onChange: (v: T) => void;
   label?: string;
+  testID?: string;
 }) {
   return (
     <View
-      testID="segmented"
+      testID={testID}
       accessibilityRole="radiogroup"
       accessibilityLabel={label}
       style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 6 }}

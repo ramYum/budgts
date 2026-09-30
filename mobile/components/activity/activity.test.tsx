@@ -87,14 +87,14 @@ const rowTitles = (r: ReturnType<typeof render>) =>
 describe("Activity header (web transactions/page.tsx)", () => {
   it("is 'Activity' with the month switcher and a primary Add that reads 'Add transaction'", () => {
     const { r, props } = view();
-    expect(textContent(byTestId(r, "page-header-title"))).toBe("Activity");
-    expect(textContent(byTestId(r, "month-nav-label"))).toBe("September 2026");
+    expect(textContent(byTestId(r, "page-title"))).toBe("Activity");
+    expect(textContent(byTestId(r, "month-label"))).toBe("September 2026");
     const add = byTestId(r, "activity-add");
     expect(add.props.accessibilityLabel).toBe("Add transaction");
     expect(texts(add)).toContain("Add");
     act(() => add.props.onPress());
     expect(props.onAdd).toHaveBeenCalled();
-    act(() => byTestId(r, "month-nav-prev").props.onPress());
+    act(() => byTestId(r, "month-prev").props.onPress());
     expect(props.onMonth).toHaveBeenCalledWith("2026-08");
   });
 });
@@ -134,9 +134,9 @@ describe("the list (web transaction-list.tsx)", () => {
     const { r } = view({
       ledger: ready([txn("a", { description: "Trader Joe's" }), txn("b", { direction: "credit", description: "Payroll", category: null }), txn("c", { isTransfer: true })]),
     });
-    act(() => byTestId(r, "segmented-income").props.onPress());
+    act(() => byTestId(r, "segment-income").props.onPress());
     expect(rowTitles(r)).toEqual(["Payroll"]);
-    act(() => byTestId(r, "segmented-all").props.onPress());
+    act(() => byTestId(r, "segment-all").props.onPress());
     act(() => byTestId(r, "activity-search-input").props.onChangeText("groc"));
     expect(rowTitles(r)).toEqual(["Trader Joe's", "Shop c"]);
     act(() => byTestId(r, "activity-search-input").props.onChangeText("nothing like this"));

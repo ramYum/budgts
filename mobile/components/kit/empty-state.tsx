@@ -56,14 +56,16 @@ export function EmptyState({
   body,
   action,
   icon,
+  testID = "empty-state",
 }: {
   title: string;
   body?: string;
   action?: ReactNode;
   icon?: IconName;
+  testID?: string;
 }) {
   return (
-    <PixelFrame testID="empty-state" frame="px-card" style={{ alignItems: "flex-start", gap: 8, padding: 16 }}>
+    <PixelFrame testID={testID} frame="px-card" style={{ alignItems: "flex-start", gap: 8, padding: 16 }}>
       {icon ? (
         <View style={{ marginBottom: 8 }}>
           <IconTile name={icon} />

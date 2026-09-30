@@ -48,7 +48,7 @@ export const useSheetFocus = () => useContext(SheetFocus);
  * edge-to-edge window no longer resizes for it) and scrolls the focused
  * field into view, `KEYBOARD_MARGIN` above the keyboard.
  */
-export function Overlay({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+export function Overlay({ title, onClose, children, testID = "sheet" }: { title: string; onClose: () => void; children: ReactNode; testID?: string }) {
   const reduced = useReducedMotion();
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
@@ -85,7 +85,7 @@ export function Overlay({ title, onClose, children }: { title: string; onClose: 
           <Pressable accessibilityLabel="Close" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} onPress={onClose} />
           <Animated.View style={sheetIn}>
             <PixelFrame
-              testID="sheet"
+              testID={testID}
               frame="px-card-raised"
               accessibilityViewIsModal
               accessibilityLabel={title}

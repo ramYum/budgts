@@ -148,7 +148,7 @@ export function NeedsCategory({
       </View>
 
       {hidden > 0 ? (
-        <Button testID="needs-category-more" variant="secondary" style={{ marginTop: 16 }} onPress={() => setExpanded(true)}>
+        <Button testID="needs-category-more" variant="secondary" iconAfter="chevron-down" style={{ marginTop: 16 }} onPress={() => setExpanded(true)}>
           {`Show ${hidden} more`}
         </Button>
       ) : null}

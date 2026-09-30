@@ -127,7 +127,6 @@ export default function ActivityScreen() {
         kinds={kinds}
         onAdd={() => setSheet({ kind: "add" })}
         onOpen={(t) => setSheet({ kind: "view", t })}
-        onConnectBank={() => router.push("/connected-banks")}
       />
       {sheets}
     </Screen>

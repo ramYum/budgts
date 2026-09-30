@@ -90,7 +90,7 @@ export function TransactionDetailSheet({
   ];
 
   return (
-    <Overlay title="Transaction" onClose={onClose} testID="txn-detail">
+    <Overlay title="Transaction" onClose={onClose}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
         <CategoryIcon name={t.isTransfer ? "Transfer" : (t.category?.name ?? "")} />
         <View style={{ flex: 1, minWidth: 0 }}>
@@ -169,7 +169,7 @@ export function AddTransactionSheet({
   onClose: () => void;
 }) {
   return (
-    <Overlay title="Add transaction" onClose={onClose} testID="txn-add">
+    <Overlay title="Add transaction" onClose={onClose}>
       <FormGate data={data}>
         {(accounts, categories) => (
           <TransactionForm
@@ -214,7 +214,7 @@ export function EditTransactionSheet({
   }
 
   return (
-    <Overlay title="Edit transaction" onClose={onClose} testID="txn-edit">
+    <Overlay title="Edit transaction" onClose={onClose}>
       <FormGate data={data}>
         {(accounts, categories) => (
           <>

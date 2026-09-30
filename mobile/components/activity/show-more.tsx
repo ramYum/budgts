@@ -57,7 +57,7 @@ export function ShowMore({ remaining, slice, onMore }: { remaining: number; slic
 
   return (
     <View ref={ref} onLayout={onLayout} collapsable={false}>
-      <Button testID="show-more-rows" variant="secondary" onPress={onMore}>
+      <Button testID="show-more-rows" variant="secondary" iconAfter="chevron-down" onPress={onMore}>
         {`Show ${Math.min(remaining, slice)} more`}
       </Button>
     </View>

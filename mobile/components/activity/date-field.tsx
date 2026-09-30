@@ -145,7 +145,7 @@ export function DateField({
         )}
       </Pressable>
       {open ? (
-        <Overlay title={label} onClose={() => setOpen(false)} testID={`${testID}-sheet`}>
+        <Overlay title={label} onClose={() => setOpen(false)}>
           <Calendar
             value={value}
             testID={`${testID}-calendar`}

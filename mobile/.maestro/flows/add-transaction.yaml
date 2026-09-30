@@ -9,7 +9,7 @@ appId: com.budgts.app
 - tapOn:
     id: "activity-add"
 - assertVisible:
-    id: "txn-add"
+    id: "txn-form"
 - tapOn:
     id: "txn-form-amount"
 - inputText: "12.34"
@@ -27,5 +27,5 @@ appId: com.budgts.app
 - tapOn:
     id: "txn-form-save"
 - assertNotVisible:
-    id: "txn-add"
+    id: "txn-form"
 - assertVisible: "Maestro test transaction"

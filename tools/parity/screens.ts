@@ -98,6 +98,30 @@ export const TESTIDS = {
   ],
   charts: ["spending-trend-card", "spending-breakdown-card"],
   feedback: ["loading-skeleton", "error-state", "error-retry", "not-found", "offline-state"],
+  // Activity (Lane D-1; web: transactions/page.tsx, transaction-list.tsx, plaid/needs-category.tsx)
+  activity: [
+    "activity-add", // the header's Add (in page-action)
+    "activity-search",
+    "activity-list", // the rows' card
+    "txn-day",
+    "txn-day-label",
+    "txn-day-total",
+    "txn-row",
+    "txn-title",
+    "txn-meta",
+    "txn-amount",
+    "show-more-rows",
+    "activity-empty",
+    "activity-no-match",
+    "connect-bank-card",
+    "category-band",
+    "needs-category",
+    "needs-category-title",
+    "needs-category-total",
+    "needs-category-group",
+    "needs-category-label",
+    "needs-category-more",
+  ],
 } as const;
 
 /** Hub rows and tabs derive their ids in one place, shared with the web components and the native atoms. */

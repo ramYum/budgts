@@ -6,6 +6,7 @@ import type { ActivityExtras, NeedsCategoryGroup } from "../../lib/transactions/
 import { KIND_OPTIONS, SLICE, dayTotals, filterActivity, type ActivityKind } from "../../lib/transactions/activity-view";
 import type { LedgerState } from "../../lib/transactions/use-ledger";
 import type { MobileTransaction } from "../../lib/transactions/transactions-api";
+import { ConnectBank } from "../banks/connect-bank";
 import { Button, IconTile } from "../brand/controls";
 import { Icon } from "../brand/icon";
 import { PixelFrame } from "../brand/pixel-frame";
@@ -57,16 +58,14 @@ function CategoryBand({ name, onClear }: { name: string; onClear: () => void }) 
 }
 
 /** "Connect a bank to fill this in on its own": an empty month where bank connections are on (web page's prompt card). */
-function ConnectBankCard({ onConnect }: { onConnect: () => void }) {
+function ConnectBankCard() {
   return (
     <PixelFrame testID="connect-bank-card" frame="px-card" style={{ alignItems: "flex-start", gap: 12, padding: 12 }}>
       <IconTile name="bank" />
       <Text variant="body" color={COLOR.graphite}>
         Connect a bank to fill this in on its own, or add a transaction by hand.
       </Text>
-      <Button testID="connect-bank" variant="secondary" onPress={onConnect}>
-        Connect a bank
-      </Button>
+      <ConnectBank tone="outline" />
     </PixelFrame>
   );
 }
@@ -108,7 +107,6 @@ export type ActivityViewProps = {
   kinds: Map<string, "expense" | "income">;
   onAdd: () => void;
   onOpen: (t: MobileTransaction) => void;
-  onConnectBank: () => void;
   /** a needs-category group's picker (the categorize flow) */
   renderGroupActions?: (group: NeedsCategoryGroup) => ReactNode;
   needsCategoryHeaderAction?: ReactNode;
@@ -171,7 +169,7 @@ export function ActivityView(p: ActivityViewProps) {
           </WarnLine>
         ) : null}
 
-        {showConnect ? <ConnectBankCard onConnect={p.onConnectBank} /> : null}
+        {showConnect ? <ConnectBankCard /> : null}
 
         {items !== null && items.length === 0 ? <NoTransactions /> : null}
 
@@ -186,7 +184,6 @@ export function ActivityView(p: ActivityViewProps) {
                 }}
               />
               <SegmentedControl
-                testID="segmented"
                 label="Show"
                 value={kind}
                 options={KIND_OPTIONS}

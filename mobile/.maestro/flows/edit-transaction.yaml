@@ -8,7 +8,7 @@ appId: com.budgts.app
     id: "tab-activity"
 - tapOn: "Maestro test transaction"
 - assertVisible:
-    id: "txn-detail"
+    id: "txn-detail-facts"
 - tapOn:
     id: "txn-detail-transfer"
 - assertVisible: "Remove transfer"
@@ -18,7 +18,7 @@ appId: com.budgts.app
 - tapOn:
     id: "txn-detail-edit"
 - assertVisible:
-    id: "txn-edit"
+    id: "txn-delete"
 - tapOn:
     id: "txn-form-description"
 - eraseText

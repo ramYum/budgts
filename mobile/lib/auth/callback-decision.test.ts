@@ -122,3 +122,15 @@ describe("completeSession names who the exchange signed in", () => {
     expect(await completeSession("budgts://auth/callback?code=c", a)).toEqual({ ok: true, userId: "bob" });
   });
 });
+
+describe("R1: a refused account that later signs in on purpose", () => {
+  it("goes on (refuse B, sign out, sign in as B → go)", async () => {
+    const guard = await import("./reauth-guard");
+    guard.resetReauthGuard();
+    guard.expectReauthAs("alice");
+    expect(guard.reauthVerdict("SIGNED_IN", "bob")).toBe("reject");
+    guard.reauthVerdict("SIGNED_OUT", null);
+    expect(guard.reauthVerdict("SIGNED_IN", "bob")).toBe("accept");
+    expect(callbackDecision({ ok: true, userId: "bob" }, "bob", () => null, guard.wasRejected)).toEqual({ kind: "go", href: "/" });
+  });
+});

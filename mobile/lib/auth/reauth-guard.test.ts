@@ -43,4 +43,14 @@ describe("reauth guard: a re-sign-in must come back as the same account", () => 
     expectReauthAs("alice", 0);
     expect(reauthVerdict("SIGNED_IN", "bob", 60 * 60 * 1000 + 1)).toBe("accept");
   });
+
+  it("forgets a refusal once that account signs in on purpose (R1: the callback never hangs, sign-in never shows a stale reason)", () => {
+    expectReauthAs("alice", 0);
+    expect(reauthVerdict("SIGNED_IN", "bob", 1)).toBe("reject");
+    expect(reauthVerdict("SIGNED_OUT", null, 2)).toBe("accept");
+    expect(wasRejected("bob")).toBe(true); // still known after the local sign-out, for the callback
+    expect(reauthVerdict("SIGNED_IN", "bob", 3)).toBe("accept");
+    expect(wasRejected("bob")).toBe(false);
+    expect(takeSignInProblem()).toBeNull();
+  });
 });

@@ -26,16 +26,24 @@ export function reauthVerdict(event: string, userId: string | null, now: number 
     expected = null;
     return "accept";
   }
-  if (event !== "SIGNED_IN" || !expected || !userId) return "accept";
-  if (now - expected.at > TTL_MS) {
-    expected = null;
-    return "accept";
-  }
-  if (userId === expected.userId) return "accept";
+  if (event !== "SIGNED_IN" || !userId) return "accept";
+  if (expected && now - expected.at > TTL_MS) expected = null;
+  if (!expected || userId === expected.userId) return accepted();
   expected = null;
   rejectedUserId = userId;
   pendingProblem = "other_account";
   return "reject";
+}
+
+/**
+ * An accepted sign-in: any earlier refusal is over (R1). The refused account may sign in on purpose later (an email
+ * link, Android's Google return); the callback must then go on, and sign-in must not show a stale reason. Not on
+ * SIGNED_OUT: the callback still needs the refusal after the local sign-out that follows it.
+ */
+function accepted(): "accept" {
+  rejectedUserId = null;
+  pendingProblem = null;
+  return "accept";
 }
 
 /** Whether this user's session was refused (the callback screen sends them to sign-in with the reason). */

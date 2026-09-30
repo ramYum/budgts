@@ -27,7 +27,7 @@ import { createManualTransaction } from "@/lib/transactions/commands";
 import { createGoal, addContribution } from "@/lib/goals/commands";
 import { completeOnboarding } from "@/lib/profile/onboarding";
 import { markTourSeen } from "@/lib/tour/load-tour";
-import { currentMonthKey } from "@/lib/budget/month";
+import { todayDateKey } from "@/lib/budget/month";
 import { loadStagingEnv, STAGING_REF } from "./env";
 import { admin, signIn, USERS_FILE, type SeededUsers } from "./auth";
 import {
@@ -71,7 +71,8 @@ async function onboard(supabase: SupabaseClient, userId: string): Promise<void> 
   must("onboarding", await completeOnboarding(supabase, userId, { currency: PARITY_CURRENCY, time_zone: PARITY_TIME_ZONE }));
 }
 
-async function ledger(supabase: SupabaseClient, userId: string, variant: "full" | "over", month: string): Promise<void> {
+async function ledger(supabase: SupabaseClient, userId: string, variant: "full" | "over", today: string): Promise<void> {
+  const month = today.slice(0, 7);
   const accountIds = {} as Record<AccountKey, string>;
   for (const a of ACCOUNTS) accountIds[a.key] = must(`account ${a.name}`, await createAccount(supabase, userId, { name: a.name, type: a.type })).id;
   for (const c of CUSTOM_CATEGORIES) must(`category ${c.name}`, await createCategory(supabase, userId, c));
@@ -96,7 +97,7 @@ async function ledger(supabase: SupabaseClient, userId: string, variant: "full" 
         categoryId: t.category ? categoryId(t.category) : null,
         amount: t.amount,
         direction: t.direction,
-        occurredAt: seedDate(month, t.monthsBack, t.day),
+        occurredAt: seedDate(today, t.monthsBack, t.day),
         description: t.description,
         note: "",
         isTransfer: t.isTransfer ?? false,
@@ -108,7 +109,7 @@ async function ledger(supabase: SupabaseClient, userId: string, variant: "full" 
     for (const c of g.contributions) {
       must(
         `contribution ${g.name}`,
-        await addContribution(supabase, userId, { goalId, amount: c.amount, occurredAt: seedDate(month, c.monthsBack, c.day), note: "" }, 1),
+        await addContribution(supabase, userId, { goalId, amount: c.amount, occurredAt: seedDate(today, c.monthsBack, c.day), note: "" }, 1),
       );
     }
   }
@@ -181,7 +182,7 @@ async function connectSandboxBank(token: string, userId: string): Promise<string
   return notes;
 }
 
-async function seedOne(name: ParityUserName, month: string, skipBanks: boolean): Promise<{ id: string; email: string; notes: string[] }> {
+async function seedOne(name: ParityUserName, today: string, skipBanks: boolean): Promise<{ id: string; email: string; notes: string[] }> {
   const email = parityEmail(name);
   const existing = await findUserId(email);
   if (existing) {
@@ -200,7 +201,7 @@ async function seedOne(name: ParityUserName, month: string, skipBanks: boolean):
   must("tour seen", await markTourSeen(supabase, id));
 
   if (name === "full" || name === "over") {
-    await ledger(supabase, id, name, month);
+    await ledger(supabase, id, name, today);
     notes.push(`${TRANSACTIONS.length} transactions, 6 budgets, ${GOALS.length} goals`);
   } else if (name === "banks") {
     if (skipBanks) notes.push("bank connection skipped (--skip-banks)");
@@ -218,8 +219,9 @@ async function main() {
   const onlyArg = args.find((a) => a.startsWith("--only="))?.slice(7) ?? (args.includes("--only") ? args[args.indexOf("--only") + 1] : undefined);
   const only = onlyArg ? (onlyArg.split(",") as ParityUserName[]) : [...PARITY_USERS];
   const skipBanks = args.includes("--skip-banks");
-  const month = currentMonthKey(PARITY_TIME_ZONE);
-  console.log(`parity seed → staging ${STAGING_REF}, month ${month}`);
+  const today = todayDateKey(PARITY_TIME_ZONE); // the users' today: no row is dated after it
+  const month = today.slice(0, 7);
+  console.log(`parity seed → staging ${STAGING_REF}, today ${today} (${PARITY_TIME_ZONE})`);
 
   mkdirSync(dirname(USERS_FILE), { recursive: true });
   let users: SeededUsers["users"] = {};
@@ -229,7 +231,7 @@ async function main() {
     users = {};
   }
   for (const name of only) {
-    const r = await seedOne(name, month, skipBanks);
+    const r = await seedOne(name, today, skipBanks);
     users[name] = { id: r.id, email: r.email };
     console.log(`  ${name.padEnd(9)} ${short(r.id)}  ${r.notes.join("; ")}`);
   }

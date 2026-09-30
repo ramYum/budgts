@@ -158,7 +158,25 @@ export function monthsBefore(month: string, n: number): string {
   return `${Math.floor(index / 12)}-${String((index % 12) + 1).padStart(2, "0")}`;
 }
 
-/** The ISO date of `day` in the month `monthsBack` before `month`. */
-export function seedDate(month: string, monthsBack: number, day: number): string {
-  return `${monthsBefore(month, monthsBack)}-${String(day).padStart(2, "0")}`;
+/**
+ * Where a this-month row lands so nothing is ever dated after today (the user's today, in PARITY_TIME_ZONE): the
+ * ledger's days 1–28 are squeezed, in order, into days 1..today (`ceil(day × today / 28)`); from the 28th on they stand
+ * as written. On the 1st every row of this month is dated today. The rows themselves (amounts, categories, income,
+ * transfer pair, refund) never change with the date, so this month's totals, and with them the `full` and `over`
+ * states (budget shares, money left), are the same on every day of the month; only the day-grouping of the list and the
+ * "Recent activity" order follow the calendar. Deterministic for a given date.
+ */
+export function placeDay(day: number, todayDay: number): number {
+  const span = Math.min(28, Math.max(1, todayDay));
+  return Math.max(1, Math.ceil((day * span) / 28));
+}
+
+/**
+ * The ISO date of a ledger row: `day` in the month `monthsBack` before `today`'s month. Prior months keep their day
+ * (1–28 exists in every month); this month's day goes through `placeDay`, so no row is after `today` (`YYYY-MM-DD`).
+ */
+export function seedDate(today: string, monthsBack: number, day: number): string {
+  const month = today.slice(0, 7);
+  const d = monthsBack === 0 ? placeDay(day, Number(today.slice(8, 10))) : day;
+  return `${monthsBefore(month, monthsBack)}-${String(d).padStart(2, "0")}`;
 }

@@ -34,7 +34,13 @@ refuses any Supabase target but `uvowywszaiojboaxdmoz`. Nothing here opens `.env
 
 All financial writes use the app's own commands as the signed-in user (RLS applies). The service role sets only what no
 user action can: the deletion lock row, `plaid_accounts.needs_review`, and `plaid_items.created_at` (dated to the item's
-earliest row so the limited-history rule fires). Dates are fixed days of the user's current month and the 5 before it.
+earliest row so the limited-history rule fires).
+
+Dates follow the users' today in `America/New_York`: prior months use fixed days 1–28; this month's rows are squeezed in
+order into days 1..today (`placeDay`: `ceil(day × today / 28)`, identity from the 28th), so no row is ever after today
+and on the 1st every this-month row is dated today. The rows never change, so this month's totals and the `full`/`over`
+states are the same on any day; only the list's day grouping follows the calendar. Re-seed after a month rolls over
+(the users' "this month" is the month they were seeded in).
 
 ## Motion sets
 

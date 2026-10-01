@@ -10,14 +10,17 @@ type Settled = Exclude<LoadState<string>, { status: "loading" }>;
 
 function harness() {
   const seen: LoadState<string>[] = [];
+  const flags: boolean[] = [];
   const pending: ((s: Settled) => void)[] = [];
   const fetcher = () => new Promise<Settled>((resolve) => pending.push(resolve));
+  let latest!: ReturnType<typeof useResource<string>>;
   function Probe({ k, v }: { k: string; v?: number }) {
-    const { state } = useResource(k, fetcher, { version: v });
-    seen.push(state);
+    latest = useResource(k, fetcher, { version: v });
+    seen.push(latest.state);
+    flags.push(latest.refreshing);
     return null;
   }
-  return { seen, pending, Probe };
+  return { seen, flags, pending, Probe, last: () => latest };
 }
 
 describe("useResource", () => {
@@ -42,7 +45,7 @@ describe("useResource", () => {
     expect(h.seen.at(-1)).toEqual({ status: "ready", data: "october" });
   });
 
-  it("a failed in-place refresh replaces the old data, and a stale answer never overwrites a newer one", async () => {
+  it("a failed version reload keeps the figures and reports a notice; a stale answer never overwrites a newer one", async () => {
     const h = harness();
     const r = render(<h.Probe k="x" v={1} />);
     await act(async () => h.pending.shift()!({ status: "ready", data: "a" }));
@@ -51,6 +54,59 @@ describe("useResource", () => {
     const [older, newer] = [h.pending.shift()!, h.pending.shift()!];
     await act(async () => newer({ status: "error", kind: "unavailable", message: "no" }));
     await act(async () => older({ status: "ready", data: "stale" }));
+    expect(h.seen.at(-1)).toEqual({ status: "ready", data: "a" });
+    expect(h.last().notice).toBe("no");
+    expect(h.flags).not.toContain(true); // a version reload never shows the pull indicator
+    act(() => r.update(<h.Probe k="x" v={4} />));
+    await act(async () => h.pending.shift()!({ status: "ready", data: "b" }));
+    expect(h.seen.at(-1)).toEqual({ status: "ready", data: "b" });
+    expect(h.last().notice).toBeNull();
+  });
+
+  it("a failed first load or new key is the failure state (never another key's numbers)", async () => {
+    const h = harness();
+    const r = render(<h.Probe k="m:09" />);
+    await act(async () => h.pending.shift()!({ status: "ready", data: "september" }));
+    act(() => r.update(<h.Probe k="m:10" />));
+    await act(async () => h.pending.shift()!({ status: "error", kind: "unavailable", message: "no" }));
     expect(h.seen.at(-1)).toMatchObject({ status: "error" });
+  });
+
+  it("refreshing is only the user's pull, and it ends even when a newer request wins", async () => {
+    const h = harness();
+    const r = render(<h.Probe k="x" v={1} />);
+    await act(async () => h.pending.shift()!({ status: "ready", data: "a" }));
+    act(() => void h.last().refresh());
+    expect(h.last().refreshing).toBe(true);
+    act(() => r.update(<h.Probe k="x" v={2} />)); // a realtime bump lands mid-pull
+    const [pull, bump] = [h.pending.shift()!, h.pending.shift()!];
+    await act(async () => bump({ status: "ready", data: "b" }));
+    await act(async () => pull({ status: "ready", data: "old" }));
+    expect(h.last().refreshing).toBe(false);
+    expect(h.seen.at(-1)).toEqual({ status: "ready", data: "b" });
+  });
+
+  it("the same interleaving settling the other way round: the pull answers first, then the version reload", async () => {
+    const h = harness();
+    const r = render(<h.Probe k="x" v={1} />);
+    await act(async () => h.pending.shift()!({ status: "ready", data: "a" }));
+    act(() => void h.last().refresh());
+    act(() => r.update(<h.Probe k="x" v={2} />));
+    const [pull, bump] = [h.pending.shift()!, h.pending.shift()!];
+    await act(async () => pull({ status: "ready", data: "old" }));
+    expect(h.last().refreshing).toBe(false); // the pull is over even though its answer lost
+    await act(async () => bump({ status: "ready", data: "b" }));
+    expect(h.last().refreshing).toBe(false);
+    expect(h.seen.at(-1)).toEqual({ status: "ready", data: "b" });
+  });
+
+  it("a failed pull keeps the figures and reports a notice", async () => {
+    const h = harness();
+    render(<h.Probe k="x" />);
+    await act(async () => h.pending.shift()!({ status: "ready", data: "a" }));
+    act(() => void h.last().refresh());
+    await act(async () => h.pending.shift()!({ status: "error", kind: "network", message: "offline" }));
+    expect(h.seen.at(-1)).toEqual({ status: "ready", data: "a" });
+    expect(h.last()).toMatchObject({ refreshing: false, notice: "offline" });
   });
 });

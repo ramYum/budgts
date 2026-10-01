@@ -67,6 +67,15 @@ describe("SectionHead", () => {
     byTestId(r, "section-link").props.onPress();
     expect(go).toHaveBeenCalled();
   });
+
+  it("sets the count 8px after the title (the web's ml-2), both inside the one header", () => {
+    const r = render(<SectionHead title="Needs a category" count={4} />);
+    const head = byTestId(r, "section-title");
+    expect(head.props).toMatchObject({ accessible: true, accessibilityRole: "header" });
+    expect(texts(head)).toEqual(["Needs a category", "4"]);
+    const count = hosts(head, "Text").find((t) => t.props.children === "4")!;
+    expect(flat(count.props.style)).toMatchObject({ marginLeft: 8, color: ROLE.muted });
+  });
 });
 
 describe("SegmentedControl", () => {

@@ -1,6 +1,9 @@
 import { Pressable, View } from "react-native";
+import Animated, { steps, useReducedMotion } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { COLOR, ROLE } from "../../lib/brand/shared";
+import { PIP_IN, PIP_MS } from "../../lib/motion/css";
+import { useMotionTiming } from "../../lib/motion/parity-clock";
 import { bellLabel } from "../../lib/status/status-api";
 import { Icon } from "../brand/icon";
 import { Logo } from "../brand/logo";
@@ -13,7 +16,33 @@ export const HEADER_HEIGHT = 56;
 /** The web header's `bg-bg/90`: the page colour at 90%, so content scrolling under it shows faintly through. */
 export const HEADER_TRANSLUCENT_BG = `rgba(${[1, 3, 5].map((i) => parseInt(ROLE.bg.slice(i, i + 2), 16)).join(", ")}, 0.9)`;
 
-/** The header bell (web `NeedsCategoryBell`): bank rows Budgts could not categorise; tapping it opens Activity's "Needs a category". */
+/** The bell's count (web `px-badge-accent pip`): it snaps in like the tab marker, `pip-in 220ms steps(3, end)`. */
+function BellBadge({ badge }: { badge: string }) {
+  const reduced = useReducedMotion();
+  const timing = useMotionTiming(0);
+  return (
+    <Animated.View
+      style={[
+        { position: "absolute", right: -2, top: -2 },
+        reduced
+          ? null
+          : { animationName: PIP_IN, animationDuration: `${PIP_MS}ms`, animationTimingFunction: steps(3, "jump-end"), animationFillMode: "backwards", ...timing },
+      ]}
+    >
+      <PixelFrame
+        testID="needs-category-count"
+        frame="px-badge-accent"
+        style={{ height: 18, minWidth: 18, alignItems: "center", justifyContent: "center" }}
+      >
+        <Text variant="tLabelStrong" color={COLOR.white} style={{ fontSize: 11, lineHeight: 11, fontVariant: ["tabular-nums"] }}>
+          {badge}
+        </Text>
+      </PixelFrame>
+    </Animated.View>
+  );
+}
+
+/** The header bell (web `NeedsCategoryBell`): bank rows Budgts could not categorise; tapping it opens Activity's "Needs a category" (`NEEDS_CATEGORY_LINK`). */
 export function NeedsCategoryBell({ count, onPress }: { count: number; onPress: () => void }) {
   const { label, badge } = bellLabel(count);
   return (
@@ -28,17 +57,7 @@ export function NeedsCategoryBell({ count, onPress }: { count: number; onPress: 
       {({ pressed }) => (
         <>
           <Icon name="bell" color={pressed ? COLOR.graphite : ROLE.ink} />
-          {badge ? (
-            <PixelFrame
-              testID="needs-category-count"
-              frame="px-badge-accent"
-              style={{ position: "absolute", right: -2, top: -2, height: 18, minWidth: 18, alignItems: "center", justifyContent: "center" }}
-            >
-              <Text variant="tLabelStrong" color={COLOR.white} style={{ fontSize: 11, lineHeight: 11, fontVariant: ["tabular-nums"] }}>
-                {badge}
-              </Text>
-            </PixelFrame>
-          ) : null}
+          {badge ? <BellBadge badge={badge} /> : null}
         </>
       )}
     </Pressable>

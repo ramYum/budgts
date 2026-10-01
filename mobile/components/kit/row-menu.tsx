@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { Modal, Pressable, View, useWindowDimensions } from "react-native";
 import Animated, { steps, useReducedMotion } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { COLOR, ROLE, type IconName } from "../../lib/brand/shared";
 import { POP_IN, POP_MS } from "../../lib/motion/css";
 import { useMotionTiming } from "../../lib/motion/parity-clock";
@@ -19,10 +20,26 @@ export type RowMenuItem = {
 };
 
 
-/** Where the menu opens: under the kebab, its right edge on the kebab's, 4px down; kept inside the screen's 8px margin. */
-export function menuPosition(anchor: { x: number; y: number; width: number; height: number }, window: { width: number }) {
+/** A menu item's drawn height (8 + the 24px line + 8); `hitSlop` takes its touch target to 44. */
+export const MENU_ITEM_H = 40;
+const ITEM_SLOP = { top: 2, bottom: 2 } as const;
+/** The menu before it has measured itself: its items, its 4px padding and the lifted frame's edge. */
+export const estimateMenuHeight = (items: number) => items * MENU_ITEM_H + 2 * 4 + 4;
+
+/**
+ * Where the menu opens: under the kebab, its right edge on the kebab's, 4px down; kept inside the screen's 8px margin.
+ * A kebab near the bottom (the menu would run past the screen or under the navigation bar) opens it above instead.
+ */
+export function menuPosition(
+  anchor: { x: number; y: number; width: number; height: number },
+  window: { width: number; height: number },
+  menuHeight = 0,
+  insetBottom = 0,
+): { top: number; right: number; above: boolean } {
   const right = Math.max(8, window.width - (anchor.x + anchor.width));
-  return { top: anchor.y + anchor.height + 4, right };
+  const below = anchor.y + anchor.height + 4;
+  if (below + menuHeight <= window.height - insetBottom) return { top: below, right, above: false };
+  return { top: Math.max(8, anchor.y - 4 - menuHeight), right, above: true };
 }
 
 /**
@@ -31,16 +48,19 @@ export function menuPosition(anchor: { x: number; y: number; width: number; heig
  * on a press anywhere outside it, and on Android's back.
  */
 export function RowMenu({ label, items, testID = "row-menu" }: { label: string; items: RowMenuItem[]; testID?: string }) {
-  const [at, setAt] = useState<{ top: number; right: number } | null>(null);
+  const [anchor, setAnchor] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [menuHeight, setMenuHeight] = useState(() => estimateMenuHeight(items.length));
   const kebab = useRef<View>(null);
   const window = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const at = anchor ? menuPosition(anchor, window, menuHeight, insets.bottom) : null;
   const reduced = useReducedMotion();
   const timing = useMotionTiming(0);
 
   function open() {
-    kebab.current?.measureInWindow((x, y, width, height) => setAt(menuPosition({ x, y, width, height }, window)));
+    kebab.current?.measureInWindow((x, y, width, height) => setAnchor({ x, y, width, height }));
   }
-  const close = () => setAt(null);
+  const close = () => setAnchor(null);
 
   return (
     <>
@@ -61,13 +81,23 @@ export function RowMenu({ label, items, testID = "row-menu" }: { label: string; 
           <Pressable accessibilityLabel="Close menu" style={{ flex: 1 }} onPress={close}>
             <Animated.View
               style={[
-                { position: "absolute", top: at.top, right: at.right, transformOrigin: "top right" },
+                { position: "absolute", top: at.top, right: at.right, transformOrigin: at.above ? "bottom right" : "top right" },
                 reduced
                   ? null
                   : { animationName: POP_IN, animationDuration: `${POP_MS}ms`, animationTimingFunction: steps(3, "jump-end"), animationFillMode: "backwards", ...timing },
               ]}
             >
-              <PixelFrame frame="px-card-raised" accessibilityRole="menu" accessibilityLabel={label} onStartShouldSetResponder={() => true} style={{ minWidth: 176, padding: 4 }}>
+              <PixelFrame
+                frame="px-card-raised"
+                accessibilityRole="menu"
+                accessibilityLabel={label}
+                onStartShouldSetResponder={() => true}
+                onLayout={(e) => {
+                  const h = e.nativeEvent.layout.height;
+                  setMenuHeight((prev) => (prev === h ? prev : h));
+                }}
+                style={{ minWidth: 176, padding: 4 }}
+              >
                 {items.map((it) => (
                   <Pressable
                     key={it.label}
@@ -75,12 +105,13 @@ export function RowMenu({ label, items, testID = "row-menu" }: { label: string; 
                     accessibilityLabel={it.label}
                     accessibilityState={{ disabled: !!it.disabled }}
                     disabled={it.disabled}
+                    hitSlop={ITEM_SLOP}
                     onPress={() => {
                       close();
                       it.onSelect();
                     }}
                     style={({ pressed }) => [
-                      { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 8, paddingVertical: 8, opacity: it.disabled ? 0.5 : 1 },
+                      { height: MENU_ITEM_H, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 8, opacity: it.disabled ? 0.5 : 1 },
                       pressed ? { backgroundColor: ROLE.surface2 } : null,
                       pressStyle(pressed),
                     ]}

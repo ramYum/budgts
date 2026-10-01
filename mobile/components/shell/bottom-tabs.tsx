@@ -2,6 +2,7 @@ import { Pressable, View } from "react-native";
 import Animated, { steps, useReducedMotion } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { COLOR, ROLE, tabTestId, type IconName } from "../../lib/brand/shared";
+import { PIP_IN, PIP_MS } from "../../lib/motion/css";
 import { useMotionTiming } from "../../lib/motion/parity-clock";
 import { Icon } from "../brand/icon";
 import { Text } from "../brand/text";
@@ -43,8 +44,8 @@ function Pip() {
         reduced
           ? null
           : {
-              animationName: { from: { transform: [{ scale: 0 }] }, to: { transform: [{ scale: 1 }] } },
-              animationDuration: "220ms",
+              animationName: PIP_IN,
+              animationDuration: `${PIP_MS}ms`,
               animationTimingFunction: steps(3, "jump-end"),
               animationFillMode: "backwards",
               ...timing,

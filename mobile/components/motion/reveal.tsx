@@ -38,14 +38,25 @@ export function Reveal({ i, children, style, testID }: { i: number; children: Re
   const parentPlays = usePlay();
   const ref = useRef<View>(null);
   const top = useRef<number | null>(null);
-  const [phase, setPhase] = useState<RevealPhase>("rest");
+  const [phase, setPhaseState] = useState<RevealPhase>("rest");
+  const phaseRef = useRef<RevealPhase>("rest");
+  const setPhase = (next: RevealPhase) => {
+    phaseRef.current = next;
+    setPhaseState(next);
+  };
   const decided = useRef(false);
   const checkRef = useRef<() => void>(() => {});
   const restTiming = useMotionTiming(revealDelayMs(i));
   const shownTiming = useMotionTiming(0);
 
   useEffect(() => {
-    if (reduced || !watch) return;
+    // listens only while there is something left to decide: until the first measure says "rest", or until an armed block shows
+    if (reduced || !watch || (decided.current && phaseRef.current !== "armed")) return;
+    let unsubscribe: (() => void) | null = null;
+    const stop = () => {
+      unsubscribe?.();
+      unsubscribe = null;
+    };
     const check = () => {
       if (top.current === null) return;
       const vp = watch.viewport();
@@ -53,12 +64,17 @@ export function Reveal({ i, children, style, testID }: { i: number; children: Re
       if (!decided.current) {
         decided.current = true;
         if (startsBelowFold(top.current, vp)) setPhase("armed");
+        else stop();
         return;
       }
-      setPhase((p) => (p === "armed" && scrolledIntoView(top.current!, vp) ? "shown" : p));
+      if (phaseRef.current === "armed" && scrolledIntoView(top.current, vp)) {
+        setPhase("shown");
+        stop();
+      }
     };
     checkRef.current = check;
-    return watch.subscribe(check);
+    unsubscribe = watch.subscribe(check);
+    return stop;
   }, [reduced, watch]);
 
   function onLayout() {

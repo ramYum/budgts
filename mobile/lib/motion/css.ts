@@ -52,3 +52,7 @@ export const cellDelayMs = (d: number) => d * 22 + 220;
 /** `@keyframes pop-in` on steps(3, end), 300ms: a tag or menu snaps in (`.pop`). */
 export const POP_IN = { from: { opacity: 0, transform: [{ scale: 0.4 }] }, to: { opacity: 1, transform: [{ scale: 1 }] } };
 export const POP_MS = 300;
+
+/** `@keyframes pip-in` on steps(3, end), 220ms: the tab marker and the bell's badge snap in (`.pip`). */
+export const PIP_IN = { from: { transform: [{ scale: 0 }] }, to: { transform: [{ scale: 1 }] } };
+export const PIP_MS = 220;

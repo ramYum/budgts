@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { COLOR, MOTION, ROLE } from "../../lib/brand/shared";
 import { EASE_OUT, PAGE_ENTER } from "../../lib/motion/css";
 import { useMotionTiming } from "../../lib/motion/parity-clock";
+import { NEEDS_CATEGORY_LINK } from "../../lib/status/status-api";
 import { useStatus } from "../../lib/status/status-context";
 import { ScrollWatchProvider, useScrollWatchSource } from "../motion/scroll-context";
 import { AppHeader, HEADER_HEIGHT } from "./app-header";
@@ -50,12 +51,26 @@ export function Screen({
 
   return (
     <View style={{ flex: 1, backgroundColor: ROLE.bg }}>
+      {/* The header first, so a screen reader meets it before the page (as on the web); zIndex keeps it drawn over the content. */}
+      <View style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 1 }}>
+        <BlurView
+          blurTarget={blurTarget}
+          {...HEADER_BLUR}
+          tint="light"
+          style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+        />
+        <AppHeader
+          needsCategoryCount={status?.needsCategoryCount ?? null}
+          onHome={() => router.navigate("/")}
+          onBell={() => router.navigate(NEEDS_CATEGORY_LINK)}
+        />
+      </View>
       <BlurTargetView ref={blurTarget} style={{ flex: 1 }}>
       <ScrollView
         ref={scrollRef}
         testID={testID}
         style={{ flex: 1, backgroundColor: ROLE.bg }}
-        contentContainerStyle={{ paddingTop: headerBottom, paddingBottom: contentBottomPad(insets.bottom) }}
+        contentContainerStyle={{ paddingBottom: contentBottomPad(insets.bottom) }}
         scrollIndicatorInsets={{ top: HEADER_HEIGHT }}
         keyboardShouldPersistTaps="handled"
         scrollEventThrottle={32}
@@ -73,7 +88,9 @@ export function Screen({
           ) : undefined
         }
       >
-        <View ref={watch.contentRef} collapsable={false}>
+        {/* The header clearance sits inside the view blocks measure against, so a measured y is the scroll content's y,
+            the same space as the viewport's offset and height (<Reveal>'s fold, Show more, Crystal's on-screen check). */}
+        <View ref={watch.contentRef} collapsable={false} style={{ paddingTop: headerBottom }}>
           <ScrollWatchProvider watch={watch}>
             <View style={{ paddingHorizontal: 24 }}>
               <StatusBanners
@@ -103,19 +120,6 @@ export function Screen({
         </View>
       </ScrollView>
       </BlurTargetView>
-      <View style={{ position: "absolute", top: 0, left: 0, right: 0 }}>
-        <BlurView
-          blurTarget={blurTarget}
-          {...HEADER_BLUR}
-          tint="light"
-          style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
-        />
-        <AppHeader
-          needsCategoryCount={status?.needsCategoryCount ?? null}
-          onHome={() => router.navigate("/")}
-          onBell={() => router.navigate("/activity")}
-        />
-      </View>
     </View>
   );
 }

@@ -65,7 +65,7 @@ export function SpendingBreakdownCard({
         </View>
         <View style={{ gap: 12 }}>
           {slices.map((s, k) => (
-            <Rise key={s.name} at={k * 70 + 300} style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <Rise key={k} at={k * 70 + 300} style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
               <View style={{ width: 12, height: 12, backgroundColor: s.color }} />
               <Text variant="body" color={ROLE.ink} numberOfLines={1} style={{ flex: 1, minWidth: 0 }}>
                 {s.name}

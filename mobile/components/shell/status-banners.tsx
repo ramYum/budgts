@@ -1,4 +1,4 @@
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
 import { COLOR, ROLE } from "../../lib/brand/shared";
 import type { MobileStatus } from "../../lib/status/status-api";
 import { Icon } from "../brand/icon";
@@ -24,8 +24,18 @@ function Notice({
   onLink: () => void;
   testID: string;
 }) {
+  // The web's `role="status"` (a polite live region), not an alert. The banner's only action is its link: the whole
+  // banner (at least 72pt tall) takes the tap, so the inline link needs no bigger glyphs to reach 44pt; screen readers
+  // still meet the text and the link inside it.
   return (
-    <PixelFrame testID={testID} frame={frame} accessibilityRole="alert" style={{ flexDirection: "row", alignItems: "flex-start", gap: 12, padding: 12 }}>
+    <Pressable accessible={false} importantForAccessibility="no" onPress={onLink} testID={`${testID}-target`}>
+    <PixelFrame
+      testID={testID}
+      frame={frame}
+      role="status"
+      accessibilityLiveRegion="polite"
+      style={{ flexDirection: "row", alignItems: "flex-start", gap: 12, padding: 12 }}
+    >
       <Icon name="warning" color={iconColor} />
       <Text variant="body" color={ROLE.ink} style={{ flex: 1 }}>
         <Text variant="bodyStrong" color={leadColor}>
@@ -44,6 +54,7 @@ function Notice({
         .
       </Text>
     </PixelFrame>
+    </Pressable>
   );
 }
 

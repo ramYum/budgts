@@ -141,8 +141,9 @@ export function AccountMapping({
                       ]}
                     />
                   </PixelFrame>
-                  {/* the web's w-28 select: 112px, and like a select never narrower than its longest option */}
-                  <View testID={`account-mapping-type-${i}-box`} style={{ minWidth: 112, flexShrink: 0 }}>
+                  {/* the web's w-28 select: 112px, and like a select never narrower than its longest option, up to half
+                      the row so the name field always keeps the other half */}
+                  <View testID={`account-mapping-type-${i}-box`} style={{ minWidth: 112, maxWidth: "50%", flexShrink: 0 }}>
                     <Select
                       label="New account type"
                       hideLabel

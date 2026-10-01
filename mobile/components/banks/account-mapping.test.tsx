@@ -61,7 +61,19 @@ describe("AccountMapping (web account-mapping.tsx)", () => {
     expect(texts(byTestId(r, "account-mapping-type-0-sizer"))).toEqual(["Checking", "Credit", "Cash", "Savings"]);
     let label = byTestId(r, "account-mapping-type-0-sizer").parent!;
     while (typeof label.type !== "string" || label.props.testID === "account-mapping-type-0-sizer") label = label.parent!;
-    expect(flat(label.props.style)).toMatchObject({ flexShrink: 0 });
+    expect(flat(label.props.style)).toMatchObject({ flexGrow: 1 });
+  });
+
+  it("caps the type picker at half the row, so a long type label can't squeeze the name field away", () => {
+    const long = { ...choices, accountTypes: ["checking", "a very long account type from the server"] };
+    const r = render(<AccountMapping plaidAccounts={[account()]} choices={long} onSave={vi.fn()} onDone={() => {}} />);
+    expect(flat(byTestId(r, "account-mapping-type-0-box").props.style)).toMatchObject({ minWidth: 112, maxWidth: "50%" });
+    // the name field keeps the rest of the row (at 360px: 280 of content, at least 140 for the name)
+    expect(flat(byTestId(r, "account-mapping-name-0").parent!.props.style)).toMatchObject({ flex: 1 });
+    // past the cap the chosen label truncates on one line instead of spilling out of the field
+    let label = byTestId(r, "account-mapping-type-0-sizer").parent!;
+    while (typeof label.type !== "string" || label.props.testID === "account-mapping-type-0-sizer") label = label.parent!;
+    expect(flat(label.props.style)).toMatchObject({ flexShrink: 1, minWidth: 0 });
   });
 
   it("saves the web's entries: new, existing and left out", async () => {

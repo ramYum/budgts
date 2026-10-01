@@ -44,8 +44,8 @@ export function Select<T extends string>({
    */
   plaidHint?: string | null;
   /**
-   * Size the field like a browser's auto-width select: as wide as its widest option, so no option is ever cut short
-   * (the field's own box sets any minimum). Off, the field fills its box and a long label truncates.
+   * Size the field like a browser's auto-width select: as wide as its widest option, so no option is cut short (the
+   * field's own box sets any minimum and maximum; past a maximum the label truncates). Off, the field fills its box.
    */
   fitOptions?: boolean;
   /** a test id for the field; its options get `<testID>-option-<value>` */
@@ -84,7 +84,7 @@ export function Select<T extends string>({
             style={[{ height: SPACE.field, flexDirection: "row", alignItems: "center", paddingLeft: 8, paddingRight: 6 }, pressStyle(pressed)]}
           >
             {fitOptions ? (
-              <View style={{ flexGrow: 1, flexShrink: 0 }}>
+              <View style={{ flexGrow: 1, flexShrink: 1, minWidth: 0 }}>
                 {/* the sizing layer: every option's label, unseen, so the field takes the widest one's width */}
                 <View testID={testID ? `${testID}-sizer` : undefined} style={{ height: 0, overflow: "hidden" }} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
                   {options.map((o) => (

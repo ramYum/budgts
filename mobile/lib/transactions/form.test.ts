@@ -1,4 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { randomUUID } from "node:crypto";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("expo-crypto", () => ({ randomUUID: () => randomUUID() }));
 import type { MobileTransaction } from "./transactions-api";
 import { draftFromTransaction, draftToPayload, emptyDraft, minorToInput, newRequestId, normalizeAmountInput, validateDraft } from "./form";
 
@@ -82,6 +85,7 @@ describe("draftFromTransaction", () => {
       isTransfer: true,
       category: { id: "c1", name: "Dining", color: "#f00" },
       account: { id: ACCOUNT, name: "Wallet" },
+      source: "manual",
       uncategorized: false,
     };
     expect(draftFromTransaction(t)).toEqual({
@@ -98,10 +102,11 @@ describe("draftFromTransaction", () => {
 });
 
 describe("newRequestId", () => {
-  it("is a fresh id that satisfies the server's request-id format", () => {
-    let n = 0;
-    const id = newRequestId(() => (n++ * 0.137) % 1);
-    expect(id).toMatch(/^[A-Za-z0-9-]{8,64}$/);
-    expect(newRequestId(() => 0.5)).toMatch(/^[A-Za-z0-9-]{8,64}$/);
+  it("is a v4 UUID from the platform's crypto: every create command accepts it (goals require a UUID)", () => {
+    const a = newRequestId();
+    const b = newRequestId();
+    expect(a).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    expect(a).toMatch(/^[A-Za-z0-9-]{8,64}$/); // transactions' format too
+    expect(b).not.toBe(a);
   });
 });

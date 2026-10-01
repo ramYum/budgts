@@ -47,7 +47,8 @@ const MUTATION_MESSAGES: Record<MutationErrorKind, string> = {
 };
 
 export type MutationOutcome =
-  | { status: "ok"; id?: string }
+  /** `replayed`: a create whose request id had already landed; `id` is that first row and nothing new was written */
+  | { status: "ok"; id?: string; replayed?: true }
   /** The server rejected the input; `fieldErrors` is keyed by form field. */
   | { status: "invalid"; fieldErrors: Record<string, string> }
   /** The row changed under the user (optimistic concurrency). */
@@ -59,10 +60,13 @@ export type MutationOutcome =
 
 export async function mutate(fetcher: () => Promise<Response>): Promise<MutationOutcome> {
   const r = await apiRequest(fetcher, (body) => {
-    const id = body && typeof body === "object" ? (body as { id?: unknown }).id : undefined;
-    return typeof id === "string" ? id : undefined;
+    const b = body && typeof body === "object" ? (body as { id?: unknown; replayed?: unknown }) : {};
+    return { id: typeof b.id === "string" ? b.id : undefined, replayed: b.replayed === true };
   });
-  if (r.ok) return r.data === undefined ? { status: "ok" } : { status: "ok", id: r.data };
+  if (r.ok) {
+    const { id, replayed } = r.data;
+    return { status: "ok", ...(id === undefined ? {} : { id }), ...(replayed ? { replayed: true as const } : {}) };
+  }
 
   if (r.kind === "rejected") {
     if (r.code === "invalid") return { status: "invalid", fieldErrors: r.fieldErrors ?? {} };

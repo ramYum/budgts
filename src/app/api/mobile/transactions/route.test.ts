@@ -51,7 +51,6 @@ describe("GET /api/mobile/transactions", () => {
     expect(loadTransactionsPage).toHaveBeenCalledWith(supabase, {
       month: "2026-09",
       categoryId: null,
-      search: null,
       limit: 50,
       cursor: null,
       plaidOn: true,
@@ -80,9 +79,10 @@ describe("GET /api/mobile/transactions", () => {
     expect(loadTransactionsPage).not.toHaveBeenCalled();
   });
 
-  it("clamps the page size and trims the search", async () => {
+  it("clamps the page size, and has no text search (the app filters the month itself)", async () => {
     await GET(get("?month=2026-09&limit=100000&search=%20coffee%20"));
-    expect(loadTransactionsPage.mock.calls[0][1]).toMatchObject({ limit: 100, search: "coffee" });
+    expect(loadTransactionsPage.mock.calls[0][1]).toMatchObject({ limit: 100 });
+    expect(loadTransactionsPage.mock.calls[0][1]).not.toHaveProperty("search");
     await GET(get("?month=2026-09&limit=0"));
     expect(loadTransactionsPage.mock.calls[1][1].limit).toBe(1);
     await GET(get("?month=2026-09&limit=abc"));
@@ -119,13 +119,20 @@ describe("POST /api/mobile/transactions", () => {
   const body = { accountId: UUID, categoryId: null, amount: "12.34", direction: "debit", occurredAt: "2026-09-10", requestId: "req-1234abcd" };
 
   it("creates for the verified user, passing the request id for idempotency", async () => {
-    createManualTransaction.mockResolvedValue({ ok: true, id: "new-id" });
+    createManualTransaction.mockResolvedValue({ ok: true, id: "new-id", replayed: false });
 
     const res = await POST(post(body));
 
     expect(res.status).toBe(201);
-    expect(await res.json()).toEqual({ id: "new-id" });
+    expect(await res.json()).toEqual({ id: "new-id", replayed: false });
     expect(createManualTransaction).toHaveBeenCalledWith(supabase, "user-a", body, "req-1234abcd");
+  });
+
+  it("answers a repeated request id with the row that landed first, marked replayed", async () => {
+    createManualTransaction.mockResolvedValue({ ok: true, id: "first-id", replayed: true });
+    const res = await POST(post(body));
+    expect(res.status).toBe(201);
+    expect(await res.json()).toEqual({ id: "first-id", replayed: true });
   });
 
   it("returns the command's failures as stable codes", async () => {

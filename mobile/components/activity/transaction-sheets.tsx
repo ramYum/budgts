@@ -14,11 +14,15 @@ import { Text } from "../brand/text";
 import { Skeleton } from "../feedback/skeleton";
 import { Overlay } from "../kit/overlay";
 import { CategoryIcon } from "../kit/tiles";
-import { FieldError, TransactionForm } from "./transaction-form";
+import { WarnLine } from "./limited-history-banner";
+import { FieldError, TransactionForm, type Saved } from "./transaction-form";
 
 
 /** "Tuesday, September 29, 2026" (the web's own formatter). */
 export const fullDateLabel = (iso: string, locale?: string): string => formatFullDate(iso, locale);
+
+/** A create the server answered `replayed: true`: the first try had landed, the later values weren't applied. */
+export const ALREADY_SAVED = "This was already saved. Changes made after that weren't applied.";
 
 /** The web's `confirm("Delete this transaction?")`, as the platform's dialog. */
 export function confirmDelete(onYes: () => void) {
@@ -54,9 +58,12 @@ export function TransactionDetailSheet({
   onClose,
   onEdit,
   onToggleTransfer,
+  alreadySaved = false,
 }: {
   transaction: MobileTransaction;
   currency: string;
+  /** opened for a create the server answered replayed: say that the later changes weren't applied */
+  alreadySaved?: boolean;
   onClose: () => void;
   onEdit: (t: MobileTransaction) => void;
   onToggleTransfer: (t: MobileTransaction) => Promise<MutationOutcome>;
@@ -102,6 +109,12 @@ export function TransactionDetailSheet({
           ) : null}
         </View>
       </View>
+      {alreadySaved ? (
+        // native only: a create retried after a lost answer, whose first try had landed
+        <View style={{ marginTop: 16 }}>
+          <WarnLine testID="txn-detail-replayed">{ALREADY_SAVED}</WarnLine>
+        </View>
+      ) : null}
       <PixelFrame testID="txn-detail-facts" frame="px-card" style={{ marginTop: 16, padding: 12 }}>
         {rows.map(([label, value], i) => (
           <Detail key={label} label={label} first={i === 0} last={i === rows.length - 1}>
@@ -154,7 +167,7 @@ function FormGate({ data, children }: { data: TransactionFormData; children: (ac
   return <>{children(accounts.data, categories.data)}</>;
 }
 
-/** "Add transaction" (web `add-transaction.tsx`): the form in a sheet, "Add transaction" to save. */
+/** "Add transaction" (web `add-transaction.tsx`): the form in a sheet, "Add" to save; `onClose` hears what was saved. */
 export function AddTransactionSheet({
   data,
   defaultDate,
@@ -164,19 +177,19 @@ export function AddTransactionSheet({
   data: TransactionFormData;
   defaultDate: string;
   commands: TransactionCommands;
-  onClose: () => void;
+  onClose: (saved?: Saved) => void;
 }) {
   return (
-    <Overlay title="Add transaction" onClose={onClose}>
+    <Overlay title="Add transaction" onClose={() => onClose()}>
       <FormGate data={data}>
         {(accounts, categories) => (
           <TransactionForm
             accounts={accounts.accounts}
             categories={categories}
             defaultDate={defaultDate}
-            submitLabel="Add transaction"
+            submitLabel="Add"
             save={(draft, requestId) => commands.create(draft, requestId)}
-            onDone={onClose}
+            onDone={(_saved, what) => onClose(what)}
           />
         )}
       </FormGate>

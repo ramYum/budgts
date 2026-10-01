@@ -1,9 +1,10 @@
 /**
- * GET  /api/mobile/transactions?month=YYYY-MM&category=<uuid>&search=<text>&limit=<1-100>&cursor=<opaque>
+ * GET  /api/mobile/transactions?month=YYYY-MM&category=<uuid>&limit=<1-100>&cursor=<opaque>
  *   The month's ledger, newest first, keyset-paginated (`nextCursor`), with the same visibility rules as the web ledger.
  *   The month defaults to the user's current month in their own time zone.
  * POST /api/mobile/transactions — manual entry `{ accountId, categoryId|null, amount:"12.34", direction, occurredAt:"YYYY-MM-DD",
- *   description, note, isTransfer, requestId }`. `requestId` (client-generated) makes a retried create land once.
+ *   description, note, isTransfer, requestId }` → 201 `{ id, replayed }`. `requestId` (client-generated) makes a retried create
+ *   land once; `replayed: true` means it had already landed and this call's values were not applied.
  *
  * Adapters only: the rules are `src/lib/transactions/commands.ts` (shared with the web Server Action) and the read model is
  * `src/lib/mobile/reads.ts`. Bearer only; every query runs through the caller's own JWT (RLS).
@@ -35,7 +36,6 @@ export const GET = mobileRoute(async ({ user, supabase }, request) => {
 
   const requested = Number(params.get("limit") ?? DEFAULT_LIMIT);
   const limit = Number.isInteger(requested) ? Math.min(Math.max(requested, 1), MAX_LIMIT) : DEFAULT_LIMIT;
-  const search = params.get("search")?.trim().slice(0, 100) || null;
 
   let month = requestedMonth;
   if (month === null) {
@@ -44,7 +44,7 @@ export const GET = mobileRoute(async ({ user, supabase }, request) => {
     month = currentMonthKey(timeZone);
   }
 
-  const page = await loadTransactionsPage(supabase, { month, categoryId, search, limit, cursor, plaidOn: plaidUiEnabled() });
+  const page = await loadTransactionsPage(supabase, { month, categoryId, limit, cursor, plaidOn: plaidUiEnabled() });
   return mobileJson({ version: MOBILE_API_VERSION, month, ...page });
 });
 
@@ -54,5 +54,5 @@ export const POST = mobileRoute(async ({ user, supabase }, request) => {
 
   const requestId = (body as { requestId?: unknown }).requestId;
   const result = await createManualTransaction(supabase, user.id, body, typeof requestId === "string" ? requestId : undefined);
-  return result.ok ? mobileJson({ id: result.id }, 201) : mobileCommandError(result);
+  return result.ok ? mobileJson({ id: result.id, replayed: result.replayed }, 201) : mobileCommandError(result);
 });

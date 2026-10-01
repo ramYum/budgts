@@ -18,9 +18,13 @@ export type MobileTransaction = {
   isTransfer: boolean;
   category: { id: string; name: string; color: string } | null;
   account: { id: string; name: string };
+  /** Where the row came from; a `bank` row keeps its account on edit (owner decision 2026-09-30). */
+  source: TransactionSource;
   /** No category and not a transfer — the "needs a category" prompt. */
   uncategorized: boolean;
 };
+
+export type TransactionSource = "manual" | "bank" | "email" | "receipt";
 
 export type TransactionsPage = { month: string; items: MobileTransaction[]; nextCursor: string | null };
 
@@ -38,6 +42,7 @@ function parseTransaction(v: unknown, i: number): MobileTransaction {
     isTransfer: bool(t.isTransfer, "isTransfer"),
     category: category ? { id: str(category.id, "category.id"), name: str(category.name, "category.name"), color: str(category.color, "category.color") } : null,
     account: { id: str(account.id, "account.id"), name: str(account.name, "account.name") },
+    source: oneOf(t.source, "source", ["manual", "bank", "email", "receipt"] as const),
     uncategorized: bool(t.uncategorized, "uncategorized"),
   };
 }
@@ -64,7 +69,6 @@ export function mergePages(previous: TransactionsPage, next: TransactionsPage): 
 export type TransactionsQuery = {
   month: string;
   category?: string | null;
-  search?: string | null;
   cursor?: string | null;
   limit?: number;
 };
@@ -72,7 +76,6 @@ export type TransactionsQuery = {
 export function transactionsPath(q: TransactionsQuery): string {
   const params = new URLSearchParams({ month: q.month });
   if (q.category) params.set("category", q.category);
-  if (q.search) params.set("search", q.search);
   if (q.cursor) params.set("cursor", q.cursor);
   if (q.limit) params.set("limit", String(q.limit));
   return `/api/mobile/transactions?${params.toString()}`;

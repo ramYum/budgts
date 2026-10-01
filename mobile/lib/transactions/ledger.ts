@@ -10,8 +10,11 @@ export type FetchPage = (cursor: string | null) => Promise<Settled<TransactionsP
 
 export type LedgerProgress =
   | { status: "error"; kind: LoadErrorKind; message: string }
-  /** `cursor` is where the next page starts; null once the month is complete. `restError` is a later page that failed. */
-  | { status: "ready"; page: TransactionsPage; cursor: string | null; restError: string | null };
+  /**
+   * `cursor` is where the next page starts; null once the month is complete. `restError` is a later page that failed, and
+   * `restKind` why (a `rejected` later page is a cursor the server refused, e.g. 422 invalid_cursor: start over).
+   */
+  | { status: "ready"; page: TransactionsPage; cursor: string | null; restError: string | null; restKind?: LoadErrorKind };
 
 /**
  * The whole month's ledger, keyset page after keyset page, the way the web page reads every row of the month
@@ -33,7 +36,9 @@ export async function loadLedger(
     if (!opts.isCurrent()) return null;
     let out: LedgerProgress;
     if (r.status === "error") {
-      out = page ? { status: "ready", page, cursor, restError: r.message } : { status: "error", kind: r.kind, message: r.message };
+      out = page
+        ? { status: "ready", page, cursor, restError: r.message, restKind: r.kind }
+        : { status: "error", kind: r.kind, message: r.message };
     } else {
       page = page ? mergePages(page, r.data) : r.data;
       cursor = r.data.nextCursor;

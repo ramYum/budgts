@@ -1,5 +1,5 @@
 import { createContext, useContext, useMemo, useRef, type ReactNode, type RefObject } from "react";
-import type { View } from "react-native";
+import type { ScrollView, View } from "react-native";
 
 /**
  * What a screen's scroll view tells the blocks inside it, so a block that
@@ -14,6 +14,8 @@ export type ScrollWatch = {
   viewport: () => { height: number; y: number };
   /** called on every scroll and on the first layout; returns the unsubscribe */
   subscribe: (listener: () => void) => () => void;
+  /** scrolls so the content's `y` (measured against `contentRef`) is at the top of the view (a web `#anchor` link) */
+  scrollTo: (y: number, animated: boolean) => void;
 };
 
 const ScrollContext = createContext<ScrollWatch | null>(null);
@@ -25,6 +27,7 @@ export function useScrollWatch(): ScrollWatch | null {
 /** The screen side: owns the listeners and the latest viewport. */
 export function useScrollWatchSource() {
   const contentRef = useRef<View | null>(null);
+  const scrollRef = useRef<ScrollView | null>(null);
   const state = useRef({ height: 0, y: 0 });
   const listeners = useRef(new Set<() => void>());
   const watch = useMemo<ScrollWatch>(
@@ -35,6 +38,7 @@ export function useScrollWatchSource() {
         listeners.current.add(l);
         return () => void listeners.current.delete(l);
       },
+      scrollTo: (y, animated) => scrollRef.current?.scrollTo({ y: Math.max(0, y), animated }),
     }),
     [],
   );
@@ -43,6 +47,7 @@ export function useScrollWatchSource() {
   };
   return {
     watch,
+    scrollRef,
     onScrollY: (y: number) => {
       state.current = { ...state.current, y };
       emit();

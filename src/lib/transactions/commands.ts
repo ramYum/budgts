@@ -40,7 +40,8 @@ const BANK_ROW_LOCKED: Invalid = {
 /** A client-generated id that makes a retried create land once (see `createManualTransaction`). */
 const REQUEST_ID = /^[A-Za-z0-9-]{8,64}$/;
 
-export type CreateResult = { ok: true; id: string } | Invalid | MissingReference | Locked | Failed;
+/** `replayed`: the request id was already used, so this is the row that landed first and nothing of this call was written. */
+export type CreateResult = { ok: true; id: string; replayed: boolean } | Invalid | MissingReference | Locked | Failed;
 
 /** The account and category a manual transaction points at must be the caller's own (see src/lib/ownership.ts). */
 async function referencesOwned(
@@ -81,13 +82,15 @@ export async function createManualTransaction(
   const store = supabaseTransactionStore(supabase);
   const sourceRef = requestId ? `client:${requestId}` : null;
   try {
+    // A retry of a create that already landed answers with that row, replayed, before any account check: the account
+    // may since have stopped taking entries (a bank disconnected), and the retry must still be idempotent.
     if (sourceRef) {
       const landed = await store.findExisting(userId, n.source, sourceRef);
-      if (landed) return { ok: true, id: landed.id };
+      if (landed) return { ok: true, id: landed.id, replayed: true };
     }
     if (!(await accountAcceptsEntries(supabase, n.accountId))) return ACCOUNT_CLOSED;
-    const row = await landTransaction(store, userId, sourceRef ? { ...n, sourceRef } : n);
-    return { ok: true, id: row.id };
+    const { row, replayed } = await landTransaction(store, userId, sourceRef ? { ...n, sourceRef } : n);
+    return { ok: true, id: row.id, replayed };
   } catch (e) {
     return lockedOr(supabase, failed(e, "Could not save the transaction"));
   }

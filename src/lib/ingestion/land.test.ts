@@ -63,14 +63,16 @@ describe("toRow", () => {
 describe("landTransaction", () => {
   it("inserts when there is no sourceRef (manual entries)", async () => {
     const { store, calls } = fakeStore();
-    const row = await landTransaction(store, userId, normalized());
+    const { row, replayed } = await landTransaction(store, userId, normalized());
     expect(row.id).toBe("id-1");
+    expect(replayed).toBe(false);
     expect(calls).toEqual({ finds: 0, inserts: 1 });
   });
 
   it("inserts a sourced transaction that is not yet present", async () => {
     const { store, calls } = fakeStore();
-    await landTransaction(store, userId, normalized({ source: "email", sourceRef: "msg-1" }));
+    const { replayed } = await landTransaction(store, userId, normalized({ source: "email", sourceRef: "msg-1" }));
+    expect(replayed).toBe(false);
     expect(calls).toEqual({ finds: 1, inserts: 1 });
   });
 
@@ -78,7 +80,10 @@ describe("landTransaction", () => {
     const first = fakeStore();
     const a = await landTransaction(first.store, userId, normalized({ source: "email", sourceRef: "msg-1" }));
     const b = await landTransaction(first.store, userId, normalized({ source: "email", sourceRef: "msg-1", amount: 9999 }));
-    expect(b.id).toBe(a.id);
+    expect(b.row.id).toBe(a.row.id);
+    // the repeat is answered with the row that landed first, and says so (a client:<requestId> retry learns its edits weren't applied)
+    expect([a.replayed, b.replayed]).toEqual([false, true]);
+    expect(b.row.amount).not.toBe(9999);
     expect(first.calls.inserts).toBe(1);
   });
 
@@ -102,12 +107,13 @@ describe("landTransaction", () => {
         throw new UniqueViolationError("duplicate key value violates unique constraint");
       },
     };
-    const row = await landTransaction(
+    const { row, replayed } = await landTransaction(
       store,
       userId,
       normalized({ source: "email", sourceRef: "msg-1", amount: 9999 }),
     );
     expect(row.id).toBe(winner.id);
+    expect(replayed).toBe(true); // the race's winner is the row that landed, not this one
   });
 
   it("rethrows a unique violation when no matching row can be found", async () => {

@@ -1,3 +1,4 @@
+import * as Crypto from "expo-crypto";
 import { dayOf } from "../dates";
 import type { Direction, MobileTransaction } from "./transactions-api";
 
@@ -67,8 +68,10 @@ export function draftFromTransaction(t: MobileTransaction): TransactionDraft {
   };
 }
 
-/** A fresh idempotency key for one create attempt (`[A-Za-z0-9-]{8,64}`, the server's format). `random` is injectable for tests. */
-export function newRequestId(random: () => number = Math.random): string {
-  const tail = Array.from({ length: 10 }, () => Math.floor(random() * 36).toString(36)).join("");
-  return `m-${Date.now().toString(36)}-${tail}`;
+/**
+ * A fresh idempotency key for one create attempt: a v4 UUID from the platform's crypto, the one generator every create in
+ * the app uses (goals and categories accept only a UUID; transactions' `[A-Za-z0-9-]{8,64}` takes it too).
+ */
+export function newRequestId(): string {
+  return Crypto.randomUUID();
 }

@@ -148,6 +148,8 @@ export type MobileTransaction = {
   isTransfer: boolean;
   category: { id: string; name: string; color: string } | null;
   account: { id: string; name: string };
+  /** Where the row came from; a `bank` row keeps its account on edit (owner decision 2026-09-30). */
+  source: "manual" | "bank" | "email" | "receipt";
   /** No category and not a transfer — the "needs a category" prompt. */
   uncategorized: boolean;
 };
@@ -185,14 +187,10 @@ function monthBounds(month: string) {
   };
 }
 
-/** Escapes `\`, `%` and `_` so user text is matched literally by `ilike`. */
-const likeLiteral = (s: string) => s.replace(/[\\%_]/g, (c) => `\\${c}`);
-
 export type TransactionsQuery = {
   /** `YYYY-MM`, validated by the route. Month bounds are UTC, exactly like the web ledger's. */
   month: string;
   categoryId?: string | null;
-  search?: string | null;
   limit: number;
   cursor?: TransactionsCursor | null;
   plaidOn: boolean;
@@ -204,6 +202,7 @@ type Row = {
   direction: "debit" | "credit";
   occurred_at: string;
   created_at: string;
+  source: MobileTransaction["source"];
   description: string;
   note: string | null;
   is_transfer: boolean;
@@ -217,7 +216,7 @@ export async function loadTransactionsPage(supabase: SupabaseClient, q: Transact
   let query = supabase
     .from("transactions")
     .select(
-      "id, amount, direction, occurred_at, created_at, description, note, is_transfer, category:categories(id,name,color), account:accounts!inner(id,name,is_archived)",
+      "id, amount, direction, occurred_at, created_at, source, description, note, is_transfer, category:categories(id,name,color), account:accounts!inner(id,name,is_archived)",
     )
     .gte("occurred_at", start)
     .lt("occurred_at", end)
@@ -229,7 +228,6 @@ export async function loadTransactionsPage(supabase: SupabaseClient, q: Transact
     query = query.is("removed_at", null).is("duplicate_of_id", null).or("source.neq.bank,plaid_account_id.not.is.null");
   }
   if (q.categoryId) query = query.eq("category_id", q.categoryId);
-  if (q.search) query = query.ilike("description", `%${likeLiteral(q.search)}%`);
   // The web ledger's order (`transactions/page.tsx`): occurred_at, then created_at, then id, newest first. Manual entries on
   // one day share occurred_at (noon UTC), so created_at is what orders them; the keyset follows the same three columns.
   if (q.cursor) {
@@ -261,6 +259,7 @@ export async function loadTransactionsPage(supabase: SupabaseClient, q: Transact
       isTransfer: r.is_transfer,
       category: r.category ? { id: r.category.id, name: r.category.name, color: r.category.color } : null,
       account: { id: r.account.id, name: r.account.name },
+      source: r.source,
       uncategorized: r.category === null && !r.is_transfer,
     })),
     nextCursor: rows.length > q.limit && last ? encodeCursor({ occurredAt: last.occurred_at, createdAt: last.created_at, id: last.id }) : null,

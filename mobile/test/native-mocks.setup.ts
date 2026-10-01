@@ -19,3 +19,7 @@ vi.mock("expo-blur", async () => {
   const { View } = reactNativeMock();
   return { BlurView: View, BlurTargetView: View };
 });
+
+// expo-crypto: request ids (lib/transactions/form.ts newRequestId, the goal sheets) are UUIDs; Node's own generator
+// stands in for the native one. A test may mock the module itself to pin ids.
+vi.mock("expo-crypto", async () => ({ randomUUID: (await import("node:crypto")).randomUUID }));

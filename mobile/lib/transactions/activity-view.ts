@@ -87,3 +87,19 @@ export function rowMeta(t: MobileTransaction, kinds: Map<string, "expense" | "in
 export function rowAmount(t: MobileTransaction, currency: string): string {
   return `${t.direction === "debit" ? "−" : "+"}${formatMoney(t.amount, currency)}`;
 }
+
+/**
+ * After a create that may have been a replay (an earlier try's answer was lost), the saved row is opened so the person sees
+ * what the server kept. `since` is the ledger page on screen when the save answered: the decision waits for a newer read
+ * (the refresh the save triggers). Found → open it; the fresh month is complete without it (saved to another month) →
+ * drop, the documented limitation; otherwise wait.
+ */
+export function revealAfterSave(
+  ledger: { status: string; page?: { items: MobileTransaction[] }; cursor?: string | null },
+  pending: { id: string; since: unknown },
+): { open: MobileTransaction } | "wait" | "drop" {
+  if (ledger.status !== "ready" || !ledger.page || ledger.page === pending.since) return "wait";
+  const row = ledger.page.items.find((t) => t.id === pending.id);
+  if (row) return { open: row };
+  return ledger.cursor === null ? "drop" : "wait";
+}

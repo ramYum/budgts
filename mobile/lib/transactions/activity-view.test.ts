@@ -7,6 +7,7 @@ import {
   groupByDay,
   rowAmount,
   rowMeta,
+  revealAfterSave,
   rowTitle,
   signedTotal,
 } from "./activity-view";
@@ -22,6 +23,7 @@ const txn = (id: string, over: Partial<MobileTransaction> = {}): MobileTransacti
   isTransfer: false,
   category: { id: "groceries", name: "Groceries", color: "#000" },
   account: { id: "a1", name: "Everyday checking" },
+  source: "manual",
   uncategorized: false,
   ...over,
 });
@@ -106,5 +108,22 @@ describe("a row", () => {
   it("signs the amount by direction", () => {
     expect(rowAmount(rows[0]!, "USD")).toBe("−$10.00");
     expect(rowAmount(rows[1]!, "USD")).toBe("+$10.00");
+  });
+});
+
+describe("revealAfterSave (open the row a retried create kept)", () => {
+  const before = { items: [txn("a")] };
+  it("waits for a read newer than the one on screen when the save answered", () => {
+    expect(revealAfterSave({ status: "ready", page: before, cursor: null }, { id: "new", since: before })).toBe("wait");
+    expect(revealAfterSave({ status: "loading" }, { id: "new", since: before })).toBe("wait");
+  });
+  it("opens the saved row once the refreshed month has it", () => {
+    const after = { items: [txn("new"), txn("a")] };
+    expect(revealAfterSave({ status: "ready", page: after, cursor: "c1" }, { id: "new", since: before })).toEqual({ open: after.items[0] });
+  });
+  it("keeps waiting while the month is still arriving, and drops it once complete without it (saved to another month)", () => {
+    const after = { items: [txn("a")] };
+    expect(revealAfterSave({ status: "ready", page: after, cursor: "c1" }, { id: "new", since: before })).toBe("wait");
+    expect(revealAfterSave({ status: "ready", page: after, cursor: null }, { id: "new", since: before })).toBe("drop");
   });
 });

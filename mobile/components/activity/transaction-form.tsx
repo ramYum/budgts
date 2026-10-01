@@ -39,6 +39,13 @@ function fieldErrorsOf(fe: Record<string, string>): Record<string, string> {
 export type SaveDraft = (draft: TransactionDraft, requestId: string | undefined) => Promise<MutationOutcome>;
 
 /**
+ * What a save left behind: the saved row's id (a create answers it), and whether the server answered `replayed`: this
+ * request id had already landed (an earlier try whose answer was lost), so `id` is that first row and the values sent
+ * this time, including any changes typed in between, were not applied (create stays idempotent and never merges).
+ */
+export type Saved = { id: string | undefined; replayed: boolean };
+
+/**
  * The add / edit form (web `src/components/transaction-form.tsx`): Amount and Direction side by side, Account, Category
  * ("Uncategorized" first, income categories marked), Date, Description, Note, the transfer box, then Save and Cancel. Every
  * rule is the server's: `validateDraft` only stops an empty submit, and each field error the server names is shown under
@@ -64,8 +71,8 @@ export function TransactionForm({
   defaultDate: string;
   submitLabel: string;
   save: SaveDraft;
-  /** saved (or cancelled): close the sheet */
-  onDone: (saved: boolean) => void;
+  /** saved (with what was saved) or cancelled: close the sheet */
+  onDone: (saved: boolean, what?: Saved) => void;
   /** the row no longer exists */
   onGone?: () => void;
   /** the direction a new entry starts with, e.g. "credit" for Home's Add income (web `initialDirection`) */
@@ -77,13 +84,15 @@ export function TransactionForm({
   lockDirection?: boolean;
 }) {
   const directionLocked = lockDirection && !initial;
-  // A manual entry goes on an account that can still take one; an edited row keeps its own account listed even when it
-  // no longer can (a disconnected bank's), so saving never moves it silently.
-  const selectable = accounts.filter((a) => a.selectable);
+  // A manual entry goes on an account that can still take one; an edited row keeps its own account listed, at the end as
+  // the web appends it, even when it no longer can (a disconnected bank's), so saving never moves it silently. A bank row
+  // keeps its account outright: shown, not chosen (owner decision 2026-09-30; the server refuses a move too).
+  const selectable = accounts.filter((a) => a.selectable).map((a) => ({ value: a.id, label: a.name }));
   const accountOptions =
-    initial && !selectable.some((a) => a.id === initial.account.id)
-      ? [{ value: initial.account.id, label: initial.account.name }, ...selectable.map((a) => ({ value: a.id, label: a.name }))]
-      : selectable.map((a) => ({ value: a.id, label: a.name }));
+    initial && !selectable.some((a) => a.value === initial.account.id)
+      ? [...selectable, { value: initial.account.id, label: initial.account.name }]
+      : selectable;
+  const accountLocked = initial?.source === "bank";
   const visibleCategories = directionLocked && initialDirection === "credit" ? categories.filter((c) => c.kind === "income") : categories;
   const categoryOptions = [
     { value: NONE, label: "Uncategorized" },
@@ -94,7 +103,7 @@ export function TransactionForm({
     initial
       ? draftFromTransaction(initial)
       : {
-          ...emptyDraft(defaultDate, selectable[0]?.id ?? null),
+          ...emptyDraft(defaultDate, selectable[0]?.value ?? null),
           direction: initialDirection,
           // the web's default category: money in starts on the first income category
           categoryId: initialDirection === "credit" ? (visibleCategories.find((c) => c.kind === "income")?.id ?? null) : null,
@@ -116,7 +125,7 @@ export function TransactionForm({
     setPending(false);
     switch (out.status) {
       case "ok":
-        return onDone(true);
+        return onDone(true, { id: out.id, replayed: out.replayed === true });
       case "invalid":
         return setErrors(fieldErrorsOf(out.fieldErrors));
       case "conflict":
@@ -181,14 +190,28 @@ export function TransactionForm({
       </View>
 
       <View style={{ gap: 6 }}>
-        <Select
-          testID="txn-form-account"
-          label="Account"
-          value={draft.accountId}
-          options={accountOptions}
-          onChange={(accountId) => set({ accountId })}
-          invalid={!!errors.accountId}
-        />
+        {accountLocked ? (
+          // the web's read-only account for a bank row: a px-band line, 16/24 graphite, the account name
+          <View style={{ gap: 6 }}>
+            <Text variant="formLabel" color={COLOR.graphite}>
+              Account
+            </Text>
+            <PixelFrame testID="txn-form-account-locked" frame="px-band" accessibilityLabel={`Account, ${initial!.account.name}`} style={{ paddingHorizontal: 8, paddingVertical: 4 }}>
+              <Text variant="input" color={COLOR.graphite}>
+                {initial!.account.name}
+              </Text>
+            </PixelFrame>
+          </View>
+        ) : (
+          <Select
+            testID="txn-form-account"
+            label="Account"
+            value={draft.accountId}
+            options={accountOptions}
+            onChange={(accountId) => set({ accountId })}
+            invalid={!!errors.accountId}
+          />
+        )}
         <FieldError testID="txn-form-account-error">{errors.accountId}</FieldError>
       </View>
 

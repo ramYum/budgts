@@ -58,7 +58,7 @@ beforeEach(() => {
   updateTransactionRow.mockReset();
   readObservedRow.mockReset();
   accountAcceptsEntries.mockReset();
-  landTransaction.mockResolvedValue({ id: "new-id" });
+  landTransaction.mockResolvedValue({ row: { id: "new-id" }, replayed: false });
   findExisting.mockResolvedValue(null);
   readObservedRow.mockResolvedValue(row());
   accountAcceptsEntries.mockResolvedValue(true);
@@ -68,7 +68,7 @@ describe("createManualTransaction", () => {
   it("lands a validated, normalized manual transaction for the given user", async () => {
     const r = await createManualTransaction(supabase, "user-a", input());
 
-    expect(r).toEqual({ ok: true, id: "new-id" });
+    expect(r).toEqual({ ok: true, id: "new-id", replayed: false });
     const [landedStore, userId, n] = landTransaction.mock.calls[0];
     expect(landedStore).toBe(store);
     expect(userId).toBe("user-a");
@@ -92,10 +92,23 @@ describe("createManualTransaction", () => {
     findExisting.mockResolvedValue({ id: "landed-id" });
     accountAcceptsEntries.mockResolvedValue(false);
 
-    expect(await createManualTransaction(supabase, "user-a", input(), "req-1234abcd")).toEqual({ ok: true, id: "landed-id" });
+    expect(await createManualTransaction(supabase, "user-a", input(), "req-1234abcd")).toEqual({ ok: true, id: "landed-id", replayed: true });
     expect(findExisting).toHaveBeenCalledWith("user-a", "manual", "client:req-1234abcd");
     expect(accountAcceptsEntries).not.toHaveBeenCalled();
     expect(landTransaction).not.toHaveBeenCalled();
+  });
+
+  it("accepts the app's request id, a bare v4 UUID (mobile newRequestId), as the dedupe key", async () => {
+    const id = "3f2b8c1e-9d4a-4e6b-8a7c-1b2c3d4e5f60";
+    const r = await createManualTransaction(supabase, "user-a", input(), id);
+    expect(r).toMatchObject({ ok: true });
+    expect(landTransaction.mock.calls[0][2]).toMatchObject({ source: "manual", sourceRef: `client:${id}` });
+  });
+
+  it("says when a request id was already used: the row that landed first, nothing changed", async () => {
+    landTransaction.mockResolvedValueOnce({ row: { id: "first-id" }, replayed: true });
+    const r = await createManualTransaction(supabase, "user-a", input({ amount: "99.00" }), "3f2b8c1e-9d4a-4e6b-8a7c-1b2c3d4e5f60");
+    expect(r).toEqual({ ok: true, id: "first-id", replayed: true });
   });
 
   it("rejects a malformed request id without saving", async () => {

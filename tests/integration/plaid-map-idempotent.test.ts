@@ -12,7 +12,7 @@ vi.mock("@/server/plaid/service", () => ({
 }));
 
 import { mapAccountsFor } from "@/server/plaid/commands";
-import { adminSupabase, cleanupUser, client, seedUser } from "./_db";
+import { adminSupabase, cleanupUser, client, insertBankTxn, seedUser } from "./_db";
 
 const supabase = adminSupabase();
 let userId: string;
@@ -48,7 +48,8 @@ describe("mapAccountsFor never splits an account", () => {
     const { itemRowId, plaidAccountId } = await seedUnmappedAccount();
     const entry = { plaidAccountId, mode: "new" as const, name: `Itest ${plaidAccountId}`, type: "checking" as const };
     expect(await mapAccountsFor(supabase, userId, itemRowId, [entry])).toMatchObject({ ok: true });
-    expect(await mapAccountsFor(supabase, userId, itemRowId, [entry])).toEqual({ ok: true });
+    // The repeat is a no-op that still requests the sync (stubbed here, so it answers ok with a "didn't start" warning).
+    expect(await mapAccountsFor(supabase, userId, itemRowId, [entry])).toMatchObject({ ok: true });
 
     const { links, accounts } = await state(itemRowId, plaidAccountId);
     expect(accounts).toHaveLength(1);
@@ -67,5 +68,28 @@ describe("mapAccountsFor never splits an account", () => {
     const { links, accounts } = await state(itemRowId, plaidAccountId);
     expect(accounts).toHaveLength(1);
     expect(links).toEqual([{ account_id: accounts[0]!.id, link_state: "mapped" }]);
+  });
+
+  it("a paused account whose Budgts account is archived maps to exactly one new account, and the archived one keeps its rows", async () => {
+    const { itemRowId, plaidAccountId } = await seedUnmappedAccount();
+    const [old] = await client<{ id: string }[]>`
+      insert into public.accounts (user_id, name, type, source) values (${userId}, ${`Itest old ${plaidAccountId}`}, 'checking', 'plaid') returning id`;
+    const txnId = await insertBankTxn(userId, old!.id);
+    await client`update public.accounts set is_archived = true where id = ${old!.id}`;
+    await client`
+      update public.plaid_accounts set account_id = ${old!.id}, link_state = 'ignored'
+      where plaid_item_id = ${itemRowId} and plaid_account_id = ${plaidAccountId}`;
+
+    const entry = { plaidAccountId, mode: "new" as const, name: `Itest ${plaidAccountId}`, type: "checking" as const };
+    expect(await mapAccountsFor(supabase, userId, itemRowId, [entry])).toMatchObject({ ok: true });
+
+    const { links, accounts } = await state(itemRowId, plaidAccountId);
+    expect(accounts).toHaveLength(1);
+    expect(accounts[0]!.id).not.toBe(old!.id);
+    expect(links).toEqual([{ account_id: accounts[0]!.id, link_state: "mapped" }]);
+    const [archived] = await client<{ is_archived: boolean }[]>`select is_archived from public.accounts where id = ${old!.id}`;
+    expect(archived).toEqual({ is_archived: true });
+    const rows = await client<{ id: string }[]>`select id from public.transactions where account_id = ${old!.id}`;
+    expect(rows.map((r) => r.id)).toEqual([txnId]);
   });
 });

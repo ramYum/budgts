@@ -73,13 +73,23 @@ async function sampleRawAmount(
 /**
  * Runs `work` while holding the bank's sync lease, so no sync lands rows under the convention being changed (a sync
  * reads the convention when it starts). When the lease can't be taken, says why (`claimMissReason`): a sync is
- * running, or the bank still awaits its account choices. The lease is always released, without asking for a re-sync.
+ * running, or the bank still awaits its account choices.
+ *
+ * Taking the lease sets `needs_sync`, and releasing it settles that flag. So the release passes on whatever was
+ * pending before the claim: a sync a webhook had already requested stays requested (otherwise it would wait for the
+ * stale sweep), and none is left behind when nothing was pending. A webhook arriving during the work is kept by the
+ * release itself (`last_webhook_at >= sync_claimed_at`).
  */
 async function underSyncLease<T>(
   db: PlaidDb,
   itemId: string,
   work: () => Promise<T>,
 ): Promise<{ done: T } | LeaseMiss | { outcome: "not_found" }> {
+  const [pending] = await db
+    .select({ needsSync: plaidItems.needsSync })
+    .from(plaidItems)
+    .where(eq(plaidItems.itemId, itemId))
+    .limit(1);
   const claim = await claimItemForSync(db, itemId, { kind: "requested" });
   if (!claim) {
     const miss = await claimMissReason(db, itemId);
@@ -89,7 +99,7 @@ async function underSyncLease<T>(
   try {
     return { done: await work() };
   } finally {
-    await releaseSyncClaim(db, itemId, claim.token, false);
+    await releaseSyncClaim(db, itemId, claim.token, pending?.needsSync === true);
   }
 }
 

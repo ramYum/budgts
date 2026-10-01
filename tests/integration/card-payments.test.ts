@@ -502,3 +502,52 @@ describe("readAutoResolveFacts (the sync's auto-resolve gate, design: 2026-10-01
   });
 });
 
+// The answer and the change hold the bank's sync lease; releasing it must never drop a sync that was already
+// requested (a webhook) before they took it, nor leave one behind that nobody asked for.
+describe("the sync lease taken by an answer or a change keeps a pending sync pending", () => {
+  const heldPurchase = () =>
+    insertBankTxn(userId, cardId, {
+      plaidAccountId: cardFeed,
+      status: "pending_review",
+      pendingReason: "sign_convention_unknown",
+      direction: "debit",
+      primary: "FOOD_AND_DRINK",
+      amount: 4000,
+      raw: { amount: 40 },
+    });
+  async function needsSync(): Promise<boolean> {
+    const [r] = await client<{ needs_sync: boolean }[]>`
+      select pi.needs_sync from public.plaid_items pi join public.plaid_accounts pa on pa.plaid_item_id = pi.id where pa.id = ${cardFeed}`;
+    return r.needs_sync;
+  }
+  async function setNeedsSync(v: boolean) {
+    await client`update public.plaid_items pi set needs_sync = ${v}, last_webhook_at = null
+      from public.plaid_accounts pa where pa.plaid_item_id = pi.id and pa.id = ${cardFeed}`;
+  }
+
+  it("a webhook-requested sync before the answer is still pending after it", async () => {
+    const purchase = await heldPurchase();
+    await setNeedsSync(true);
+    expect(await resolveSignConventionFromAnswer(db, userId, cardFeed, purchase, "out")).toMatchObject({ outcome: "resolved" });
+    expect(await needsSync()).toBe(true);
+  });
+
+  it("with no prior request, an answer leaves none behind", async () => {
+    const purchase = await heldPurchase();
+    await setNeedsSync(false);
+    await resolveSignConventionFromAnswer(db, userId, cardFeed, purchase, "out");
+    expect(await needsSync()).toBe(false);
+  });
+
+  it("the same holds for a change", async () => {
+    const purchase = await heldPurchase();
+    await resolveSignConventionFromAnswer(db, userId, cardFeed, purchase, "in");
+    await setNeedsSync(true);
+    expect(await changeSignConventionAnswer(db, userId, cardFeed, purchase, "out")).toMatchObject({ outcome: "changed" });
+    expect(await needsSync()).toBe(true);
+    await setNeedsSync(false);
+    expect(await changeSignConventionAnswer(db, userId, cardFeed, purchase, "in")).toMatchObject({ outcome: "changed" });
+    expect(await needsSync()).toBe(false);
+  });
+});
+

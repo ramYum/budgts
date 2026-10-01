@@ -13,7 +13,8 @@ import {
   syncConnection,
   type PlaidActionState,
 } from "@/server/plaid/actions";
-import { AccountMapping, accountLabel, guessType } from "./account-mapping";
+import { accountLabel, suggestAccount } from "@/lib/accounts/account-suggestion";
+import { AccountMapping } from "./account-mapping";
 import { ReconnectButton } from "./reconnect-button";
 
 // The shapes are defined beside the shared read (connected-banks-read.ts), used by the web and the native API.
@@ -307,7 +308,9 @@ function ImportToggle({ account }: { account: ConnectedBankAccount }) {
  * for a non-mapped account — see the row it's rendered from below) and one
  * tap turns it on. Reuses the same `mapAccounts` action the bulk "Choose
  * accounts to import" screen uses, in "new" mode with a guessed name/type
- * (accountLabel/guessType — the same defaults that screen pre-fills), so
+ * (accountLabel/suggestAccount, the same defaults that screen pre-fills; a tap
+ * is the user's choice to import, so an account that screen would leave out
+ * still connects, with the type it would start from), so
  * this is a shortcut through that flow, not a second code path.
  *
  * Once connected, `linkState` becomes "mapped" and — after the
@@ -324,7 +327,7 @@ function ConnectToggle({ account, plaidItemId }: { account: ConnectedBankAccount
       plaidAccountId: account.plaidAccountId,
       mode: "new",
       name: accountLabel(account),
-      type: guessType(account),
+      type: suggestAccount(account).type,
     },
   ];
 

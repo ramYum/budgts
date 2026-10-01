@@ -68,8 +68,13 @@ describe("buildMobileBudgets", () => {
       currency: home.currency,
       budgeted: home.view.tiles.budgeted,
       spent: home.view.tiles.spent,
+      budgetedSpent: home.view.tiles.budgetedSpent,
+      spentOutsideBudgets: home.view.tiles.spentOutsideBudgets,
       leftToSpend: home.view.tiles.leftToSpend,
     });
+    // The Budgets hero's figures add up (owner-approved 2026-10-01).
+    expect(b.budgetedSpent + b.leftToSpend).toBe(b.budgeted);
+    expect(b.budgetedSpent + b.spentOutsideBudgets).toBe(b.spent);
     expect(b.categories).toHaveLength(home.view.bars.length);
     const bar = home.view.bars[0]!;
     expect(b.categories[0]).toEqual({

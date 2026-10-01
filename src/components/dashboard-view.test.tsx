@@ -18,7 +18,7 @@ const wholeText = (text: string) => (_: string, el: Element | null) =>
   el?.textContent === text && Array.from(el.children).every((c) => c.textContent !== text);
 
 const view: DV = {
-  tiles: { income: 500000, spent: 55000, netSavings: -55000, budgeted: 75000, leftToSpend: 20000, savingsRate: -0.11 },
+  tiles: { income: 500000, spent: 55000, netSavings: -55000, budgeted: 75000, budgetedSpent: 55000, spentOutsideBudgets: 0, leftToSpend: 20000, savingsRate: -0.11 },
   bars: [
     {
       categoryId: "transport",
@@ -54,7 +54,7 @@ const view: DV = {
 };
 
 const emptyView: DV = {
-  tiles: { income: 0, spent: 0, netSavings: 0, budgeted: 0, leftToSpend: 0, savingsRate: null },
+  tiles: { income: 0, spent: 0, netSavings: 0, budgeted: 0, budgetedSpent: 0, spentOutsideBudgets: 0, leftToSpend: 0, savingsRate: null },
   bars: [],
 };
 

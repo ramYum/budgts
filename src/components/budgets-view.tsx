@@ -341,11 +341,14 @@ export function BudgetsView(
 
   const { view, currency } = props;
   const { tiles } = view;
-  const remaining = formatMoney(tiles.leftToSpend, currency);
+  // The hero's three figures add up: spent (budgeted categories only) + remaining = budgeted. Over budget, it reads
+  // "Over by" and the overrun, as a category card does. Spending no budget covers is its own line below.
+  const overBudget = tiles.leftToSpend < 0;
+  const remaining = formatMoney(Math.abs(tiles.leftToSpend), currency);
   const suggestion = pickSuggestion(view.bars, props.prevView.bars, tiles.spent);
   const unplanned = suggestion?.kind === "unbudgeted" ? suggestion : null;
-  const spentPct = tiles.budgeted > 0 ? (tiles.spent / tiles.budgeted) * 100 : 0;
-  const heroTone = tiles.leftToSpend < 0 ? "over" : spentPct >= 85 ? "near" : "under";
+  const spentPct = tiles.budgeted > 0 ? (tiles.budgetedSpent / tiles.budgeted) * 100 : 0;
+  const heroTone = overBudget ? "over" : spentPct >= 85 ? "near" : "under";
 
   return (
     <div>
@@ -355,15 +358,21 @@ export function BudgetsView(
       <section className="reveal px-card-raised p-2 md:p-6" style={{ ["--i" as string]: 1 }}>
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:gap-10">
           <div className="min-w-0 flex-1">
-            <h2 className="text-sm font-medium leading-5 text-muted">Remaining</h2>
-            <p className={`${figureSize(remaining)} tnum mt-3 ${tiles.leftToSpend < 0 ? "text-neg" : "text-ink"}`}>
+            <h2 className="text-sm font-medium leading-5 text-muted">{overBudget ? "Over by" : "Remaining"}</h2>
+            <p className={`${figureSize(remaining)} tnum mt-3 ${overBudget ? "text-neg" : "text-ink"}`}>
               {remaining}
             </p>
             <p className="tnum mt-2 text-[15px] leading-6 text-muted">
-              <span className="font-semibold text-ink">{formatMoney(tiles.spent, currency)}</span> spent of{" "}
+              <span className="font-semibold text-ink">{formatMoney(tiles.budgetedSpent, currency)}</span> spent of{" "}
               <span className="font-semibold text-ink">{formatMoney(tiles.budgeted, currency)}</span> budgeted
             </p>
             <ProgressBar className="mt-4 max-w-[480px]" pct={spentPct} tone={heroTone} cellHeight={12} />
+            {tiles.spentOutsideBudgets > 0 ? (
+              <p className="tnum mt-3 text-[15px] leading-6 text-muted">
+                <span className="font-semibold text-ink">{formatMoney(tiles.spentOutsideBudgets, currency)}</span> spent
+                outside your budgets
+              </p>
+            ) : null}
           </div>
           {unplanned ? (
             <div className="flex flex-col items-start gap-3 lg:w-[420px]">

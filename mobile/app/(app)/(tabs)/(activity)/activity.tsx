@@ -12,7 +12,7 @@ import { useAuth } from "../../../../lib/auth/auth-context";
 import { useVersion } from "../../../../lib/api/invalidate";
 import { loadResource } from "../../../../lib/api/load";
 import { useResource } from "../../../../lib/api/use-resource";
-import { useProfile, useUserDates } from "../../../../lib/profile/profile-context";
+import { useProfile, useUserDates } from "../../../../lib/profile/profile-hooks";
 import type { MobileTransaction } from "../../../../lib/transactions/transactions-api";
 import { useLedger } from "../../../../lib/transactions/use-ledger";
 import { useActivityPanels } from "../../../../lib/transactions/use-activity-panels";

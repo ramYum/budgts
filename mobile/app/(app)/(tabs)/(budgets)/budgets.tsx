@@ -10,7 +10,7 @@ import { useRealtimeRefresh } from "../../../../lib/realtime/use-realtime-refres
 import { parseBudgets } from "../../../../lib/budgets/budgets-api";
 import { budgetsLink } from "../../../../lib/budgets/params";
 import { useBudgetsRoute } from "../../../../lib/budgets/use-budgets-route";
-import { useUserDates } from "../../../../lib/profile/profile-context";
+import { useUserDates } from "../../../../lib/profile/profile-hooks";
 import { CategorySheet, NewBudgetSheet, type SaveBudget } from "../../../../components/budgets/budget-sheets";
 import { BudgetsView } from "../../../../components/budgets/budgets-view";
 import { LoadFailure } from "../../../../components/feedback/states";

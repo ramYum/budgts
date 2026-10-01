@@ -36,7 +36,7 @@ vi.mock("../../lib/api/use-resource", () => ({
     reload: async () => {},
   }),
 }));
-vi.mock("../../lib/profile/profile-context", async () => {
+vi.mock("../../lib/profile/profile-hooks", async () => {
   const { useEffect, useReducer } = await import("react");
   return {
     useProfile: () => {

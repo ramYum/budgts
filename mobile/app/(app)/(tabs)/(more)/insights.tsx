@@ -7,7 +7,7 @@ import { useVersion } from "../../../../lib/api/invalidate";
 import { useResource } from "../../../../lib/api/use-resource";
 import { budgetsLink } from "../../../../lib/budgets/params";
 import { parseInsights } from "../../../../lib/insights/insights-api";
-import { useUserDates } from "../../../../lib/profile/profile-context";
+import { useUserDates } from "../../../../lib/profile/profile-hooks";
 import { InsightsView } from "../../../../components/insights/insights-view";
 import { LoadFailure } from "../../../../components/feedback/states";
 import { ScreenSkeleton } from "../../../../components/feedback/skeleton";

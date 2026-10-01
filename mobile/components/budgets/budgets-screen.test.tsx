@@ -12,7 +12,7 @@ import type { StaleNoticeProps } from "../feedback/refresh-notice";
 const api = vi.hoisted(() => ({ responses: [] as (() => Promise<Response>)[] }));
 vi.mock("../../lib/auth/api", () => ({ authFetch: () => api.responses.shift()!(), NotAuthenticatedError: class extends Error {} }));
 vi.mock("../../lib/auth/auth-context", () => ({ useAuth: () => ({ session: null, signOut: async () => {} }) }));
-vi.mock("../../lib/profile/profile-context", () => ({ useUserDates: () => ({ month: "2026-09", today: "2026-09-30" }) }));
+vi.mock("../../lib/profile/profile-hooks", () => ({ useUserDates: () => ({ month: "2026-09", today: "2026-09-30" }) }));
 vi.mock("../../lib/realtime/use-realtime-refresh", () => ({ useRealtimeRefresh: () => {} }));
 // states.tsx reads the connection for its offline page; this test never goes there
 vi.mock("@react-native-community/netinfo", () => ({ default: { addEventListener: () => () => {} } }));

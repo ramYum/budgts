@@ -11,7 +11,7 @@ import { authFetch } from "../../lib/auth/api";
 import { useAuth } from "../../lib/auth/auth-context";
 import { ROLE } from "../../lib/brand/shared";
 import { afterGuideNav, howItWorksNav, type GuideNav } from "../../lib/profile/gate";
-import { useProfile } from "../../lib/profile/profile-context";
+import { useProfile } from "../../lib/profile/profile-hooks";
 import { parseTourCards } from "../../lib/tour/tour-api";
 
 /**

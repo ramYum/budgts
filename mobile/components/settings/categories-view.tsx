@@ -21,7 +21,6 @@ import { RowsCard } from "./rows-card";
 export type CategoryActions = {
   /** a new category; `requestId` stays the same for every try in one sheet, so a retry lands once */
   create: (fields: CategoryFields, requestId: string) => Promise<CategoryWrite>;
-  newRequestId: () => string;
   update: (id: string, fields: CategoryFields) => Promise<CategoryWrite>;
   setArchived: (id: string, archived: boolean) => Promise<CategoryWrite>;
   /** Activity, this month, filtered to the category (web `/transactions?m=…&category=…`) */
@@ -146,7 +145,6 @@ export function CategoriesView({ data, actions, onBack }: { data: CategorySettin
           testID="category-sheet"
           title="Add category"
           submitLabel="Add"
-          newRequestId={actions.newRequestId}
           save={(fields, requestId) => actions.create(fields, requestId!)}
           onDone={close}
         />

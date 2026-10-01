@@ -3,6 +3,9 @@ import { describe, expect, it, vi } from "vitest";
 import { byTestId, render, textContent } from "../../test/render";
 import { CategoryForm, CategorySheet } from "./category-form";
 
+const ids = vi.hoisted(() => ({ newRequestId: vi.fn(() => "req-1") }));
+vi.mock("../../lib/api/request-id", () => ids);
+
 const press = async (r: ReturnType<typeof render>, id: string) => {
   await act(async () => {
     byTestId(r, id).props.onPress();
@@ -44,15 +47,15 @@ describe("CategorySheet", () => {
   it("takes the web's title and submit label for each use, and keeps one request id for every try", async () => {
     const save = vi.fn().mockResolvedValueOnce({ ok: false, error: "Couldn't save the category. Try again." }).mockResolvedValueOnce({ ok: true, created: { id: "c9", name: "Tacos" } });
     const onDone = vi.fn();
-    const newRequestId = vi.fn(() => "req-7");
-    const r = render(<CategorySheet title="New category for Taco Bell" submitLabel="Add & use" save={save} newRequestId={newRequestId} onDone={onDone} />);
+    ids.newRequestId.mockReturnValue("req-7");
+    const r = render(<CategorySheet title="New category for Taco Bell" submitLabel="Add & use" save={save} onDone={onDone} />);
     expect(byTestId(r, "sheet").props.accessibilityLabel).toBe("New category for Taco Bell");
     expect(byTestId(r, "category-save").props.accessibilityLabel).toBe("Add & use");
     act(() => byTestId(r, "category-name").props.onChangeText("Tacos"));
     await press(r, "category-save");
     await press(r, "category-save");
     expect(save.mock.calls.map((c) => c[1])).toEqual(["req-7", "req-7"]);
-    expect(newRequestId).toHaveBeenCalledTimes(1);
+    expect(ids.newRequestId).toHaveBeenCalledTimes(1);
     expect(onDone).toHaveBeenCalledWith({ id: "c9", name: "Tacos" });
   });
 

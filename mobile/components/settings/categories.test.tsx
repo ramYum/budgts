@@ -5,6 +5,9 @@ import type { CategorySettings, ManagedCategory } from "../../lib/categories/man
 import { RowMenu } from "../kit/row-menu";
 import { CategoriesView, type CategoryActions } from "./categories-view";
 
+const ids = vi.hoisted(() => ({ newRequestId: vi.fn(() => "req-1") }));
+vi.mock("../../lib/api/request-id", () => ids);
+
 const cat = (over: Partial<ManagedCategory>): ManagedCategory => ({ id: "c1", name: "Food", kind: "expense", color: "#22c55e", archived: false, txnCount: 0, ...over });
 
 const data: CategorySettings = {
@@ -21,7 +24,6 @@ function actions(over: Partial<CategoryActions> = {}): CategoryActions {
     create: vi.fn(async () => ({ ok: true as const })),
     update: vi.fn(async () => ({ ok: true as const })),
     setArchived: vi.fn(async () => ({ ok: true as const })),
-    newRequestId: vi.fn(() => "req-1"),
     openCategory: vi.fn(),
     ...over,
   };
@@ -72,7 +74,7 @@ describe("Categories (web /settings/categories)", () => {
       [{ name: "", kind: "expense", color: "#8b5cf6" }, "req-1"],
       [{ name: "Pets", kind: "expense", color: "#8b5cf6" }, "req-1"],
     ]);
-    expect(a.newRequestId).toHaveBeenCalledTimes(1);
+    expect(ids.newRequestId).toHaveBeenCalledTimes(1);
     expect(has(r, "category-sheet")).toBe(false);
   });
 

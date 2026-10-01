@@ -16,6 +16,8 @@ import { choiceOf, formatNet, groupMeta, humanizePfc, pickerOptions } from "./ne
 import { AHEAD, withinReach } from "./show-more";
 
 // E1's ConnectBank runs native Plaid Link; here it only has to be the card's action.
+// the sheet's request id (lib/api/request-id.ts, the one generator), fixed so the create can be checked
+vi.mock("../../lib/api/request-id", () => ({ newRequestId: () => "11111111-1111-4111-8111-111111111111" }));
 vi.mock("../banks/connect-bank", async () => {
   const { createElement } = await import("react");
   return { ConnectBank: (p: { tone?: string }) => createElement("ConnectBank", { testID: "connect-bank", tone: p.tone }) };
@@ -91,7 +93,6 @@ function view(over: Partial<ActivityViewProps> = {}) {
     onCategorize: vi.fn(async (): Promise<MutationOutcome> => ({ status: "ok" })),
     onRescan: vi.fn(async (): Promise<MutationOutcome> => ({ status: "ok" })),
     onCreateCategory: vi.fn(async (): Promise<CategoryWrite> => ({ ok: true, created: { id: "new-cat", name: "Coffee" } })),
-    newRequestId: () => "11111111-1111-4111-8111-111111111111",
     onAdd: vi.fn(),
     onOpen: vi.fn(),
     ...over,

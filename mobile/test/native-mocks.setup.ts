@@ -20,6 +20,6 @@ vi.mock("expo-blur", async () => {
   return { BlurView: View, BlurTargetView: View };
 });
 
-// expo-crypto: request ids (lib/transactions/form.ts newRequestId, the goal sheets) are UUIDs; Node's own generator
+// expo-crypto: request ids (lib/api/request-id.ts newRequestId, the one generator) are UUIDs; Node's own generator
 // stands in for the native one. A test may mock the module itself to pin ids.
 vi.mock("expo-crypto", async () => ({ randomUUID: (await import("node:crypto")).randomUUID }));

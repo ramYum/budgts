@@ -1,7 +1,7 @@
 import { useState } from "react";
-import * as Crypto from "expo-crypto";
 import { View } from "react-native";
 import { ROLE } from "../../lib/brand/shared";
+import { newRequestId } from "../../lib/api/request-id";
 import type { MobileGoal } from "../../lib/goals/goals-api";
 import { Button, Field } from "../brand/controls";
 import { Text } from "../brand/text";
@@ -78,7 +78,7 @@ export function GoalFormSheet({
   const [targetAmount, setTargetAmount] = useState(initial?.targetAmount ?? "");
   const [targetDate, setTargetDate] = useState<string | null>(initial?.targetDate ?? null);
   // a create's one request id, kept for the life of the sheet; an edit needs none
-  const [requestId] = useState(() => (initial ? null : Crypto.randomUUID()));
+  const [requestId] = useState(() => (initial ? null : newRequestId()));
   const { error, pending, run } = useSubmit(onSubmit, onClose, requestId);
   const submit = () => void run({ name, targetAmount, targetDate });
 
@@ -122,7 +122,7 @@ export function ContributionSheet({
   const [amount, setAmount] = useState("");
   const [occurredAt, setOccurredAt] = useState(today);
   const [note, setNote] = useState("");
-  const [requestId] = useState(() => Crypto.randomUUID());
+  const [requestId] = useState(() => newRequestId());
   const { error, pending, run } = useSubmit(onSubmit, onClose, requestId);
   const submit = () => void run({ amount, occurredAt, note: blankToNull(note) });
 

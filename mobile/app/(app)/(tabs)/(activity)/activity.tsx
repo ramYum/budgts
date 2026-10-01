@@ -13,7 +13,6 @@ import { useVersion } from "../../../../lib/api/invalidate";
 import { loadResource } from "../../../../lib/api/load";
 import { useResource } from "../../../../lib/api/use-resource";
 import { useProfile, useUserDates } from "../../../../lib/profile/profile-context";
-import { newRequestId } from "../../../../lib/transactions/form";
 import type { MobileTransaction } from "../../../../lib/transactions/transactions-api";
 import { useLedger } from "../../../../lib/transactions/use-ledger";
 import { useActivityPanels } from "../../../../lib/transactions/use-activity-panels";
@@ -155,7 +154,6 @@ export default function ActivityScreen() {
             onCategorize={commands.categorize}
             onRescan={commands.rescan}
             onCreateCategory={commands.createCategory}
-            newRequestId={newRequestId}
             onAdd={() => openSheet({ kind: "add" })}
             onOpen={(t) => openSheet({ kind: "view", t })}
             savedNotice={savedNotice}

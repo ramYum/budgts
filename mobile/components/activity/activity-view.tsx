@@ -174,7 +174,6 @@ export type ActivityViewProps = {
   onCategorize: (anchorId: string, choice: CategoryChoice) => Promise<MutationOutcome>;
   onRescan: () => Promise<MutationOutcome>;
   onCreateCategory: (fields: CategoryFields, requestId: string | undefined) => Promise<CategoryWrite>;
-  newRequestId: () => string;
 };
 
 /**
@@ -237,7 +236,6 @@ export function ActivityView(p: ActivityViewProps) {
             onCategorize={p.onCategorize}
             onRescan={p.onRescan}
             onCreateCategory={p.onCreateCategory}
-            newRequestId={p.newRequestId}
           />
           </View>
         ) : null}

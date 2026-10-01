@@ -40,28 +40,33 @@ function CopyLastMonth({ pending, error, onCopy }: { pending: boolean; error: st
   );
 }
 
-/** The lead card: what's left this month, spent of budgeted, 12px cells, and the unplanned-spending note when there is one. */
+/**
+ * The lead card (web budgets-view.tsx hero): Remaining, or "Over by" and the overrun when over; spent (budgeted
+ * categories only) of budgeted, which add up with Remaining; 12px cells; the spending no budget covers on its own line
+ * when there is any; and the unplanned-spending note. Every figure is the server's.
+ */
 function Hero({ data, onSetBudget }: { data: MobileBudgetsMonth; onSetBudget: (categoryId: string) => void }) {
-  const remaining = formatMoney(data.leftToSpend, data.currency);
+  const over = data.leftToSpend < 0;
+  const remaining = formatMoney(Math.abs(data.leftToSpend), data.currency);
   const unplanned = data.suggestion?.kind === "unbudgeted" ? data.suggestion : null;
   return (
     <Reveal i={1}>
       <PixelFrame testID="budgets-hero" frame="px-card-raised" style={{ padding: 8, gap: 20 }}>
         <View>
           <Text variant="formLabel" color={ROLE.muted} accessibilityRole="header">
-            Remaining
+            {over ? "Over by" : "Remaining"}
           </Text>
           <Text
             testID="budgets-remaining"
             variant={figureVariant(remaining)}
-            color={data.leftToSpend < 0 ? ROLE.neg : ROLE.ink}
+            color={over ? ROLE.neg : ROLE.ink}
             style={{ marginTop: 12 }}
           >
             {remaining}
           </Text>
           <Text variant="body" color={ROLE.muted} style={[{ marginTop: 8 }, tnum(15)]}>
             <Text variant="bodyStrong" color={ROLE.ink}>
-              {formatMoney(data.spent, data.currency)}
+              {formatMoney(data.budgetedSpent, data.currency)}
             </Text>
             {" spent of "}
             <Text variant="bodyStrong" color={ROLE.ink}>
@@ -72,6 +77,14 @@ function Hero({ data, onSetBudget }: { data: MobileBudgetsMonth; onSetBudget: (c
           <View style={{ marginTop: 16 }}>
             <ProgressBar pct={data.spentPct} tone={data.tone} cellHeight={12} />
           </View>
+          {data.spentOutsideBudgets > 0 ? (
+            <Text testID="budgets-outside" variant="body" color={ROLE.muted} style={[{ marginTop: 12 }, tnum(15)]}>
+              <Text variant="bodyStrong" color={ROLE.ink}>
+                {formatMoney(data.spentOutsideBudgets, data.currency)}
+              </Text>
+              {" spent outside your budgets"}
+            </Text>
+          ) : null}
         </View>
         {unplanned ? (
           <View testID="budgets-unplanned" style={{ alignItems: "flex-start", gap: 12 }}>

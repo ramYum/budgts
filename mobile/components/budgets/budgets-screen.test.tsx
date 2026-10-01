@@ -42,6 +42,8 @@ const budgets = {
   currency: "USD",
   budgeted: 40000,
   spent: 12000,
+  budgetedSpent: 12000,
+  spentOutsideBudgets: 0,
   leftToSpend: 28000,
   spentPct: 30,
   tone: "under",

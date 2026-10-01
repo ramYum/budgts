@@ -30,6 +30,8 @@ const monthData = (over: Partial<MobileBudgetsMonth> = {}): MobileBudgetsMonth =
   currency: "USD",
   budgeted: 60000,
   spent: 45000,
+  budgetedSpent: 45000,
+  spentOutsideBudgets: 0,
   leftToSpend: 15000,
   spentPct: 75,
   tone: "under",
@@ -93,9 +95,29 @@ describe("Budgets (web budgets-view.tsx)", () => {
     expect(bar.props).toMatchObject({ pct: 75, tone: "under", cellHeight: 12 });
   });
 
-  it("prints a negative Remaining in red and steps a long figure down a size", () => {
-    const { r } = view({ data: monthData({ leftToSpend: -2500, tone: "over" }) });
+  it("over budget, reads Over by and the overrun, unsigned, in the over tone (web budgets-view.tsx)", () => {
+    const { r } = view({ data: monthData({ budgetedSpent: 62500, spent: 62500, leftToSpend: -2500, spentPct: 104.2, tone: "over" }) });
+    expect(texts(byTestId(r, "budgets-hero"))).toContain("Over by");
+    expect(texts(byTestId(r, "budgets-hero"))).not.toContain("Remaining");
+    expect(textContent(byTestId(r, "budgets-remaining"))).toBe("$25.00");
     expect(flat(byTestId(r, "budgets-remaining").props.style).color).toBe(ROLE.neg);
+    expect(textContent(byTestId(r, "budgets-hero"))).toContain("$625.00 spent of $600.00 budgeted");
+  });
+
+  it("counts only budgeted categories in spent of budgeted, and names the rest on its own line when there is any", () => {
+    const { r } = view({ data: monthData({ spent: 45000, budgetedSpent: 40000, spentOutsideBudgets: 5000, leftToSpend: 20000, spentPct: 66.7 }) });
+    expect(texts(byTestId(r, "budgets-hero"))).toContain("Remaining");
+    expect(textContent(byTestId(r, "budgets-remaining"))).toBe("$200.00");
+    expect(textContent(byTestId(r, "budgets-hero"))).toContain("$400.00 spent of $600.00 budgeted");
+    const outside = byTestId(r, "budgets-outside");
+    expect(textContent(outside)).toBe("$50.00 spent outside your budgets");
+    // web `tnum mt-3 text-[15px] leading-6 text-muted`, the amount ink semibold
+    expect(flat(outside.props.style)).toMatchObject({ marginTop: 12, fontSize: 15, lineHeight: 24, color: ROLE.muted });
+    const amount = outside.findAll((n) => (n.type as unknown) === "Text" && n !== outside)[0]!;
+    expect(flat(amount.props.style)).toMatchObject({ color: ROLE.ink });
+    expect(flat(amount.props.style).fontFamily).toBe("Geist-SemiBold");
+    // none outside: no line
+    expect(() => byTestId(view().r, "budgets-outside")).toThrow();
   });
 
   it("gives each category a card whose cells cascade two steps apart, rising in after the hero", () => {

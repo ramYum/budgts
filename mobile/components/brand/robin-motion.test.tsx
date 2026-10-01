@@ -1,6 +1,7 @@
 import { act } from "react-test-renderer";
 import { afterEach, describe, expect, it } from "vitest";
-import { ROBIN_ART } from "../../lib/brand/shared";
+import { ROBIN_ART, ROBIN_FEET_X } from "../../lib/brand/shared";
+import { robinSize } from "../../lib/brand/robin-paths";
 import { reducedMotion } from "../../test/native-hosts";
 import { byTestId, flat, hosts, render } from "../../test/render";
 import { BrandStage, TICKER_LINES } from "./brand-stage";
@@ -30,7 +31,7 @@ describe("Crystal is alive (globals.css robin-*)", () => {
     const [blink] = named(render(<Robin mood="happy" size={44} />), ROBIN_BLINK);
     expect(blink).toMatchObject({ animationDuration: "4800ms", animationTimingFunction: "linear", animationIterationCount: "infinite" });
     const c = eyeCentre("happy", 2);
-    expect(blink!.transformOrigin).toBe(`${c.x}px ${c.y}px`);
+    expect(blink!.transformOrigin).toEqual([c.x, c.y, 0]);
     // the blink is a scaleY squeeze at 32%, 85.5% and 91.5%
     expect(Object.entries(ROBIN_BLINK).filter(([, v]) => JSON.stringify(v).includes("0.1")).map(([k]) => k)).toEqual(["32%", "85.5%", "91.5%"]);
   });
@@ -44,6 +45,14 @@ describe("Crystal is alive (globals.css robin-*)", () => {
     // the open beak only shows mid-chirp
     expect(named(r, ROBIN_BEAK_OPEN)[0]!.opacity).toBe(0);
     expect(named(render(<Robin mood="happy" chirpMs={6000} />), ROBIN_CHIRP)[0]!.animationDuration).toBe("6000ms");
+  });
+
+  it("blinks around her eye's own centre at any size, a fractional one included (never a px string React Native misreads)", () => {
+    for (const size of [61, 51, 30, 88]) {
+      const [blink] = named(render(<Robin mood="curious" size={size} />), ROBIN_BLINK);
+      const c = eyeCentre("curious", size / 22);
+      expect(blink!.transformOrigin).toEqual([c.x, c.y, 0]);
+    }
   });
 
   it("flickers the curious '?' and sleepy 'z' instead, and a sleepy robin doesn't blink", () => {
@@ -95,7 +104,11 @@ describe("the sign-in stage's 8s beat (globals.css stage-*, saving, wm-*, ticker
     expect(flat(byTestId(r, "stage-wander").props.style)).toMatchObject({ animationName: STAGE_WANDER, animationDuration: "8000ms", animationTimingFunction: { steps: 2, modifier: "jump-end" } });
     const turn = flat(byTestId(r, "stage-turn").props.style);
     expect(turn).toMatchObject({ animationName: STAGE_TURN, animationTimingFunction: { steps: 1, modifier: "jump-end" } });
-    expect(String(turn.transformOrigin)).toMatch(/px 50%$/);
+    // her feet, 54px into her 104px: as numbers, which React Native takes as they are (its string parser read the
+    // float "54.00000000000001px" as 1px, so she turned about her left edge and jumped ~108px off her shadow)
+    const feet = ROBIN_FEET_X * robinSize(4).width;
+    expect(turn.transformOrigin).toEqual([feet, "50%", 0]);
+    expect(feet).toBeCloseTo(54, 9);
   });
 
   it("raises a '+$' from each chirp, at 1.6s and 5.6s of every beat, four over two beats", () => {

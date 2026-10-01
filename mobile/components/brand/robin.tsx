@@ -7,6 +7,7 @@ import { robinLayer, robinSize, type RobinLayer } from "../../lib/brand/robin-pa
 import { snapPath } from "../../lib/brand/snap";
 import { usePlay } from "../motion/reveal";
 import { useKeyframes, type Keyframes } from "../motion/keyframes";
+import { pxOrigin } from "../../lib/motion/css";
 import { ROBIN_BEAK, ROBIN_BEAK_OPEN, ROBIN_BLINK, ROBIN_CHIRP, ROBIN_FLICKER, ROBIN_HOP, STEP1, STEPS4 } from "./robin-keyframes";
 
 /** A one-off move a caller plays on one of her layers (the perch's arrival flap, a tap's chirp back): web keyframes. */
@@ -139,7 +140,7 @@ export function Robin({
         <Layer
           {...box}
           paths={paths.eye}
-          motions={mood === "sleepy" ? [] : [loop(ROBIN_BLINK, MOTION.robinBlinkMs, { easing: "linear", origin: `${eye.x}px ${eye.y}px` })]}
+          motions={mood === "sleepy" ? [] : [loop(ROBIN_BLINK, MOTION.robinBlinkMs, { easing: "linear", origin: pxOrigin(eye.x, eye.y) })]}
         />
         <Layer
           {...box}
@@ -154,7 +155,7 @@ export function Robin({
   return hopOnTap ? <Hop enabled={alive}>{drawing}</Hop> : drawing;
 }
 
-type LayerMotion = { kf: Keyframes; ms: number; delay?: number; easing?: unknown; loop?: boolean; origin?: string };
+type LayerMotion = { kf: Keyframes; ms: number; delay?: number; easing?: unknown; loop?: boolean; origin?: ReturnType<typeof pxOrigin> };
 
 /**
  * One layer of her art in its own full-size drawing, under its moves: each move is its own view, outermost first, so a

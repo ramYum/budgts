@@ -3,10 +3,11 @@ import { TextInput, View } from "react-native";
 import { COLOR, PLACEHOLDER, ROLE } from "../../lib/brand/shared";
 import { textStyle } from "../../lib/brand/type";
 import { invalidate } from "../../lib/api/invalidate";
+import { accountHint, accountLabel } from "../../lib/shared";
 import { useAuth } from "../../lib/auth/auth-context";
 import type { UnmappedAccount } from "../../lib/plaid/banks-api";
 import { bankCommands, type CommandOutcome } from "../../lib/plaid/bank-commands";
-import { accountLabel, buildMapEntries, emptyMapRows, type MapEntry, type MapMode, type MapRow, type MappingChoices } from "../../lib/plaid/mapping";
+import { buildMapEntries, emptyMapRows, type MapEntry, type MapMode, type MapRow, type MappingChoices } from "../../lib/plaid/mapping";
 import { Button, TextButton } from "../brand/controls";
 import { PixelFrame } from "../brand/pixel-frame";
 import { Text } from "../brand/text";
@@ -109,6 +110,7 @@ export function AccountMapping({
       <View style={{ gap: 12 }}>
         {accounts.map((a, i) => {
           const r = rows[i] as MapRow;
+          const hint = accountHint(a);
           return (
             <PixelFrame key={a.plaidAccountId} frame="px-card" testID={`account-mapping-row-${i}`} style={{ padding: 12, gap: 12 }}>
               <View style={{ flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
@@ -119,6 +121,12 @@ export function AccountMapping({
                   {a.subtype ?? a.type ?? "account"}
                 </Text>
               </View>
+              {/* web `text-sm text-muted`: why a row left out by default may still be worth importing (an HSA) */}
+              {hint ? (
+                <Text testID={`account-mapping-hint-${i}`} variant="small" color={ROLE.muted}>
+                  {hint}
+                </Text>
+              ) : null}
 
               <Select
                 label="Import as"

@@ -189,6 +189,23 @@ describe("Connected banks (web /connected-banks)", () => {
     expect(byTestId(r, "sheet").props.accessibilityLabel).toBe("Choose which accounts to import");
   });
 
+  it("connects a never-set-up CD as Savings: the web's suggested type", async () => {
+    const a = actions();
+    const r = view(
+      [
+        bank({
+          accounts: [acct({ rowId: "row-cd", plaidAccountId: "pa-cd", name: "Plaid CD", mask: "2222", subtype: "cd", linkState: "unmapped", mappedAccountName: null })],
+          unmappedAccounts: [
+            { plaidAccountId: "pa-cd", name: "Plaid CD", officialName: null, mask: "2222", type: "depository", subtype: "cd", currentBalance: 100000, isoCurrencyCode: "USD" },
+          ],
+        }),
+      ],
+      a,
+    );
+    await press(r, "connect-row-cd");
+    expect(a.commands.mapAccounts).toHaveBeenCalledWith("item-row", [{ plaidAccountId: "pa-cd", mode: "new", name: "Plaid CD ••2222", type: "savings" }]);
+  });
+
   it("shows a refused switch's reason under it", async () => {
     const a = actions({ setImporting: vi.fn(async () => ({ status: "error" as const, message: "Choose which Budgts account to import into first." })) });
     const r = view([bank()], a);

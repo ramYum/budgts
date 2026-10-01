@@ -8,7 +8,8 @@ import { statusNeedsAttention, type BankAccount, type ConnectedBank } from "../.
 import type { BankCommands, CommandOutcome } from "../../lib/plaid/bank-commands";
 import { accountName, bankName, notImportedNote, resumesExisting, signCheckWords, splitAccounts, syncedLabel } from "../../lib/plaid/bank-view";
 import { reconnectBank, type ReconnectDeps } from "../../lib/plaid/link-flow";
-import { accountLabel, guessType, type MappingChoices } from "../../lib/plaid/mapping";
+import { accountLabel, suggestAccount } from "../../lib/shared";
+import type { MappingChoices } from "../../lib/plaid/mapping";
 import type { PlaidLinkClient } from "../../lib/plaid/plaid-link";
 import { currentPlatform } from "../../lib/plaid/plaid-link-native";
 import { Button, IconTile, Rule } from "../brand/controls";
@@ -401,7 +402,7 @@ function ConnectToggle({ account, plaidItemId, actions }: { account: BankAccount
         disabled={cmd.busy}
         onPress={() =>
           void cmd.run(
-            () => actions.commands.mapAccounts(plaidItemId, [{ plaidAccountId: account.plaidAccountId, mode: "new", name: accountLabel(account), type: guessType(account) }]),
+            () => actions.commands.mapAccounts(plaidItemId, [{ plaidAccountId: account.plaidAccountId, mode: "new", name: accountLabel(account), type: suggestAccount(account).type }]),
             true,
           )
         }

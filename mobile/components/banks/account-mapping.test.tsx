@@ -8,6 +8,7 @@ vi.mock("../../lib/auth/api", () => ({ authFetch: api.authFetch, NotAuthenticate
 vi.mock("react-native-plaid-link-sdk", () => ({ sdkVersion: "13.0.0", createPlaidLinkSession: vi.fn() }));
 
 import { getVersion } from "../../lib/api/invalidate";
+import { ROLE } from "../../lib/brand/shared";
 import type { UnmappedAccount } from "../../lib/plaid/banks-api";
 import type { PlaidLinkClient } from "../../lib/plaid/plaid-link";
 import { AccountMapping, AccountMappingSheet } from "./account-mapping";
@@ -85,6 +86,20 @@ describe("AccountMapping (web account-mapping.tsx)", () => {
     expect(name().selection).toBeUndefined(); // editing: the caret is the user's
     act(() => name().onBlur?.({}));
     expect(name().selection).toEqual({ start: 0, end: 0 });
+  });
+
+  it("starts an HSA as Don't import, with the web's hint under its name; no other row has one", () => {
+    const hsa = account({ plaidAccountId: "pa-hsa", name: "Plaid HSA", mask: "5555", subtype: "hsa" });
+    const r = render(<AccountMapping plaidAccounts={[account(), hsa]} choices={choices} onSave={vi.fn()} onDone={() => {}} />);
+    expect(byTestId(r, "account-mapping-mode-1").props.accessibilityLabel).toBe("Import as, Don't import this one");
+    expect(texts(byTestId(r, "account-mapping-hint-1"))).toEqual(["Import it if you pay for care from it."]);
+    expect(() => byTestId(r, "account-mapping-hint-0")).toThrow();
+    // web `text-sm text-muted`, its own line between the name row and Import as
+    const hint = byTestId(r, "account-mapping-hint-1");
+    expect(hint.props.style).toEqual(expect.arrayContaining([expect.objectContaining({ color: ROLE.muted })]));
+    const row = byTestId(r, "account-mapping-row-1");
+    const order = row.findAll((n) => typeof n.type === "string" && ["account-mapping-hint-1", "account-mapping-mode-1"].includes(n.props.testID)).map((n) => n.props.testID);
+    expect(order).toEqual(["account-mapping-hint-1", "account-mapping-mode-1"]);
   });
 
   it("saves the web's entries: new, existing and left out", async () => {

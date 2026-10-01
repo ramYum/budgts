@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { accountLabel, buildMapEntries, emptyMapRows, guessType, mappingChoices } from "./mapping";
+import { accountLabel } from "../shared";
+import { buildMapEntries, emptyMapRows, mappingChoices } from "./mapping";
 import type { UnmappedAccount } from "./banks-api";
 
 const unmapped = (over: Partial<UnmappedAccount> = {}): UnmappedAccount => ({
@@ -14,15 +15,7 @@ const unmapped = (over: Partial<UnmappedAccount> = {}): UnmappedAccount => ({
   ...over,
 });
 
-describe("guessType", () => {
-  it("guesses savings, credit and defaults to checking", () => {
-    expect(guessType(unmapped({ subtype: "savings" }))).toBe("savings");
-    expect(guessType(unmapped({ type: "credit", subtype: "credit card" }))).toBe("credit");
-    expect(guessType(unmapped({ type: "depository", subtype: "cd" }))).toBe("checking");
-  });
-});
-
-describe("accountLabel", () => {
+describe("accountLabel (the web's, src/lib/accounts/account-suggestion.ts)", () => {
   it("prefers the name, falls back to official name, then a generic label, with the mask appended", () => {
     expect(accountLabel(unmapped())).toBe("Checking ••1234");
     expect(accountLabel(unmapped({ name: null, officialName: "Platypus Checking" }))).toBe("Platypus Checking ••1234");
@@ -31,6 +24,28 @@ describe("accountLabel", () => {
 });
 
 describe("emptyMapRows / buildMapEntries", () => {
+  it("defaults each row to the web's suggestion: CDs and money market as Savings; HSAs, investments and loans left out", () => {
+    const rows = emptyMapRows(
+      [
+        unmapped({ plaidAccountId: "cd", name: "CD", subtype: "cd" }),
+        unmapped({ plaidAccountId: "mm", name: "MM", subtype: "money market" }),
+        unmapped({ plaidAccountId: "hsa", name: "HSA", subtype: "hsa" }),
+        unmapped({ plaidAccountId: "inv", name: "Brokerage", type: "investment", subtype: "brokerage" }),
+        unmapped({ plaidAccountId: "loan", name: "Mortgage", type: "loan", subtype: "mortgage" }),
+        unmapped({ plaidAccountId: "cc", name: "Card", type: "credit", subtype: "credit card" }),
+      ],
+      "existing-1",
+    );
+    expect(rows.map((r) => [r.mode, r.type])).toEqual([
+      ["new", "savings"],
+      ["new", "savings"],
+      ["ignore", "checking"],
+      ["ignore", "checking"],
+      ["ignore", "checking"],
+      ["new", "credit"],
+    ]);
+  });
+
   it("defaults every row to 'new' with a guessed name and type", () => {
     const rows = emptyMapRows([unmapped(), unmapped({ plaidAccountId: "pa2", name: "Savings", subtype: "savings" })], "existing-1");
     expect(rows).toEqual([

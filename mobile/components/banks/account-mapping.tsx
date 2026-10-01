@@ -141,10 +141,12 @@ export function AccountMapping({
                       ]}
                     />
                   </PixelFrame>
-                  <View style={{ width: 112 }}>
+                  {/* the web's w-28 select: 112px, and like a select never narrower than its longest option */}
+                  <View testID={`account-mapping-type-${i}-box`} style={{ minWidth: 112, flexShrink: 0 }}>
                     <Select
                       label="New account type"
                       hideLabel
+                      fitOptions
                       testID={`account-mapping-type-${i}`}
                       value={r.type}
                       options={accountTypes.map((t) => ({ value: t, label: typeLabel(t) }))}

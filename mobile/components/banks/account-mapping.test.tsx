@@ -1,6 +1,6 @@
 import { act } from "react-test-renderer";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { byTestId, render, texts } from "../../test/render";
+import { byTestId, flat, render, texts } from "../../test/render";
 
 vi.mock("../../lib/auth/auth-context", () => ({ useAuth: () => ({ session: null }) }));
 const api = vi.hoisted(() => ({ authFetch: vi.fn() }));
@@ -46,6 +46,22 @@ describe("AccountMapping (web account-mapping.tsx)", () => {
     expect(byTestId(r, "account-mapping-type-2").props.accessibilityLabel).toBe("New account type, Credit");
     expect(byTestId(r, "account-mapping-name-0").props.maxLength).toBe(40);
     expect(texts(r)).toContain("Import transactions");
+  });
+
+  it("sizes the type picker like a select: the web's 112px at least, wide enough for its longest option, never truncated", () => {
+    const r = render(<AccountMapping plaidAccounts={[account()]} choices={choices} onSave={vi.fn()} onDone={() => {}} />);
+    const field = byTestId(r, "account-mapping-type-0");
+    let box = field.parent!;
+    while (typeof box.type !== "string" || box.props.testID !== "account-mapping-type-0-box") box = box.parent!;
+    const style = flat(box.props.style);
+    expect(style.minWidth).toBe(112);
+    expect(style.width).toBeUndefined();
+    expect(style.flexShrink).toBe(0);
+    // every option's label sits in the field's sizing layer, so the field is as wide as the widest; none is cut short
+    expect(texts(byTestId(r, "account-mapping-type-0-sizer"))).toEqual(["Checking", "Credit", "Cash", "Savings"]);
+    let label = byTestId(r, "account-mapping-type-0-sizer").parent!;
+    while (typeof label.type !== "string" || label.props.testID === "account-mapping-type-0-sizer") label = label.parent!;
+    expect(flat(label.props.style)).toMatchObject({ flexShrink: 0 });
   });
 
   it("saves the web's entries: new, existing and left out", async () => {

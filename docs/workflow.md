@@ -1330,3 +1330,17 @@ implementation goes to `budgts-architect`.
     (`src/app/fonts/geist`, OFL) with more room under the wordmark; `robots.ts` and `sitemap.ts` added and public
     in the proxy; `docs/deploy.md` gained the post-deploy cache checks (Cloudflare must stay DNS-only) and the
     footer's dependence on the six legal facts. Scores: homepage 390 and 1440 9.2 → 9.5, share card 9.5 → 9.5.
+- **2026-10-01 — Plaid: the sync cursor never moves past rows that didn't land** (`fix/plaid-sync-cursor`).
+  Device pass on staging: First Platypus connected natively, 3 accounts mapped, 11 "Don't import", Sync now
+  said "Synced." and landed nothing. Root cause: `budgts-staging.vercel.app` still runs pre-`72edc06` code and
+  staging's `plaid-sync-due` cron still fires every 30s; that build has no unmapped guard, so 2s after the
+  exchange it synced the Item with no account mapped, skipped all 32 rows and stored the cursor past them
+  (`net._http_response` 27118). Same mechanism hit production Items linked before the lease build went live.
+  Fix: (1) an Item with no accounts recorded is unclaimable like one with an `unmapped` account (the exchange
+  writes the Item, then its accounts; a failed accounts write left a claimable Item with none); (2) rows for an
+  account the Item has no link for (or an `unmapped` one) no longer skip-and-advance: `runSync` throws
+  `SyncUnknownAccounts` before applying, `syncItem` records the accounts as `unmapped` (Plaid's details from
+  `/accounts/get`), the Item holds and Connected banks asks where they go; Sync now says so instead of
+  "Synced."; (3) recovery: `resetItemCursor` / `tools/plaid-resync-item.mjs` (staging only) clears the cursor
+  so the next sync re-pulls history, idempotent on the Plaid transaction id. Proven by
+  `tests/plaid-integration/sync-cursor-loss.test.ts` (3 of 7 fail on `21004a4`, 7/7 after).

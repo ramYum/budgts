@@ -12,6 +12,7 @@ import {
   type PlaidTxnRow,
   runSync,
   SyncMutationDuringPagination,
+  SyncUnknownAccounts,
   type SyncDeps,
   type TransferPairingCandidateRow,
 } from "./sync-engine";
@@ -355,15 +356,23 @@ describe("runSync", () => {
     expect(out.applied.inserts).toBe(1);
   });
 
-  it("collects skips (ignored / zero-amount / unknown account) without failing the run", async () => {
+  it("collects skips (ignored / zero-amount) without failing the run", async () => {
+    const ctx: NormalizeCtx = {
+      ...normalizeCtx,
+      accountMap: new Map([
+        ...accountMap,
+        ["paused", { plaidAccountRowId: "pa-2", budgtsAccountId: "b-acct-2", ignored: true, signConvention: "standard" }],
+      ]),
+    };
     const out = await runSync(
       deps({
+        normalizeCtx: ctx,
         transactionsSync: async () =>
           page({
             added: [
               pTxn({ transaction_id: "ok" }),
               pTxn({ transaction_id: "zero", amount: 0 }),
-              pTxn({ transaction_id: "ghost", account_id: "not-mapped" }),
+              pTxn({ transaction_id: "off", account_id: "paused" }),
             ],
           }),
       }),
@@ -373,9 +382,31 @@ describe("runSync", () => {
     expect(out.skips).toEqual(
       expect.arrayContaining([
         { transactionId: "zero", reason: "zero-amount" },
-        { transactionId: "ghost", reason: "unknown-account" },
+        { transactionId: "off", reason: "ignored-account" },
       ]),
     );
+  });
+
+  // A row for a Plaid account this Item has no link for (an account the bank added after the user mapped, or an Item
+  // whose accounts were never recorded) can't land. Advancing the cursor past it would lose it for good, because
+  // Plaid never re-sends it after that cursor — so the run applies nothing and names the accounts instead.
+  it("refuses to advance the cursor past rows for an account it has no link for", async () => {
+    const { store, calls } = fakeStore();
+    const run = runSync(
+      deps({
+        store,
+        initialCursor: "c0",
+        transactionsSync: async () =>
+          page({
+            added: [pTxn({ transaction_id: "ok" }), pTxn({ transaction_id: "ghost", account_id: "new-acct" })],
+            modified: [pTxn({ transaction_id: "ghost2", account_id: "new-acct" }), pTxn({ transaction_id: "g3", account_id: "other-new" })],
+            next_cursor: "c1",
+          }),
+      }),
+    );
+    await expect(run).rejects.toBeInstanceOf(SyncUnknownAccounts);
+    await expect(run).rejects.toMatchObject({ plaidAccountIds: ["new-acct", "other-new"] });
+    expect(calls.plans).toHaveLength(0); // nothing applied, cursor stays at c0
   });
 
   it("a no-change incremental sync still advances + persists the cursor", async () => {

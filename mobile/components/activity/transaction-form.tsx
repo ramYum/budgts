@@ -39,13 +39,11 @@ function fieldErrorsOf(fe: Record<string, string>): Record<string, string> {
 export type SaveDraft = (draft: TransactionDraft, requestId: string | undefined) => Promise<MutationOutcome>;
 
 /**
- * What a save left behind: the saved row's id (a create answers it), and whether an earlier try of this same form may have
- * landed already (a dropped connection). A create retried with the same request id is answered with the row that landed
- * first, and changes typed in between are not applied to it (the server keeps create idempotent and never merges); the
- * sheet opens that row so the person sees what was actually saved. Limitation: when the saved row is in another month
- * than the one shown, it is not opened.
+ * What a save left behind: the saved row's id (a create answers it), and whether the server answered `replayed`: this
+ * request id had already landed (an earlier try whose answer was lost), so `id` is that first row and the values sent
+ * this time, including any changes typed in between, were not applied (create stays idempotent and never merges).
  */
-export type Saved = { id: string | undefined; retried: boolean };
+export type Saved = { id: string | undefined; replayed: boolean };
 
 /**
  * The add / edit form (web `src/components/transaction-form.tsx`): Amount and Direction side by side, Account, Category
@@ -115,8 +113,6 @@ export function TransactionForm({
   const [message, setMessage] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const requestId = useRef(initial ? undefined : newRequestId());
-  /** an earlier try ended without an answer (network / server): it may have landed */
-  const uncertain = useRef(false);
   const set = (patch: Partial<TransactionDraft>) => setDraft((d) => ({ ...d, ...patch }));
 
   async function submit() {
@@ -127,10 +123,9 @@ export function TransactionForm({
     setPending(true);
     const out = await save(draft, requestId.current);
     setPending(false);
-    if (out.status === "error" && (out.kind === "network" || out.kind === "unavailable")) uncertain.current = true;
     switch (out.status) {
       case "ok":
-        return onDone(true, { id: out.id, retried: uncertain.current });
+        return onDone(true, { id: out.id, replayed: out.replayed === true });
       case "invalid":
         return setErrors(fieldErrorsOf(out.fieldErrors));
       case "conflict":

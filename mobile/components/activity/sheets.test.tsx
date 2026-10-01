@@ -106,7 +106,7 @@ describe("TransactionForm (web transaction-form.tsx)", () => {
     expect(draft).toMatchObject({ accountId: "a1", categoryId: "c-food", amount: "12.50", direction: "debit", date: "2026-09-29", description: "Lunch", isTransfer: true });
     expect(id1).toMatch(/^[A-Za-z0-9-]{8,64}$/);
     expect(id2).toBe(id1);
-    expect(onDone).toHaveBeenCalledWith(true, { id: undefined, retried: true });
+    expect(onDone).toHaveBeenCalledWith(true, { id: undefined, replayed: false });
   });
 
   it("shows each field error the server names under its field (occurredAt under Date)", async () => {
@@ -163,23 +163,25 @@ describe("TransactionForm (web transaction-form.tsx)", () => {
     expect(find(r, "txn-form-account").props.accessibilityLabel).toBe("Account, Travel card");
   });
 
-  it("a create retried after a failure reports the row the server kept, so the sheet can show what was saved", async () => {
+  it("a retry the server answers as replayed reports the row it kept (the first try had landed)", async () => {
     const { r, save, onDone } = form();
     act(() => find(r, "txn-form-amount").props.onChangeText("12.50"));
     save.mockResolvedValueOnce({ status: "error", kind: "network", message: "Couldn't reach Budgts." });
     await press(r, "txn-form-save");
     act(() => find(r, "txn-form-amount").props.onChangeText("15.00"));
-    save.mockResolvedValueOnce({ status: "ok", id: "t-kept" });
+    save.mockResolvedValueOnce({ status: "ok", id: "t-kept", replayed: true });
     await press(r, "txn-form-save");
-    expect(onDone).toHaveBeenCalledWith(true, { id: "t-kept", retried: true });
+    expect(onDone).toHaveBeenCalledWith(true, { id: "t-kept", replayed: true });
   });
 
-  it("a first-try create reports its row too, without the retry mark", async () => {
+  it("a retry after a lost answer whose first try never landed is a plain save, not a replay", async () => {
     const { r, save, onDone } = form();
     act(() => find(r, "txn-form-amount").props.onChangeText("12.50"));
+    save.mockResolvedValueOnce({ status: "error", kind: "network", message: "Couldn't reach Budgts." });
+    await press(r, "txn-form-save");
     save.mockResolvedValueOnce({ status: "ok", id: "t-new" });
     await press(r, "txn-form-save");
-    expect(onDone).toHaveBeenCalledWith(true, { id: "t-new", retried: false });
+    expect(onDone).toHaveBeenCalledWith(true, { id: "t-new", replayed: false });
   });
 
   it("Cancel closes without saving", async () => {
@@ -245,6 +247,19 @@ describe("AddIncomeSheet (web income-tile.tsx)", () => {
 });
 
 describe("the Transaction sheet (web list detail)", () => {
+  it("opened for a replayed create, says what happened above the facts", () => {
+    const r = render(<TransactionDetailSheet transaction={txn()} currency="USD" alreadySaved onClose={vi.fn()} onEdit={vi.fn()} onToggleTransfer={vi.fn()} />);
+    expect(textContent(find(r, "txn-detail-replayed"))).toBe("This was already saved. Changes made after that weren't applied.");
+    // above the facts, in reading order
+    const ids = r.root.findAll((n) => typeof n.type === "string" && typeof n.props.testID === "string").map((n) => n.props.testID);
+    expect(ids.indexOf("txn-detail-replayed")).toBeLessThan(ids.indexOf("txn-detail-facts"));
+  });
+
+  it("opened from the list, no such line", () => {
+    const r = render(<TransactionDetailSheet transaction={txn()} currency="USD" onClose={vi.fn()} onEdit={vi.fn()} onToggleTransfer={vi.fn()} />);
+    expect(() => find(r, "txn-detail-replayed")).toThrow();
+  });
+
   it("shows the row's facts and flips transfer with the row otherwise unchanged", async () => {
     const onToggle = vi.fn(async (): Promise<MutationOutcome> => ({ status: "ok" }));
     const onEdit = vi.fn();

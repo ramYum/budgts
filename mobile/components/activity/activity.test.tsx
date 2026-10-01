@@ -78,6 +78,8 @@ function view(over: Partial<ActivityViewProps> = {}) {
     onClearCategory: vi.fn(),
     onFocused: vi.fn(),
     onRefreshNotice: vi.fn(),
+    savedNotice: null,
+    onDismissSavedNotice: vi.fn(),
     ledger: ready([txn("a")]),
     notice: null,
     onRetryRest: vi.fn(),
@@ -361,6 +363,15 @@ describe("failures", () => {
     expect(textContent(byTestId(r, "activity-rest-error"))).toContain("Some of this month's transactions didn't load.");
     act(() => r.root.find((n) => n.props.accessibilityLabel === "Try again" && typeof n.type === "string").props.onPress());
     expect(props.onRetryRest).toHaveBeenCalled();
+  });
+
+  it("a replayed create kept in another month is said on Activity, with a way to dismiss it", () => {
+    const onDismissSavedNotice = vi.fn();
+    const { r } = view({ savedNotice: "This was already saved. Changes made after that weren't applied.", onDismissSavedNotice });
+    expect(textContent(byTestId(r, "activity-saved-notice"))).toContain("This was already saved. Changes made after that weren't applied.");
+    act(() => r.root.find((n) => typeof n.type === "string" && n.props.accessibilityLabel === "Dismiss").props.onPress());
+    expect(onDismissSavedNotice).toHaveBeenCalled();
+    expect(has(view().r, "activity-saved-notice")).toBe(0);
   });
 
   it("a failed refresh (a pull, or a silent reload after a save or sync) keeps the list, says why, and offers Refresh", () => {

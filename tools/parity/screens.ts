@@ -343,6 +343,8 @@ export const NATIVE_ONLY: Readonly<Record<string, string>> = {
   "accounts-error": "the web drops a refused archive silently",
   "categories-error": "the web's category archive shows no error line",
   "activity-notice, activity-rest-loading, activity-rest-error": "native paging and refresh states",
+  "activity-saved-notice, txn-detail-replayed":
+    "native only: a create retried after a lost answer that the server answers replayed (POST /api/mobile/transactions)",
   "activity-extras-error": "native only: the web hides a failed Needs a category read; GET /api/mobile/activity answers 503, shown with Try again",
 };
 

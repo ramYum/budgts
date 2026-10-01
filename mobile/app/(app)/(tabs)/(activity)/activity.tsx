@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ActivityView } from "../../../../components/activity/activity-view";
 import { transferToggleDraft } from "../../../../components/activity/transaction-form";
-import { AddTransactionSheet, EditTransactionSheet, TransactionDetailSheet } from "../../../../components/activity/transaction-sheets";
+import { ALREADY_SAVED, AddTransactionSheet, EditTransactionSheet, TransactionDetailSheet } from "../../../../components/activity/transaction-sheets";
 import { ScreenSkeleton } from "../../../../components/feedback/skeleton";
 import { LoadFailure } from "../../../../components/feedback/states";
 import { Screen } from "../../../../components/shell/screen";
@@ -17,10 +17,10 @@ import { newRequestId } from "../../../../lib/transactions/form";
 import type { MobileTransaction } from "../../../../lib/transactions/transactions-api";
 import { useLedger } from "../../../../lib/transactions/use-ledger";
 import { useActivityPanels } from "../../../../lib/transactions/use-activity-panels";
-import { revealAfterSave } from "../../../../lib/transactions/activity-view";
+import { useReplayReveal } from "../../../../lib/transactions/use-replay-reveal";
 import { useTransactionCommands } from "../../../../lib/transactions/use-transaction-commands";
 
-type Sheet = { kind: "view"; t: MobileTransaction } | { kind: "edit"; t: MobileTransaction } | { kind: "add" } | null;
+type Sheet = { kind: "view"; t: MobileTransaction; alreadySaved?: boolean } | { kind: "edit"; t: MobileTransaction } | { kind: "add" } | null;
 
 const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -52,8 +52,8 @@ export default function ActivityScreen() {
   const [sheet, setSheet] = useState<Sheet>(null);
   /** the pull-to-refresh spinner: only a pull shows it, never a save or a sync refreshing in the background */
   const [pulling, setPulling] = useState(false);
-  /** a create that may have been a replay: its row opens once the refreshed month has it (see `revealAfterSave`) */
-  const [reveal, setReveal] = useState<{ id: string; since: unknown } | null>(null);
+  /** a replayed create kept in another month: said on Activity until dismissed */
+  const [savedNotice, setSavedNotice] = useState<string | null>(null);
 
   const cats = categories.state.status === "ready" ? categories.state.data : null;
   const kinds = useMemo(() => new Map((cats ?? []).map((c) => [c.id, c.kind] as const)), [cats]);
@@ -62,13 +62,18 @@ export default function ActivityScreen() {
     ? { id: categoryId, name: categories.state.status === "loading" ? null : (cats?.find((c) => c.id === categoryId)?.name ?? "category") }
     : null;
 
-  useEffect(() => {
-    if (!reveal) return;
-    const next = revealAfterSave(ledger.state, reveal);
-    if (next === "wait") return;
-    setReveal(null);
-    if (next !== "drop") setSheet({ kind: "view", t: next.open });
-  }, [ledger.state, reveal]);
+  // A create the server answered replayed: open the row it kept, with what happened; in another month, say so here.
+  const reveal = useReplayReveal({
+    ledger: ledger.state,
+    notice: ledger.notice,
+    onOpen: (t) => setSheet({ kind: "view", t, alreadySaved: true }),
+    onAnotherMonth: () => setSavedNotice(ALREADY_SAVED),
+  });
+  /** any other sheet opening ends a pending reveal (it must never pop up later) */
+  const openSheet = (next: Sheet) => {
+    reveal.cancel();
+    setSheet(next);
+  };
 
   // The web's rule for a new entry's date: today in the current month, else the shown month's 15th.
   const defaultDate = month === thisMonth ? today : `${month}-15`;
@@ -85,6 +90,7 @@ export default function ActivityScreen() {
     sheet?.kind === "view" ? (
       <TransactionDetailSheet
         transaction={sheet.t}
+        alreadySaved={sheet.alreadySaved}
         currency={currency}
         onClose={() => setSheet(null)}
         onEdit={(t) => setSheet({ kind: "edit", t })}
@@ -99,7 +105,7 @@ export default function ActivityScreen() {
         commands={commands}
         onClose={(saved) => {
           setSheet(null);
-          if (saved?.retried && saved.id) setReveal({ id: saved.id, since: ledger.state.status === "ready" ? ledger.state.page : null });
+          if (saved?.replayed && saved.id) reveal.start(saved.id);
         }}
       />
     ) : null;
@@ -149,8 +155,10 @@ export default function ActivityScreen() {
         onRescan={commands.rescan}
         onCreateCategory={commands.createCategory}
         newRequestId={newRequestId}
-        onAdd={() => setSheet({ kind: "add" })}
-        onOpen={(t) => setSheet({ kind: "view", t })}
+        onAdd={() => openSheet({ kind: "add" })}
+        onOpen={(t) => openSheet({ kind: "view", t })}
+        savedNotice={savedNotice}
+        onDismissSavedNotice={() => setSavedNotice(null)}
       />
       {sheets}
     </Screen>

@@ -160,6 +160,9 @@ export type ActivityViewProps = {
   notice: string | null;
   /** the notice's Refresh: re-reads the month and the panels */
   onRefreshNotice: () => void;
+  /** a replayed create whose kept row is in another month: what happened, until dismissed */
+  savedNotice: string | null;
+  onDismissSavedNotice: () => void;
   onRetryRest: () => void;
   extras: LoadState<ActivityExtras>;
   onRetryExtras: () => void;
@@ -212,6 +215,15 @@ export function ActivityView(p: ActivityViewProps) {
           </Button>
         }
       />
+
+      {p.savedNotice ? (
+        // native only: a create retried after a lost answer, kept in a month other than the one shown
+        <View style={{ marginBottom: 24 }}>
+          <WarnLine testID="activity-saved-notice" action={{ label: "Dismiss", onPress: p.onDismissSavedNotice }}>
+            {p.savedNotice}
+          </WarnLine>
+        </View>
+      ) : null}
 
       {p.notice ? (
         <View style={{ marginBottom: 24 }}>

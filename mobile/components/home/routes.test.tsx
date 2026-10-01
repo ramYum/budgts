@@ -59,7 +59,7 @@ const base: MobileHome = {
 function tapEverything(home: MobileHome): Href[] {
   const go = vi.fn<(href: Href) => void>();
   const r = render(
-    <HomeView home={home} name="Alex" hour={9} go={go} onMonth={() => {}} onAddIncome={() => {}} onAddTransaction={() => {}} onRefresh={() => {}} notice="x" />,
+    <HomeView home={home} name="Alex" hour={9} go={go} onMonth={() => {}} onAddIncome={() => {}} onAddTransaction={() => {}} noticeShown />,
   );
   for (const n of r.root.findAll((x) => typeof x.type === "string" && typeof x.props.onPress === "function")) act(() => n.props.onPress());
   return go.mock.calls.map((c) => c[0]);

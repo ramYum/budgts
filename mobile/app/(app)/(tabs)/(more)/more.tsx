@@ -6,9 +6,9 @@ import { useHub } from "../../../../lib/status/use-hub";
 /** More: the web's /more hub (components/settings/more-view.tsx). */
 export default function MoreScreen() {
   const router = useRouter();
-  const hub = useHub();
+  const { hub, notice, refresh } = useHub();
   return (
-    <Screen>
+    <Screen name="more" notice={notice} onRetry={() => void refresh()}>
       <MoreView hub={hub} go={(path) => router.push(path as Href)} />
     </Screen>
   );

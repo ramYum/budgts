@@ -69,7 +69,7 @@ export function BankCard({ bank, actions, now }: { bank: ConnectedBank; actions:
           <IconTile name="bank" size={56} />
         </View>
         <View style={{ flex: 1, minWidth: 0, gap: 8 }}>
-          <Text testID={`${id}-name`} variant="listName" color={ROLE.ink} numberOfLines={1} style={{ fontSize: 16 }}>
+          <Text testID={`${id}-name`} variant="listNameLg" color={ROLE.ink} numberOfLines={1}>
             {name}
           </Text>
           <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 }}>

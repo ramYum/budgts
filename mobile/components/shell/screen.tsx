@@ -9,6 +9,7 @@ import { EASE_OUT, PAGE_ENTER } from "../../lib/motion/css";
 import { useMotionTiming } from "../../lib/motion/parity-clock";
 import { NEEDS_CATEGORY_LINK } from "../../lib/status/status-api";
 import { useStatus } from "../../lib/status/status-context";
+import { StaleNotice, type StaleNoticeProps } from "../feedback/refresh-notice";
 import { ScrollWatchProvider, useScrollWatchSource } from "../motion/scroll-context";
 import { AppHeader, HEADER_HEIGHT } from "./app-header";
 import { contentBottomPad } from "./bottom-tabs";
@@ -27,18 +28,26 @@ export const HEADER_BLUR = { intensity: 100, blurMethod: "dimezisBlurViewSdk31Pl
  * top, rising in on arrival (`page-enter`), ending where the web's column
  * does above the tab bar. Blocks inside can wait below the fold (<Reveal>).
  * Pull to refresh is the native addition that doesn't change the look.
+ *
+ * A screen that loads through `useResource` passes its `notice` (the pull
+ * contract: a reload that failed kept the figures on screen) with `onRetry`
+ * and its `name`: the shell draws the stale-data notice in this one place, at
+ * the top of the page under the banners (`<name>-refresh-notice`), so no
+ * screen can show stale figures as current (guarded by
+ * test/refresh-notice-guard.test.ts).
  */
 export function Screen({
   children,
   refreshing = false,
   onRefresh,
   testID = "screen-root",
+  ...stale
 }: {
   children: ReactNode;
   refreshing?: boolean;
   onRefresh?: () => void;
   testID?: string;
-}) {
+} & StaleNoticeProps) {
   const router = useRouter();
   const status = useStatus();
   const insets = useSafeAreaInsets();
@@ -114,6 +123,7 @@ export function Screen({
                     },
               ]}
             >
+              <StaleNotice {...stale} />
               {children}
             </Animated.View>
           </ScrollWatchProvider>
@@ -123,3 +133,4 @@ export function Screen({
     </View>
   );
 }
+

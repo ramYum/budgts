@@ -38,6 +38,26 @@ describe("POST /api/mobile/plaid/accounts/map", () => {
     expect(mapAccountsFor).not.toHaveBeenCalled();
   });
 
+  it("rejects invalid choices with the input code, never the refusal one (the app must not offer Refresh for it)", async () => {
+    const res = await POST(post({ plaidItemId: "not-a-uuid", entries: [] }));
+    expect(res.status).toBe(422);
+    expect((await res.json()).error).toBe("invalid");
+  });
+
+  it("a refusal over what the screen shows (already imported, paused, gone) is `refused`, with the web's sentence", async () => {
+    mapAccountsFor.mockResolvedValue({ ok: false, error: "invalid", message: "That account is already imported. Refresh to see where it goes." });
+    const res = await POST(post(valid));
+    expect(res.status).toBe(422);
+    expect(await res.json()).toEqual({ error: "refused", message: "That account is already imported. Refresh to see where it goes." });
+  });
+
+  it("a 404 carries the server's own sentence (which thing is gone)", async () => {
+    mapAccountsFor.mockResolvedValue({ ok: false, error: "not_found", message: "That bank account no longer exists. Try connecting again." });
+    const res = await POST(post(valid));
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ error: "not_found", message: "That bank account no longer exists. Try connecting again." });
+  });
+
   it("maps outcomes to stable codes and requires authentication", async () => {
     mapAccountsFor.mockResolvedValue({ ok: false, error: "not_found", message: "gone" });
     expect((await POST(post(valid))).status).toBe(404);

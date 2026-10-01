@@ -1,6 +1,7 @@
 import type { ReactTestInstance } from "react-test-renderer";
 import { describe, expect, it, vi } from "vitest";
-import { flat, hosts, render } from "../../test/render";
+import { Text } from "react-native";
+import { byTestId, flat, hosts, render, textContent } from "../../test/render";
 import { HEADER_BLUR, Screen } from "./screen";
 
 vi.mock("expo-router", () => ({ useRouter: () => ({ push: () => {}, navigate: () => {} }) }));
@@ -36,5 +37,33 @@ describe("Screen's sticky header (web bg-bg/90 backdrop-blur-xl)", () => {
     expect(first!.findAll((n) => n.props.testID === "app-header" && typeof n.type === "string")).toHaveLength(1);
     expect(flat(first!.props.style)).toMatchObject({ position: "absolute", zIndex: 1 });
     expect(second!.findAll((n) => (n.type as unknown) === "ScrollView")).toHaveLength(1);
+  });
+});
+
+describe("Screen's stale-data notice (the pull contract's `notice`, one place for every screen)", () => {
+  it("draws the notice at the top of the page, under the banners, with the screen's ids and a Refresh", () => {
+    const onRetry = vi.fn();
+    const r = render(
+      <Screen name="budgets" notice="Couldn't reach Budgts." onRetry={onRetry}>
+        <Text testID="page">page</Text>
+      </Screen>,
+    );
+    const notice = byTestId(r, "budgets-refresh-notice");
+    expect(textContent(notice)).toBe("These numbers may be out of date. Couldn't reach Budgts. Refresh.");
+    byTestId(r, "budgets-refresh-notice-retry").props.onPress();
+    expect(onRetry).toHaveBeenCalledOnce();
+    // in the page column, before the page itself
+    const content = byTestId(r, "screen-content");
+    const order = content.findAll((n) => typeof n.type === "string" && ["budgets-refresh-notice", "page"].includes(n.props.testID));
+    expect(order.map((n) => n.props.testID)).toEqual(["budgets-refresh-notice", "page"]);
+  });
+
+  it("draws nothing when the last reload landed", () => {
+    const r = render(
+      <Screen name="budgets" notice={null} onRetry={() => {}}>
+        <></>
+      </Screen>,
+    );
+    expect(r.root.findAll((n) => n.props.testID === "budgets-refresh-notice")).toHaveLength(0);
   });
 });

@@ -13,7 +13,7 @@ export type HomeSheet = "income" | "add";
  * Home's two add sheets (web `income-tile.tsx` `AddIncome` and `add-transaction.tsx`), the same sheets Activity opens:
  * Add income (money in, income categories, "Add") from the plus by Came in and the set-up step, Add transaction from
  * "Add one by hand". Mounted only while one is open, so Home's own load reads nothing extra; the sheet waits for its
- * accounts and categories and offers Try again if either fails. A save refreshes Home, Activity and Budgets (the commands
+ * accounts and categories and offers Try again if either fails, and says when a reload kept older lists. A save refreshes Home, Activity and Budgets (the commands
  * invalidate them).
  */
 export function HomeAddSheets({ sheet, defaultDate, onClose }: { sheet: HomeSheet; defaultDate: string; onClose: () => void }) {
@@ -33,6 +33,11 @@ export function HomeAddSheets({ sheet, defaultDate, onClose }: { sheet: HomeShee
     onRetry: () => {
       void accounts.reload();
       void categories.reload();
+    },
+    notice: accounts.notice ?? categories.notice,
+    onRefresh: () => {
+      void accounts.refresh();
+      void categories.refresh();
     },
   };
   return sheet === "income" ? (

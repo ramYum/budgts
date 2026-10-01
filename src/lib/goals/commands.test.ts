@@ -24,7 +24,7 @@ describe("createGoal", () => {
   it("stores the target in minor units for the given user", async () => {
     const { supabase, log } = db();
     const r = await createGoal(supabase, "user-a", { name: " Trip ", targetAmount: "1,234.50", targetDate: "2027-01-01" });
-    expect(r).toEqual({ ok: true, id: "new-id" });
+    expect(r).toEqual({ ok: true, id: "new-id", replayed: false });
     expect(arg(log[0]!.calls, "insert")).toEqual({
       user_id: "user-a",
       name: "Trip",
@@ -49,11 +49,12 @@ describe("createGoal", () => {
 
   it("uses the request id as the row id, and a replay returns the goal that landed", async () => {
     const first = db();
-    expect(await createGoal(first.supabase, "u", { name: "x", targetAmount: "5", targetDate: "" }, REQ)).toEqual({ ok: true, id: REQ });
+    expect(await createGoal(first.supabase, "u", { name: "x", targetAmount: "5", targetDate: "" }, REQ)).toEqual({ ok: true, id: REQ, replayed: false });
     expect((arg(first.log[0]!.calls, "insert") as { id: string }).id).toBe(REQ);
 
     const replay = db({ insertError: { message: "duplicate key", code: "23505" }, landed: true });
-    expect(await createGoal(replay.supabase, "u", { name: "x", targetAmount: "5", targetDate: "" }, REQ)).toEqual({ ok: true, id: REQ });
+    // replayed: this call's values were not applied (the app says so)
+    expect(await createGoal(replay.supabase, "u", { name: "x", targetAmount: "5", targetDate: "" }, REQ)).toEqual({ ok: true, id: REQ, replayed: true });
   });
 
   it("a key held by someone else (invisible under RLS) stays a failure", async () => {
@@ -93,7 +94,7 @@ describe("addContribution", () => {
 
   it("adds a positive amount, and a withdrawal is stored negative", async () => {
     const add = db();
-    expect(await addContribution(add.supabase, "user-a", input, 1)).toEqual({ ok: true, id: "new-id" });
+    expect(await addContribution(add.supabase, "user-a", input, 1)).toEqual({ ok: true, id: "new-id", replayed: false });
     expect(arg(add.log.at(-1)!.calls, "insert")).toEqual({
       user_id: "user-a",
       goal_id: GOAL,
@@ -114,7 +115,7 @@ describe("addContribution", () => {
 
   it("a retried contribution lands once", async () => {
     const { supabase } = db({ insertError: { message: "duplicate key", code: "23505" }, landed: true });
-    expect(await addContribution(supabase, "u", input, 1, REQ)).toEqual({ ok: true, id: REQ });
+    expect(await addContribution(supabase, "u", input, 1, REQ)).toEqual({ ok: true, id: REQ, replayed: true });
   });
 
   it("rejects a non-positive amount or a bad date without writing", async () => {

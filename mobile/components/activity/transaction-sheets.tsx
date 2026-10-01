@@ -4,6 +4,7 @@ import { COLOR, ROLE } from "../../lib/brand/shared";
 import { formatFullDate } from "../../lib/shared";
 import type { AccountsData } from "../../lib/accounts/accounts-api";
 import type { LoadState, MutationOutcome } from "../../lib/api/load";
+import { ALREADY_SAVED } from "../../lib/api/request-id";
 import type { MobileCategory } from "../../lib/categories/categories-api";
 import { rowAmount, rowTitle } from "../../lib/transactions/activity-view";
 import type { MobileTransaction } from "../../lib/transactions/transactions-api";
@@ -20,9 +21,6 @@ import { FieldError, TransactionForm, type Saved } from "./transaction-form";
 
 /** "Tuesday, September 29, 2026" (the web's own formatter). */
 export const fullDateLabel = (iso: string, locale?: string): string => formatFullDate(iso, locale);
-
-/** A create the server answered `replayed: true`: the first try had landed, the later values weren't applied. */
-export const ALREADY_SAVED = "This was already saved. Changes made after that weren't applied.";
 
 /** The web's `confirm("Delete this transaction?")`, as the platform's dialog. */
 export function confirmDelete(onYes: () => void) {
@@ -139,8 +137,18 @@ export function TransactionDetailSheet({
   );
 }
 
-/** The accounts and categories the form lists, or its loading / failed state inside the sheet. */
-export type TransactionFormData = { accounts: LoadState<AccountsData>; categories: LoadState<MobileCategory[]>; onRetry: () => void };
+/**
+ * The accounts and categories the form lists, or its loading / failed state inside the sheet. `onRetry` is the failed
+ * state's Try again (a fresh load). `notice` is the pull contract's: a reload of either list failed and kept the older
+ * one, so the sheet says its lists may be out of date; `onRefresh` re-reads them in place, the form and its edits kept.
+ */
+export type TransactionFormData = {
+  accounts: LoadState<AccountsData>;
+  categories: LoadState<MobileCategory[]>;
+  onRetry: () => void;
+  notice: string | null;
+  onRefresh: () => void;
+};
 
 function FormGate({ data, children }: { data: TransactionFormData; children: (accounts: AccountsData, categories: MobileCategory[]) => ReactNode }) {
   const { accounts, categories } = data;
@@ -164,7 +172,19 @@ function FormGate({ data, children }: { data: TransactionFormData; children: (ac
       </View>
     );
   }
-  return <>{children(accounts.data, categories.data)}</>;
+  return (
+    <>
+      {data.notice ? (
+        // native only: never older accounts or categories offered as current
+        <View style={{ marginBottom: 16 }}>
+          <WarnLine testID="txn-form-notice" action={{ label: "Retry", onPress: data.onRefresh }}>
+            {`These accounts and categories may be out of date. ${data.notice}`}
+          </WarnLine>
+        </View>
+      ) : null}
+      {children(accounts.data, categories.data)}
+    </>
+  );
 }
 
 /** "Add transaction" (web `add-transaction.tsx`): the form in a sheet, "Add" to save; `onClose` hears what was saved. */

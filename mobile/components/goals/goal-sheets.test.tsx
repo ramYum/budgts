@@ -111,6 +111,44 @@ describe("a retried save lands once (one request id per sheet)", () => {
   });
 });
 
+describe("a replayed create (its request id had already landed)", () => {
+  const ALREADY = "This was already saved. Changes made after that weren't applied.";
+
+  it.each([
+    ["New goal", () => <GoalFormSheet title="New goal" submitLabel="Create goal" onSubmit={async () => ({ replayed: true as const })} onClose={vi.fn()} />],
+    [
+      "Add to a goal",
+      () => <ContributionSheet title="Add to Fund" submitLabel="Add contribution" today="2026-09-30" onSubmit={async () => ({ replayed: true as const })} onClose={vi.fn()} />,
+    ],
+  ])("%s stays open and says it was already saved, the form locked, with Done", async (_name, sheet) => {
+    const r = render(sheet());
+    await act(async () => byTestId(r, "goal-form-submit").props.onPress());
+    expect(textContent(byTestId(r, "goal-form-replayed"))).toBe(ALREADY);
+    expect(has(r, "goal-form-submit")).toBe(false);
+    expect(has(r, "goal-form-error")).toBe(false);
+    for (const id of ["goal-amount", "goal-name"].filter((i) => has(r, i))) expect(byTestId(r, id).props.editable).toBe(false);
+    // Done closes; the screen behind already shows the kept row (the save invalidated it)
+    const done = byTestId(r, "goal-form-done");
+    expect(done.props.accessibilityLabel).toBe("Done");
+  });
+
+  it("Done closes the sheet", async () => {
+    const onClose = vi.fn();
+    const r = render(<GoalFormSheet title="New goal" submitLabel="Create goal" onSubmit={async () => ({ replayed: true as const })} onClose={onClose} />);
+    await act(async () => byTestId(r, "goal-form-submit").props.onPress());
+    await act(async () => byTestId(r, "goal-form-done").props.onPress());
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("a plain save closes at once, with no line", async () => {
+    const onClose = vi.fn();
+    const r = render(<GoalFormSheet title="New goal" submitLabel="Create goal" onSubmit={async () => null} onClose={onClose} />);
+    await act(async () => byTestId(r, "goal-form-submit").props.onPress());
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(has(r, "goal-form-replayed")).toBe(false);
+  });
+});
+
 describe("the request id the server accepts", () => {
   // The goals commands accept only a UUID request id (src/lib/goals/commands.ts `badRequestId`, the same RFC 4122 shape).
   const SERVER_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

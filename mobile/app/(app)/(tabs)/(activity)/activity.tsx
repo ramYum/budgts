@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ActivityView } from "../../../../components/activity/activity-view";
 import { transferToggleDraft } from "../../../../components/activity/transaction-form";
-import { ALREADY_SAVED, AddTransactionSheet, EditTransactionSheet, TransactionDetailSheet } from "../../../../components/activity/transaction-sheets";
+import { AddTransactionSheet, EditTransactionSheet, TransactionDetailSheet } from "../../../../components/activity/transaction-sheets";
 import { ScreenSkeleton } from "../../../../components/feedback/skeleton";
 import { LoadFailure } from "../../../../components/feedback/states";
 import { Screen } from "../../../../components/shell/screen";
@@ -11,9 +11,9 @@ import { authFetch } from "../../../../lib/auth/api";
 import { useAuth } from "../../../../lib/auth/auth-context";
 import { useVersion } from "../../../../lib/api/invalidate";
 import { loadResource } from "../../../../lib/api/load";
+import { ALREADY_SAVED } from "../../../../lib/api/request-id";
 import { useResource } from "../../../../lib/api/use-resource";
-import { useProfile, useUserDates } from "../../../../lib/profile/profile-context";
-import { newRequestId } from "../../../../lib/transactions/form";
+import { useProfile, useUserDates } from "../../../../lib/profile/profile-hooks";
 import type { MobileTransaction } from "../../../../lib/transactions/transactions-api";
 import { useLedger } from "../../../../lib/transactions/use-ledger";
 import { useActivityPanels } from "../../../../lib/transactions/use-activity-panels";
@@ -84,6 +84,11 @@ export default function ActivityScreen() {
       void accounts.reload();
       void categories.reload();
     },
+    notice: accounts.notice ?? categories.notice,
+    onRefresh: () => {
+      void accounts.refresh();
+      void categories.refresh();
+    },
   };
 
   const sheets =
@@ -117,50 +122,47 @@ export default function ActivityScreen() {
   };
 
   // The web's one loading shape while the month loads, and its error / offline screens when it can't.
-  if (ledger.state.status === "loading" || ledger.state.status === "error") {
-    return (
-      <Screen>
-        {ledger.state.status === "loading" ? (
-          <ScreenSkeleton />
-        ) : (
-          <LoadFailure kind={ledger.state.kind} onRetry={() => void ledger.reload()} onHome={() => router.navigate("/")} onSignOut={() => void signOut()} />
-        )}
-      </Screen>
-    );
-  }
-
+  const ready = ledger.state.status === "ready";
   return (
     <Screen
       refreshing={pulling}
-      onRefresh={refreshAll}
+      onRefresh={ready ? refreshAll : undefined}
+      name="activity"
+      // any read that failed to refresh (silently after a save or sync, or on a pull) says so, never stale figures as fresh
+      notice={ready ? (ledger.notice ?? extras.notice ?? categories.notice) : null}
+      onRetry={refreshAll}
     >
-      <ActivityView
-        month={month}
-        onMonth={(m) => router.setParams({ m })}
-        currency={currency}
-        category={category}
-        onClearCategory={() => router.setParams({ category: undefined })}
-        focus={params.focus ?? null}
-        onFocused={() => router.setParams({ focus: undefined })}
-        ledger={ledger.state}
-        // any read that failed to refresh (silently after a save or sync, or on a pull) says so, never stale figures as fresh
-        notice={ledger.notice ?? extras.notice ?? categories.notice}
-        onRefreshNotice={refreshAll}
-        onRetryRest={() => void ledger.retryRest()}
-        extras={extras.state}
-        onRetryExtras={() => void extras.reload()}
-        kinds={kinds}
-        categories={cats ?? []}
-        onCategorize={commands.categorize}
-        onRescan={commands.rescan}
-        onCreateCategory={commands.createCategory}
-        newRequestId={newRequestId}
-        onAdd={() => openSheet({ kind: "add" })}
-        onOpen={(t) => openSheet({ kind: "view", t })}
-        savedNotice={savedNotice}
-        onDismissSavedNotice={() => setSavedNotice(null)}
-      />
-      {sheets}
+      {ledger.state.status === "loading" ? (
+        <ScreenSkeleton />
+      ) : ledger.state.status === "error" ? (
+        <LoadFailure kind={ledger.state.kind} onRetry={() => void ledger.reload()} onHome={() => router.navigate("/")} onSignOut={() => void signOut()} />
+      ) : (
+        <>
+          <ActivityView
+            month={month}
+            onMonth={(m) => router.setParams({ m })}
+            currency={currency}
+            category={category}
+            onClearCategory={() => router.setParams({ category: undefined })}
+            focus={params.focus ?? null}
+            onFocused={() => router.setParams({ focus: undefined })}
+            ledger={ledger.state}
+            onRetryRest={() => void ledger.retryRest()}
+            extras={extras.state}
+            onRetryExtras={() => void extras.reload()}
+            kinds={kinds}
+            categories={cats ?? []}
+            onCategorize={commands.categorize}
+            onRescan={commands.rescan}
+            onCreateCategory={commands.createCategory}
+            onAdd={() => openSheet({ kind: "add" })}
+            onOpen={(t) => openSheet({ kind: "view", t })}
+            savedNotice={savedNotice}
+            onDismissSavedNotice={() => setSavedNotice(null)}
+          />
+          {sheets}
+        </>
+      )}
     </Screen>
   );
 }

@@ -1,4 +1,3 @@
-import { newRequestId } from "../../../../../lib/transactions/form";
 import { useRouter, type Href } from "expo-router";
 import { ScreenSkeleton } from "../../../../../components/feedback/skeleton";
 import { LoadFailure } from "../../../../../components/feedback/states";
@@ -13,16 +12,15 @@ export default function CategoriesScreen() {
   const router = useRouter();
   const onBack = useBack("/settings");
   const { signOut } = useAuth();
-  const { state, refreshing, refresh, reload, writes } = useCategoriesScreen();
+  const { state, notice, refreshing, refresh, reload, writes } = useCategoriesScreen();
 
   const actions: CategoryActions = {
     ...writes,
-    newRequestId,
     openCategory: (id, month) => router.push(`/activity?m=${month}&category=${id}` as Href),
   };
 
   return (
-    <Screen refreshing={refreshing} onRefresh={() => void refresh()}>
+    <Screen refreshing={refreshing} onRefresh={() => void refresh()} name="categories" notice={notice} onRetry={() => void refresh()}>
       {state.status === "ready" ? (
         <CategoriesView data={state.data} actions={actions} onBack={onBack} />
       ) : state.status === "error" ? (

@@ -127,7 +127,7 @@ describe("AccountMapping refusals over stale data", () => {
   });
 
   it("a refused save reloads the accounts behind the sheet; a no-op repeat counts as saved", async () => {
-    api.authFetch.mockResolvedValue(json(422, { error: "invalid", fieldErrors: { form: "That account is already imported. Refresh to see where it goes." } }));
+    api.authFetch.mockResolvedValue(json(422, { error: "refused", message: "That account is already imported. Refresh to see where it goes." }));
     const before = getVersion("accounts");
     const r = render(<AccountMappingSheet plaidItemId="item-row" plaidAccounts={[account()]} choices={choices} onDone={() => {}} onClose={() => {}} />);
     await press(r, "account-mapping-save");
@@ -137,6 +137,15 @@ describe("AccountMapping refusals over stale data", () => {
     const again = render(<AccountMappingSheet plaidItemId="item-row" plaidAccounts={[account()]} choices={choices} onDone={onDone} onClose={() => {}} />);
     await press(again, "account-mapping-save");
     expect(onDone).toHaveBeenCalledTimes(1);
+  });
+
+  it("an input-validation refusal keeps the sheet and its choices as they are: no reload behind it", async () => {
+    api.authFetch.mockResolvedValue(json(422, { error: "invalid", fieldErrors: { form: "Choose which Budgts account to import into first." } }));
+    const before = getVersion("accounts");
+    const r = render(<AccountMappingSheet plaidItemId="item-row" plaidAccounts={[account()]} choices={choices} onDone={() => {}} onClose={() => {}} />);
+    await press(r, "account-mapping-save");
+    expect(getVersion("accounts")).toBe(before);
+    expect(byTestId(r, "account-mapping-save")).toBeTruthy();
   });
 });
 

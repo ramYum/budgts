@@ -123,7 +123,6 @@ export function NeedsCategory({
   onCategorize,
   onRescan,
   onCreateCategory,
-  newRequestId,
 }: {
   groups: NeedsCategoryGroup[];
   currency: string;
@@ -133,7 +132,6 @@ export function NeedsCategory({
   onRescan: () => Promise<MutationOutcome>;
   /** "+ New category…": creates the category (the Categories screen's command), then it is used for the group */
   onCreateCategory: (fields: CategoryFields, requestId: string | undefined) => Promise<CategoryWrite>;
-  newRequestId: () => string;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [done, setDone] = useState<Set<string>>(new Set());
@@ -294,7 +292,6 @@ export function NeedsCategory({
         <CategorySheet
           title={`New category for ${addingFor.label}`}
           submitLabel="Add & use"
-          newRequestId={newRequestId}
           save={onCreateCategory}
           onDone={(created) => {
             const group = addingFor;

@@ -44,7 +44,7 @@ export default function ConnectedBanksScreen() {
   const ports = useMemo(() => linkPorts(session), [session]);
 
   return (
-    <Screen refreshing={refreshing} onRefresh={() => void refresh()}>
+    <Screen refreshing={refreshing} onRefresh={() => void refresh()} name="connected-banks" notice={notice} onRetry={() => void refresh()}>
       {state.status === "loading" ? (
         <ScreenSkeleton />
       ) : state.status === "error" ? (
@@ -56,8 +56,6 @@ export default function ConnectedBanksScreen() {
           actions={{ commands, ports, link, choices: state.data.choices }}
           now={Date.now()}
           onBack={() => (router.canGoBack() ? router.back() : router.navigate("/more"))}
-          notice={notice}
-          onRetry={() => void refresh()}
         />
       )}
     </Screen>

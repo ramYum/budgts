@@ -9,8 +9,7 @@ import { loadProfile, saveCurrency, saveTimeZone, type ProfileState, type SaveCu
 import { ProfileContext } from "./profile-hooks";
 
 // The context and its hooks live in ./profile-hooks (React only), so a leaf component (the kit DateField) can read the
-// user's "today" without importing the provider's network and auth modules.
-export { useProfile, useUserDates } from "./profile-hooks";
+// user's "today" without importing the provider's network and auth modules. Import the hooks from there.
 
 const ZONE_MISSING: SaveCurrencyResult = {
   status: "error",

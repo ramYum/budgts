@@ -39,7 +39,7 @@ export default function HomeScreen() {
   const [sheet, setSheet] = useState<HomeSheet | null>(null);
 
   return (
-    <Screen refreshing={pulling} onRefresh={() => void pull()}>
+    <Screen refreshing={pulling} onRefresh={() => void pull()} name="home" notice={notice} onRetry={() => void pull()}>
       {state.status === "loading" ? (
         <ScreenSkeleton />
       ) : state.status === "error" ? (
@@ -53,8 +53,7 @@ export default function HomeScreen() {
           onMonth={setMonth}
           onAddIncome={() => setSheet("income")}
           onAddTransaction={() => setSheet("add")}
-          notice={notice}
-          onRefresh={() => void pull()}
+          noticeShown={notice !== null}
           awake={focused && appActive}
         />
       )}

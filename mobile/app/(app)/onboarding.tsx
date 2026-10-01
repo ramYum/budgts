@@ -8,7 +8,7 @@ import { useResource } from "../../lib/api/use-resource";
 import { authFetch } from "../../lib/auth/api";
 import { useAuth } from "../../lib/auth/auth-context";
 import { ROLE } from "../../lib/brand/shared";
-import { useProfile } from "../../lib/profile/profile-context";
+import { useProfile } from "../../lib/profile/profile-hooks";
 import { parseOnboardingCards } from "../../lib/tour/tour-api";
 
 /**

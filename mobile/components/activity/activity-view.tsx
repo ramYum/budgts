@@ -156,10 +156,6 @@ export type ActivityViewProps = {
   onClearCategory: () => void;
   /** the month once its first page is in (loading and a failed month are the screen's skeleton and failure states) */
   ledger: LedgerState;
-  /** a failed refresh (a pull, or a silent reload after a save or sync): the list stays, this says why it isn't fresh */
-  notice: string | null;
-  /** the notice's Refresh: re-reads the month and the panels */
-  onRefreshNotice: () => void;
   /** a replayed create whose kept row is in another month: what happened, until dismissed */
   savedNotice: string | null;
   onDismissSavedNotice: () => void;
@@ -178,7 +174,6 @@ export type ActivityViewProps = {
   onCategorize: (anchorId: string, choice: CategoryChoice) => Promise<MutationOutcome>;
   onRescan: () => Promise<MutationOutcome>;
   onCreateCategory: (fields: CategoryFields, requestId: string | undefined) => Promise<CategoryWrite>;
-  newRequestId: () => string;
 };
 
 /**
@@ -225,14 +220,6 @@ export function ActivityView(p: ActivityViewProps) {
         </View>
       ) : null}
 
-      {p.notice ? (
-        <View style={{ marginBottom: 24 }}>
-          <WarnLine testID="activity-notice" action={{ label: "Refresh", onPress: p.onRefreshNotice }}>
-            {p.notice}
-          </WarnLine>
-        </View>
-      ) : null}
-
       {extras ? <LimitedHistoryBanner messages={extras.limitedHistory} /> : null}
 
       {/* the band waits for the category's name (never a "Showing category" flash while the categories load) */}
@@ -249,7 +236,6 @@ export function ActivityView(p: ActivityViewProps) {
             onCategorize={p.onCategorize}
             onRescan={p.onRescan}
             onCreateCategory={p.onCreateCategory}
-            newRequestId={p.newRequestId}
           />
           </View>
         ) : null}

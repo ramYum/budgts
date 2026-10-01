@@ -3,11 +3,11 @@ import { Pressable, View } from "react-native";
 import { COLOR, ROLE } from "../../lib/brand/shared";
 import type { MobileAccount } from "../../lib/accounts/accounts-api";
 import type { MutationOutcome } from "../../lib/api/load";
+import { newRequestId } from "../../lib/api/request-id";
 import type { MobileCategory } from "../../lib/categories/categories-api";
 import {
   draftFromTransaction,
   emptyDraft,
-  newRequestId,
   validateDraft,
   type TransactionDraft,
 } from "../../lib/transactions/form";

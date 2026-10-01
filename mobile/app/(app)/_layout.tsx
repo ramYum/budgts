@@ -5,7 +5,8 @@ import { FirstRunFailure } from "../../components/tour/first-run-failure";
 import { useAuth } from "../../lib/auth/auth-context";
 import { ROLE } from "../../lib/brand/shared";
 import { firstRunHelpOpen, profileFailure, shellRoute } from "../../lib/profile/gate";
-import { ProfileProvider, useProfile } from "../../lib/profile/profile-context";
+import { ProfileProvider } from "../../lib/profile/profile-context";
+import { useProfile } from "../../lib/profile/profile-hooks";
 import { StatusProvider } from "../../lib/status/status-context";
 
 /**

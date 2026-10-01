@@ -6,8 +6,9 @@ import type { LedgerState } from "./use-ledger";
 /**
  * After a create the server answered `replayed: true` (its request id had already landed, so the values sent this time
  * were not applied), the kept row is opened as soon as the refreshed month shows it, so the person sees what was saved.
- * Kept in another month: `onAnotherMonth` says so instead of dropping it silently. A refresh that fails (a new `notice`)
- * or another sheet opening (`cancel`) ends it, so it can never fire later out of the blue.
+ * Kept in another month, or the refresh that would show it failed (a new `notice`): `onAnotherMonth` says so (Activity's
+ * saved notice) instead of dropping the fact. Either way, and when another sheet opens (`cancel`), the reveal ends, so the
+ * row can never pop up later out of the blue.
  */
 export function useReplayReveal({
   ledger,
@@ -29,7 +30,9 @@ export function useReplayReveal({
   useEffect(() => {
     if (!pending) return;
     if (notice !== null && notice !== pending.notice) {
-      setPending(null); // the refresh failed: the moment has passed
+      // the refresh failed: the moment to open the row has passed, but "already saved" still has to be said
+      setPending(null);
+      callbacks.current.onAnotherMonth();
       return;
     }
     const next = revealAfterSave(ledger, pending);

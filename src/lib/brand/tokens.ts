@@ -133,6 +133,8 @@ export const TYPE = {
   body: { face: "geist", weight: 400, size: 15, lineHeight: 24, tracking: { px: 0 } },
   bodyStrong: { face: "geist", weight: 600, size: 15, lineHeight: 24, tracking: { px: 0 } },
   listName: { face: "geist", weight: 500, size: 15, lineHeight: 24, tracking: { px: 0 } },
+  /** a larger list name (web `text-base font-medium`): a bank card's name */
+  listNameLg: { face: "geist", weight: 500, size: 16, lineHeight: 24, tracking: { px: 0 } },
   /** small print (web text-xs): the "or" between sign-in methods */
   caption: { face: "geist", weight: 400, size: 12, lineHeight: 16, tracking: { px: 0 } },
   meta: { face: "geist", weight: 400, size: 13, lineHeight: 20, tracking: { px: 0 } },

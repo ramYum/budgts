@@ -5,7 +5,7 @@ import { byTestId, flat, render } from "../../test/render";
 import type { DeleteOutcome } from "../../lib/account/delete-account";
 import type { DeleteScreen } from "../../lib/account/delete-screen";
 
-const h = vi.hoisted(() => ({ fetches: [] as string[], focus: null as null | (() => void) }));
+const h = vi.hoisted(() => ({ fetches: [] as string[], focus: null as null | (() => void), hubDown: false }));
 vi.mock("expo-router", async () => {
   const { useEffect } = await import("react");
   return {
@@ -18,8 +18,10 @@ vi.mock("expo-router", async () => {
 });
 vi.mock("../../lib/auth/auth-context", () => ({ useAuth: () => ({ session: { access_token: "t", user: { id: "u" } } }) }));
 vi.mock("../../lib/auth/api", () => ({
+  NotAuthenticatedError: class extends Error {},
   authFetch: async (path: string, _s: unknown, init?: RequestInit) => {
     h.fetches.push(`${init?.method ?? "GET"} ${path}`);
+    if (path === "/api/mobile/hub" && h.hubDown) throw new TypeError("Network request failed");
     if (path === "/api/mobile/hub") return new Response(JSON.stringify({ goals: 1, accounts: 1, banks: 0, categories: 3, budgets: 0 }), { status: 200 });
     if (path === "/api/mobile/settings/categories") return new Response(JSON.stringify({ version: 1, month: "2026-09", categories: [] }), { status: 200 });
     return new Response(JSON.stringify({ id: "new", name: "Pets" }), { status: 201 });
@@ -160,6 +162,25 @@ describe("5: the hub counts are fresh on every visit", () => {
     act(() => h.focus!());
     await settle();
     expect(count("GET /api/mobile/hub")).toBe(2);
+  });
+
+  it("a revisit read that fails keeps the counts and hands on the notice (the hubs' <Screen notice>)", async () => {
+    let hub: ReturnType<typeof useHub> | null = null;
+    function Hub() {
+      hub = useHub();
+      return null;
+    }
+    render(<Hub />);
+    await settle();
+    expect(hub!.notice).toBeNull();
+    h.hubDown = true;
+    act(() => h.focus!());
+    await settle();
+    h.hubDown = false;
+    expect(hub!.hub?.categories).toBe(3);
+    expect(hub!.notice).toBe("Couldn't reach Budgts. Check your connection and try again.");
+    await act(async () => hub!.refresh());
+    expect(hub!.notice).toBeNull();
   });
 });
 

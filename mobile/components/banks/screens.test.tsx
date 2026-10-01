@@ -3,6 +3,7 @@ import { View } from "react-native";
 import { act } from "react-test-renderer";
 import { describe, expect, it, vi } from "vitest";
 import { render, texts } from "../../test/render";
+import type { StaleNoticeProps } from "../feedback/refresh-notice";
 
 /**
  * The Connected banks and Accounts routes with their data layer faked at authFetch: a change to the user's accounts
@@ -18,17 +19,22 @@ vi.mock("expo-router", () => ({
   useRouter: () => ({ navigate: () => {}, push: () => {}, back: () => {}, canGoBack: () => true }),
   useLocalSearchParams: () => ({}),
 }));
-vi.mock("../shell/screen", () => ({
-  Screen: ({ children, onRefresh, refreshing }: { children: ReactNode; onRefresh?: () => void; refreshing?: boolean }) => {
-    // every render's spinner state, so a spinner shown for a moment can't hide between assertions
-    api.spins.push(!!refreshing);
-    return (
-      <View testID="screen" {...({ onRefresh, refreshing } as object)}>
-        {children}
-      </View>
-    );
-  },
-}));
+// the shell's scroll view, reduced to its pull handler and spinner state; the stale-data notice is the shell's own
+vi.mock("../shell/screen", async () => {
+  const { StaleNotice } = await import("../feedback/refresh-notice");
+  return {
+    Screen: ({ children, onRefresh, refreshing, ...stale }: { children: ReactNode; onRefresh?: () => void; refreshing?: boolean } & StaleNoticeProps) => {
+      // every render's spinner state, so a spinner shown for a moment can't hide between assertions
+      api.spins.push(!!refreshing);
+      return (
+        <View testID="screen" {...({ onRefresh, refreshing } as object)}>
+          <StaleNotice {...stale} />
+          {children}
+        </View>
+      );
+    },
+  };
+});
 
 const { invalidate } = await import("../../lib/api/invalidate");
 const { default: ConnectedBanksScreen } = await import("../../app/(app)/(tabs)/(more)/connected-banks");
@@ -92,9 +98,9 @@ const serve = (routes: Record<string, unknown>, fail = false) => {
 };
 
 describe.each([
-  ["Connected banks", ConnectedBanksScreen, { "/api/mobile/plaid/banks": banks, "/api/mobile/accounts": accounts }, "bank-item-row"],
-  ["Accounts", AccountsScreen, { "/api/mobile/accounts/overview": overview, "/api/mobile/accounts": accounts }, "account-row-a1"],
-] as const)("%s reloads", (_name, ScreenUnderTest, routes, rowId) => {
+  ["Connected banks", ConnectedBanksScreen, { "/api/mobile/plaid/banks": banks, "/api/mobile/accounts": accounts }, "bank-item-row", "connected-banks"],
+  ["Accounts", AccountsScreen, { "/api/mobile/accounts/overview": overview, "/api/mobile/accounts": accounts }, "account-row-a1", "accounts"],
+] as const)("%s reloads", (_name, ScreenUnderTest, routes, rowId, screen) => {
   it("in place and silently on an accounts change, never with the pull spinner", async () => {
     serve(routes);
     const r = render(<ScreenUnderTest />);
@@ -119,9 +125,10 @@ describe.each([
     await act(async () => invalidate("accounts"));
     expect(hostsById(r, rowId)).toHaveLength(1);
     expect(texts(r).join(" ")).toContain("These numbers may be out of date.");
+    expect(hostsById(r, `${screen}-refresh-notice`)).toHaveLength(1);
 
     serve(routes);
-    await act(async () => hostsById(r, "home-refresh-notice-retry")[0]!.props.onPress());
+    await act(async () => hostsById(r, `${screen}-refresh-notice-retry`)[0]!.props.onPress());
     expect(texts(r).join(" ")).not.toContain("These numbers may be out of date.");
     expect(hostsById(r, rowId)).toHaveLength(1);
   });

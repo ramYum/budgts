@@ -112,6 +112,10 @@ describe("brand tokens (src/lib/brand/tokens.ts) match globals.css", () => {
     expect(colors.filter((k) => !known.has(k) && k !== "--background" && k !== "--foreground")).toEqual([]);
   });
 
+  it("listNameLg is the web's text-base font-medium (a bank card's name), a reading style set with utilities", () => {
+    expect(TYPE.listNameLg).toEqual({ face: "geist", weight: 500, size: 16, lineHeight: 24, tracking: { px: 0 } });
+  });
+
   it("every type role at phone width", () => {
     const rules = classDecls();
     for (const [name, cls] of Object.entries(ROLE_CLASS) as [TypeRoleName, string][]) {

@@ -14,8 +14,11 @@ export type ScrollWatch = {
   viewport: () => { height: number; y: number };
   /** called on every scroll and on the first layout; returns the unsubscribe */
   subscribe: (listener: () => void) => () => void;
-  /** scrolls so the content's `y` (measured against `contentRef`) is at the top of the view (a web `#anchor` link) */
-  scrollTo: (y: number, animated: boolean) => void;
+  /**
+   * scrolls so the content's `y` (measured against `contentRef`) is at the top of the view (a web `#anchor` link).
+   * Optional, so a hand-made watch (a test's) needn't provide it; `useScrollWatchSource` always does.
+   */
+  scrollTo?: (y: number, animated: boolean) => void;
 };
 
 const ScrollContext = createContext<ScrollWatch | null>(null);

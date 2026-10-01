@@ -6,7 +6,7 @@ import { cubicBezier, facingAt, hopArc, hopProgress, hopWing, peckOffset, placeA
 import { crystalCheers, crystalLines } from "../../lib/brand/shared";
 import { formatSavingsRate } from "../../lib/shared";
 import { CrystalPerch } from "./crystal-perch";
-import { BUBBLE_TEXT_MAX, bubbleText, tagWidth } from "./speech-bubble";
+import { BUBBLE_MAX, BUBBLE_TEXT_MAX, SpeechBubble, bubbleText, tagWidth } from "./speech-bubble";
 
 
 
@@ -141,5 +141,21 @@ describe("her bubble's line breaks (the web's text-balance, the same on both pla
       expect(parts.length, line).toBeLessThanOrEqual(3);
       for (const p of parts) expect(tagWidth(p), `${line}: ${p}`).toBeLessThanOrEqual(BUBBLE_TEXT_MAX);
     }
+  });
+});
+
+describe("her bubble's width (re-review: a wrapped bubble draws the web's full 136px)", () => {
+  const badge = (text: string) => {
+    const r = render(<SpeechBubble testID="say" text={text} side="right" atMs={0} forMs={1000} still />);
+    return flat(byTestId(r, "say-badge").props.style);
+  };
+
+  it("a line that wraps fills the bubble's 136px, as the web's box sized to the unwrapped line does", () => {
+    expect(badge("No income yet").width).toBe(BUBBLE_MAX);
+    expect(badge("Keep that streak going!").width).toBe(BUBBLE_MAX);
+  });
+
+  it("a line that fits shrink-wraps to its own width", () => {
+    expect(badge("Hi, Alex!").width).toBeUndefined();
   });
 });

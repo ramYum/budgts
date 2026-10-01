@@ -83,6 +83,7 @@ export function SpeechBubble({
   testID?: string;
 }) {
   const timing = useMotionTiming(atMs);
+  const lines = bubbleText(text);
   const place = side === "left" ? { right: BIRD.width + 8 } : { left: BIRD.width + 8 };
   return (
     <Animated.View
@@ -114,9 +115,14 @@ export function SpeechBubble({
       ]}
     >
       <View>
-        <PixelFrame frame="px-badge-ink" style={{ paddingHorizontal: 8, paddingVertical: 3 }}>
+        <PixelFrame
+          testID={testID ? `${testID}-badge` : undefined}
+          frame="px-badge-ink"
+          // the web sizes the box to the unwrapped line, so a line that wraps draws the bubble's full 136px
+          style={[{ paddingHorizontal: 8, paddingVertical: 3 }, lines.includes("\n") ? { width: BUBBLE_MAX } : null]}
+        >
           <Text variant="pxTagBold" color={COLOR.white} style={{ lineHeight: 12 }}>
-            {bubbleText(text)}
+            {lines}
           </Text>
         </PixelFrame>
         <Tail side={side} />

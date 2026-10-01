@@ -104,6 +104,12 @@ export default function ActivityScreen() {
       />
     ) : null;
 
+  /** The user's refresh (a pull, or the stale notice's Refresh): the month and both panels, the spinner until all settle. */
+  const refreshAll = () => {
+    setPulling(true);
+    void Promise.all([ledger.refresh(), extras.refresh(), categories.refresh()]).finally(() => setPulling(false));
+  };
+
   // The web's one loading shape while the month loads, and its error / offline screens when it can't.
   if (ledger.state.status === "loading" || ledger.state.status === "error") {
     return (
@@ -120,10 +126,7 @@ export default function ActivityScreen() {
   return (
     <Screen
       refreshing={pulling}
-      onRefresh={() => {
-        setPulling(true);
-        void Promise.all([ledger.refresh(), extras.refresh(), categories.refresh()]).finally(() => setPulling(false));
-      }}
+      onRefresh={refreshAll}
     >
       <ActivityView
         month={month}
@@ -134,7 +137,9 @@ export default function ActivityScreen() {
         focus={params.focus ?? null}
         onFocused={() => router.setParams({ focus: undefined })}
         ledger={ledger.state}
-        notice={ledger.notice ?? extras.notice}
+        // any read that failed to refresh (silently after a save or sync, or on a pull) says so, never stale figures as fresh
+        notice={ledger.notice ?? extras.notice ?? categories.notice}
+        onRefreshNotice={refreshAll}
         onRetryRest={() => void ledger.retryRest()}
         extras={extras.state}
         onRetryExtras={() => void extras.reload()}

@@ -10,6 +10,7 @@ import type { LedgerState } from "../../lib/transactions/use-ledger";
 import { byTestId, flat, render, textContent, texts } from "../../test/render";
 import { reducedMotion } from "../../test/native-hosts";
 import { ScrollWatchProvider, type ScrollWatch } from "../motion/scroll-context";
+import { HEADER_HEIGHT } from "../shell/app-header";
 import { ActivityView, FOCUS_GAP, type ActivityViewProps } from "./activity-view";
 import { choiceOf, formatNet, groupMeta, humanizePfc, pickerOptions } from "./needs-category";
 import { AHEAD, withinReach } from "./show-more";
@@ -76,6 +77,7 @@ function view(over: Partial<ActivityViewProps> = {}) {
     category: null,
     onClearCategory: vi.fn(),
     onFocused: vi.fn(),
+    onRefreshNotice: vi.fn(),
     ledger: ready([txn("a")]),
     notice: null,
     onRetryRest: vi.fn(),
@@ -312,7 +314,7 @@ describe("the header bell's focus=needs-category (web /transactions#needs-catego
     const onFocused = vi.fn();
     const { r, scrollTo, props } = mounted({ focus: "needs-category", onFocused, extras: extrasOf({ needsCategory: [group("m1")] }) });
     expect(scrollTo).toHaveBeenCalledTimes(1);
-    expect(scrollTo).toHaveBeenCalledWith(640 - FOCUS_GAP, true);
+    expect(scrollTo).toHaveBeenCalledWith(640 - HEADER_HEIGHT - FOCUS_GAP, true); // contentRef holds the header clearance (insets 0 in tests)
     expect(onFocused).toHaveBeenCalledTimes(1);
     // a later layout (a group expanding) never scrolls again
     act(() => r.root.findAll((n) => typeof n.props.onLayout === "function").forEach((n) => n.props.onLayout({ nativeEvent: { layout: {} } })));
@@ -339,7 +341,7 @@ describe("the header bell's focus=needs-category (web /transactions#needs-catego
     reducedMotion.value = true;
     try {
       const { scrollTo } = mounted({ focus: "needs-category", extras: extrasOf({ needsCategory: [group("m1")] }) });
-      expect(scrollTo).toHaveBeenCalledWith(640 - FOCUS_GAP, false);
+      expect(scrollTo).toHaveBeenCalledWith(640 - HEADER_HEIGHT - FOCUS_GAP, false);
     } finally {
       reducedMotion.value = false;
     }
@@ -361,10 +363,13 @@ describe("failures", () => {
     expect(props.onRetryRest).toHaveBeenCalled();
   });
 
-  it("a failed refresh keeps the list and says why", () => {
-    const { r } = view({ notice: "Couldn't reach Budgts." });
+  it("a failed refresh (a pull, or a silent reload after a save or sync) keeps the list, says why, and offers Refresh", () => {
+    const onRefreshNotice = vi.fn();
+    const { r } = view({ notice: "Couldn't reach Budgts.", onRefreshNotice });
     expect(textContent(byTestId(r, "activity-notice"))).toContain("Couldn't reach Budgts.");
     expect(rowTitles(r)).toEqual(["Shop a"]);
+    act(() => r.root.find((n) => typeof n.type === "string" && n.props.accessibilityLabel === "Refresh").props.onPress());
+    expect(onRefreshNotice).toHaveBeenCalled();
   });
 });
 

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, View } from "react-native";
 import { useReducedMotion } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { COLOR, ROLE } from "../../lib/brand/shared";
 import type { LoadState, MutationOutcome } from "../../lib/api/load";
 import type { CategoryFields, CategoryWrite } from "../../lib/categories/manage";
@@ -22,6 +23,7 @@ import { pressStyle } from "../kit/press";
 import { SegmentedControl } from "../kit/segmented-control";
 import { Reveal } from "../motion/reveal";
 import { useScrollWatch } from "../motion/scroll-context";
+import { HEADER_HEIGHT } from "../shell/app-header";
 import { LimitedHistoryBanner, WarnLine } from "./limited-history-banner";
 import { NeedsCategory } from "./needs-category";
 import { SearchField } from "./search-field";
@@ -93,7 +95,10 @@ function NoTransactions() {
   );
 }
 
-/** Where the web's `#needs-category` anchor lands: `scroll-mt-20` (80px) under the 56px header, so 24px below it. */
+/**
+ * Where the web's `#needs-category` anchor lands: `scroll-mt-20` (80px) under the 56px header, so 24px below it. The screen's
+ * content view holds the header clearance (insets.top + HEADER_HEIGHT), so a y measured against it includes that too.
+ */
 export const FOCUS_GAP = 24;
 
 /**
@@ -104,6 +109,7 @@ export const FOCUS_GAP = 24;
 function useNeedsCategoryFocus(p: ActivityViewProps) {
   const watch = useScrollWatch();
   const reduced = useReducedMotion();
+  const insets = useSafeAreaInsets();
   const ref = useRef<View>(null);
   const wanted = p.focus === "needs-category";
   const settled = p.extras.status !== "loading";
@@ -124,10 +130,10 @@ function useNeedsCategoryFocus(p: ActivityViewProps) {
     ref.current.measureLayout(content, (_x, y) => {
       if (done.current) return;
       done.current = true;
-      watch.scrollTo(y - FOCUS_GAP, !reduced);
+      watch.scrollTo?.(y - (insets.top + HEADER_HEIGHT) - FOCUS_GAP, !reduced);
       onFocused.current();
     });
-  }, [wanted, watch, reduced]);
+  }, [wanted, watch, reduced, insets.top]);
 
   useEffect(() => {
     if (!wanted || !settled) return;
@@ -150,8 +156,10 @@ export type ActivityViewProps = {
   onClearCategory: () => void;
   /** the month once its first page is in (loading and a failed month are the screen's skeleton and failure states) */
   ledger: LedgerState;
-  /** a failed pull to refresh: the list stays, this says why it isn't fresh */
+  /** a failed refresh (a pull, or a silent reload after a save or sync): the list stays, this says why it isn't fresh */
   notice: string | null;
+  /** the notice's Refresh: re-reads the month and the panels */
+  onRefreshNotice: () => void;
   onRetryRest: () => void;
   extras: LoadState<ActivityExtras>;
   onRetryExtras: () => void;
@@ -207,7 +215,9 @@ export function ActivityView(p: ActivityViewProps) {
 
       {p.notice ? (
         <View style={{ marginBottom: 24 }}>
-          <WarnLine testID="activity-notice">{p.notice}</WarnLine>
+          <WarnLine testID="activity-notice" action={{ label: "Refresh", onPress: p.onRefreshNotice }}>
+            {p.notice}
+          </WarnLine>
         </View>
       ) : null}
 

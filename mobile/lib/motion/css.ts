@@ -10,6 +10,13 @@ import { MOTION } from "../brand/shared";
  */
 export const EASE_OUT = cubicBezier(MOTION.easeOut[0], MOTION.easeOut[1], MOTION.easeOut[2], MOTION.easeOut[3]);
 
+/**
+ * A transform origin `x` px across and `y` (px or a percentage) down a view, as numbers React Native takes as they are.
+ * Never write it as a "…px" string: React Native reads a string origin with /\d+px/, so a float such as
+ * "54.00000000000001px" reads as 1px (Crystal turned about her left edge, off her shadow, not on her feet).
+ */
+export const pxOrigin = (x: number, y: number | `${number}%`): [number, number | string, number] => [x, y, 0];
+
 /** `@keyframes page-enter`: a new screen arrived. */
 export const PAGE_ENTER = { from: { opacity: 0, transform: [{ translateY: 6 }] }, to: { opacity: 1, transform: [{ translateY: 0 }] } };
 

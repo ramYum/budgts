@@ -5,6 +5,7 @@ import Svg, { Path } from "react-native-svg";
 import { COLOR, ROBIN_FEET_X, ROLE, TYPE } from "../../lib/brand/shared";
 import { robinSize } from "../../lib/brand/robin-paths";
 import { textStyle } from "../../lib/brand/type";
+import { pxOrigin } from "../../lib/motion/css";
 import { useKeyframes, type AnimationOptions, type Keyframes } from "../motion/keyframes";
 import { Robin } from "./robin";
 import {
@@ -95,7 +96,7 @@ export function BrandStage() {
         <Anim testID="stage-wander" kf={STAGE_WANDER} o={beat(STEPS2)}>
           <Anim kf={STAGE_HOP} o={beat(STEPS2)} style={{ flexDirection: "row" }}>
             {/* she pivots on her feet, where her shadow is centred, so it stays under her facing left */}
-            <Anim testID="stage-turn" kf={STAGE_TURN} o={beat(STEP1)} style={{ flexDirection: "row", transformOrigin: `${FEET}px 50%` }}>
+            <Anim testID="stage-turn" kf={STAGE_TURN} o={beat(STEP1)} style={{ flexDirection: "row", transformOrigin: pxOrigin(FEET, "50%") }}>
               <Robin mood="happy" scale={SCALE} />
             </Anim>
           </Anim>

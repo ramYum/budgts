@@ -42,7 +42,7 @@ export function Screen({
   const status = useStatus();
   const insets = useSafeAreaInsets();
   const reduced = useReducedMotion();
-  const { watch, onScrollY, onViewportHeight } = useScrollWatchSource();
+  const { watch, scrollRef, onScrollY, onViewportHeight } = useScrollWatchSource();
   const headerBottom = insets.top + HEADER_HEIGHT;
   const enterTiming = useMotionTiming(0);
   // Android blurs a marked view (BlurTargetView) behind the header; iOS blurs whatever is behind it.
@@ -52,6 +52,7 @@ export function Screen({
     <View style={{ flex: 1, backgroundColor: ROLE.bg }}>
       <BlurTargetView ref={blurTarget} style={{ flex: 1 }}>
       <ScrollView
+        ref={scrollRef}
         testID={testID}
         style={{ flex: 1, backgroundColor: ROLE.bg }}
         contentContainerStyle={{ paddingTop: headerBottom, paddingBottom: contentBottomPad(insets.bottom) }}

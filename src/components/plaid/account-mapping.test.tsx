@@ -54,7 +54,7 @@ describe("AccountMapping", () => {
 
   it("submits the chosen mapping: one new account, one pointed at an existing one", async () => {
     mapAccounts.mockResolvedValue({ ok: true });
-    const user = userEvent.setup();
+    const user = userEvent.setup({ delay: null });
 
     render(
       <AccountMapping

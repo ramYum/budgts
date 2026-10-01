@@ -51,7 +51,9 @@ test("editing a transaction on a disconnected bank's account keeps its account",
         account_id: oldBank!.id,
         amount: 4321,
         direction: "debit",
-        occurred_at: new Date().toISOString(),
+        // A calendar date at UTC midnight, the app's convention: an instant can fall in another month than the
+        // browser's own date for a few hours around month-end.
+        occurred_at: `${new Date().toLocaleDateString("en-CA")}T00:00:00.000Z`,
         description: "Kept history coffee",
         source: "manual",
         status: "confirmed",
@@ -143,7 +145,7 @@ test("a bank-imported transaction keeps its account: read-only on the web, refus
         category_id: category!.id,
         amount: 1250,
         direction: "debit",
-        occurred_at: now,
+        occurred_at: `${new Date().toLocaleDateString("en-CA")}T00:00:00.000Z`, // calendar date at UTC midnight (see above)
         description: "Imported bank coffee",
         source: "bank",
         source_ref: `e2e-txn-${user.id}`,

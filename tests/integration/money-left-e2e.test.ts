@@ -97,6 +97,8 @@ describe("Money Left — a user's transfer decision survives a subsequent machin
     const sourceRef = `itest-moneyleft-transfer-${Date.now()}`;
     const incomeId = await insertBankTxn(userId, accountId, {
       sourceRef: `itest-moneyleft-income-${Date.now()}`,
+      // Inside the month the rollup below reads, whatever today's date is.
+      occurredAt: "2026-09-10T12:00:00.000Z",
       isTransfer: false,
       amount: 1000_00,
       direction: "credit",

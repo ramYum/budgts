@@ -90,6 +90,56 @@ describe("AccountMapping", () => {
     ]);
   });
 
+  it("pre-fills each row from Plaid's type: a CD as Savings, an HSA, a loan and an investment left out", async () => {
+    mapAccounts.mockResolvedValue({ ok: true });
+    const user = userEvent.setup({ delay: null });
+    const acct = (id: string, name: string, type: string, subtype: string): MappableAccount => ({
+      plaidAccountId: id,
+      name,
+      officialName: null,
+      mask: null,
+      type,
+      subtype,
+      currentBalance: 0,
+      isoCurrencyCode: "USD",
+    });
+
+    render(
+      <AccountMapping
+        plaidItemId="99999999-9999-9999-9999-999999999999"
+        plaidAccounts={[
+          acct("cd", "CD", "depository", "cd"),
+          acct("mm", "Money market", "depository", "money market"),
+          acct("hsa", "HSA", "depository", "hsa"),
+          acct("loan", "Mortgage", "loan", "mortgage"),
+          acct("inv", "401k", "investment", "401k"),
+        ]}
+        budgtsAccounts={budgtsAccounts}
+        onDone={vi.fn()}
+      />,
+    );
+
+    const modes = screen.getAllByRole("combobox", { name: "Import as" });
+    expect(modes.map((m) => (m as HTMLSelectElement).value)).toEqual(["new", "new", "ignore", "ignore", "ignore"]);
+    expect(screen.getAllByRole("combobox", { name: "New account type" }).map((m) => (m as HTMLSelectElement).value)).toEqual([
+      "savings",
+      "savings",
+    ]);
+
+    // The user still decides: import the HSA after all, as a new account starting from Checking.
+    await user.selectOptions(modes[2], "new");
+    await user.click(screen.getByRole("button", { name: "Import transactions" }));
+
+    const entries = JSON.parse(String((mapAccounts.mock.calls[0][1] as FormData).get("entries")));
+    expect(entries).toEqual([
+      { plaidAccountId: "cd", mode: "new", name: "CD", type: "savings" },
+      { plaidAccountId: "mm", mode: "new", name: "Money market", type: "savings" },
+      { plaidAccountId: "hsa", mode: "new", name: "HSA", type: "checking" },
+      { plaidAccountId: "loan", mode: "ignore" },
+      { plaidAccountId: "inv", mode: "ignore" },
+    ]);
+  });
+
   it("surfaces a partial-success warning instead of closing", async () => {
     mapAccounts.mockResolvedValue({ ok: true, warning: "Accounts saved. The first sync didn't finish." });
     const onDone = vi.fn();

@@ -111,7 +111,7 @@ export function claimMissMessage(miss: ClaimMiss): string {
 /** Real deps over a Drizzle db + Plaid client (wired by src/server/plaid/service.ts). */
 export function plaidSyncRunnerDeps(deps: {
   db: PlaidDb;
-  client: Pick<PlaidApi, "transactionsSync">;
+  client: Pick<PlaidApi, "transactionsSync" | "accountsGet">;
   tokenEncKey: Buffer;
 }): SyncRunnerDeps {
   const { db, client, tokenEncKey } = deps;

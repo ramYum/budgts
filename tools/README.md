@@ -82,3 +82,18 @@ run against anything but the production Supabase project.
 npx tsx tools/sign-convention-remediation-dryrun.ts
 ```
 
+
+## plaid-resync-item.mjs
+
+Recover a Plaid Item whose transactions cursor was stored past rows that never
+landed (a sync that ran before its accounts were mapped). **Staging only**: it
+refuses any target but `uvowywszaiojboaxdmoz`.
+
+```
+node tools/plaid-resync-item.mjs --item <plaid item_id>           # dry run
+node tools/plaid-resync-item.mjs --item <plaid item_id> --apply   # clear cursor + flag
+```
+
+The next sync re-pulls the Item's history; landing is idempotent on the Plaid
+transaction id, so only missing rows are inserted (user categories kept).
+Production is an owner-approved remediation, not this script.

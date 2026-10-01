@@ -20,6 +20,7 @@ const A = `itest-item-A-${Date.now()}`;
 const B = `itest-item-B-${Date.now()}`;
 const C = `itest-item-C-${Date.now()}`; // lease tests
 const D = `itest-item-D-${Date.now()}`; // has an unmapped account
+const E = `itest-item-E-${Date.now()}`; // no accounts recorded yet (the exchange's two-write window)
 
 beforeAll(async () => {
   userId = await seedUser();
@@ -29,10 +30,15 @@ beforeAll(async () => {
       (${userId}, ${A}, 'enc-A', 'active', false, now() - interval '2 days'),
       (${userId}, ${B}, 'enc-B', 'active', true,  now()),
       (${userId}, ${C}, 'enc-C', 'active', true,  now()),
-      (${userId}, ${D}, 'enc-D', 'active', true,  null)`;
+      (${userId}, ${D}, 'enc-D', 'active', true,  null),
+      (${userId}, ${E}, 'enc-E', 'active', true,  null)`;
   await client`
     insert into public.plaid_accounts (user_id, plaid_item_id, plaid_account_id, link_state)
     select ${userId}, id, ${D + "-acct"}, 'unmapped' from public.plaid_items where item_id = ${D}`;
+  // A, B and C are set up: one account the user chose not to import is enough to be claimable.
+  await client`
+    insert into public.plaid_accounts (user_id, plaid_item_id, plaid_account_id, link_state)
+    select ${userId}, id, item_id || '-acct', 'ignored' from public.plaid_items where item_id in (${A}, ${B}, ${C})`;
 });
 afterAll(async () => {
   await cleanupUser(userId);
@@ -169,6 +175,13 @@ describe("plaid item-store (staging Postgres)", () => {
     expect(await claimMissReason(db, D)).toEqual({ kind: "unmapped" });
     expect(await findSyncCandidates(db, new Date())).not.toContain(D);
     expect(await claimMissReason(db, "does-not-exist")).toEqual({ kind: "gone" });
+  });
+
+  it("an Item with no accounts recorded is never claimable (every row would be skipped past)", async () => {
+    expect(await claimItemForSync(db, E, { kind: "due" })).toBeNull();
+    expect(await claimItemForSync(db, E, { kind: "requested" })).toBeNull();
+    expect(await claimMissReason(db, E)).toEqual({ kind: "unmapped" });
+    expect(await findSyncCandidates(db, new Date())).not.toContain(E);
   });
 
   it("markItemNeedsSync sets the flag + last_webhook_at", async () => {

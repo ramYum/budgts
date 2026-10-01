@@ -33,7 +33,13 @@ export type MobileBudgetsMonth = {
   month: string;
   currency: string;
   budgeted: number;
+  /** All of the month's spending. */
   spent: number;
+  /** Spending in the categories that have a budget: the hero's "spent of budgeted". */
+  budgetedSpent: number;
+  /** `spent − budgetedSpent`: the hero's "spent outside your budgets" line, shown when above zero. */
+  spentOutsideBudgets: number;
+  /** `budgeted − budgetedSpent`; negative when over ("Over by"). */
   leftToSpend: number;
   /** The hero bar's share of the budget spent, a percentage (uncapped), and its tone. */
   spentPct: number;
@@ -87,6 +93,8 @@ export function parseBudgets(body: unknown): MobileBudgets {
     currency,
     budgeted: int(b.budgeted, "budgeted"),
     spent: int(b.spent, "spent"),
+    budgetedSpent: int(b.budgetedSpent, "budgetedSpent"),
+    spentOutsideBudgets: int(b.spentOutsideBudgets, "spentOutsideBudgets"),
     leftToSpend: int(b.leftToSpend, "leftToSpend"),
     spentPct: num(b.spentPct, "spentPct"),
     tone: oneOf(b.tone, "tone", ["under", "near", "over"] as const),

@@ -417,7 +417,7 @@ no new index.
    an expense category nets against that category's spend, as its budget
    card counts it (CLAUDE.md: a refund is a credit in an expense category;
    user categorization survives), so the Budgets hero's spent figures add
-   up. Money Left is unchanged; Income and Spending both drop by the amount.
+   up. Money Left is unchanged; Income and Spending both drop by the amount (both rise, for a debit).
 3. A hypothetical `P2P_PAYMENT`-incoming credit (role-resolved `INCOME`)
    with no category counts as income, not spend — the fix's actual
    proof; today's code would misclassify this.

@@ -100,7 +100,15 @@ The frame generator's palette mirrors these tokens;
   sound; the marks rest hidden while animated), `curious` ("?", used for
   errors and a negative month), `sleepy` (eyes shut, "z", used for empty lists
   and offline).
-- **App icons:** generated from the same art by `node tools/generate-app-icons.mjs`.
+- **App icon (approved 2026-10-01):** Crystal in front of a setting sun in a
+  pixel forest. The approved render, `src/lib/brand/app-icon.png` (51×51 cells
+  at 20 px), is the source: never redraw it. `node tools/generate-app-icons.mjs`
+  derives every icon from it by whole-number scaling: the PWA and browser
+  icons, the iOS / App Store icon, Android's adaptive layers (Crystal in front,
+  her scene continued behind by `tools/brand-art.mjs`) and the Google Play
+  listing icon (`mobile/store/google-play/icon-512.png`, uploaded by hand).
+  `tests/unit/app-icons.test.ts` checks every file against it pixel for pixel.
+  The Facebook cover is drawn by the same scene code.
 
 ## Components
 

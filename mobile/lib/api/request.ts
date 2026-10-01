@@ -16,6 +16,8 @@ export type ApiFailure = {
   status?: number;
   /** The server's stable machine code (`{ error }`), when it sent one. */
   code?: string;
+  /** The server's own fixed sentence for a refusal (`{ message }`: a Plaid command's 404 or `refused`), when it sent one. */
+  message?: string;
   fieldErrors?: Record<string, string>;
 };
 
@@ -35,8 +37,9 @@ export async function apiRequest<T>(fetcher: () => Promise<Response>, parse: (bo
     const body = await response.json().catch(() => null);
     const failure: ApiFailure = { ok: false, kind: response.status >= 500 ? "unavailable" : "rejected", status: response.status };
     if (body && typeof body === "object") {
-      const { error, fieldErrors } = body as { error?: unknown; fieldErrors?: unknown };
+      const { error, fieldErrors, message } = body as { error?: unknown; fieldErrors?: unknown; message?: unknown };
       if (typeof error === "string") failure.code = error;
+      if (typeof message === "string" && message) failure.message = message;
       if (fieldErrors && typeof fieldErrors === "object") failure.fieldErrors = fieldErrors as Record<string, string>;
     }
     return failure;

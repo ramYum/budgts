@@ -10,17 +10,23 @@ import type { MapEntry } from "./mapping";
  * The Connected banks commands, over the server's own Plaid commands (`/api/mobile/plaid/*`, `/api/plaid/*`): the
  * native side of the web's Plaid Server Actions (`src/server/plaid/actions.ts`). Nothing here decides anything about
  * money or sync; each call reports one of two outcomes a sheet or a row can show. A server `warning` is the web's own
- * text (the work succeeded, a sync did not finish); failures are fixed sentences, never server or network text.
+ * text (the work succeeded, a sync did not finish); failures are fixed sentences: the command's own (the server's fixed
+ * `message` for a 404 or a refusal, the web's form error) or this file's, never storage or network text.
  */
 export type CommandOutcome =
   | { status: "ok"; warning?: string }
-  /** `stale`: the server refused because what the screen shows is out of date (gone, already set up, no longer offered) */
+  /**
+   * `stale`: the server refused because what the screen shows is out of date (gone: 404; a conflict: 409; the mapping's
+   * `refused`: already imported, paused, no longer offered), so the screen offers Refresh. Never for input validation (a
+   * 422 `invalid`): Refresh closes the sheet and would drop the user's edits.
+   */
   | { status: "error"; message: string; stale?: true };
 
 const NETWORK = "Couldn't reach Budgts. Check your connection and try again.";
 const SESSION = "Your session has expired. Please sign in again.";
 
-type Messages = { failed: string; missing: string; conflict?: string };
+/** `missing`: the 404 sentence when the server sends none of its own (`message`); `conflict`: the 409 sentence. */
+type Messages = { failed: string; missing?: string; conflict?: string };
 
 function parseWarning(body: unknown): string | undefined {
   const w = body && typeof body === "object" ? (body as { warning?: unknown }).warning : undefined;
@@ -33,11 +39,13 @@ export async function runCommand(fetcher: () => Promise<Response>, m: Messages):
   if (r.kind === "auth") return { status: "error", message: SESSION };
   if (r.kind === "network") return { status: "error", message: NETWORK };
   if (r.status === 423) return { status: "error", message: LOCKED_MESSAGE };
-  if (r.status === 404) return { status: "error", message: m.missing, stale: true };
-  if (r.status === 409 && m.conflict) return { status: "error", message: m.conflict, stale: true };
-  // an `invalid` reply carries the web's own sentence (mapAccounts: "Choose which Budgts account…"; a form's first field error)
+  // the server's refusals over what the screen shows: say its sentence and offer Refresh
+  if (r.status === 404) return { status: "error", message: r.message ?? m.missing ?? m.failed, stale: true };
+  if (r.status === 409) return { status: "error", message: m.conflict ?? r.message ?? m.failed, stale: true };
+  if (r.code === "refused" && r.message) return { status: "error", message: r.message, stale: true };
+  // input validation carries the web's own sentence (a form's first field error); the sheet stays as it is
   const invalid = r.code === "invalid" ? (r.fieldErrors?.form ?? Object.values(r.fieldErrors ?? {})[0]) : undefined;
-  if (invalid) return { status: "error", message: invalid, stale: true };
+  if (invalid) return { status: "error", message: invalid };
   return { status: "error", message: m.failed };
 }
 
@@ -52,8 +60,8 @@ export function bankCommands(session: Session | null) {
     /** "Import transactions" (web `mapAccounts`): saves the choices and runs the first sync. */
     mapAccounts: (plaidItemId: string, entries: MapEntry[]) =>
       runCommand(send("/api/mobile/plaid/accounts/map", "POST", { plaidItemId, entries }), {
+        // a 404 says the server's own sentence: the bank connection or the one account that is gone
         failed: "Could not save the account mapping. Try again.",
-        missing: "That bank connection no longer exists. Try connecting again.",
       }),
     /** The import switch (web `setAccountImportingAction`): pause or resume one mapped account. */
     setImporting: (rowId: string, importing: boolean) =>

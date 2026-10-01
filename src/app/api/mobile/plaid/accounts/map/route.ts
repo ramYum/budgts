@@ -1,7 +1,9 @@
 /**
  * POST /api/mobile/plaid/accounts/map — `{ plaidItemId, entries }`: per newly linked Plaid account, create a new Budgts
  * account, point at an existing one, or don't import it, then run the first sync. Adapter over `mapAccountsFor`, shared
- * with the web `mapAccounts` Server Action.
+ * with the web `mapAccounts` Server Action. A malformed body is 422 `invalid` (the form's own error); the command
+ * refusing what the screen showed (already imported, paused, gone) is 422 `refused`, and a missing bank or account 404
+ * with the command's sentence, so the app offers Refresh only for those.
  */
 import { mobilePlaidReply } from "@/lib/mobile/plaid-reply";
 import { mobileError, mobileRoute, readJson } from "@/lib/mobile/route";
@@ -18,5 +20,5 @@ export const POST = mobileRoute(async ({ user, supabase }, request) => {
       fieldErrors: { form: parsed.error.issues[0]?.message ?? "Check the account choices and try again." },
     });
   }
-  return mobilePlaidReply(await mapAccountsFor(supabase, user.id, parsed.data.plaidItemId, parsed.data.entries));
+  return mobilePlaidReply(await mapAccountsFor(supabase, user.id, parsed.data.plaidItemId, parsed.data.entries), { refusal: "refused" });
 });

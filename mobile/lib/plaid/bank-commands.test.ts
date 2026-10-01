@@ -38,20 +38,33 @@ describe("bankCommands", () => {
     expect(await c.sync("i")).toEqual({ status: "ok" });
   });
 
-  it("marks a refusal over out-of-date data as stale (the server's already-imported refusal included), and nothing else", async () => {
-    api.authFetch.mockResolvedValue(json(422, { error: "invalid", fieldErrors: { form: "That account is already imported. Refresh to see where it goes." } }));
+  it("marks only the server's refusals over out-of-date data as stale: 404s, 409s and the mapping's `refused`", async () => {
+    api.authFetch.mockResolvedValue(json(422, { error: "refused", message: "That account is already imported. Refresh to see where it goes." }));
     expect(await c.mapAccounts("i", [])).toEqual({ status: "error", message: "That account is already imported. Refresh to see where it goes.", stale: true });
+    // the server's own 404 sentence: which thing is gone, never a generic "connection" line
+    api.authFetch.mockResolvedValue(json(404, { error: "not_found", message: "That bank account no longer exists. Try connecting again." }));
+    expect(await c.mapAccounts("i", [])).toEqual({ status: "error", message: "That bank account no longer exists. Try connecting again.", stale: true });
+    api.authFetch.mockResolvedValue(json(409, { error: "needs_review_required" }));
+    expect(await c.setExcluded("r", true)).toMatchObject({ stale: true });
     api.authFetch.mockResolvedValue(json(503, { error: "unavailable" }));
     expect(await c.mapAccounts("i", [])).toEqual({ status: "error", message: "Could not save the account mapping. Try again." });
   });
 
-  it("turns every failure into a fixed sentence, the web's own where the server sends one", async () => {
+  it("an input-validation 422 shows its sentence but is never stale (Refresh would close the sheet and drop the edits)", async () => {
     api.authFetch.mockResolvedValue(json(422, { error: "invalid", fieldErrors: { form: "Choose which Budgts account to import into first." } }));
-    expect(await c.setImporting("r", true)).toEqual({ status: "error", message: "Choose which Budgts account to import into first.", stale: true });
+    expect(await c.mapAccounts("i", [])).toEqual({ status: "error", message: "Choose which Budgts account to import into first." });
+    api.authFetch.mockResolvedValue(json(422, { error: "invalid", fieldErrors: { form: "Choose which Budgts account to import into first." } }));
+    expect(await c.setImporting("r", true)).toEqual({ status: "error", message: "Choose which Budgts account to import into first." });
+  });
+
+  it("turns every failure into a fixed sentence, the web's own where the server sends one", async () => {
     api.authFetch.mockResolvedValue(json(409, { error: "needs_review_required" }));
     expect(await c.setExcluded("r", true)).toEqual({ status: "error", message: "Only an account currently flagged for review can be excluded from totals.", stale: true });
+    // a 404 without a sentence (the web's disconnect route): the command's own
     api.authFetch.mockResolvedValue(json(404, { error: "unknown item" }));
     expect(await c.disconnect("i", false)).toEqual({ status: "error", message: "That bank is already disconnected.", stale: true });
+    api.authFetch.mockResolvedValue(json(404, { error: "not_found", message: "That account no longer exists." }));
+    expect(await c.clearReview("r")).toEqual({ status: "error", message: "That account no longer exists.", stale: true });
     api.authFetch.mockResolvedValue(json(423, { error: "account_locked" }));
     expect(await c.clearReview("r")).toEqual({ status: "error", message: "Your account is being deleted, so changes are paused." });
     api.authFetch.mockResolvedValue(json(500, { error: "could not disconnect" }));

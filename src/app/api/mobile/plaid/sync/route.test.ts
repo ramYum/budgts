@@ -36,7 +36,7 @@ describe("POST /api/mobile/plaid/sync", () => {
     syncConnectionFor.mockResolvedValue({ ok: false, error: "not_found", message: "That bank connection no longer exists." });
     const missing = await POST(post({ itemId: "x" }));
     expect(missing.status).toBe(404);
-    expect(await missing.json()).toEqual({ error: "not_found" });
+    expect(await missing.json()).toEqual({ error: "not_found", message: "That bank connection no longer exists." });
     syncConnectionFor.mockResolvedValue({ ok: false, error: "failed", message: "internal" });
     expect((await POST(post({ itemId: "x" }))).status).toBe(503);
   });

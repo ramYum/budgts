@@ -174,6 +174,10 @@ describe("while an account deletion holds the lock, every refused write says so"
         if (has(calls, "update") || has(calls, "delete")) {
           return has(calls, "maybeSingle") ? { data: null, count: 0 } : { data: [], count: 0 };
         }
+        // The bank's unmapped link (fix/map-idempotent reads the links before mapping; reads still work under the lock).
+        if (table === "plaid_accounts" && has(calls, "in")) {
+          return { data: [{ plaid_account_id: "pa-1", account_id: null, link_state: "unmapped" }] };
+        }
         if (has(calls, "in")) {
           const ids = (calls.find((c) => c[0] === "in")![2] as string[]) ?? [];
           return { data: ids.filter((id) => id === MINE).map((id) => ({ id })) };

@@ -376,7 +376,7 @@ describe("mapAccountsFor is idempotent and never splits an account's history", (
     expect(await mapAccountsFor(supabase, USER, ITEM_ROW, [NEW])).toEqual({
       ok: false,
       error: "invalid",
-      message: "That account was set not to import. Refresh and choose again.",
+      message: "You chose not to import that account. Refresh and choose again.",
     });
     expect(writes.filter((w) => w.table === "accounts" && w.op === "delete")).toHaveLength(1);
   });

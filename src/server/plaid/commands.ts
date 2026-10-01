@@ -77,7 +77,7 @@ function refusalFor(link: LinkRow | null): PlaidCommandResult {
   if (link.link_state === "ignored") {
     return link.account_id
       ? { ok: false, error: "invalid", message: "That account is paused. Turn it back on from Connected banks." }
-      : { ok: false, error: "invalid", message: "That account was set not to import. Refresh and choose again." };
+      : { ok: false, error: "invalid", message: "You chose not to import that account. Refresh and choose again." };
   }
   return { ok: false, error: "invalid", message: "That account is already imported. Refresh to see where it goes." };
 }

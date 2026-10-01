@@ -2,6 +2,7 @@ import { act } from "react-test-renderer";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { TourStepId } from "../../lib/tour/shared";
 import { reducedMotion } from "../../test/native-hosts";
+import { textStyle } from "../../lib/brand/type";
 import { byTestId, flat, hosts, render } from "../../test/render";
 import { CARRY, ENTER_BACK, ENTER_NEXT, FEED_LAND, RISE, feed, slot } from "./guide-keyframes";
 import { OnboardingView } from "./onboarding-view";
@@ -98,6 +99,20 @@ describe("the scenes act out their features", () => {
     expect(lock).toMatchObject({ animationName: CARRY, animationDuration: "2800ms", animationDelay: "600ms", animationTimingFunction: { steps: 7, modifier: "jump-end" } });
     reducedMotion.value = true;
     expect(flat(byTestId(render(<GuideScene id="bank" currency="USD" />), "bank-lock").props.style).transform).toEqual([{ translateX: 36 }]);
+  });
+
+  it("the Money Left figure's line box sits inside every sized box around it, so no glyph is clipped", () => {
+    const r = render(<GuideScene id="money-left" currency="USD" />);
+    const figure = byTestId(r, "rolling-amount");
+    const line = textStyle("tNumXl").lineHeight;
+    for (let p = figure.parent; p && p.props.testID !== "scene-money-left"; p = p.parent) {
+      const h = flat(p.props.style).height;
+      if (typeof h === "number") expect(h).toBeGreaterThanOrEqual(line);
+    }
+    // the 40px reel line still takes the web's 32px (leading-none) in the card: 4px pulled in above and below
+    let box = figure.parent!;
+    while (typeof box.type !== "string" || box.props.testID === "rolling-amount") box = box.parent!;
+    expect(flat(box.props.style)).toMatchObject({ marginTop: 8 - 4, marginBottom: -4 });
   });
 
   it("the done card lights each tab for its own quarter of the loop, in order", () => {

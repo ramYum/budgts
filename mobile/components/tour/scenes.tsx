@@ -467,8 +467,9 @@ function MoneyLeftScene({ currency }: { currency: string }) {
           </Text>
           <Chip>This month</Chip>
         </View>
-        {/* 32px figure, leading-none: the 40px reel line box pulled in to 32; it rolls up like Home's */}
-        <View style={{ marginTop: 8, height: 32, justifyContent: "center" }}>
+        {/* 32px figure, leading-none: the 40px reel line box pulled in 4px above and below, so it takes 32 like the
+            web's; it rolls up like Home's. Never a 32px box: Android clips the overhang and cuts the comma's tail. */}
+        <View style={{ marginTop: 8 - 4, marginBottom: -4 }}>
           <RollingAmount value={IN - OUT} currency={currency} variant="tNumXl" letterSpacing={-0.32} color={ROLE.text} />
         </View>
         <View style={{ marginTop: 12, flexDirection: "row", gap: 12 }}>

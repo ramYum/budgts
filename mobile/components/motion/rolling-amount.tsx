@@ -32,6 +32,23 @@ export function reelWindow(variant: TypeRoleName, lineHeightOverride?: number): 
   return { top: (lineHeight - height) / 2, height };
 }
 
+/**
+ * Where a figure's separators put ink in its line box. Separators ($ , . -)
+ * sit in the row, outside the reels' clip windows, on the role's full line
+ * box; Geist's baseline is at 50% + 0.355em (web `.roll-col`; Android splits
+ * the line's spare height evenly and lands on the same baseline). The comma's
+ * tail reaches 0.158em below it and the dollar sign 0.8em above it
+ * (Geist-SemiBold glyf). Whatever holds a figure must not be shorter than its
+ * line box, or the comma's tail is cut and it reads as a period.
+ */
+export function separatorInk(variant: TypeRoleName, lineHeightOverride?: number): { top: number; bottom: number } {
+  const { fontSize } = textStyle(variant);
+  const lineHeight = lineHeightOverride ?? textStyle(variant).lineHeight;
+  if (isPixelRole(variant)) return { top: 0, bottom: lineHeight };
+  const baseline = lineHeight / 2 + 0.355 * fontSize;
+  return { top: baseline - 0.8 * fontSize, bottom: baseline + 0.158 * fontSize };
+}
+
 /** A figure's own line height and tracking over its role's, or nothing. */
 function textOverride(lineHeight?: number, letterSpacing?: number): { lineHeight?: number; letterSpacing?: number } | null {
   if (!lineHeight && letterSpacing === undefined) return null;

@@ -78,10 +78,10 @@ describe("GET /api/mobile/goals", () => {
 
 describe("POST /api/mobile/goals", () => {
   it("creates for the verified user, passing the request id and treating a null date as none", async () => {
-    createGoal.mockResolvedValue({ ok: true, id: REQ });
+    createGoal.mockResolvedValue({ ok: true, id: REQ, replayed: false });
     const res = await POST(req("/api/mobile/goals", "POST", { name: "Trip", targetAmount: "400", targetDate: null, requestId: REQ }));
     expect(res.status).toBe(201);
-    expect(await res.json()).toEqual({ id: REQ });
+    expect(await res.json()).toEqual({ id: REQ, replayed: false });
     expect(createGoal).toHaveBeenCalledWith(
       supabase,
       "user-a",
@@ -108,6 +108,21 @@ describe("POST /api/mobile/goals", () => {
   });
 });
 
+describe("a replayed create (its request id had already landed)", () => {
+  it("answers replayed: true with the kept row, for a goal and a contribution", async () => {
+    createGoal.mockResolvedValue({ ok: true, id: REQ, replayed: true });
+    const goal = await POST(req("/api/mobile/goals", "POST", { name: "Trip", targetAmount: "400", targetDate: null, requestId: REQ }));
+    expect(goal.status).toBe(201);
+    expect(await goal.json()).toEqual({ id: REQ, replayed: true });
+
+    addContribution.mockResolvedValue({ ok: true, id: REQ, replayed: true });
+    const body = { kind: "add", amount: "25", occurredAt: "2026-09-10", note: null, requestId: REQ };
+    const added = await CONTRIBUTE(req(`/api/mobile/goals/${GOAL}/contributions`, "POST", body), params(GOAL));
+    expect(added.status).toBe(201);
+    expect(await added.json()).toEqual({ id: REQ, replayed: true });
+  });
+});
+
 describe("PATCH /api/mobile/goals/:id", () => {
   it("archives or edits through the shared commands", async () => {
     setGoalArchived.mockResolvedValue({ ok: true });
@@ -128,10 +143,11 @@ describe("PATCH /api/mobile/goals/:id", () => {
 
 describe("POST /api/mobile/goals/:id/contributions", () => {
   it("adds (+1) or withdraws (-1) against the goal in the path", async () => {
-    addContribution.mockResolvedValue({ ok: true, id: "c1" });
+    addContribution.mockResolvedValue({ ok: true, id: "c1", replayed: false });
     const body = { kind: "withdraw", amount: "25", occurredAt: "2026-09-10", note: null, goalId: "ignored" };
     const res = await CONTRIBUTE(req(`/api/mobile/goals/${GOAL}/contributions`, "POST", body), params(GOAL));
     expect(res.status).toBe(201);
+    expect(await res.json()).toEqual({ id: "c1", replayed: false });
     expect(addContribution).toHaveBeenCalledWith(
       supabase,
       "user-a",

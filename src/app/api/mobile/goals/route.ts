@@ -1,8 +1,9 @@
 /**
  * GET  /api/mobile/goals — the Goals screen: each active goal's progress and the headline totals, from `loadGoals` (the
  *   reads and progress math the web Goals page renders), plus the user's `today` for a new contribution's date.
- * POST /api/mobile/goals — `{ name, targetAmount:"400", targetDate:"YYYY-MM-DD"|null, requestId?:<uuid> }` → 201 `{ id }`.
- *   A retry with the same `requestId` returns the goal that already landed.
+ * POST /api/mobile/goals — `{ name, targetAmount:"400", targetDate:"YYYY-MM-DD"|null, requestId?:<uuid> }` → 201
+ *   `{ id, replayed }`. A retry with the same `requestId` returns the goal that already landed, `replayed: true` (this
+ *   call's values were not applied).
  *
  * Adapters over `src/lib/goals/*` (shared with the web page and Server Actions). Bearer only; RLS scopes every query.
  */
@@ -34,5 +35,5 @@ export const POST = mobileRoute(async ({ user, supabase }, request) => {
   if (requestId === false) return mobileError("invalid", 422, { fieldErrors: { requestId: "Invalid request id" } });
 
   const result = await createGoal(supabase, user.id, nullsAsEmpty(body, ["targetDate"]), requestId);
-  return result.ok ? mobileJson({ id: result.id }, 201) : mobileCommandError(result);
+  return result.ok ? mobileJson({ id: result.id, replayed: result.replayed }, 201) : mobileCommandError(result);
 });

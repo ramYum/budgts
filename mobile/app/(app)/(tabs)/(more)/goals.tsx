@@ -4,30 +4,21 @@ import { useRouter } from "expo-router";
 import { authFetch } from "../../../../lib/auth/api";
 import { useAuth } from "../../../../lib/auth/auth-context";
 import { invalidate, useVersion } from "../../../../lib/api/invalidate";
-import { loadResource, mutate, type MutationOutcome } from "../../../../lib/api/load";
+import { loadResource, mutate } from "../../../../lib/api/load";
 import { jsonInit } from "../../../../lib/api/request";
 import { useResource } from "../../../../lib/api/use-resource";
 import { useRealtimeRefresh } from "../../../../lib/realtime/use-realtime-refresh";
 import { parseGoals, type MobileGoal } from "../../../../lib/goals/goals-api";
+import { submittedOf } from "../../../../lib/goals/submit";
 import { ContributionSheet, GoalFormSheet, goalInitial, type ContributionValues, type GoalValues } from "../../../../components/goals/goal-sheets";
 import { GoalsView, type GoalAction } from "../../../../components/goals/goals-view";
 import { LoadFailure } from "../../../../components/feedback/states";
 import { ScreenSkeleton } from "../../../../components/feedback/skeleton";
 import { Screen } from "../../../../components/shell/screen";
 
-/** The web's savings messages (src/server/savings.ts). */
-const GOAL_GONE = "That goal no longer exists. Refresh and try again.";
 const WITHDRAW_HINT = "Use this to take money out or fix a mistake. It's recorded as a negative entry.";
 
 type Sheet = null | { kind: "new" } | { kind: "edit" | "add" | "withdraw"; goal: MobileGoal };
-
-/** A save's outcome as the web's form line reads it (server/savings.ts `toState`). */
-function messageOf(out: MutationOutcome, invalidFallback: string): string | null {
-  if (out.status === "ok") return null;
-  if (out.status === "invalid") return Object.values(out.fieldErrors)[0] ?? invalidFallback;
-  if (out.status === "missing") return GOAL_GONE;
-  return out.status === "error" ? out.message : "Something went wrong. Please try again.";
-}
 
 /**
  * Savings goals (web /goals): each active goal's progress and the totals from `GET /api/mobile/goals` (the same
@@ -49,9 +40,10 @@ export default function GoalsScreen() {
 
   const send = useCallback(
     async (path: string, method: "POST" | "PATCH", body: object, fallback: string) => {
-      const message = messageOf(await mutate(() => authFetch(path, session, jsonInit(method, body))), fallback);
-      if (message === null) saved();
-      return message;
+      const out = submittedOf(await mutate(() => authFetch(path, session, jsonInit(method, body))), fallback);
+      // saved, or saved by an earlier try (replayed): either way the goals behind show the kept row
+      if (typeof out !== "string") saved();
+      return out;
     },
     [session, saved],
   );
@@ -62,7 +54,7 @@ export default function GoalsScreen() {
       const message = await send(`/api/mobile/goals/${g.id}`, "PATCH", { archived: true }, "Invalid goal");
       setArchiving(null);
       // The web drops this outcome; the app says so rather than leaving the goal up with no word.
-      if (message) Alert.alert(`Couldn't archive ${g.name}`, message);
+      if (typeof message === "string") Alert.alert(`Couldn't archive ${g.name}`, message);
     },
     [send],
   );

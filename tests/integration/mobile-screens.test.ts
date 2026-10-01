@@ -123,14 +123,19 @@ describe("goals (real staging)", () => {
     const second = await postGoal(call(a.token, "/api/mobile/goals", { method: "POST", body }));
     expect(first.status).toBe(201);
     expect(second.status).toBe(201);
-    goalA = (await first.json()).id;
-    expect((await second.json()).id).toBe(goalA);
+    const firstBody = await first.json();
+    goalA = firstBody.id;
+    expect(firstBody.replayed).toBe(false);
+    // the retry is told it was a replay (the app says "This was already saved…")
+    expect(await second.json()).toEqual({ id: goalA, replayed: true });
     expect(await client`select id from public.savings_goals where user_id = ${a.id}`).toHaveLength(1);
 
     const today = todayDateKey(a.zone);
     const add = { kind: "add", amount: "400", occurredAt: today, note: null, requestId: crypto.randomUUID() };
-    for (let i = 0; i < 2; i++) {
-      expect((await postContribution(call(a.token, `/api/mobile/goals/${goalA}/contributions`, { method: "POST", body: add }), idParams(goalA))).status).toBe(201);
+    for (const replayed of [false, true]) {
+      const res = await postContribution(call(a.token, `/api/mobile/goals/${goalA}/contributions`, { method: "POST", body: add }), idParams(goalA));
+      expect(res.status).toBe(201);
+      expect(await res.json()).toEqual({ id: add.requestId, replayed });
     }
     const take = { kind: "withdraw", amount: "150.50", occurredAt: today, note: "fix", requestId: crypto.randomUUID() };
     await postContribution(call(a.token, `/api/mobile/goals/${goalA}/contributions`, { method: "POST", body: take }), idParams(goalA));

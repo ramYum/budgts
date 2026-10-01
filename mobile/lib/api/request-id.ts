@@ -9,3 +9,9 @@ import * as Crypto from "expo-crypto";
 export function newRequestId(): string {
   return Crypto.randomUUID();
 }
+
+/**
+ * A create the server answered `replayed: true` (its request id had already landed: the first try was saved, the values
+ * sent after it were not applied). Transactions, goals and contributions say it in these words.
+ */
+export const ALREADY_SAVED = "This was already saved. Changes made after that weren't applied.";

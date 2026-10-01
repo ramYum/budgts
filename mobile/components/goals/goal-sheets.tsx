@@ -1,18 +1,21 @@
 import { useState } from "react";
 import { View } from "react-native";
 import { ROLE } from "../../lib/brand/shared";
-import { newRequestId } from "../../lib/api/request-id";
+import { ALREADY_SAVED, newRequestId } from "../../lib/api/request-id";
 import type { MobileGoal } from "../../lib/goals/goals-api";
+import type { Submitted } from "../../lib/goals/submit";
+import { WarnLine } from "../activity/limited-history-banner";
 import { Button, Field } from "../brand/controls";
 import { Text } from "../brand/text";
 import { DateField } from "../kit/date-field";
 import { Overlay } from "../kit/overlay";
 
 /**
- * Saves the form; resolves to the message to show, or null once saved. `requestId` is the sheet's one idempotency key for
- * a create (the same on every retry from this sheet, so a lost response can never land the save twice); null for an edit.
+ * Saves the form; resolves to the message to show, null once saved, or `{ replayed: true }` when a create's request id
+ * had already landed (lib/goals/submit.ts). `requestId` is the sheet's one idempotency key for a create (the same on every
+ * retry from this sheet, so a lost response can never land the save twice); null for an edit.
  */
-export type Submit<T> = (values: T, requestId: string | null) => Promise<string | null>;
+export type Submit<T> = (values: T, requestId: string | null) => Promise<Submitted>;
 
 export type GoalValues = { name: string; targetAmount: string; targetDate: string | null };
 export type ContributionValues = { amount: string; occurredAt: string; note: string | null };
@@ -24,8 +27,37 @@ export function goalInitial(g: MobileGoal): GoalValues {
 
 const blankToNull = (s: string) => (s.trim() === "" ? null : s.trim());
 
-/** The web's form foot: the error line, then the submit (pending "Saving…") beside Cancel. */
-function FormFoot({ error, pending, submitLabel, onSubmit, onCancel }: { error: string | null; pending: boolean; submitLabel: string; onSubmit: () => void; onCancel: () => void }) {
+/**
+ * The web's form foot: the error line, then the submit (pending "Saving…") beside Cancel. After a replayed create (native
+ * only, as transactions have it): the "already saved" line and Done, the save having refreshed the goals behind.
+ */
+function FormFoot({
+  error,
+  pending,
+  replayed,
+  submitLabel,
+  onSubmit,
+  onCancel,
+}: {
+  error: string | null;
+  pending: boolean;
+  replayed: boolean;
+  submitLabel: string;
+  onSubmit: () => void;
+  onCancel: () => void;
+}) {
+  if (replayed) {
+    return (
+      <>
+        <WarnLine testID="goal-form-replayed">{ALREADY_SAVED}</WarnLine>
+        <View style={{ flexDirection: "row", paddingTop: 8 }}>
+          <Button testID="goal-form-done" style={{ flex: 1 }} onPress={onCancel}>
+            Done
+          </Button>
+        </View>
+      </>
+    );
+  }
   return (
     <>
       {error ? (
@@ -48,16 +80,19 @@ function FormFoot({ error, pending, submitLabel, onSubmit, onCancel }: { error: 
 function useSubmit<T>(submit: Submit<T>, onDone: () => void, requestId: string | null) {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [replayed, setReplayed] = useState(false);
   const run = async (values: T) => {
-    if (pending) return;
+    if (pending || replayed) return;
     setError(null);
     setPending(true);
-    const message = await submit(values, requestId);
+    const out = await submit(values, requestId);
     setPending(false);
-    if (message) setError(message);
+    if (typeof out === "string") setError(out);
+    else if (out?.replayed) setReplayed(true);
     else onDone();
   };
-  return { error, pending, run };
+  // a replayed create is saved: the form is locked, only Done (or the close) is left
+  return { error, pending, replayed, locked: pending || replayed, run };
 }
 
 /** New goal / Edit goal (web goal-form.tsx in its overlay): name, target amount, an optional target date. */
@@ -79,13 +114,13 @@ export function GoalFormSheet({
   const [targetDate, setTargetDate] = useState<string | null>(initial?.targetDate ?? null);
   // a create's one request id, kept for the life of the sheet; an edit needs none
   const [requestId] = useState(() => (initial ? null : newRequestId()));
-  const { error, pending, run } = useSubmit(onSubmit, onClose, requestId);
+  const { error, pending, replayed, locked, run } = useSubmit(onSubmit, onClose, requestId);
   const submit = () => void run({ name, targetAmount, targetDate });
 
   return (
     <Overlay title={title} onClose={onClose}>
       <View style={{ gap: 16 }}>
-        <Field testID="goal-name" label="Name" value={name} onChangeText={setName} maxLength={60} placeholder="Emergency fund" autoFocus editable={!pending} />
+        <Field testID="goal-name" label="Name" value={name} onChangeText={setName} maxLength={60} placeholder="Emergency fund" autoFocus editable={!locked} />
         <Field
           testID="goal-target"
           label="Target amount"
@@ -93,10 +128,10 @@ export function GoalFormSheet({
           onChangeText={setTargetAmount}
           keyboardType="decimal-pad"
           placeholder="10000.00"
-          editable={!pending}
+          editable={!locked}
         />
-        <DateField testID="goal-date" label="Target date (optional)" value={targetDate} onChange={setTargetDate} disabled={pending} />
-        <FormFoot error={error} pending={pending} submitLabel={submitLabel} onSubmit={submit} onCancel={onClose} />
+        <DateField testID="goal-date" label="Target date (optional)" value={targetDate} onChange={setTargetDate} disabled={locked} />
+        <FormFoot error={error} pending={pending} replayed={replayed} submitLabel={submitLabel} onSubmit={submit} onCancel={onClose} />
       </View>
     </Overlay>
   );
@@ -123,23 +158,23 @@ export function ContributionSheet({
   const [occurredAt, setOccurredAt] = useState(today);
   const [note, setNote] = useState("");
   const [requestId] = useState(() => newRequestId());
-  const { error, pending, run } = useSubmit(onSubmit, onClose, requestId);
+  const { error, pending, replayed, locked, run } = useSubmit(onSubmit, onClose, requestId);
   const submit = () => void run({ amount, occurredAt, note: blankToNull(note) });
 
   return (
     <Overlay title={title} onClose={onClose}>
       <View style={{ gap: 16 }}>
         <View style={{ gap: 16 }}>
-          <Field testID="goal-amount" label="Amount" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="0.00" autoFocus editable={!pending} />
+          <Field testID="goal-amount" label="Amount" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" placeholder="0.00" autoFocus editable={!locked} />
           {hint ? (
             <Text testID="goal-contribution-hint" variant="body" color={ROLE.muted} style={{ fontSize: 14, lineHeight: 20 }}>
               {hint}
             </Text>
           ) : null}
         </View>
-        <DateField testID="goal-contribution-date" label="Date" value={occurredAt} onChange={setOccurredAt} disabled={pending} />
-        <Field testID="goal-note" label="Note (optional)" value={note} onChangeText={setNote} maxLength={200} editable={!pending} onSubmitEditing={submit} />
-        <FormFoot error={error} pending={pending} submitLabel={submitLabel} onSubmit={submit} onCancel={onClose} />
+        <DateField testID="goal-contribution-date" label="Date" value={occurredAt} onChange={setOccurredAt} disabled={locked} />
+        <Field testID="goal-note" label="Note (optional)" value={note} onChangeText={setNote} maxLength={200} editable={!locked} onSubmitEditing={submit} />
+        <FormFoot error={error} pending={pending} replayed={replayed} submitLabel={submitLabel} onSubmit={submit} onCancel={onClose} />
       </View>
     </Overlay>
   );

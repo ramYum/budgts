@@ -7,7 +7,8 @@
  *
  * Retries: a native caller may send a `requestId` (a UUID it generated). It becomes the new row's primary key, so a retry
  * after a lost response hits the key it already used and returns the row that landed instead of saving a second goal or
- * a second contribution (a doubled contribution would overstate what is saved).
+ * a second contribution (a doubled contribution would overstate what is saved). `replayed: true` says so: that call's
+ * values were not applied (the app tells the user, as it does for transactions); the web Server Actions ignore it.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { invalid, type Failed, type Invalid, type Locked } from "@/lib/command-result";
@@ -19,9 +20,12 @@ const UNIQUE_VIOLATION = "23505";
 
 type Missing = { ok: false; error: "missing" };
 
-export type CreateGoalResult = { ok: true; id: string } | Invalid | Locked | Failed;
+/** `replayed`: the request id was already used, so `id` is the row that landed first and nothing of this call was written. */
+type Inserted = { ok: true; id: string; replayed: boolean };
+
+export type CreateGoalResult = Inserted | Invalid | Locked | Failed;
 export type GoalWriteResult = { ok: true } | Invalid | Missing | Locked | Failed;
-export type ContributionResult = { ok: true; id: string } | Invalid | Missing | Locked | Failed;
+export type ContributionResult = Inserted | Invalid | Missing | Locked | Failed;
 
 function badRequestId(requestId: string | undefined): Invalid | null {
   return requestId !== undefined && !UUID.test(requestId)
@@ -31,23 +35,23 @@ function badRequestId(requestId: string | undefined): Invalid | null {
 
 /**
  * Inserts one row; with a `requestId`, a replay (the key already exists and RLS shows it to this caller) returns the row
- * that landed. A key held by anyone else is invisible under RLS, so the insert error stands.
+ * that landed (`replayed: true`). A key held by anyone else is invisible under RLS, so the insert error stands.
  */
 async function insertOnce(
   supabase: SupabaseClient,
   table: "savings_goals" | "savings_contributions",
   row: Record<string, unknown>,
   requestId: string | undefined,
-): Promise<{ ok: true; id: string } | Locked | Failed> {
+): Promise<Inserted | Locked | Failed> {
   const { data, error } = await supabase
     .from(table)
     .insert(requestId ? { id: requestId, ...row } : row)
     .select("id")
     .single();
-  if (!error && data) return { ok: true, id: (data as { id: string }).id };
+  if (!error && data) return { ok: true, id: (data as { id: string }).id, replayed: false };
   if (requestId && error?.code === UNIQUE_VIOLATION) {
     const { data: landed } = await supabase.from(table).select("id").eq("id", requestId).maybeSingle();
-    if (landed) return { ok: true, id: (landed as { id: string }).id };
+    if (landed) return { ok: true, id: (landed as { id: string }).id, replayed: true };
   }
   return lockedOr(supabase, { ok: false, error: "failed", message: error?.message ?? "Could not save." } as const);
 }

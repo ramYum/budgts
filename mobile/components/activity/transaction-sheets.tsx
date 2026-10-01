@@ -4,6 +4,7 @@ import { COLOR, ROLE } from "../../lib/brand/shared";
 import { formatFullDate } from "../../lib/shared";
 import type { AccountsData } from "../../lib/accounts/accounts-api";
 import type { LoadState, MutationOutcome } from "../../lib/api/load";
+import { ALREADY_SAVED } from "../../lib/api/request-id";
 import type { MobileCategory } from "../../lib/categories/categories-api";
 import { rowAmount, rowTitle } from "../../lib/transactions/activity-view";
 import type { MobileTransaction } from "../../lib/transactions/transactions-api";
@@ -20,9 +21,6 @@ import { FieldError, TransactionForm, type Saved } from "./transaction-form";
 
 /** "Tuesday, September 29, 2026" (the web's own formatter). */
 export const fullDateLabel = (iso: string, locale?: string): string => formatFullDate(iso, locale);
-
-/** A create the server answered `replayed: true`: the first try had landed, the later values weren't applied. */
-export const ALREADY_SAVED = "This was already saved. Changes made after that weren't applied.";
 
 /** The web's `confirm("Delete this transaction?")`, as the platform's dialog. */
 export function confirmDelete(onYes: () => void) {

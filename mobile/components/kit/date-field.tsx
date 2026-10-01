@@ -1,7 +1,8 @@
-import { useRef, useState } from "react";
+import { useContext, useRef, useState } from "react";
 import { Platform, Pressable, View } from "react-native";
 import DateTimePicker, { DateTimePickerAndroid, type DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { COLOR, PLACEHOLDER, ROLE, SPACE } from "../../lib/brand/shared";
+import { ProfileContext } from "../../lib/profile/profile-hooks";
 import { PixelFrame } from "../brand/pixel-frame";
 import { Text } from "../brand/text";
 import { Overlay, useSheetFocus } from "./overlay";
@@ -57,7 +58,14 @@ export function DateField({
   const revealInSheet = useSheetFocus();
   const state = disabled ? "" : invalid ? "[data-invalid='true']" : open ? ":focus-within" : "";
   const shown = value ? formatDateInput(value) : placeholder;
-  const initial = value ? dayToDate(value) : new Date();
+  const profile = useContext(ProfileContext);
+  /** The day the picker opens on: the value, or with nothing chosen the user's own today (the server's, in their profile's zone), never the device's. */
+  function initialDate(): Date {
+    if (value) return dayToDate(value);
+    const today = profile?.state.status === "ready" ? profile.state.profile.today : null;
+    if (!today) throw new Error("DateField opens on the user's today: render it behind the onboarded gate");
+    return dayToDate(today);
+  }
   const bounds = {
     minimumDate: minimumDate ? dayToDate(minimumDate) : undefined,
     maximumDate: maximumDate ? dayToDate(maximumDate) : undefined,
@@ -67,7 +75,7 @@ export function DateField({
     revealInSheet?.(field.current);
     if (Platform.OS === "android") {
       DateTimePickerAndroid.open({
-        value: initial,
+        value: initialDate(),
         mode: "date",
         ...bounds,
         onChange: (event: DateTimePickerEvent, date?: Date) => {
@@ -108,7 +116,7 @@ export function DateField({
       {open ? (
         <Overlay title={label} onClose={() => setOpen(false)} testID={testID ? `${testID}-sheet` : undefined}>
           <DateTimePicker
-            value={initial}
+            value={initialDate()}
             mode="date"
             display="inline"
             {...bounds}

@@ -28,14 +28,22 @@ export function SectionHead({
       testID={testID ?? "section-head"}
       style={{ minHeight: 24, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}
     >
-      <Text testID={testID ? `${testID}-title` : "section-title"} variant="tHead" color={ROLE.ink} accessibilityRole="header" style={{ flexShrink: 1 }}>
-        {title}
+      {/* the web's `<h2>title<span class="ml-2">count</span></h2>`: the count 8px after the title (a nested Text can't take a margin) */}
+      <View
+        testID={testID ? `${testID}-title` : "section-title"}
+        accessible
+        accessibilityRole="header"
+        style={{ flexShrink: 1, flexDirection: "row", alignItems: "baseline" }}
+      >
+        <Text variant="tHead" color={ROLE.ink} style={{ flexShrink: 1 }}>
+          {title}
+        </Text>
         {count !== undefined ? (
-          <Text variant="listName" color={ROLE.muted} style={{ fontVariant: ["tabular-nums"] }}>
-            {"  " + String(count)}
+          <Text variant="listName" color={ROLE.muted} style={{ marginLeft: 8, fontVariant: ["tabular-nums"] }}>
+            {String(count)}
           </Text>
         ) : null}
-      </Text>
+      </View>
       {action && onAction ? (
         <Pressable
           testID={testID ? `${testID}-link` : "section-link"}

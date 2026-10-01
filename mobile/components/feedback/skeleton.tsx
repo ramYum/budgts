@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { View, type DimensionValue, type LayoutChangeEvent } from "react-native";
 import Animated, { useReducedMotion } from "react-native-reanimated";
+import { useMotionTiming } from "../../lib/motion/parity-clock";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import { ROLE } from "../../lib/brand/shared";
 import { PixelFrame } from "../brand/pixel-frame";
@@ -25,6 +26,7 @@ export const BAND = 0.6;
  */
 export function Skeleton({ width, height }: { width: DimensionValue; height: number }) {
   const reduced = useReducedMotion();
+  const timing = useMotionTiming(0);
   const [w, setW] = useState(0);
   function measure(e: LayoutChangeEvent) {
     const next = e.nativeEvent.layout.width;
@@ -43,6 +45,7 @@ export function Skeleton({ width, height }: { width: DimensionValue; height: num
             animationDuration: `${SKELETON_SWEEP_MS}ms`,
             animationTimingFunction: "linear",
             animationIterationCount: "infinite",
+            ...timing,
           }}
         >
           <Svg width="100%" height="100%">

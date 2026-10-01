@@ -7,7 +7,6 @@ import {
   ScrollView,
   TextInput,
   View,
-  useWindowDimensions,
   type TextInput as TextInputType,
 } from "react-native";
 import Animated, { useReducedMotion } from "react-native-reanimated";
@@ -29,6 +28,8 @@ export const SHEET_MS = 300;
 /** The sheet's `translate-y-8 opacity-0` → `translate-y-0 opacity-100`. */
 export const SHEET_IN = { from: { opacity: 0, transform: [{ translateY: 32 }] }, to: { opacity: 1, transform: [{ translateY: 0 }] } };
 const SCRIM_IN = { from: { opacity: 0 }, to: { opacity: 1 } };
+/** The sheet's box: 90% of the space the KeyboardAvoidingView leaves (the web's `max-h-[90dvh]`, which the keyboard shrinks), shrinking to fit. */
+export const SHEET_BOX = { flexShrink: 1, maxHeight: "90%" } as const;
 
 /**
  * A field in a sheet asks the sheet to keep it in view when it takes focus
@@ -62,7 +63,6 @@ export function Overlay({
 }) {
   const reduced = useReducedMotion();
   const insets = useSafeAreaInsets();
-  const { height } = useWindowDimensions();
   const timing = useMotionTiming(0);
   const scroll = useRef<ScrollView>(null);
   const content = useRef<View>(null);
@@ -76,12 +76,21 @@ export function Overlay({
       if (target > 0) scroll.current?.scrollTo({ y: target, animated: !reduced });
     });
   }, [reduced]);
+  const revealFocused = useCallback(() => reveal(TextInput.State.currentlyFocusedInput() as TextInputType | null), [reveal]);
 
   // When the keyboard opens, the field that opened it scrolls into what is left of the sheet.
   useEffect(() => {
-    const sub = Keyboard.addListener("keyboardDidShow", () => reveal(TextInput.State.currentlyFocusedInput() as TextInputType | null));
+    const sub = Keyboard.addListener("keyboardDidShow", revealFocused);
     return () => sub.remove();
-  }, [reveal]);
+  }, [revealFocused]);
+
+  // Android can report the keyboard before the sheet has shrunk above it: when the sheet's viewport shrinks with a field
+  // focused, reveal it again against the new height.
+  function onViewportLayout(height: number) {
+    const shrank = height < viewport.current;
+    viewport.current = height;
+    if (shrank) revealFocused();
+  }
 
   const motion = reduced
     ? null
@@ -93,19 +102,20 @@ export function Overlay({
     <Modal transparent visible animationType="none" statusBarTranslucent navigationBarTranslucent onRequestClose={onClose}>
       <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
         <Animated.View style={[{ flex: 1, justifyContent: "flex-end", backgroundColor: SCRIM }, scrimIn]}>
-          <Pressable accessibilityLabel="Close" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} onPress={onClose} />
-          <Animated.View style={sheetIn}>
-            <PixelFrame
-              testID={testID}
-              frame="px-card-raised"
-              accessibilityViewIsModal
-              accessibilityLabel={title}
-              style={{ maxHeight: 0.9 * height }}
-            >
+          {/* the scrim closes on a tap; screen readers use the Close button (one "Close", not two) */}
+          <Pressable
+            accessible={false}
+            importantForAccessibility="no"
+            style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
+            onPress={onClose}
+          />
+          {/* at most 90% of what is left above the keyboard (the KeyboardAvoidingView's padded box), never of the window */}
+          <Animated.View style={[SHEET_BOX, sheetIn]}>
+            <PixelFrame testID={testID} frame="px-card-raised" accessibilityViewIsModal accessibilityLabel={title} style={{ flexShrink: 1 }}>
               <ScrollView
                 ref={scroll}
                 keyboardShouldPersistTaps="handled"
-                onLayout={(e) => (viewport.current = e.nativeEvent.layout.height)}
+                onLayout={(e) => onViewportLayout(e.nativeEvent.layout.height)}
                 contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 12, paddingBottom: Math.max(16, insets.bottom) }}
               >
                 <View ref={content} collapsable={false}>

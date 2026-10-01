@@ -3,16 +3,10 @@ import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 
 /**
- * One authoritative UI (Phase 3, docs/superpowers/plans/2026-09-30-phase3-native-screens.md).
- * The pre-redesign look lives in lib/theme.ts, components/ui.tsx and components/parts.tsx, and
- * the system spinner stands where the web shows a skeleton or a pending button. No file may
- * use them except the ones still waiting to be rebuilt; a lane that rebuilds a screen deletes
- * its line here, and the list reaches [] at the Phase 3 close-out (Task Z1), when the three
- * legacy modules are deleted.
+ * One authoritative UI (Phase 3, docs/superpowers/plans/2026-09-30-phase3-native-screens.md). The pre-redesign modules
+ * (lib/theme.ts, components/ui.tsx, components/parts.tsx) are deleted, and the web shows a skeleton or a pending button
+ * where a system spinner would stand: neither may come back.
  */
-/** Empty since the Phase 3 close-out: the pre-redesign modules are deleted; this keeps them (and spinners) from returning. */
-const LEGACY_ALLOWED: string[] = [];
-
 const ROOT = join(__dirname, "..");
 const LEGACY_IMPORT = /from\s+["'](?:\.\.?\/)+(?:lib\/theme|components\/ui|components\/parts|theme|ui|parts)["']/;
 const SPINNER = /\bActivityIndicator\b/;
@@ -23,30 +17,18 @@ function sources(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
     const path = join(dir, name);
     if (statSync(path).isDirectory()) return sources(path);
-    const isSource = SOURCE.test(name) && !TEST.test(name);
-    return isSource ? [relative(ROOT, path).split("\\").join("/")] : [];
+    return SOURCE.test(name) && !TEST.test(name) ? [relative(ROOT, path).split("\\").join("/")] : [];
   });
 }
 
 describe("one authoritative UI", () => {
   const files = ["app", "components", "lib"].flatMap((d) => sources(join(ROOT, d)));
 
-  it("no file outside the shrinking allow-list uses the pre-redesign modules or a system spinner", () => {
-    const offenders = files
-      .filter((f) => !LEGACY_ALLOWED.includes(f))
-      .filter((f) => {
-        const src = readFileSync(join(ROOT, f), "utf8");
-        return LEGACY_IMPORT.test(src) || SPINNER.test(src);
-      });
-    expect(offenders).toEqual([]);
+  it("no file imports a pre-redesign module", () => {
+    expect(files.filter((f) => LEGACY_IMPORT.test(readFileSync(join(ROOT, f), "utf8")))).toEqual([]);
   });
 
-  it("the allow-list names only files that still exist and still need it", () => {
-    const stale = LEGACY_ALLOWED.filter((f) => {
-      if (!files.includes(f)) return true;
-      const src = readFileSync(join(ROOT, f), "utf8");
-      return !(LEGACY_IMPORT.test(src) || SPINNER.test(src));
-    });
-    expect(stale).toEqual([]);
+  it("no file uses a system spinner", () => {
+    expect(files.filter((f) => SPINNER.test(readFileSync(join(ROOT, f), "utf8")))).toEqual([]);
   });
 });

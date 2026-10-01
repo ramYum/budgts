@@ -86,6 +86,10 @@ describe("Connected banks (web /connected-banks)", () => {
   it("a connected bank: its name without (Sandbox), Connected and Sandbox badges, last sync, importing accounts, Connect another bank", () => {
     const r = view([bank()]);
     expect(textContent(byTestId(r, "bank-item-row-name"))).toBe("First Platypus Bank");
+    // the web's text-base font-medium, as a type role (no inline size)
+    const name = r.root.find((n) => typeof n.type !== "string" && n.props.testID === "bank-item-row-name");
+    expect(name.props.variant).toBe("listNameLg");
+    expect(name.props.style).toBeUndefined();
     const words = texts(r);
     expect(words).toEqual(expect.arrayContaining(["Connected", "Sandbox", "Synced 45 min ago", "Importing", "Plaid Checking ••0000", "Imports into Everyday checking"]));
     expect(words).toContain("Disconnecting a bank keeps every transaction it already imported. They stay in Budgts as history.");

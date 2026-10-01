@@ -14,7 +14,7 @@ import { useHub } from "../../../../../lib/status/use-hub";
 export default function SettingsScreen() {
   const router = useRouter();
   const { session, signOut } = useAuth();
-  const hub = useHub();
+  const { hub, notice, refresh } = useHub();
   const onBack = useBack("/more");
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
@@ -38,7 +38,7 @@ export default function SettingsScreen() {
   }
 
   return (
-    <Screen>
+    <Screen name="settings" notice={notice} onRetry={() => void refresh()}>
       <SettingsView
         email={session?.user.email ?? ""}
         hub={hub}

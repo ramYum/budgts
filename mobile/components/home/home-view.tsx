@@ -14,7 +14,6 @@ import { MonthNav } from "../kit/month-nav";
 import { Greeting, GreetingSubtitle } from "./greeting";
 import { MoneyLeftCard } from "./money-left";
 import { BudgetOverAlert, useOverAlertDismissed } from "./over-alert";
-import { RefreshNotice } from "./refresh-notice";
 import { WhereItWent } from "./where-it-went";
 
 /**
@@ -32,14 +31,12 @@ export function HomeView({
   onMonth,
   onAddIncome,
   onAddTransaction,
-  notice = null,
-  onRefresh,
+  noticeShown = false,
   awake = true,
 }: {
   home: MobileHome;
-  /** a refresh failed while these numbers were on screen */
-  notice?: string | null;
-  onRefresh?: () => void;
+  /** the screen's stale-data notice is up above the page (drawn by `<Screen>`): Crystal re-measures when it comes or goes */
+  noticeShown?: boolean;
   /** Home is the screen in front and the app is active */
   awake?: boolean;
   name: string;
@@ -92,11 +89,6 @@ export function HomeView({
 
   return (
     <View testID="home-view">
-      {notice && onRefresh ? (
-        <View style={{ marginBottom: 20 }}>
-          <RefreshNotice message={notice} onRetry={onRefresh} />
-        </View>
-      ) : null}
       <PageHeader
         title={<Greeting hour={hour} name={name} />}
         subtitle={<GreetingSubtitle text={subtitle(home)} />}
@@ -121,7 +113,7 @@ export function HomeView({
           home={home}
           name={name}
           awake={awake}
-          layoutKey={`${alert ? "alert" : ""}:${notice ? "notice" : ""}`}
+          layoutKey={`${alert ? "alert" : ""}:${noticeShown ? "notice" : ""}`}
           onAddIncome={onAddIncome}
         />
       </Reveal>

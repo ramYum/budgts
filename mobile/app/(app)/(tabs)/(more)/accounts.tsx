@@ -39,7 +39,7 @@ export default function AccountsScreen() {
   const commands = useMemo(() => accountCommands(session), [session]);
 
   return (
-    <Screen refreshing={refreshing} onRefresh={() => void refresh()}>
+    <Screen refreshing={refreshing} onRefresh={() => void refresh()} name="accounts" notice={notice} onRetry={() => void refresh()}>
       {state.status === "loading" ? (
         <ScreenSkeleton />
       ) : state.status === "error" ? (
@@ -50,8 +50,6 @@ export default function AccountsScreen() {
           accountTypes={state.data.accountTypes}
           commands={commands}
           onBack={() => (router.canGoBack() ? router.back() : router.navigate("/more"))}
-          notice={notice}
-          onRetry={() => void refresh()}
         />
       )}
     </Screen>

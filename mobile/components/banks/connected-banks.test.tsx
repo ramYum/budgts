@@ -175,14 +175,9 @@ describe("Connected banks (web /connected-banks)", () => {
     const r = view([before], a);
     await press(r, "import-row-1");
     expect(byTestId(r, "import-row-1").props.accessibilityState).toEqual({ checked: false, disabled: true });
-    // a reload that failed brings nothing new: still disabled, never an enabled stale switch, and the screen says so
-    act(() =>
-      r.update(
-        <ConnectedBanksView enabled banks={[before]} actions={a} now={NOW} onBack={() => {}} notice="Couldn't reach Budgts. Check your connection and try again." onRetry={() => {}} />,
-      ),
-    );
+    // a reload that failed brings nothing new (the screen's shell says so): still disabled, never an enabled stale switch
+    act(() => r.update(<ConnectedBanksView enabled banks={[before]} actions={a} now={NOW} onBack={() => {}} />));
     expect(byTestId(r, "import-row-1").props.accessibilityState).toEqual({ checked: false, disabled: true });
-    expect(textContent(byTestId(r, "home-refresh-notice"))).toContain("Couldn't reach Budgts.");
     // the reload lands: the row is the server's again
     act(() => r.update(<ConnectedBanksView enabled banks={[bank({ accounts: [acct({ linkState: "ignored" })] })]} actions={a} now={NOW} onBack={() => {}} />));
     expect(byTestId(r, "import-row-1").props.accessibilityState).toEqual({ checked: false, disabled: false });

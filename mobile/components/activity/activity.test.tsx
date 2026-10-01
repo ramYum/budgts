@@ -77,11 +77,9 @@ function view(over: Partial<ActivityViewProps> = {}) {
     category: null,
     onClearCategory: vi.fn(),
     onFocused: vi.fn(),
-    onRefreshNotice: vi.fn(),
     savedNotice: null,
     onDismissSavedNotice: vi.fn(),
     ledger: ready([txn("a")]),
-    notice: null,
     onRetryRest: vi.fn(),
     extras: extrasOf(),
     onRetryExtras: vi.fn(),
@@ -372,15 +370,6 @@ describe("failures", () => {
     act(() => r.root.find((n) => typeof n.type === "string" && n.props.accessibilityLabel === "Dismiss").props.onPress());
     expect(onDismissSavedNotice).toHaveBeenCalled();
     expect(has(view().r, "activity-saved-notice")).toBe(0);
-  });
-
-  it("a failed refresh (a pull, or a silent reload after a save or sync) keeps the list, says why, and offers Refresh", () => {
-    const onRefreshNotice = vi.fn();
-    const { r } = view({ notice: "Couldn't reach Budgts.", onRefreshNotice });
-    expect(textContent(byTestId(r, "activity-notice"))).toContain("Couldn't reach Budgts.");
-    expect(rowTitles(r)).toEqual(["Shop a"]);
-    act(() => r.root.find((n) => typeof n.type === "string" && n.props.accessibilityLabel === "Refresh").props.onPress());
-    expect(onRefreshNotice).toHaveBeenCalled();
   });
 });
 

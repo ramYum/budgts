@@ -9,9 +9,11 @@ import { parseHub, type MobileHub } from "./status-api";
 /**
  * The More and Settings hubs' counts (`GET /api/mobile/hub`). They are quiet
  * summaries beside each row: until they arrive, or if they fail, the rows show
- * no value and stay usable, as the web's rows are links first.
+ * no value and stay usable, as the web's rows are links first. A re-read that
+ * fails keeps the counts shown and hands on `notice` (the pull contract), which
+ * the hub screens pass to `<Screen>`.
  */
-export function useHub(): MobileHub | null {
+export function useHub(): { hub: MobileHub | null; notice: string | null; refresh: () => Promise<void> } {
   // every topic a count moves with: goals, accounts and banks, categories (their writes invalidate transactions),
   // budgets
   const goals = useVersion("goals");
@@ -31,10 +33,10 @@ export function useHub(): MobileHub | null {
       setVisit((v) => v + 1);
     }, []),
   );
-  const { state } = useResource(
+  const { state, notice, refresh } = useResource(
     "hub",
     (session) => loadResource(() => authFetch("/api/mobile/hub", session), parseHub),
     { version: `${goals}:${accounts}:${transactions}:${budgets}:${visit}` },
   );
-  return state.status === "ready" ? state.data : null;
+  return { hub: state.status === "ready" ? state.data : null, notice, refresh };
 }

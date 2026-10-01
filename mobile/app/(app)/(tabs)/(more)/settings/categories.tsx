@@ -13,7 +13,7 @@ export default function CategoriesScreen() {
   const router = useRouter();
   const onBack = useBack("/settings");
   const { signOut } = useAuth();
-  const { state, refreshing, refresh, reload, writes } = useCategoriesScreen();
+  const { state, notice, refreshing, refresh, reload, writes } = useCategoriesScreen();
 
   const actions: CategoryActions = {
     ...writes,
@@ -22,7 +22,7 @@ export default function CategoriesScreen() {
   };
 
   return (
-    <Screen refreshing={refreshing} onRefresh={() => void refresh()}>
+    <Screen refreshing={refreshing} onRefresh={() => void refresh()} name="categories" notice={notice} onRetry={() => void refresh()}>
       {state.status === "ready" ? (
         <CategoriesView data={state.data} actions={actions} onBack={onBack} />
       ) : state.status === "error" ? (

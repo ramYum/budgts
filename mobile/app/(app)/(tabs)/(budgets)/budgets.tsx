@@ -1,5 +1,4 @@
 import { useCallback, useState } from "react";
-import { View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { authFetch } from "../../../../lib/auth/api";
 import { useAuth } from "../../../../lib/auth/auth-context";
@@ -16,7 +15,6 @@ import { CategorySheet, NewBudgetSheet, type SaveBudget } from "../../../../comp
 import { BudgetsView } from "../../../../components/budgets/budgets-view";
 import { LoadFailure } from "../../../../components/feedback/states";
 import { ScreenSkeleton } from "../../../../components/feedback/skeleton";
-import { RefreshNotice } from "../../../../components/home/refresh-notice";
 import { Screen } from "../../../../components/shell/screen";
 
 /** The web's budget messages (src/server/budgets.ts). */
@@ -84,12 +82,7 @@ export default function BudgetsScreen() {
 
   return (
     // Pull to refresh keeps the figures up while it asks; a failed pull keeps them and says they may be out of date.
-    <Screen refreshing={refreshing} onRefresh={() => void refresh()}>
-      {notice && data ? (
-        <View style={{ marginBottom: 20 }}>
-          <RefreshNotice message={notice} onRetry={() => void refresh()} />
-        </View>
-      ) : null}
+    <Screen refreshing={refreshing} onRefresh={() => void refresh()} name="budgets" notice={notice} onRetry={() => void refresh()}>
       {data === null ? (
         state.status === "error" ? (
           <LoadFailure kind={state.kind} onRetry={() => void reload()} onHome={() => router.navigate("/")} onSignOut={() => void signOut()} />

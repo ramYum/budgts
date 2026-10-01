@@ -286,31 +286,12 @@ describe("reading order", () => {
 });
 
 describe("a failed refresh", () => {
-  it("keeps the numbers and says so, with a way to refresh", () => {
-    const onRefresh = vi.fn();
-    const r = render(
-      <HomeView
-        home={full()}
-        name="Alex"
-        hour={9}
-        go={() => {}}
-        onMonth={() => {}}
-        onAddIncome={() => {}}
-        onAddTransaction={() => {}}
-        notice="Couldn't reach Budgts. Check your connection and try again."
-        onRefresh={onRefresh}
-      />,
-    );
-    expect(textContent(byTestId(r, "home-refresh-notice"))).toBe(
-      "These numbers may be out of date. Couldn't reach Budgts. Check your connection and try again. Refresh.",
-    );
-    expect(byTestId(r, "home-money-left")).toBeTruthy();
-    byTestId(r, "home-refresh-notice-retry").props.onPress();
-    expect(onRefresh).toHaveBeenCalledOnce();
-  });
-
-  it("shows nothing extra when the last refresh landed", () => {
-    expect(view(full()).r.root.findAll((n) => n.props.testID === "home-refresh-notice")).toHaveLength(0);
+  // the notice itself is the shell's (<Screen notice>, components/shell/screen.test.tsx); Home only re-measures Crystal
+  it("tells Crystal to measure again when the shell's notice comes or goes", () => {
+    const perchKey = (noticeShown: boolean) =>
+      render(<HomeView home={full()} name="Alex" hour={9} go={() => {}} onMonth={() => {}} onAddIncome={() => {}} onAddTransaction={() => {}} noticeShown={noticeShown} />)
+        .root.findAll((n) => n.props.layoutKey !== undefined)[0]!.props.layoutKey;
+    expect(perchKey(true)).not.toBe(perchKey(false));
   });
 });
 
@@ -403,18 +384,11 @@ describe("screen reader (review 🟢4, 🟢5)", () => {
     expect(typeof rows[0]!.props.style).not.toBe("function");
   });
 
-  it("a card whose one link is its action offers it: the no-budgets card opens Budgets, the refresh notice refreshes", () => {
+  it("a card whose one link is its action offers it: the no-budgets card opens Budgets", () => {
     const { r, props } = view(full({ categories: [], budgeted: 0 }));
     const card = byTestId(r, "home-where-no-budgets");
     expect(card.props.accessibilityActions).toEqual([{ name: "activate", label: "Open Budgets" }]);
     card.props.onAccessibilityAction({ nativeEvent: { actionName: "activate" } });
     expect(props.go).toHaveBeenCalledWith({ pathname: "/budgets" });
-
-    const onRefresh = vi.fn();
-    const n = render(
-      <HomeView home={full()} name="Alex" hour={9} go={() => {}} onMonth={() => {}} onAddIncome={() => {}} onAddTransaction={() => {}} notice="Couldn't reach Budgts." onRefresh={onRefresh} />,
-    );
-    byTestId(n, "home-refresh-notice").props.onAccessibilityAction({ nativeEvent: { actionName: "activate" } });
-    expect(onRefresh).toHaveBeenCalledOnce();
   });
 });

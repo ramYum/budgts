@@ -156,10 +156,6 @@ export type ActivityViewProps = {
   onClearCategory: () => void;
   /** the month once its first page is in (loading and a failed month are the screen's skeleton and failure states) */
   ledger: LedgerState;
-  /** a failed refresh (a pull, or a silent reload after a save or sync): the list stays, this says why it isn't fresh */
-  notice: string | null;
-  /** the notice's Refresh: re-reads the month and the panels */
-  onRefreshNotice: () => void;
   /** a replayed create whose kept row is in another month: what happened, until dismissed */
   savedNotice: string | null;
   onDismissSavedNotice: () => void;
@@ -221,14 +217,6 @@ export function ActivityView(p: ActivityViewProps) {
         <View style={{ marginBottom: 24 }}>
           <WarnLine testID="activity-saved-notice" action={{ label: "Dismiss", onPress: p.onDismissSavedNotice }}>
             {p.savedNotice}
-          </WarnLine>
-        </View>
-      ) : null}
-
-      {p.notice ? (
-        <View style={{ marginBottom: 24 }}>
-          <WarnLine testID="activity-notice" action={{ label: "Refresh", onPress: p.onRefreshNotice }}>
-            {p.notice}
           </WarnLine>
         </View>
       ) : null}

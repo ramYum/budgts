@@ -3,6 +3,7 @@ import { KeyboardAvoidingView, Pressable, ScrollView, View } from "react-native"
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ROLE } from "../../lib/brand/shared";
 import { Logo } from "../brand/logo";
+import { StaleNotice, type StaleNoticeProps } from "../feedback/refresh-notice";
 import { pressStyle } from "../kit/press";
 
 /**
@@ -10,17 +11,20 @@ import { pressStyle } from "../kit/press";
  * brand top-left, then one column, centred, or pinned under the brand
  * (`align="top"`) for a multi-step flow whose title must not jump from step
  * to step. No header bar, no tabs. Pads above the keyboard on both platforms.
+ * A screen that loads through `useResource` passes its `notice`, `onRetry` and
+ * `name`, drawn first in the column as `<Screen>` draws it.
  */
 export function StandaloneShell({
   children,
   align = "center",
   onHome,
+  ...stale
 }: {
   children: ReactNode;
   align?: "center" | "top";
   /** the brand is a way home, when there is one */
   onHome?: () => void;
-}) {
+} & StaleNoticeProps) {
   const insets = useSafeAreaInsets();
   const logo = <Logo size={22} testID="app-logo" />;
   return (
@@ -44,6 +48,7 @@ export function StandaloneShell({
           testID="screen-content"
           style={{ flexGrow: 1, paddingHorizontal: 24, justifyContent: align === "top" ? "flex-start" : "center", paddingTop: align === "top" ? 16 : 24 }}
         >
+          <StaleNotice {...stale} />
           {children}
         </View>
       </ScrollView>

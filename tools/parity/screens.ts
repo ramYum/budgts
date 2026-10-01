@@ -337,12 +337,13 @@ export const NATIVE_ONLY: Readonly<Record<string, string>> = {
   "<screen>-view (more, settings, profile, security, appearance, help, how-it-works, about, categories, connected-banks, accounts, activity)":
     "the web page is a fragment (PageHeader + body) with no wrapper element; page-header and screen-content cover it",
   "needs-category-title": "the web h2 holds the title and the count in one element; the count is needs-category-total",
-  "home-refresh-notice, home-refresh-notice-retry": "native only: a failed background refresh keeps the last figures",
+  "<screen>-refresh-notice, <screen>-refresh-notice-retry (home, activity, budgets, goals, insights, accounts, connected-banks, categories, delete-account, more, settings)":
+    "native only: a failed background refresh keeps the last figures; the shell draws it under the banners (<Screen notice>)",
   "first-run-failure-detail, first-run-sign-out": "native only: the web's first-run gate throws to the error boundary",
   "settings-export-error": "the web export is a plain download link with no error line",
   "accounts-error": "the web drops a refused archive silently",
   "categories-error": "the web's category archive shows no error line",
-  "activity-notice, activity-rest-loading, activity-rest-error": "native paging and refresh states",
+  "activity-rest-loading, activity-rest-error": "native paging states",
   "activity-saved-notice, txn-detail-replayed":
     "native only: a create retried after a lost answer that the server answers replayed (POST /api/mobile/transactions)",
   "activity-extras-error": "native only: the web hides a failed Needs a category read; GET /api/mobile/activity answers 503, shown with Try again",

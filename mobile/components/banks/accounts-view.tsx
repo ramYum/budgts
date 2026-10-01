@@ -7,7 +7,6 @@ import type { CommandOutcome } from "../../lib/plaid/bank-commands";
 import { Button, Field, IconTile } from "../brand/controls";
 import { PixelFrame } from "../brand/pixel-frame";
 import { Text } from "../brand/text";
-import { RefreshNotice } from "../home/refresh-notice";
 import { Overlay } from "../kit/overlay";
 import { PageHeader } from "../kit/page-header";
 import { RowMenu } from "../kit/row-menu";
@@ -38,16 +37,11 @@ export function AccountsView({
   accountTypes,
   commands,
   onBack,
-  notice = null,
-  onRetry,
 }: {
   overview: AccountsOverview;
   accountTypes: string[];
   commands: AccountCommands;
   onBack: () => void;
-  /** a reload that failed while this data was on screen (useResource's `notice`) */
-  notice?: string | null;
-  onRetry?: () => void;
 }) {
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<OverviewAccount | null>(null);
@@ -84,11 +78,6 @@ export function AccountsView({
 
   return (
     <View testID="accounts-view">
-        {notice && onRetry ? (
-          <View style={{ marginBottom: 20 }}>
-            <RefreshNotice message={notice} onRetry={onRetry} />
-          </View>
-        ) : null}
       <PageHeader
         title="Accounts"
         onBack={onBack}

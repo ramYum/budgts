@@ -5,7 +5,6 @@ import { IconTile } from "../brand/controls";
 import { Icon } from "../brand/icon";
 import { PixelFrame } from "../brand/pixel-frame";
 import { Text } from "../brand/text";
-import { RefreshNotice } from "../home/refresh-notice";
 import { PageHeader } from "../kit/page-header";
 import { BankCard, type BankActions } from "./bank-card";
 import { ConnectBank } from "./connect-bank";
@@ -24,26 +23,16 @@ export function ConnectedBanksView({
   actions,
   now,
   onBack,
-  notice = null,
-  onRetry,
 }: {
   enabled: boolean;
   banks: ConnectedBank[];
   actions: BankActions;
   now: number;
   onBack: () => void;
-  /** a reload that failed while this data was on screen (useResource's `notice`) */
-  notice?: string | null;
-  onRetry?: () => void;
 }) {
   if (!enabled) {
     return (
       <View testID="connected-banks-view">
-        {notice && onRetry ? (
-          <View style={{ marginBottom: 20 }}>
-            <RefreshNotice message={notice} onRetry={onRetry} />
-          </View>
-        ) : null}
         <PageHeader title="Connected banks" onBack={onBack} />
         <Text testID="connected-banks-off" variant="body" color={ROLE.muted}>
           Bank connections aren't available yet on this deployment. Manual entry works for every account in the meantime: add transactions from Activity.
@@ -54,11 +43,6 @@ export function ConnectedBanksView({
 
   return (
     <View testID="connected-banks-view">
-        {notice && onRetry ? (
-          <View style={{ marginBottom: 20 }}>
-            <RefreshNotice message={notice} onRetry={onRetry} />
-          </View>
-        ) : null}
       <PageHeader title="Connected banks" onBack={onBack} />
       <View style={{ gap: 24 }}>
         {banks.length === 0 ? (

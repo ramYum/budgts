@@ -41,7 +41,7 @@ export default function DeleteAccountScreen() {
   const { session, signOut } = useAuth();
   const [busy, setBusy] = useState(false);
   const [linkError, setLinkError] = useState<string | null>(null);
-  const { state, reload, refresh } = useResource("delete-screen", (s) =>
+  const { state, notice, reload, refresh } = useResource("delete-screen", (s) =>
     loadResource(() => authFetch("/api/mobile/account/delete", s), parseDeleteScreen),
   );
 
@@ -127,7 +127,13 @@ export default function DeleteAccountScreen() {
   return (
     <>
       <Stack.Screen options={{ gestureEnabled: !busy }} />
-      <StandaloneShell align="top" onHome={busy ? undefined : () => router.navigate("/")}>
+      <StandaloneShell
+        align="top"
+        onHome={busy ? undefined : () => router.navigate("/")}
+        name="delete-account"
+        notice={notice}
+        onRetry={() => void refresh()}
+      >
         {content()}
         <View style={{ paddingTop: linkError ? 16 : 0 }}>
           <LinkError message={linkError} />

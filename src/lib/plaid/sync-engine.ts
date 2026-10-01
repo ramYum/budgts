@@ -167,6 +167,8 @@ export interface PlaidSyncStore {
   /** Resolves a still-`unknown` account and releases its held rows; false (and nothing written) when the account was
    * already resolved. */
   finalizeSignConvention(plaidAccountRowId: string, convention: "standard" | "inverted"): Promise<boolean>;
+  /** The facts `autoResolveBlock` judges before the sync resolves an account from evidence. */
+  getAutoResolveFacts(plaidAccountRowId: string, verdict: "standard" | "inverted"): Promise<AutoResolveFacts>;
   /**
    * Every not-yet-excluded row for one Budgts account, for Advancial replay
    * containment (design 2026-09-14, replay-containment.ts). Institution-
@@ -471,6 +473,13 @@ export async function runSync(deps: SyncDeps): Promise<SyncOutcome> {
       const evidence = evidenceByAccount.get(plaidAccountRowId) ?? [];
       const verdict = detectSignConvention(evidence, accountTypeByPlaidAccountRowId.get(plaidAccountRowId));
       if (verdict === "standard" || verdict === "inverted") {
+        // Unreliable evidence is never trusted to flip or release rows on its own; the held rows stay visible with
+        // the question on Connected banks, the user's exit (design: 2026-10-01 card payments §4a).
+        const block = autoResolveBlock(await store.getAutoResolveFacts(plaidAccountRowId, verdict));
+        if (block) {
+          console.log("[plaid] sign-convention auto-resolve held back", { plaidAccountRowId, verdict, block });
+          continue;
+        }
         await store.finalizeSignConvention(plaidAccountRowId, verdict);
       } else if (evidence.length >= AMBIGUOUS_REVIEW_SAMPLE_THRESHOLD) {
         const budgtsAccountId = budgtsAccountIdByPlaidAccountRowId.get(plaidAccountRowId);
@@ -572,4 +581,33 @@ export async function runSync(deps: SyncDeps): Promise<SyncOutcome> {
     hasMore: cappedMore,
     restarts,
   };
+}
+
+/** Facts about an account the sync is about to resolve from evidence (design: 2026-10-01 card payments §4a). */
+export interface AutoResolveFacts {
+  /** `plaid_items.status` of the account's bank. */
+  itemStatus: string;
+  /** `plaid_accounts.needs_review`: the account is already flagged (replayed copies, an ambiguous feed, ...). */
+  needsReview: boolean;
+  /** The largest group of byte-identical live rows (same content fingerprint, not marked duplicate). */
+  largestIdenticalGroup: number;
+  /** Already-confirmed live rows whose stored direction the verdict would contradict (rows from before conventions
+   * existed, which a release never touches). */
+  confirmedContradicting: number;
+}
+
+export type AutoResolveBlock = "bank_needs_attention" | "flagged_for_review" | "repeated_copies" | "contradicts_confirmed_rows";
+
+/**
+ * Whether the sync may resolve an account from its evidence on its own, or must leave it for the user's answer
+ * (design: 2026-10-01 card payments §4a). Evidence from a feed that looks unreliable is not trusted to flip or
+ * release rows silently: a bank that needs attention, an account already flagged for review, replayed copies (as
+ * many identical rows as the anomaly threshold), or a verdict that contradicts rows already confirmed. Null = allowed.
+ */
+export function autoResolveBlock(f: AutoResolveFacts): AutoResolveBlock | null {
+  if (f.itemStatus !== "active") return "bank_needs_attention";
+  if (f.needsReview) return "flagged_for_review";
+  if (f.largestIdenticalGroup >= ANOMALY_REVIEW_THRESHOLD) return "repeated_copies";
+  if (f.confirmedContradicting > 0) return "contradicts_confirmed_rows";
+  return null;
 }

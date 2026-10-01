@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findTransferPairs, type PairingCandidate } from "./transfer-pairing";
+import { findTransferPairs, undoTierBClassification, type PairingCandidate } from "./transfer-pairing";
 
 const DAY = "2026-09-10T12:00:00.000Z";
 
@@ -211,5 +211,32 @@ describe("findTransferPairs — determinism under repeated identical amounts", (
     expect(new Set(used).size).toBe(6);
     // Re-running against the same snapshot gives the identical result.
     expect(findTransferPairs(legs)).toEqual({ accepted, ambiguous });
+  });
+});
+
+describe("findTransferPairs — the window option (remediation preview only)", () => {
+  it("with the old 1-day Tier B window, a 3-day card payment does not pair; with the default it does", () => {
+    const card = c({ id: "card", accountId: "card", direction: "credit", eventRole: "CARD_PAYMENT", occurredAt: "2026-09-13T00:00:00.000Z" });
+    const chk = c({ id: "chk", accountId: "checking", direction: "debit", eventRole: null, occurredAt: "2026-09-10T00:00:00.000Z" });
+    expect(findTransferPairs([card, chk], { tierBWindowDays: 1 }).accepted).toEqual([]);
+    expect(findTransferPairs([card, chk]).accepted).toHaveLength(1);
+  });
+});
+
+describe("undoTierBClassification", () => {
+  const base = { isTransfer: true, eventRole: "TRANSFER", primary: "LOAN_PAYMENTS", detailed: "LOAN_PAYMENTS_OTHER_PAYMENT", transferUserSet: false, direction: "debit" as const };
+
+  it("returns a Tier-B-classified leg to its own signal", () => {
+    expect(undoTierBClassification(base, "depository")).toEqual({ isTransfer: false, eventRole: null });
+    expect(undoTierBClassification({ ...base, primary: "FOOD_AND_DRINK", detailed: null }, "depository")).toEqual({
+      isTransfer: false,
+      eventRole: "PURCHASE",
+    });
+  });
+
+  it("leaves a Plaid-labelled transfer, a user's own decision, and a non-transfer alone", () => {
+    expect(undoTierBClassification({ ...base, primary: "TRANSFER_OUT" }, null)).toBeNull();
+    expect(undoTierBClassification({ ...base, transferUserSet: true }, null)).toBeNull();
+    expect(undoTierBClassification({ ...base, isTransfer: false, eventRole: "CARD_PAYMENT" }, null)).toBeNull();
   });
 });

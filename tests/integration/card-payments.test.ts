@@ -16,7 +16,8 @@ vi.mock("server-only", () => ({}));
 import { countsForMonth } from "@/lib/budget/qualify";
 import type { BudgetTxn } from "@/lib/budget/types";
 import { isEventRole } from "@/lib/plaid/event-role";
-import { createPlaidSyncStore } from "@/lib/plaid/sync-store";
+import { autoResolveBlock } from "@/lib/plaid/sync-engine";
+import { createPlaidSyncStore, readAutoResolveFacts } from "@/lib/plaid/sync-store";
 import { findTransferPairs } from "@/lib/plaid/transfer-pairing";
 import { rollup } from "@/lib/budget/rollup";
 import { claimItemForSync, releaseSyncClaim } from "@/lib/plaid/item-store";
@@ -60,6 +61,8 @@ beforeEach(async () => {
   await client`delete from public.plaid_sign_answers where user_id = ${userId}`;
   await client`delete from public.transactions where user_id = ${userId}`;
   await client`update public.plaid_items set sync_claim_token = null, sync_claimed_at = null where user_id = ${userId}`;
+  await client`update public.plaid_accounts set sign_convention = 'standard' where id = ${checkingFeed}`;
+  await client`delete from public.plaid_accounts where user_id = ${userId} and link_state = 'unmapped'`;
 });
 
 async function row(id: string) {
@@ -238,7 +241,8 @@ describe("tools/card-payment-remediation.ts (dry run, apply, revert) on a synthe
     const straggler = await heldPayment(-75); // the card is already standard; this row was never released
 
     const dry = runTool();
-    expect(dry).toContain("2 role backfills, 1 held-row releases, 0 account conventions resolved; 1 user-categorized");
+    expect(dry).toContain("--apply would write: 2 role backfills, 1 held-row releases; 1 user-categorized");
+    expect(dry).toContain("automatic at deploy:");
     expect(dry).toContain("Dry run: nothing was written");
     expect((await row(legacy)).event_role).toBeNull();
 
@@ -256,6 +260,36 @@ describe("tools/card-payment-remediation.ts (dry run, apply, revert) on a synthe
     expect((await row(legacy)).event_role).toBeNull();
     expect(await row(straggler)).toMatchObject({ status: "pending_review", event_role: null });
     fs.rmSync(auditFile);
+  }, 300_000);
+
+  it("previews what the deployed sync does by itself: B auto-resolution (and its gate) and C's new 3-day pairs", async () => {
+    // B: the card is unknown with 8 held purchases (raw > 0): the deployed sync would resolve it standard.
+    for (let i = 0; i < 8; i++) {
+      await insertBankTxn(userId, cardId, {
+        plaidAccountId: cardFeed, status: "pending_review", pendingReason: "sign_convention_unknown", direction: "debit",
+        primary: "GENERAL_MERCHANDISE", raw: { amount: 10 + i }, amount: 1000 + i * 100, occurredAt: "2026-09-02T00:00:00.000Z",
+      });
+    }
+    // C: a checking-side payment with no role, and its card leg three days later.
+    await insertBankTxn(userId, checkingId, {
+      plaidAccountId: checkingFeed, primary: "LOAN_PAYMENTS", detailed: "LOAN_PAYMENTS_OTHER_PAYMENT", direction: "debit",
+      eventRole: null, amount: 31337, raw: { amount: 313.37 }, occurredAt: "2026-09-10T00:00:00.000Z",
+    });
+    await insertBankTxn(userId, cardId, {
+      plaidAccountId: checkingFeed, primary: "LOAN_PAYMENTS", detailed: "LOAN_PAYMENTS_OTHER_PAYMENT", direction: "credit",
+      eventRole: "CARD_PAYMENT", amount: 31337, raw: { amount: -313.37 }, occurredAt: "2026-09-13T00:00:00.000Z",
+    });
+
+    const dry = runTool();
+    expect(dry).toContain(`${cardFeed.slice(0, 8)} user ${userId.slice(0, 8)}`);
+    expect(dry).toContain("AUTO-RESOLVES standard, releases 8 rows");
+    expect(dry).toContain("automatic at deploy: 8 held rows released on 1 accounts (B), 1 new pairs, 1 rows classified as transfers (C)");
+    expect(dry).toMatch(/NEW user \w{8} tier B: .*\$313\.37 2026-09-1\d.*becomes a transfer/);
+    expect(dry).toContain("Dry run: nothing was written");
+
+    // The gate: the same account flagged for review is held back for the user's answer.
+    await client`update public.plaid_accounts set needs_review = true, review_reason = 'Suspicious repetition detected.' where id = ${cardFeed}`;
+    expect(runTool()).toContain("held back (flagged_for_review): the user's answer");
   }, 300_000);
 
   it("refuses --apply without the matching --confirm-ref", () => {
@@ -361,14 +395,41 @@ describe("changeSignConventionAnswer (design: 2026-10-01 card payments §5a)", (
     expect(n).toBe(2);
   });
 
-  it("refuses another user's account, and an account that was never answered", async () => {
+  it("refuses another user's account, and an account still being checked", async () => {
     const purchase = await heldPurchase();
+    expect(await changeSignConventionAnswer(db, userId, cardFeed, purchase, "in")).toEqual({ outcome: "not_answered" });
     await resolveSignConventionFromAnswer(db, userId, cardFeed, purchase, "out");
     expect(await changeSignConventionAnswer(db, otherUserId, cardFeed, purchase, "in")).toEqual({ outcome: "not_found" });
     expect((await row(purchase)).direction).toBe("debit");
+  });
 
-    const other = await insertBankTxn(userId, checkingId, { plaidAccountId: checkingFeed, raw: { amount: 5 } });
-    expect(await changeSignConventionAnswer(db, userId, checkingFeed, other, "in")).toEqual({ outcome: "not_answered" });
+  it("an account resolved from evidence can be flipped (amounts look reversed) and flipped back, both audited (§5b)", async () => {
+    const coffee = await insertBankTxn(userId, checkingId, {
+      plaidAccountId: checkingFeed, direction: "debit", primary: "FOOD_AND_DRINK", eventRole: "PURCHASE", raw: { amount: 5 }, amount: 500,
+    });
+    expect(await changeSignConventionAnswer(db, userId, checkingFeed, coffee, "in")).toEqual({
+      outcome: "changed",
+      convention: "inverted",
+      changedRows: 1,
+    });
+    expect(await row(coffee)).toMatchObject({ direction: "credit", event_role: "REFUND" });
+    expect(await changeSignConventionAnswer(db, userId, checkingFeed, coffee, "out")).toMatchObject({ outcome: "changed", convention: "standard" });
+    expect(await row(coffee)).toMatchObject({ direction: "debit", event_role: "PURCHASE" });
+    const audit = await client<{ kind: string; from_convention: string; to_convention: string }[]>`
+      select kind, from_convention, to_convention from public.plaid_sign_answers where plaid_account_id = ${checkingFeed} order by created_at`;
+    expect(audit.map((a) => [a.kind, a.from_convention, a.to_convention])).toEqual([
+      ["change", "standard", "inverted"],
+      ["change", "inverted", "standard"],
+    ]);
+  });
+
+  it("says the bank is still being set up, not busy, while an account awaits its import choice", async () => {
+    const purchase = await heldPurchase();
+    const [item] = await client<{ plaid_item_id: string }[]>`select plaid_item_id from public.plaid_accounts where id = ${cardFeed}`;
+    await client`insert into public.plaid_accounts (user_id, plaid_item_id, plaid_account_id, link_state, name)
+      values (${userId}, ${item.plaid_item_id}, ${`itest-unmapped-${Date.now()}`}, 'unmapped', 'New')`;
+    expect(await resolveSignConventionFromAnswer(db, userId, cardFeed, purchase, "out")).toEqual({ outcome: "setting_up" });
+    expect(await row(purchase)).toMatchObject({ status: "pending_review" });
   });
 
   it("is refused while a sync holds the bank, and of two racing changes exactly one applies", async () => {
@@ -394,23 +455,50 @@ describe("changeSignConventionAnswer (design: 2026-10-01 card payments §5a)", (
     expect(pa.sign_convention).toBe("standard");
   });
 
-  it("unlinks a transfer pair whose leg it re-evaluates", async () => {
+  it("unlinks a transfer pair whose leg it re-evaluates, and undoes a pairing-only transfer on the partner", async () => {
     const purchase = await heldPurchase();
     await resolveSignConventionFromAnswer(db, userId, cardFeed, purchase, "in"); // inverted
     const leg = await insertBankTxn(userId, cardId, {
       plaidAccountId: cardFeed, direction: "credit", primary: "TRANSFER_IN", isTransfer: true, eventRole: "TRANSFER",
       raw: { amount: 25 }, amount: 2500,
     });
+    // The partner only became a transfer because Tier B classified it (Plaid called it a loan payment).
     const partner = await insertBankTxn(userId, checkingId, {
-      plaidAccountId: checkingFeed, direction: "debit", primary: "TRANSFER_OUT", isTransfer: true, eventRole: "TRANSFER",
-      raw: { amount: 25 }, amount: 2500,
+      plaidAccountId: checkingFeed, direction: "debit", primary: "LOAN_PAYMENTS", detailed: "LOAN_PAYMENTS_OTHER_PAYMENT",
+      isTransfer: true, eventRole: "TRANSFER", raw: { amount: 25 }, amount: 2500,
     });
     await client`update public.transactions set transfer_pair_id = ${partner} where id = ${leg}`;
     await client`update public.transactions set transfer_pair_id = ${leg} where id = ${partner}`;
 
     await changeSignConventionAnswer(db, userId, cardFeed, purchase, "out");
-    expect(await row(leg)).toMatchObject({ direction: "debit", transfer_pair_id: null, event_role: "TRANSFER" });
-    expect(await row(partner)).toMatchObject({ direction: "debit", transfer_pair_id: null });
+    // the Plaid-labelled transfer leg stays a transfer; only its link and direction change
+    expect(await row(leg)).toMatchObject({ direction: "debit", transfer_pair_id: null, event_role: "TRANSFER", is_transfer: true });
+    // the partner keeps its direction, loses the link, and returns to its own signal
+    expect(await row(partner)).toMatchObject({ direction: "debit", transfer_pair_id: null, is_transfer: false, event_role: null });
+
+    const [audit] = await client<{ changed_rows: Record<string, unknown>[] }[]>`
+      select changed_rows from public.plaid_sign_answers where plaid_account_id = ${cardFeed} and kind = 'change'`;
+    expect(audit.changed_rows).toEqual(
+      expect.arrayContaining([
+        { id: partner, transferPairId: leg, isTransfer: true, eventRole: "TRANSFER", partnerUnlinked: true },
+      ]),
+    );
+  });
+});
+
+describe("readAutoResolveFacts (the sync's auto-resolve gate, design: 2026-10-01 card payments §4a)", () => {
+  it("reports the bank status, identical copies, and confirmed rows a verdict would contradict", async () => {
+    // two byte-identical rows, and one confirmed row landed as standard (raw 9 -> debit)
+    await insertBankTxn(userId, cardId, { plaidAccountId: cardFeed, raw: { amount: 9 }, direction: "debit" });
+    await client`update public.transactions set content_fingerprint = 'same' where user_id = ${userId}`;
+    await insertBankTxn(userId, cardId, { plaidAccountId: cardFeed, raw: { amount: 9 }, direction: "debit" });
+    await client`update public.transactions set content_fingerprint = 'same' where user_id = ${userId}`;
+
+    const standard = await readAutoResolveFacts(db, cardFeed, "standard");
+    expect(standard).toMatchObject({ itemStatus: "active", largestIdenticalGroup: 2, confirmedContradicting: 0 });
+    const inverted = await readAutoResolveFacts(db, cardFeed, "inverted");
+    expect(inverted.confirmedContradicting).toBe(2);
+    expect(autoResolveBlock(inverted)).toBe("contradicts_confirmed_rows");
   });
 });
 

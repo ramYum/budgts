@@ -1,8 +1,9 @@
 import "server-only";
-import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { plaidAccounts, plaidItems, plaidSignAnswers, transactions } from "@/lib/db/schema";
 import { planConventionChange } from "@/lib/plaid/held-rows";
-import { claimItemForSync, releaseSyncClaim } from "@/lib/plaid/item-store";
+import { undoTierBClassification } from "@/lib/plaid/transfer-pairing";
+import { claimItemForSync, claimMissReason, releaseSyncClaim } from "@/lib/plaid/item-store";
 import { conventionFromAnswer, SIGN_CONVENTION_REVIEW_MARKER, type MoneyFlowAnswer } from "@/lib/plaid/sign-convention";
 import {
   createPlaidSyncStore,
@@ -12,20 +13,22 @@ import {
   type PlaidTx,
 } from "@/lib/plaid/sync-store";
 
+/** Why the bank's sync lease couldn't be taken: a sync is running, or the bank still awaits its account choices. */
+export type LeaseMiss = { outcome: "busy" } | { outcome: "setting_up" };
+
 export type SignAnswerOutcome =
   | { outcome: "resolved"; convention: "standard" | "inverted" }
   | { outcome: "already_resolved" }
-  /** A sync holds this bank (or it is still being set up): nothing written, try again shortly. */
-  | { outcome: "busy" }
+  | LeaseMiss
   | { outcome: "not_found" };
 
 export type ChangeAnswerOutcome =
   | { outcome: "changed"; convention: "standard" | "inverted"; changedRows: number }
   /** The answer already matches the account (a repeat, or a racing change got there first): nothing written. */
   | { outcome: "unchanged" }
-  /** Only an account the user resolved by answering can change its answer. */
+  /** The account is still being checked: it takes the first answer, not a change. */
   | { outcome: "not_answered" }
-  | { outcome: "busy" }
+  | LeaseMiss
   | { outcome: "not_found" };
 
 type Owned = { signConvention: "unknown" | "standard" | "inverted"; accountId: string | null; itemId: string };
@@ -69,14 +72,22 @@ async function sampleRawAmount(
 
 /**
  * Runs `work` while holding the bank's sync lease, so no sync lands rows under the convention being changed (a sync
- * reads the convention when it starts). Null when the lease is taken (a sync is running) or the bank still awaits
- * its account mapping. The lease is always released, without asking for a re-sync.
+ * reads the convention when it starts). When the lease can't be taken, says why (`claimMissReason`): a sync is
+ * running, or the bank still awaits its account choices. The lease is always released, without asking for a re-sync.
  */
-async function underSyncLease<T>(db: PlaidDb, itemId: string, work: () => Promise<T>): Promise<T | null> {
+async function underSyncLease<T>(
+  db: PlaidDb,
+  itemId: string,
+  work: () => Promise<T>,
+): Promise<{ done: T } | LeaseMiss | { outcome: "not_found" }> {
   const claim = await claimItemForSync(db, itemId, { kind: "requested" });
-  if (!claim) return null;
+  if (!claim) {
+    const miss = await claimMissReason(db, itemId);
+    if (miss.kind === "gone") return { outcome: "not_found" };
+    return miss.kind === "busy" ? { outcome: "busy" } : { outcome: "setting_up" };
+  }
   try {
-    return await work();
+    return { done: await work() };
   } finally {
     await releaseSyncClaim(db, itemId, claim.token, false);
   }
@@ -124,8 +135,8 @@ export async function resolveSignConventionFromAnswer(
       return true;
     }),
   );
-  if (result === null) return { outcome: "busy" };
-  if (!result) return { outcome: "already_resolved" };
+  if (!("done" in result)) return result;
+  if (!result.done) return { outcome: "already_resolved" };
   // The "can't confidently determine" review flag the sync raises for a stuck account is answered now; clear only
   // that flag (marker-gated), never one raised for another reason.
   if (account.accountId) {
@@ -135,12 +146,14 @@ export async function resolveSignConventionFromAnswer(
 }
 
 /**
- * "Change answer" (design: 2026-10-01 card payments §5a): the user answers the question again for an account they
- * resolved by answering, and a different answer flips the account's convention. Every row whose direction came from
+ * "Change answer" (design: 2026-10-01 card payments §5a): the user answers the question again for a resolved account
+ * (one they answered for, or, from "Amounts on this account look reversed?", one the sync resolved from evidence),
+ * and a different answer flips the account's convention. Every row whose direction came from
  * the old convention is re-evaluated by `planConventionChange` (corrected direction, recomputed event role); a row
  * set some other way (the user's own edit) is left alone. A re-evaluated row that was paired as a transfer is
- * unlinked from its partner, since the pair was matched on the old direction; the next sync re-pairs it if it still
- * matches. Every old value is recorded in `plaid_sign_answers`.
+ * unlinked from its partner, since the pair was matched on the old direction, and a leg that was only a transfer
+ * because pairing classified it goes back to its own signal (`undoTierBClassification`); the next sync re-pairs a
+ * pair that still matches. Every old value is recorded in `plaid_sign_answers`.
  *
  * Same ownership checks as the answer, against the session user. Idempotent: an answer that matches the account
  * changes nothing. Race-safe: it holds the bank's sync lease, and the convention flips only from the value read,
@@ -156,13 +169,6 @@ export async function changeSignConventionAnswer(
   const account = await ownedAccount(db, userId, plaidAccountRowId);
   if (!account) return { outcome: "not_found" };
   if (account.signConvention === "unknown") return { outcome: "not_answered" };
-  const [answered] = await db
-    .select({ id: plaidSignAnswers.id })
-    .from(plaidSignAnswers)
-    .where(and(eq(plaidSignAnswers.plaidAccountId, plaidAccountRowId), eq(plaidSignAnswers.userId, userId)))
-    .orderBy(desc(plaidSignAnswers.createdAt))
-    .limit(1);
-  if (!answered) return { outcome: "not_answered" };
   const rawAmount = await sampleRawAmount(db, userId, plaidAccountRowId, transactionId, false);
   if (rawAmount == null) return { outcome: "not_found" };
   const from = account.signConvention;
@@ -172,9 +178,9 @@ export async function changeSignConventionAnswer(
   const result = await underSyncLease(db, account.itemId, () =>
     db.transaction((tx) => flipConvention(tx, userId, plaidAccountRowId, transactionId, answer, from, to)),
   );
-  if (result === null) return { outcome: "busy" };
-  if (result < 0) return { outcome: "unchanged" };
-  return { outcome: "changed", convention: to, changedRows: result };
+  if (!("done" in result)) return result;
+  if (result.done < 0) return { outcome: "unchanged" };
+  return { outcome: "changed", convention: to, changedRows: result.done };
 }
 
 /** The flip itself, in one transaction. Returns the number of re-evaluated rows, or -1 when the account no longer
@@ -208,6 +214,7 @@ async function flipConvention(
       detailed: transactions.plaidCategoryDetailed,
       isTransfer: transactions.isTransfer,
       transferPairId: transactions.transferPairId,
+      transferUserSet: transactions.transferUserSet,
       rawAmount: sql<number | null>`case when jsonb_typeof(${transactions.raw}->'amount') = 'number'
         then (${transactions.raw}->>'amount')::float8 end`,
     })
@@ -229,22 +236,53 @@ async function flipConvention(
   await writeDirectionAndRole(tx, planned, false);
 
   const plannedIds = new Set(planned.map((p) => p.id));
+  const newById = new Map(planned.map((p) => [p.id, p]));
   const changed = rows.filter((r) => plannedIds.has(r.id));
-  // A pair was matched on the old direction: unlink both legs (the next sync re-pairs a pair that still matches).
+
+  // A pair was matched on the old direction: unlink both legs (the next sync re-pairs a pair that still matches),
+  // and return a leg that was only a transfer because pairing classified it to its own signal.
   const pairedIds = changed.filter((r) => r.transferPairId != null).map((r) => r.id);
-  const partnerOf = new Map<string, string>();
-  for (const r of changed) if (r.transferPairId) partnerOf.set(r.transferPairId, r.id);
-  let partners: { id: string }[] = [];
+  const restored: Record<string, unknown>[] = [];
   if (pairedIds.length > 0) {
-    partners = await tx
-      .update(transactions)
-      .set({ transferPairId: null })
-      .where(and(eq(transactions.userId, userId), inArray(transactions.transferPairId, pairedIds)))
-      .returning({ id: transactions.id });
-    await tx
-      .update(transactions)
-      .set({ transferPairId: null })
-      .where(and(eq(transactions.userId, userId), inArray(transactions.id, pairedIds)));
+    const partners = await tx
+      .select({
+        id: transactions.id,
+        direction: transactions.direction,
+        eventRole: transactions.eventRole,
+        isTransfer: transactions.isTransfer,
+        primary: transactions.plaidCategoryPrimary,
+        detailed: transactions.plaidCategoryDetailed,
+        transferUserSet: transactions.transferUserSet,
+        transferPairId: transactions.transferPairId,
+        accountType: plaidAccounts.type,
+      })
+      .from(transactions)
+      .leftJoin(plaidAccounts, eq(plaidAccounts.id, transactions.plaidAccountId))
+      .where(and(eq(transactions.userId, userId), inArray(transactions.transferPairId, pairedIds)));
+    const legs = [
+      ...changed
+        .filter((r) => r.transferPairId != null)
+        .map((r) => ({ ...r, direction: newById.get(r.id)!.direction, accountType: acct.type ?? null, partner: false })),
+      ...partners.map((p) => ({ ...p, partner: true })),
+    ];
+    for (const leg of legs) {
+      const undo = undoTierBClassification(leg, leg.accountType ?? null);
+      await tx
+        .update(transactions)
+        .set(undo ? { transferPairId: null, isTransfer: false, eventRole: undo.eventRole } : { transferPairId: null })
+        .where(and(eq(transactions.id, leg.id), eq(transactions.userId, userId)));
+      if (leg.partner) {
+        // A partner keeps its direction; its link (and a pairing-only transfer) is all that changes.
+        restored.push({
+          id: leg.id,
+          transferPairId: leg.transferPairId,
+          ...(undo ? { isTransfer: leg.isTransfer, eventRole: leg.eventRole } : {}),
+          partnerUnlinked: true,
+        });
+      } else if (undo) {
+        restored.push({ id: leg.id, isTransfer: leg.isTransfer, tierBUndone: true });
+      }
+    }
   }
 
   await tx.insert(plaidSignAnswers).values({
@@ -264,8 +302,9 @@ async function flipConvention(
         eventRole: r.eventRole,
         transferPairId: r.transferPairId,
       })),
-      // A partner keeps its own direction and role; only its link to the re-evaluated leg is cleared.
-      ...partners.map((p) => ({ id: p.id, transferPairId: partnerOf.get(p.id) ?? null, partnerUnlinked: true })),
+      // Partners (old link, and old transfer fields when pairing had classified them), and re-evaluated legs whose
+      // pairing-only transfer was undone (their old is_transfer; old role and link are in their entry above).
+      ...restored,
     ],
   });
   return planned.length;

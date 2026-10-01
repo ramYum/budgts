@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ConnectedBanks, type ConnectedBank } from "./connected-banks";
@@ -56,6 +56,7 @@ function bank(over: Partial<ConnectedBank> = {}): ConnectedBank {
         pendingSignCheckCount: 0,
         signCheckSample: null,
         signAnswer: null,
+        directionReview: null,
       },
       {
         rowId: "row-saving",
@@ -73,6 +74,7 @@ function bank(over: Partial<ConnectedBank> = {}): ConnectedBank {
         pendingSignCheckCount: 0,
         signCheckSample: null,
         signAnswer: null,
+        directionReview: null,
       },
     ],
     unmappedAccounts: [],
@@ -170,6 +172,7 @@ describe("ConnectedBanks", () => {
           pendingSignCheckCount: 0,
           signCheckSample: null,
           signAnswer: null,
+          directionReview: null,
         },
       ],
     });
@@ -204,6 +207,7 @@ describe("ConnectedBanks", () => {
           pendingSignCheckCount: 0,
           signCheckSample: null,
           signAnswer: null,
+          directionReview: null,
         },
       ],
     });
@@ -237,6 +241,7 @@ describe("ConnectedBanks", () => {
           pendingSignCheckCount: 0,
           signCheckSample: null,
           signAnswer: null,
+          directionReview: null,
         },
       ],
     });
@@ -275,6 +280,7 @@ describe("ConnectedBanks", () => {
           pendingSignCheckCount: 0,
           signCheckSample: null,
           signAnswer: null,
+          directionReview: null,
         },
       ],
     });
@@ -314,6 +320,7 @@ describe("ConnectedBanks — sign-convention 'checking this account' notice", ()
           pendingSignCheckCount: 3,
           signCheckSample: null,
           signAnswer: null,
+          directionReview: null,
         },
       ],
     });
@@ -353,6 +360,7 @@ describe("ConnectedBanks — sign-convention 'checking this account' notice", ()
           pendingSignCheckCount: 5,
           signCheckSample: null,
           signAnswer: null,
+          directionReview: null,
         },
       ],
     });
@@ -405,6 +413,7 @@ describe("ConnectedBanks — import on/off switch (already-mapped accounts)", ()
           pendingSignCheckCount: 0,
           signCheckSample: null,
           signAnswer: null,
+          directionReview: null,
         },
       ],
     });
@@ -457,6 +466,7 @@ describe("ConnectedBanks — connect switch (never-mapped accounts)", () => {
           pendingSignCheckCount: 0,
           signCheckSample: null,
           signAnswer: null,
+          directionReview: null,
         },
       ],
     });
@@ -534,6 +544,7 @@ describe("ConnectedBanks — the held-transaction question", () => {
             currency: "USD",
           },
           signAnswer: null,
+          directionReview: null,
           ...over,
         },
       ],
@@ -602,6 +613,7 @@ describe("ConnectedBanks — a card that isn't imported", () => {
           pendingSignCheckCount: 0,
           signCheckSample: null,
           signAnswer: null,
+          directionReview: null,
         },
       ],
     });
@@ -641,6 +653,7 @@ describe("ConnectedBanks — Change answer", () => {
           pendingSignCheckCount: 0,
           signCheckSample: null,
           signAnswer: { answeredAt: "2026-10-01T10:00:00Z", sample },
+          directionReview: null,
           ...over,
         },
       ],
@@ -665,7 +678,7 @@ describe("ConnectedBanks — Change answer", () => {
     expect(fd.get("answer")).toBe("in");
     expect(answerSignCheckAction).not.toHaveBeenCalled();
     // closes once saved
-    expect(await screen.findByRole("button", { name: "Change answer" })).toHaveAttribute("aria-expanded", "false");
+    await waitFor(() => expect(screen.getByRole("button", { name: "Change answer" })).toHaveAttribute("aria-expanded", "false"));
     expect(document.body.textContent).not.toContain("—");
   });
 
@@ -684,6 +697,65 @@ describe("ConnectedBanks — Change answer", () => {
     expect(screen.queryByText(/Money direction set/)).not.toBeInTheDocument();
     rerender(<ConnectedBanks banks={[answered({ pendingSignCheckCount: 2, signCheckSample: sample })]} budgtsAccounts={[]} />);
     expect(screen.queryByText(/Money direction set/)).not.toBeInTheDocument();
+  });
+});
+
+// Design: 2026-10-01 card payments §5b. An account resolved from evidence also has an exit.
+describe("ConnectedBanks — amounts look reversed", () => {
+  const sample = {
+    transactionId: "22222222-2222-4222-8222-222222222222",
+    description: "Shell",
+    occurredAt: "2026-09-28T00:00:00.000Z",
+    amount: 5150,
+    currency: "USD",
+  };
+  const resolved = (over: Partial<ConnectedBank["accounts"][number]> = {}) =>
+    bank({
+      accounts: [
+        {
+          rowId: "row-checking",
+          plaidAccountId: "plaid-acc-checking",
+          name: "Plaid Checking",
+          ...checkingDefaults,
+          mask: "0000",
+          linkState: "mapped",
+          mappedAccountName: "Checking",
+          needsReview: false,
+          reviewReason: null,
+          excludedFromCalculations: false,
+          pendingSignCheckCount: 0,
+          signCheckSample: null,
+          signAnswer: null,
+          directionReview: { sample },
+          ...over,
+        },
+      ],
+    });
+
+  it("asks for a confirmation answer, then sends it to the change action", async () => {
+    changeSignAnswerAction.mockResolvedValue({ ok: true });
+    const user = userEvent.setup();
+    render(<ConnectedBanks banks={[resolved()]} budgtsAccounts={[]} />);
+
+    expect(screen.queryByRole("button", { name: "Going out" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Amounts on this account look reversed?" }));
+    expect(screen.getByText(/every amount on it flips\. You can change it back the same way\./)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Going out" }));
+
+    const fd = changeSignAnswerAction.mock.calls[0][1] as FormData;
+    expect(fd.get("transactionId")).toBe(sample.transactionId);
+    expect(fd.get("answer")).toBe("out");
+    expect(screen.queryByText(/sign convention|inverted/i)).not.toBeInTheDocument();
+    expect(document.body.textContent).not.toContain("\u2014");
+  });
+
+  it("is not offered where Change answer is, or without a sample", () => {
+    const { rerender } = render(
+      <ConnectedBanks banks={[resolved({ signAnswer: { answeredAt: "2026-10-01T10:00:00Z", sample } })]} budgtsAccounts={[]} />,
+    );
+    expect(screen.queryByText(/look reversed/)).not.toBeInTheDocument();
+    rerender(<ConnectedBanks banks={[resolved({ directionReview: null })]} budgtsAccounts={[]} />);
+    expect(screen.queryByText(/look reversed/)).not.toBeInTheDocument();
   });
 });
 

@@ -35,6 +35,10 @@ export type ConnectedBankAccount = {
    *  Connected banks can offer "Change answer". `sample` is the transaction to ask about again: the one answered
    *  about, or the account's most recent one if that is gone; null when the account has none. */
   signAnswer: { answeredAt: string; sample: SignCheckSample | null } | null;
+  /** Set for an imported account the sync resolved from evidence, with no answer (design: 2026-10-01 card payments
+   *  §5b): Connected banks offers "Amounts on this account look reversed?", which asks the same question about
+   *  `sample` (the account's most recent transaction) and changes the account if the answer disagrees. */
+  directionReview: { sample: SignCheckSample } | null;
 };
 
 export type SignCheckSample = {
@@ -188,12 +192,17 @@ export async function loadConnectedBanks(supabase: SupabaseClient): Promise<Conn
     }
   }
   const answeredIds = [...latestAnswer.keys()];
+  // Evidence-resolved imported accounts with no answer: their transaction to ask about is their most recent one.
+  const reviewIds = plaidAccounts
+    .filter((a) => resolved.has(a.id) && a.link_state === "mapped" && !latestAnswer.has(a.id))
+    .map((a) => a.id);
+  const recentIds = [...answeredIds, ...reviewIds];
   const answeredSampleIds = answeredIds.map((id) => latestAnswer.get(id)!.sampleId).filter((x): x is string => x != null);
   const [answeredSamples, ...recentSamples] = await Promise.all([
     answeredSampleIds.length > 0
       ? supabase.from("transactions").select("id, description, occurred_at, amount, plaid_account_id").in("id", answeredSampleIds).is("removed_at", null)
       : Promise.resolve({ data: [] as unknown[] }),
-    ...answeredIds.map((id) =>
+    ...recentIds.map((id) =>
       supabase
         .from("transactions")
         .select("id, description, occurred_at, amount")
@@ -212,6 +221,11 @@ export async function loadConnectedBanks(supabase: SupabaseClient): Promise<Conn
     const recent = ((recentSamples[i]?.data ?? []) as SampleRow[])[0];
     const row = answeredRow ?? (recent?.id ? recent : undefined);
     answerByAccount.set(id, { answeredAt: at, sample: row ? toSample(row) : null });
+  });
+  const reviewSampleByAccount = new Map<string, Omit<SignCheckSample, "currency">>();
+  reviewIds.forEach((id, i) => {
+    const recent = ((recentSamples[answeredIds.length + i]?.data ?? []) as SampleRow[])[0];
+    if (recent?.id) reviewSampleByAccount.set(id, toSample(recent));
   });
 
   const banks: ConnectedBank[] = items.map((item) => {
@@ -241,6 +255,10 @@ export async function loadConnectedBanks(supabase: SupabaseClient): Promise<Conn
           answeredAt: ans.answeredAt,
           sample: ans.sample ? { ...ans.sample, currency: a.iso_currency_code ?? "USD" } : null,
         };
+      })(),
+      directionReview: (() => {
+        const sample = reviewSampleByAccount.get(a.id);
+        return sample ? { sample: { ...sample, currency: a.iso_currency_code ?? "USD" } } : null;
       })(),
     }));
     const unmappedAccounts: MappableAccount[] = rows

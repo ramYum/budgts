@@ -96,6 +96,7 @@ describe("loadConnectedBanks", () => {
           pendingSignCheckCount: 0,
           signCheckSample: null,
           signAnswer: null,
+          directionReview: null,
         },
       ],
       unmappedAccounts: [],
@@ -183,6 +184,29 @@ describe("loadConnectedBanks", () => {
       sample: { transactionId: "t-9", description: "Trader Joe's", occurredAt: "2026-09-16T00:00:00Z", amount: 4210, currency: "USD" },
     });
     expect(data?.banks[0]!.accounts[1]!.signAnswer).toBeNull();
+  });
+
+  it("offers the reversed-amounts check on an imported account resolved from evidence (design: 2026-10-01 card payments §5b)", async () => {
+    const recent = { id: "t-5", description: "Shell", occurred_at: "2026-09-28T00:00:00Z", amount: 5150 };
+    const { supabase } = fakeSupabase({
+      plaid_items: { data: [{ id: "item-1", item_id: "plaid-item-1", institution_name: null, status: "active", last_synced_at: null }] },
+      plaid_accounts: {
+        data: [
+          accountRow({ sign_convention: "standard" }),
+          accountRow({ id: "pa-row-2", plaid_account_id: "pa2", sign_convention: "standard", link_state: "ignored", account_id: null }),
+          accountRow({ id: "pa-row-3", plaid_account_id: "pa3", sign_convention: "unknown" }),
+        ],
+      },
+      accounts: { data: [] },
+      plaid_sign_answers: { data: [] },
+      transactions: { data: [recent], count: 0 },
+    });
+    const accounts = (await loadConnectedBanks(supabase))!.banks[0]!.accounts;
+    expect(accounts[0]!.directionReview).toEqual({
+      sample: { transactionId: "t-5", description: "Shell", occurredAt: "2026-09-28T00:00:00Z", amount: 5150, currency: "USD" },
+    });
+    expect(accounts[1]!.directionReview).toBeNull(); // not imported
+    expect(accounts[2]!.directionReview).toBeNull(); // still being checked
   });
 
   it("reads no answers on a deployment without migration 0025", async () => {

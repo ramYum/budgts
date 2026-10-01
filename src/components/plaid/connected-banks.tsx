@@ -178,6 +178,9 @@ function BankCard({
                 </div>
                 {a.pendingSignCheckCount > 0 ? <SignCheckNotice account={a} /> : null}
                 {a.pendingSignCheckCount === 0 && a.signAnswer ? <SignAnswerLine account={a} /> : null}
+                {a.pendingSignCheckCount === 0 && !a.signAnswer && a.directionReview ? (
+                  <DirectionReviewLine account={a} />
+                ) : null}
                 {a.needsReview || a.excludedFromCalculations ? <AccountReviewNotice account={a} /> : null}
               </li>
             ))}
@@ -218,6 +221,9 @@ function BankCard({
                 ) : null}
                 {a.pendingSignCheckCount > 0 ? <SignCheckNotice account={a} /> : null}
                 {a.pendingSignCheckCount === 0 && a.signAnswer ? <SignAnswerLine account={a} /> : null}
+                {a.pendingSignCheckCount === 0 && !a.signAnswer && a.directionReview ? (
+                  <DirectionReviewLine account={a} />
+                ) : null}
                 {a.needsReview || a.excludedFromCalculations ? <AccountReviewNotice account={a} /> : null}
               </li>
             ))}
@@ -464,6 +470,47 @@ function SignAnswerLine({ account }: { account: ConnectedBankAccount }) {
       </p>
       {asking ? (
         <div className="px-band px-1.5 py-1.5 text-ink md:px-2 md:py-2 md:text-[15px] md:leading-6">
+          <MoneyDirectionQuestion
+            account={account}
+            sample={sample}
+            action={changeSignAnswerAction}
+            lead="Was this money going out or coming in?"
+            onDone={close}
+          />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * The exit for an account the sync resolved from evidence (design: 2026-10-01 card payments §5b): if its amounts look
+ * reversed, the user confirms by answering the same plain question about its latest transaction. An answer that
+ * disagrees with the account flips it, exactly like "Change answer"; one that agrees changes nothing.
+ */
+function DirectionReviewLine({ account }: { account: ConnectedBankAccount }) {
+  const [asking, setAsking] = useState(false);
+  const close = useCallback(() => setAsking(false), []);
+  const sample = account.directionReview?.sample;
+  if (!sample) return null;
+  return (
+    <div className="space-y-2 text-sm leading-5 text-muted md:ml-[60px]">
+      <p>
+        <button
+          type="button"
+          className="font-medium text-ink underline underline-offset-2"
+          aria-expanded={asking}
+          onClick={() => setAsking((v) => !v)}
+        >
+          Amounts on this account look reversed?
+        </button>
+      </p>
+      {asking ? (
+        <div className="px-band space-y-2 px-1.5 py-1.5 text-ink md:px-2 md:py-2 md:text-[15px] md:leading-6">
+          <p>
+            Check one transaction to confirm. If your answer doesn&apos;t match how Budgts reads this account, every
+            amount on it flips. You can change it back the same way.
+          </p>
           <MoneyDirectionQuestion
             account={account}
             sample={sample}

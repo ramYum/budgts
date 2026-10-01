@@ -6,6 +6,8 @@ import { ADVANCIAL_INSTITUTION_ID, ANOMALY_DUPLICATE_REASON_MARKER } from "./rep
 import { AMBIGUOUS_REVIEW_SAMPLE_THRESHOLD, MIN_EVIDENCE_SAMPLES } from "./sign-convention";
 import {
   ANOMALY_REVIEW_THRESHOLD,
+  autoResolveBlock,
+  type AutoResolveFacts,
   mutationRestartDelayMs,
   type PlaidSyncPage,
   type PlaidSyncStore,
@@ -91,6 +93,7 @@ function fakeStore(
     initialPairingRows.map((r) => [r.id, { ...r, transferPairId: null }]),
   );
   const reviewFlags = new Map(Object.entries(initialReviewFlags));
+  const autoResolveFacts = new Map<string, AutoResolveFacts>();
   // Simulates "live rows per (accountId:fingerprint), post-insert" — the same
   // semantics the real Drizzle-backed store computes with one query after the
   // insert transaction commits. Persists across calls on the SAME fakeStore
@@ -144,6 +147,16 @@ function fakeStore(
     async finalizeSignConvention(plaidAccountRowId, convention) {
       calls.finalizedSignConventions.push({ plaidAccountRowId, convention });
       return true;
+    },
+    async getAutoResolveFacts(plaidAccountRowId) {
+      return (
+        autoResolveFacts.get(plaidAccountRowId) ?? {
+          itemStatus: "active",
+          needsReview: false,
+          largestIdenticalGroup: 1,
+          confirmedContradicting: 0,
+        }
+      );
     },
     async findContainmentCandidates(accountId) {
       return (liveRowsByAccount.get(accountId) ?? [])
@@ -199,7 +212,7 @@ function fakeStore(
       return 0; // no staleness modeled in this fake -- covered by DB-integration tests
     },
   };
-  return { store, calls, reviewFlags, pairingRows };
+  return { store, calls, reviewFlags, pairingRows, autoResolveFacts };
 }
 
 const deps = (over: Partial<SyncDeps>): SyncDeps => ({
@@ -835,3 +848,43 @@ describe("Paired-transfer detection (V1.5) — runSync integration", () => {
     expect(calls.tierBClassifications).toEqual([]);
   });
 });
+
+// Design: 2026-10-01 card payments §4a. Evidence from an unreliable feed never resolves an account by itself.
+describe("runSync — auto-resolve gate", () => {
+  const healthy: AutoResolveFacts = { itemStatus: "active", needsReview: false, largestIdenticalGroup: 1, confirmedContradicting: 0 };
+
+  it.each([
+    [{ itemStatus: "login_required" }, "bank_needs_attention"],
+    [{ needsReview: true }, "flagged_for_review"],
+    [{ largestIdenticalGroup: ANOMALY_REVIEW_THRESHOLD }, "repeated_copies"],
+    [{ confirmedContradicting: 3 }, "contradicts_confirmed_rows"],
+  ] as const)("%o blocks with %s", (over, reason) => {
+    expect(autoResolveBlock({ ...healthy, ...over })).toBe(reason);
+  });
+
+  it("allows a healthy feed, and identical rows below the anomaly threshold", () => {
+    expect(autoResolveBlock(healthy)).toBeNull();
+    expect(autoResolveBlock({ ...healthy, largestIdenticalGroup: ANOMALY_REVIEW_THRESHOLD - 1 })).toBeNull();
+  });
+
+  it("does not finalize a verdict the gate blocks; the rows stay held for the user's answer", async () => {
+    const evidence = Array.from({ length: MIN_EVIDENCE_SAMPLES }, () => ({ rawAmount: -100, primary: "FOOD_AND_DRINK" }));
+    const unknownMap = new Map(accountMap);
+    unknownMap.set(ACCT, { ...unknownMap.get(ACCT)!, signConvention: "unknown" });
+    const { store, calls, autoResolveFacts } = fakeStore([], {}, { "pa-1": evidence });
+    autoResolveFacts.set("pa-1", { ...healthy, largestIdenticalGroup: 50 });
+
+    await runSync({
+      userId: "u1",
+      itemId: "item1",
+      institutionId: null,
+      initialCursor: null,
+      transactionsSync: async () => page({ added: [pTxn()], next_cursor: "c2" }),
+      store,
+      normalizeCtx: { ...normalizeCtx, accountMap: unknownMap },
+    });
+
+    expect(calls.finalizedSignConventions).toEqual([]);
+  });
+});
+

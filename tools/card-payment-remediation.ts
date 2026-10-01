@@ -11,12 +11,19 @@
  *     (`resolveEventRole` with the account's Plaid type): rows labelled LOAN_PAYMENTS_CREDIT_CARD_PAYMENT that landed
  *     before Event Role existed, and a card's incoming LOAN_PAYMENTS rows. Rows the user categorized themselves are
  *     listed, never changed (their choice outranks a backfill; owner decides).
- *  B. Held rows: rows still `pending_review` / `sign_convention_unknown` whose account has a convention now, either
- *     already resolved (stragglers) or resolvable from the current evidence with the credit-aware detector
- *     (`detectSignConvention`). Released with `planHeldRowRelease`, the same function `finalizeSignConvention` uses.
+ *  B. Held rows (`pending_review` / `sign_convention_unknown`), in two parts:
+ *     - AUTOMATIC AT DEPLOY (preview only): every account still `unknown` is re-judged by the deployed sync, the next
+ *       time it brings that account new rows, with the credit-aware detector (`detectSignConvention`) and the
+ *       auto-resolve gate (`autoResolveBlock`). This simulates exactly that, account by account: verdict, gate result,
+ *       rows released. Advancial accounts are listed explicitly.
+ *     - Stragglers: held rows on an account that already has a convention. The sync never releases these; --apply
+ *       does, with `planHeldRowRelease`, the function `finalizeSignConvention` uses.
+ *  C. Pairing (AUTOMATIC AT DEPLOY, preview only): the deployed sync pairs with a 3-day Tier B window (was 1). This
+ *     runs the real candidate read (`findTransferPairingCandidates`) and matcher (`findTransferPairs`) read-only, and
+ *     lists every pair the wider window adds, with the rows Tier B would classify as transfers.
  *
- * For every affected user and month it prints spend / income / Money Left before and after, computed with the app's
- * `rollup`. With `--diagnose` it also prints per-account facts the owner needs to judge the rest (duplicate clusters,
+ * For every affected user and month it prints spend / income / Money Left now, at deploy (B-automatic + C), and
+ * with A and the stragglers applied too, computed with the app's `rollup`. With `--diagnose` it also prints per-account facts the owner needs to judge the rest (duplicate clusters,
  * rows whose stored direction contradicts the account's convention).
  *
  * Safety:
@@ -30,12 +37,18 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+import * as schema from "@/lib/db/schema";
 import { rollup } from "@/lib/budget/rollup";
 import type { BudgetCategory, BudgetTxn } from "@/lib/budget/types";
 import { isEventRole, resolveEventRole } from "@/lib/plaid/event-role";
 import { planHeldRowRelease } from "@/lib/plaid/held-rows";
+import { ADVANCIAL_INSTITUTION_ID } from "@/lib/plaid/replay-containment";
 import { detectSignConvention } from "@/lib/plaid/sign-convention";
+import { autoResolveBlock } from "@/lib/plaid/sync-engine";
+import { createPlaidSyncStore, readAutoResolveFacts, type PlaidDb } from "@/lib/plaid/sync-store";
+import { findTransferPairs, type AcceptedPair } from "@/lib/plaid/transfer-pairing";
 
 const REFS = { staging: "uvowywszaiojboaxdmoz", production: "wsmhstqpvbbcqpqhiqyp" } as const;
 type EnvName = keyof typeof REFS;
@@ -118,23 +131,28 @@ type PlaidAccount = {
   excluded_from_calculations: boolean;
   link_state: string;
   institution_name: string | null;
+  institution_id: string | null;
   item_status: string;
 };
 
-/** One planned row change; `before` is what the row holds now, `after` what the apply writes. */
+/** One planned row change; `before` is what the row holds now, `after` what it becomes. `role_backfill` and
+ * `held_release` (stragglers) are what --apply writes; `held_release_auto` and `pairing_auto` are what the deployed
+ * sync will do by itself, previewed only. */
+type RowState = { event_role: string | null; direction: string; status: string; pending_reason: string | null; is_transfer?: boolean };
 type RowChange = {
   id: string;
   userId: string;
-  kind: "role_backfill" | "held_release";
-  before: { event_role: string | null; direction: string; status: string; pending_reason: string | null };
-  after: { event_role: string | null; direction: string; status: string; pending_reason: string | null };
+  kind: "role_backfill" | "held_release" | "held_release_auto" | "pairing_auto";
+  before: RowState;
+  after: RowState;
 };
+const APPLIED_KINDS = new Set<RowChange["kind"]>(["role_backfill", "held_release"]);
 type ConventionChange = { plaidAccountId: string; before: "unknown"; after: "standard" | "inverted" };
 
 async function loadPlaidAccounts(tx: Tx): Promise<PlaidAccount[]> {
   return tx<PlaidAccount[]>`
     select pa.id, pa.user_id, pa.type, pa.subtype, pa.sign_convention, pa.excluded_from_calculations, pa.link_state,
-           pi.institution_name, pi.status as item_status
+           pi.institution_name, pi.institution_id, pi.status as item_status
     from public.plaid_accounts pa join public.plaid_items pi on pi.id = pa.plaid_item_id
     ${onlyUser ? tx`where pa.user_id = ${onlyUser}` : tx``}`;
 }
@@ -147,11 +165,15 @@ const TXN_COLUMNS = (tx: Tx) => tx`
   t.content_fingerprint, t.removed_at`;
 
 async function plan(tx: Tx) {
+  // The app's own Drizzle reads (pairing candidates, the auto-resolve facts) inside this same transaction.
+  // A transaction handle lacks the client's `options`, which the driver configures; lend it the client's.
+  const drz = drizzle(Object.assign(tx, { options: sql.options }) as unknown as postgres.Sql, { schema }) as unknown as PlaidDb;
   const accounts = await loadPlaidAccounts(tx);
   const accountById = new Map(accounts.map((a) => [a.id, a]));
   const changes: RowChange[] = [];
   const conventionChanges: ConventionChange[] = [];
   const skippedUserCategorized: TxnRow[] = [];
+  const autoAccounts: { account: PlaidAccount; held: number; verdict: string; block: string | null }[] = [];
 
   // A. role backfill candidates: only LOAN_PAYMENTS rows can resolve to CARD_PAYMENT.
   const roleless = await tx<TxnRow[]>`
@@ -188,13 +210,18 @@ async function plan(tx: Tx) {
     const acct = accountById.get(plaidAccountId);
     if (!acct) continue;
     let convention: "standard" | "inverted" | "unknown" = acct.sign_convention;
+    let kind: RowChange["kind"] = "held_release";
     if (convention === "unknown") {
+      // Exactly what the deployed sync does (sync-engine.ts): the same evidence, detector and gate.
       const evidence = rows
         .filter((r) => typeof r.raw_amount === "number")
         .map((r) => ({ rawAmount: r.raw_amount as number, primary: r.plaid_category_primary }));
       convention = detectSignConvention(evidence, acct.type);
-      if (convention === "unknown") continue; // still needs the user's answer (Connected banks)
+      const block = convention === "unknown" ? null : autoResolveBlock(await readAutoResolveFacts(drz, plaidAccountId, convention));
+      autoAccounts.push({ account: acct, held: rows.length, verdict: convention, block });
+      if (convention === "unknown" || block) continue; // stays held for the user's answer (Connected banks)
       conventionChanges.push({ plaidAccountId, before: "unknown", after: convention });
+      kind = "held_release_auto";
     }
     const releases = planHeldRowRelease(
       rows.map((r) => ({
@@ -213,13 +240,37 @@ async function plan(tx: Tx) {
       changes.push({
         id: r.id,
         userId: r.user_id,
-        kind: "held_release",
+        kind,
         before: { event_role: r.event_role, direction: r.direction, status: r.status, pending_reason: r.pending_reason },
         after: { event_role: rel.eventRole, direction: rel.direction, status: "confirmed", pending_reason: null },
       });
     }
   }
-  return { accounts, changes, conventionChanges, skippedUserCategorized };
+  // C. pairing at deploy: the real candidate read and matcher, with the new window and the old one.
+  const pairs: { userId: string; pair: AcceptedPair; added: boolean }[] = [];
+  const store = createPlaidSyncStore(drz);
+  for (const userId of new Set(accounts.map((a) => a.user_id))) {
+    const rows = await store.findTransferPairingCandidates(userId);
+    const candidates = rows.map((c) => ({ ...c, eventRole: c.eventRole != null && isEventRole(c.eventRole) ? c.eventRole : null }));
+    const key = (x: AcceptedPair) => [x.tier, [x.legA, x.legB].sort().join("|")].join(":");
+    const before = new Set(findTransferPairs(candidates, { tierBWindowDays: 1 }).accepted.map(key));
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    for (const pair of findTransferPairs(candidates).accepted) {
+      const added = !before.has(key(pair));
+      pairs.push({ userId, pair, added });
+      if (!added || !pair.classifyLegId) continue;
+      const leg = byId.get(pair.classifyLegId)!;
+      const st = { event_role: leg.eventRole, direction: leg.direction, status: "confirmed", pending_reason: null };
+      changes.push({
+        id: leg.id,
+        userId,
+        kind: "pairing_auto",
+        before: { ...st, is_transfer: leg.isTransfer },
+        after: { ...st, event_role: "TRANSFER", is_transfer: true },
+      });
+    }
+  }
+  return { accounts, changes, conventionChanges, skippedUserCategorized, autoAccounts, pairs };
 }
 
 async function loadUserTxns(tx: Tx, userId: string): Promise<TxnRow[]> {
@@ -245,30 +296,79 @@ function toBudgetTxn(t: TxnRow, excluded: Set<string>): BudgetTxn {
 
 const monthOf = (d: Date) => `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
 
+function withState(t: TxnRow, c: RowChange | undefined): TxnRow {
+  if (!c) return t;
+  return {
+    ...t,
+    event_role: c.after.event_role,
+    direction: c.after.direction as TxnRow["direction"],
+    status: c.after.status as TxnRow["status"],
+    pending_reason: c.after.pending_reason,
+    is_transfer: c.after.is_transfer ?? t.is_transfer,
+  };
+}
+
 async function report(tx: Tx, p: Awaited<ReturnType<typeof plan>>) {
   const users = new Set([...p.changes.map((c) => c.userId), ...p.skippedUserCategorized.map((t) => t.user_id)]);
   if (diagnose) for (const a of p.accounts) users.add(a.user_id);
   const excluded = new Set(p.accounts.filter((a) => a.excluded_from_calculations).map((a) => a.id));
   console.log(`\n=== card-payment remediation, ${envName} (${ref}), ${apply ? "APPLY" : "dry run"} ===`);
+  const n = (k: RowChange["kind"]) => p.changes.filter((c) => c.kind === k).length;
   console.log(
-    `planned: ${p.changes.filter((c) => c.kind === "role_backfill").length} role backfills, ` +
-      `${p.changes.filter((c) => c.kind === "held_release").length} held-row releases, ` +
-      `${p.conventionChanges.length} account conventions resolved; ` +
+    `--apply would write: ${n("role_backfill")} role backfills, ${n("held_release")} held-row releases; ` +
       `${p.skippedUserCategorized.length} user-categorized card payments left alone`,
   );
-  for (const c of p.conventionChanges) console.log(`  account ${short(c.plaidAccountId)}: unknown -> ${c.after}`);
+  console.log(
+    `automatic at deploy: ${n("held_release_auto")} held rows released on ${p.conventionChanges.length} accounts (B), ` +
+      `${p.pairs.filter((x) => x.added).length} new pairs, ${n("pairing_auto")} rows classified as transfers (C)`,
+  );
+
+  console.log(`\nB. accounts still being checked (the deployed sync judges each the next time it brings it new rows):`);
+  if (p.autoAccounts.length === 0) console.log("  none");
+  for (const a of p.autoAccounts) {
+    const advancial = a.account.institution_id === ADVANCIAL_INSTITUTION_ID || /advancial/i.test(a.account.institution_name ?? "");
+    const outcome =
+      a.verdict === "unknown" ? "stays held (no verdict): the user's answer" : a.block ? `held back (${a.block}): the user's answer` : `AUTO-RESOLVES ${a.verdict}, releases ${a.held} rows`;
+    console.log(
+      `  ${advancial ? "[ADVANCIAL] " : ""}${short(a.account.id)} user ${short(a.account.user_id)} ${a.account.institution_name ?? "?"} ` +
+        `${a.account.type}/${a.account.subtype} item=${a.account.item_status} held=${a.held} -> ${outcome}`,
+    );
+  }
+  for (const a of p.accounts) {
+    const advancial = a.institution_id === ADVANCIAL_INSTITUTION_ID || /advancial/i.test(a.institution_name ?? "");
+    if (advancial && !p.autoAccounts.some((x) => x.account.id === a.id)) {
+      console.log(`  [ADVANCIAL] ${short(a.id)} user ${short(a.user_id)} ${a.type}/${a.subtype} ${a.sign_convention} item=${a.item_status}: no held rows, nothing automatic`);
+    }
+  }
+
+  console.log(`\nC. pairs the deployed sync makes (3-day window; "new" = not made with the old 1-day window):`);
+  if (p.pairs.length === 0) console.log("  none");
+  const allRows = new Map<string, TxnRow>();
+  for (const userId of new Set(p.pairs.map((x) => x.userId))) for (const r of await loadUserTxns(tx, userId)) allRows.set(r.id, r);
+  for (const { userId, pair, added } of p.pairs) {
+    const a = allRows.get(pair.legA);
+    const b = allRows.get(pair.legB);
+    const leg = (r: TxnRow | undefined) =>
+      r ? `${short(r.id)} acct ${short(r.account_id)} ${r.direction} ${usd(Number(r.amount))} ${new Date(r.occurred_at).toISOString().slice(0, 10)} role=${r.event_role ?? "null"}` : "?";
+    console.log(
+      `  ${added ? "NEW " : "old "}user ${short(userId)} tier ${pair.tier}: ${leg(a)} <-> ${leg(b)}` +
+        (pair.classifyLegId ? ` | becomes a transfer: ${short(pair.classifyLegId)}` : ""),
+    );
+  }
 
   for (const userId of users) {
     const rows = await loadUserTxns(tx, userId);
     const cats = await tx<BudgetCategory[]>`select id, kind from public.categories where user_id = ${userId}`;
-    const changeById = new Map(p.changes.filter((c) => c.userId === userId).map((c) => [c.id, c]));
+    const mine = p.changes.filter((c) => c.userId === userId);
+    const changeById = new Map(mine.map((c) => [c.id, c]));
+    const autoById = new Map(mine.filter((c) => !APPLIED_KINDS.has(c.kind)).map((c) => [c.id, c]));
     const before = rows.map((t) => toBudgetTxn(t, excluded));
+    const atDeploy = rows.map((t) => toBudgetTxn(withState(t, autoById.get(t.id)), excluded));
+    // every change in sequence: the automatic ones, then what --apply writes on top
     const after = rows.map((t) => {
-      const c = changeById.get(t.id);
-      return toBudgetTxn(
-        c ? { ...t, event_role: c.after.event_role, direction: c.after.direction as TxnRow["direction"], status: c.after.status as TxnRow["status"], pending_reason: c.after.pending_reason } : t,
-        excluded,
-      );
+      const auto = withState(t, autoById.get(t.id));
+      const applied = mine.find((c) => c.id === t.id && APPLIED_KINDS.has(c.kind));
+      return toBudgetTxn(withState(auto, applied), excluded);
     });
     const months = [...new Set(rows.map((t) => monthOf(new Date(t.occurred_at))))].sort().slice(-6);
     console.log(`\nuser ${short(userId)}: ${changeById.size} row changes`);
@@ -279,12 +379,14 @@ async function report(tx: Tx, p: Awaited<ReturnType<typeof plan>>) {
       counts.set(key, (counts.get(key) ?? 0) + 1);
     }
     for (const [k, n] of counts) console.log(`  ${n} x ${k}`);
-    console.log("  month    | spend before -> after | income before -> after | Money Left before -> after");
+    console.log("  month    | spend now -> at deploy -> +apply | income now -> at deploy -> +apply | Money Left now -> at deploy -> +apply");
     for (const m of months) {
       const b = rollup(before, cats, m as never);
+      const d = rollup(atDeploy, cats, m as never);
       const a = rollup(after, cats, m as never);
       console.log(
-        `  ${m}  | ${usd(b.spend)} -> ${usd(a.spend)} | ${usd(b.income)} -> ${usd(a.income)} | ${usd(b.net)} -> ${usd(a.net)}`,
+        `  ${m}  | ${usd(b.spend)} -> ${usd(d.spend)} -> ${usd(a.spend)} | ${usd(b.income)} -> ${usd(d.income)} -> ${usd(a.income)}` +
+          ` | ${usd(b.net)} -> ${usd(d.net)} -> ${usd(a.net)}`,
       );
     }
     if (diagnose) diagnoseUser(userId, rows, p.accounts.filter((a) => a.user_id === userId), cats, excluded, months);
@@ -370,14 +472,12 @@ async function main() {
     const dir = path.join(process.cwd(), ".tmp", "remediation");
     fs.mkdirSync(dir, { recursive: true });
     const file = path.join(dir, `card-payments-${ref}-${new Date().toISOString().replace(/[:.]/g, "-")}.json`);
-    fs.writeFileSync(file, JSON.stringify({ ref, at: new Date().toISOString(), changes: p.changes, conventionChanges: p.conventionChanges }, null, 1));
+    // Only A and the stragglers: B-automatic and C are the deployed sync's, behind its own gate.
+    const toWrite = p.changes.filter((c) => APPLIED_KINDS.has(c.kind));
+    fs.writeFileSync(file, JSON.stringify({ ref, at: new Date().toISOString(), changes: toWrite, conventionChanges: [] }, null, 1));
     console.log(`\naudit file (old and new values): ${file}`);
-    for (const c of p.conventionChanges) {
-      await tx`update public.plaid_accounts set sign_convention = ${c.after}, updated_at = now()
-               where id = ${c.plaidAccountId} and sign_convention = 'unknown'`;
-    }
     let written = 0;
-    for (const c of p.changes) {
+    for (const c of toWrite) {
       const res = await tx`
         update public.transactions set event_role = ${c.after.event_role}, direction = ${c.after.direction}::txn_direction,
           status = ${c.after.status}::txn_status, pending_reason = ${c.after.pending_reason}
@@ -385,7 +485,7 @@ async function main() {
           and direction = ${c.before.direction}::txn_direction and status = ${c.before.status}::txn_status`;
       written += res.count;
     }
-    console.log(`applied: ${written} of ${p.changes.length} rows, ${p.conventionChanges.length} account conventions`);
+    console.log(`applied: ${written} of ${toWrite.length} rows`);
   });
 }
 

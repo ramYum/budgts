@@ -132,16 +132,19 @@ export async function answerSignCheckAction(
   );
   if (result.outcome === "not_found") return { error: "That transaction is no longer waiting. Refresh and try again." };
   if (result.outcome === "busy") return { error: BUSY_MESSAGE };
+  if (result.outcome === "setting_up") return { error: SETTING_UP_MESSAGE };
 
   revalidateUserData();
   return { ok: true };
 }
 
 const BUSY_MESSAGE = "This bank is syncing right now. Try again in a moment.";
+const SETTING_UP_MESSAGE = "Finish choosing which accounts to import from this bank first.";
 
 /**
- * "Change answer" (design: 2026-10-01 card payments §5a): the user answers the question again for an account they
- * resolved by answering; a different answer flips the account's transaction format and re-evaluates its rows.
+ * "Change answer" (design: 2026-10-01 card payments §5a), and "Amounts on this account look reversed?" for an account
+ * resolved from evidence (§5b): the user answers the question for a resolved account; a different answer flips the
+ * account's transaction format and re-evaluates its rows.
  * Ownership is enforced inside `changeSignConventionAnswer` against the session user, never client state.
  */
 export async function changeSignAnswerAction(
@@ -167,6 +170,7 @@ export async function changeSignAnswerAction(
     return { error: "This account can't change its answer. Refresh and try again." };
   }
   if (result.outcome === "busy") return { error: BUSY_MESSAGE };
+  if (result.outcome === "setting_up") return { error: SETTING_UP_MESSAGE };
 
   revalidateUserData();
   return { ok: true };

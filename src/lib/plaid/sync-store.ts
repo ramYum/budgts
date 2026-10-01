@@ -19,7 +19,7 @@ import type { SyncPlan, TxnPatch } from "./apply-sync";
 import { plaidToInsert } from "./land";
 import { planHeldRowRelease } from "./held-rows";
 import type { SignEvidenceTxn } from "./sign-convention";
-import type { PlaidSyncStore, PlaidTxnRow } from "./sync-engine";
+import type { AutoResolveFacts, PlaidSyncStore, PlaidTxnRow } from "./sync-engine";
 
 export type PlaidDb = PostgresJsDatabase<typeof schema>;
 
@@ -108,6 +108,41 @@ function patchToSet(patch: TxnPatch): Record<string, unknown> {
   if ("categoryId" in patch) set.categoryId = patch.categoryId;
   if ("isTransfer" in patch) set.isTransfer = patch.isTransfer;
   return set;
+}
+
+/**
+ * The facts `autoResolveBlock` judges (design: 2026-10-01 card payments §4a), in one read: the bank's status, the
+ * account's review flag, its largest group of byte-identical live rows, and how many already-confirmed rows the
+ * verdict would contradict (stored direction vs the direction the verdict derives from the raw Plaid sign).
+ */
+export async function readAutoResolveFacts(
+  exec: Pick<PlaidDb, "execute">,
+  plaidAccountRowId: string,
+  verdict: "standard" | "inverted",
+): Promise<AutoResolveFacts> {
+  const rows = await exec.execute(sql`
+    select pi.status as item_status, pa.needs_review,
+      coalesce((select max(n) from (
+        select count(*) as n from transactions t
+        where t.plaid_account_id = pa.id and t.removed_at is null and t.duplicate_of_id is null
+          and t.content_fingerprint is not null
+        group by t.content_fingerprint) g), 0)::int as largest_identical_group,
+      (select count(*) from transactions t
+        where t.plaid_account_id = pa.id and t.removed_at is null and t.duplicate_of_id is null
+          and t.status = 'confirmed' and jsonb_typeof(t.raw->'amount') = 'number' and (t.raw->>'amount')::float8 <> 0
+          and t.direction::text <> case
+            when ((t.raw->>'amount')::float8 > 0) <> (${verdict}::text = 'inverted') then 'debit' else 'credit' end
+      )::int as confirmed_contradicting
+    from plaid_accounts pa join plaid_items pi on pi.id = pa.plaid_item_id
+    where pa.id = ${plaidAccountRowId}`);
+  const r = (rows as unknown as Record<string, unknown>[])[0];
+  if (!r) return { itemStatus: "gone", needsReview: true, largestIdenticalGroup: 0, confirmedContradicting: 0 };
+  return {
+    itemStatus: String(r.item_status),
+    needsReview: Boolean(r.needs_review),
+    largestIdenticalGroup: Number(r.largest_identical_group),
+    confirmedContradicting: Number(r.confirmed_contradicting),
+  };
 }
 
 /** A transaction handle on the Plaid pipeline's DB. */
@@ -402,6 +437,10 @@ export function createPlaidSyncStore(db: PlaidDb): PlaidSyncStore {
 
     async finalizeSignConvention(plaidAccountRowId, convention) {
       return (await db.transaction((tx) => finalizeSignConventionIn(tx, plaidAccountRowId, convention))) !== null;
+    },
+
+    async getAutoResolveFacts(plaidAccountRowId, verdict) {
+      return readAutoResolveFacts(db, plaidAccountRowId, verdict);
     },
 
     // Advancial replay containment only (design 2026-09-14) — the caller

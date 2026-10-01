@@ -539,6 +539,28 @@ describe("the sync lease taken by an answer or a change keeps a pending sync pen
     expect(await needsSync()).toBe(false);
   });
 
+  it("a webhook flag committed while the claim waits on its row lock is not lost (two connections)", async () => {
+    const purchase = await heldPurchase();
+    await resolveSignConventionFromAnswer(db, userId, cardFeed, purchase, "in");
+    await setNeedsSync(false);
+    const [item] = await client<{ item_id: string }[]>`
+      select pi.item_id from public.plaid_items pi join public.plaid_accounts pa on pa.plaid_item_id = pi.id where pa.id = ${cardFeed}`;
+
+    // A webhook's write (markItemNeedsSync), held open on its own connection so it lands mid-claim.
+    const webhook = await client.reserve();
+    try {
+      await webhook`begin`;
+      await webhook`update public.plaid_items set needs_sync = true, last_webhook_at = now() where item_id = ${item.item_id}`;
+      const change = changeSignConventionAnswer(db, userId, cardFeed, purchase, "out");
+      await new Promise((r) => setTimeout(r, 750)); // the claim is now waiting on the webhook's row lock
+      await webhook`commit`;
+      expect(await change).toMatchObject({ outcome: "changed" });
+    } finally {
+      webhook.release();
+    }
+    expect(await needsSync()).toBe(true);
+  });
+
   it("the same holds for a change", async () => {
     const purchase = await heldPurchase();
     await resolveSignConventionFromAnswer(db, userId, cardFeed, purchase, "in");

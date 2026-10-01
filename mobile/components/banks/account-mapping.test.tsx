@@ -108,7 +108,9 @@ describe("AccountMapping (web account-mapping.tsx)", () => {
 });
 
 describe("AccountMapping refusals over stale data", () => {
-  beforeEach(() => api.authFetch.mockReset());
+  beforeEach(() => {
+    api.authFetch.mockReset();
+  });
 
   it("shows the server's refusal with a Refresh that closes onto the current list", async () => {
     const onDone = vi.fn();
@@ -166,7 +168,9 @@ describe("AccountMapping refusals over stale data", () => {
 });
 
 describe("AccountMappingSheet", () => {
-  beforeEach(() => api.authFetch.mockReset());
+  beforeEach(() => {
+    api.authFetch.mockReset();
+  });
 
   it("is the web's sheet: its title, a close, and the saved mapping reaches every screen", async () => {
     api.authFetch.mockResolvedValue(json(200, { ok: true }));
@@ -185,7 +189,9 @@ describe("AccountMappingSheet", () => {
 });
 
 describe("ConnectBank (web connect-bank.tsx)", () => {
-  beforeEach(() => api.authFetch.mockReset());
+  beforeEach(() => {
+    api.authFetch.mockReset();
+  });
   const link = (outcome: Awaited<ReturnType<PlaidLinkClient["open"]>>): PlaidLinkClient => ({ isAvailable: () => true, open: vi.fn(async () => outcome) });
 
   it("connects, then opens the mapping sheet with the new bank's accounts and the user's accounts", async () => {
@@ -276,6 +282,18 @@ describe("ConnectBank (web connect-bank.tsx)", () => {
     await act(async () => token(json(200, { link_token: "link-1" })));
     expect(api.authFetch.mock.calls.filter(([path]) => path === "/api/plaid/link-token")).toHaveLength(1);
     expect(once.open).toHaveBeenCalledTimes(1);
+  });
+
+  it("never sticks on Opening… when starting throws: it says so and can be tapped again", async () => {
+    api.authFetch.mockImplementation(async () => {
+      throw new Error("boom");
+    });
+    const throwing: PlaidLinkClient = { isAvailable: () => true, open: vi.fn(async () => ({ kind: "exit" as const })) };
+    const r = render(<ConnectBank link={throwing} />);
+    await press(r, "connect-bank");
+    expect(texts(byTestId(r, "connect-bank-error"))).toEqual(["Couldn't start the bank connection. Try again."]);
+    expect(byTestId(r, "connect-bank").props.accessibilityLabel).toBe("Connect a bank");
+    expect(byTestId(r, "connect-bank").props.accessibilityState).toMatchObject({ disabled: false });
   });
 
   it("shows a failed start and lets the user try again", async () => {

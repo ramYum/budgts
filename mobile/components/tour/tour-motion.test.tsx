@@ -9,11 +9,14 @@ import { OnboardingView } from "./onboarding-view";
 import { GuideScene } from "./scenes";
 import { TourCard } from "./tour-card";
 
-vi.mock("react-native", async () => ({
-  ...(await import("../../test/native-hosts")).reactNativeMock(),
-  BackHandler: { addEventListener: () => ({ remove: () => {} }) },
-  AccessibilityInfo: { announceForAccessibility: () => {} },
-}));
+vi.mock("react-native", async () => {
+  const rn = (await import("../../test/native-hosts")).reactNativeMock();
+  return {
+    ...rn,
+    BackHandler: { addEventListener: () => ({ remove: () => {} }) },
+    AccessibilityInfo: { ...rn.AccessibilityInfo, announceForAccessibility: () => {} },
+  };
+});
 vi.mock("expo-router", async () => {
   const { useEffect } = await import("react");
   return { useFocusEffect: (cb: () => void | (() => void)) => useEffect(cb, [cb]) };

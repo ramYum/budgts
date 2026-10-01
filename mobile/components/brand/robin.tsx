@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { PixelRatio, Pressable, View, type StyleProp, type ViewStyle } from "react-native";
-import Animated, { useReducedMotion } from "react-native-reanimated";
+import Animated from "react-native-reanimated";
+import { useReducedMotion } from "../motion/reduced-motion";
 import Svg, { G, Path } from "react-native-svg";
 import { MOTION, ROBIN_ART, ROBIN_H, ROBIN_W, type RobinMood } from "../../lib/brand/shared";
 import { robinLayer, robinSize, type RobinLayer } from "../../lib/brand/robin-paths";

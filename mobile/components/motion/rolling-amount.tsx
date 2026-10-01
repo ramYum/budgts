@@ -1,6 +1,7 @@
 import { useMemo, useRef } from "react";
 import { View } from "react-native";
-import Animated, { useReducedMotion } from "react-native-reanimated";
+import Animated from "react-native-reanimated";
+import { useReducedMotion } from "./reduced-motion";
 import { ROLE, type TypeRoleName } from "../../lib/brand/shared";
 import { isPixelRole, textStyle } from "../../lib/brand/type";
 import { formatMoney } from "../../lib/shared";

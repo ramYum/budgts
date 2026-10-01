@@ -1,5 +1,6 @@
 import { Pressable, View } from "react-native";
-import Animated, { steps, useReducedMotion } from "react-native-reanimated";
+import Animated, { steps } from "react-native-reanimated";
+import { useReducedMotion } from "../motion/reduced-motion";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { COLOR, ROLE } from "../../lib/brand/shared";
 import { PIP_IN, PIP_MS } from "../../lib/motion/css";

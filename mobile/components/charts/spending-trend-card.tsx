@@ -1,5 +1,6 @@
 import { View } from "react-native";
-import Animated, { steps, useReducedMotion } from "react-native-reanimated";
+import Animated, { steps } from "react-native-reanimated";
+import { useReducedMotion } from "../motion/reduced-motion";
 import { COLOR, ROLE } from "../../lib/brand/shared";
 import { POP_IN, POP_MS } from "../../lib/motion/css";
 import { useMotionTiming } from "../../lib/motion/parity-clock";

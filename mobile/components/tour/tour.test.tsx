@@ -16,16 +16,19 @@ const native = vi.hoisted(() => ({
   announced: [] as string[],
 }));
 
-vi.mock("react-native", async () => ({
-  ...(await import("../../test/native-hosts")).reactNativeMock(),
-  BackHandler: {
-    addEventListener: (_e: string, fn: () => boolean) => {
-      native.back.push(fn);
-      return { remove: () => native.back.splice(native.back.indexOf(fn), 1) };
+vi.mock("react-native", async () => {
+  const rn = (await import("../../test/native-hosts")).reactNativeMock();
+  return {
+    ...rn,
+    BackHandler: {
+      addEventListener: (_e: string, fn: () => boolean) => {
+        native.back.push(fn);
+        return { remove: () => native.back.splice(native.back.indexOf(fn), 1) };
+      },
     },
-  },
-  AccessibilityInfo: { announceForAccessibility: (s: string) => native.announced.push(s) },
-}));
+    AccessibilityInfo: { ...rn.AccessibilityInfo, announceForAccessibility: (s: string) => native.announced.push(s) },
+  };
+});
 vi.mock("react-native-safe-area-context", () => ({ useSafeAreaInsets: () => ({ top: 24, bottom: 20, left: 0, right: 0 }) }));
 
 // expo-router's useFocusEffect: runs while the screen is focused; `blur()` is another screen pushed over it

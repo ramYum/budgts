@@ -4,12 +4,13 @@ import Animated, {
   Easing,
   cancelAnimation,
   type CSSAnimationKeyframes,
+  ReduceMotion,
   useAnimatedReaction,
   useAnimatedStyle,
-  useReducedMotion,
   useSharedValue,
   withTiming,
 } from "react-native-reanimated";
+import { useReducedMotion } from "../motion/reduced-motion";
 import { scheduleOnRN } from "react-native-worklets";
 import { COLOR, ROAM, ROLE, bubbleSide, crystalCheers, crystalLines } from "../../lib/brand/shared";
 import { formatSavingsRate } from "../../lib/shared";
@@ -189,7 +190,9 @@ export function CrystalPerch({
   const runClock = useCallback(() => {
     const end = horizon.value;
     if (!runningRef.current || !Number.isFinite(end)) return;
-    clock.value = withTiming(end, { duration: Math.max(0, end - clock.value), easing: Easing.linear });
+    // her clock runs only while the app's motion source says motion is on (`running`), so Reanimated's own launch-time
+    // reading must not also cut it short: under it a timing jumps to its end, firing every planned cheer at once
+    clock.value = withTiming(end, { duration: Math.max(0, end - clock.value), easing: Easing.linear, reduceMotion: ReduceMotion.Never });
   }, [clock, horizon]);
 
   const publish = useCallback(

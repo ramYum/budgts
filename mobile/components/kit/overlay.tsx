@@ -9,7 +9,8 @@ import {
   View,
   type TextInput as TextInputType,
 } from "react-native";
-import Animated, { useReducedMotion } from "react-native-reanimated";
+import Animated from "react-native-reanimated";
+import { useReducedMotion } from "../motion/reduced-motion";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ROLE } from "../../lib/brand/shared";
 import { EASE_OUT } from "../../lib/motion/css";

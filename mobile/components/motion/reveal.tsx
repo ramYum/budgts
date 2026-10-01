@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { View, type StyleProp, type ViewStyle } from "react-native";
-import Animated, { useReducedMotion } from "react-native-reanimated";
+import Animated from "react-native-reanimated";
+import { useReducedMotion } from "./reduced-motion";
 import { EASE_OUT, REVEAL_SHOWN_MS, RISE_IN, revealDelayMs } from "../../lib/motion/css";
 import { useMotionTiming } from "../../lib/motion/parity-clock";
 import { MOTION } from "../../lib/brand/shared";

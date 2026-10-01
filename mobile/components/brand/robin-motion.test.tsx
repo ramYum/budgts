@@ -56,12 +56,13 @@ describe("Crystal is alive (globals.css robin-*)", () => {
 
   it("draws the same art moving as at rest, layer by layer in the web's paint order", () => {
     const fills = (r: ReturnType<typeof render>) => hosts(r, "Path").map((p) => p.props.fill);
-    const moving = render(<Robin mood="happy" />);
+    // read the moving robin before motion goes off: every robin follows the setting live
+    const moving = fills(render(<Robin mood="happy" />));
     reducedMotion.value = true;
     const still = render(<Robin mood="happy" />);
     // moving adds only the open beak (hidden until a chirp)
     const openBeak = ROBIN_ART.happy.beakOpen.length ? new Set(ROBIN_ART.happy.beakOpen.map((r) => r.fill)).size : 0;
-    expect(fills(moving).length).toBe(fills(still).length + openBeak);
+    expect(moving.length).toBe(fills(still).length + openBeak);
     expect(moves(still)).toEqual([]);
   });
 

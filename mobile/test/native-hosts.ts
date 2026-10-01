@@ -22,7 +22,15 @@ export const reactNativeMock = () => ({
   Text: host("Text"),
   TextInput: Object.assign(host("TextInput"), { State: { currentlyFocusedInput: () => null } }),
   Modal: host("Modal"),
-  AccessibilityInfo: { announceForAccessibility: (message: string) => void announcements.push(message), isReduceMotionEnabled: async () => reducedMotion.value },
+  AccessibilityInfo: {
+    announceForAccessibility: (message: string) => void announcements.push(message),
+    isReduceMotionEnabled: async () => reducedMotion.value,
+    addEventListener: (event: string, listener: (on: boolean) => void) => {
+      if (event !== "reduceMotionChanged") return { remove: () => {} };
+      reduceMotionListeners.add(listener);
+      return { remove: () => void reduceMotionListeners.delete(listener) };
+    },
+  },
   Linking: { addEventListener: () => ({ remove: () => {} }), getInitialURL: async () => null, openURL: async () => {} },
   KeyboardAvoidingView: host("KeyboardAvoidingView"),
   Keyboard: { addListener: () => ({ remove: () => {} }), dismiss: () => {} },
@@ -49,12 +57,29 @@ export const svgMock = () => ({
 });
 
 /**
+ * The OS's Reduce Motion / Remove animations setting. Setting `value` changes it as the OS does: AccessibilityInfo answers
+ * with it and fires `reduceMotionChanged` to its listeners. `launch` is Reanimated's `useReducedMotion`, the reading it
+ * took once when the bundle loaded; it follows `value` unless a test pins it (a setting changed after launch).
+ */
+const reduceMotionListeners = new Set<(on: boolean) => void>();
+let osReducedMotion = false;
+export const reducedMotion = {
+  get value() {
+    return osReducedMotion;
+  },
+  set value(on: boolean) {
+    osReducedMotion = on;
+    for (const listener of [...reduceMotionListeners]) listener(on);
+  },
+  launch: null as boolean | null,
+};
+
+/**
  * react-native-reanimated without a UI thread: shared values are plain boxes,
  * animated styles read them whenever a property is read, timings land on
  * their target at once (finishing their callback), and CSS animations are
- * plain style props the tests read back. `reducedMotion.value` stands in for the OS setting.
+ * plain style props the tests read back.
  */
-export const reducedMotion = { value: false };
 /** What a component asked the screen reader to say (AccessibilityInfo.announceForAccessibility), in order. */
 export const announcements: string[] = [];
 export const reanimatedMock = () => {
@@ -70,7 +95,8 @@ export const reanimatedMock = () => {
       for (const k of Object.keys(fn())) Object.defineProperty(style, k, { enumerable: true, get: () => fn()[k] });
       return style;
     },
-    useReducedMotion: () => reducedMotion.value,
+    useReducedMotion: () => reducedMotion.launch ?? reducedMotion.value,
+    ReduceMotion: { System: "system", Always: "always", Never: "never" },
     withDelay: <T,>(_ms: number, animation: T) => animation,
     // CSS animation timing functions: a plain description the tests can read back
     steps: (n: number, modifier = "jump-end") => ({ steps: n, modifier }),

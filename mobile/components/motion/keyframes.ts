@@ -1,4 +1,4 @@
-import { useReducedMotion } from "react-native-reanimated";
+import { useReducedMotion } from "./reduced-motion";
 import { useMotionTiming } from "../../lib/motion/parity-clock";
 import { usePlay } from "./reveal";
 

@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { Pressable, View } from "react-native";
-import Animated, { useReducedMotion } from "react-native-reanimated";
+import Animated from "react-native-reanimated";
+import { useReducedMotion } from "../motion/reduced-motion";
 import { COLOR, ROLE } from "../../lib/brand/shared";
 import { invalidate } from "../../lib/api/invalidate";
 import { statusNeedsAttention, type BankAccount, type ConnectedBank } from "../../lib/plaid/banks-api";

@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { COLOR } from "./shared";
@@ -85,9 +85,12 @@ describe("Android launch: MainActivity releases the splash hold", () => {
     );
   });
 
-  it("needs no patched dependency: no patch, no module built from source", () => {
-    expect(existsSync(join(appRoot, "patches"))).toBe(false);
-    expect(pkg.scripts.postinstall).toBeUndefined();
+  it("needs no patched Expo module: no splash patch, no module built from source", () => {
+    // The one dependency patch is react-native-screens' launch-crash backport
+    // (test/screens-launch-crash-guard.test.ts); the splash hold never returns as a patch.
+    const dir = join(appRoot, "patches");
+    const patches = existsSync(dir) ? readdirSync(dir) : [];
+    expect(patches.filter((p) => !p.startsWith("react-native-screens+"))).toEqual([]);
     expect(pkg.expo?.autolinking).toBeUndefined();
   });
 });

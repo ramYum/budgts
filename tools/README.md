@@ -96,4 +96,7 @@ node tools/plaid-resync-item.mjs --item <plaid item_id> --apply   # clear cursor
 
 The next sync re-pulls the Item's history; landing is idempotent on the Plaid
 transaction id, so only missing rows are inserted (user categories kept).
+Caveats (printed by the dry run too): rows the user deleted come back (deletes
+leave no tombstone, so the number can't be estimated), and a paused-then-resumed
+account gets its paused-window rows back (no pause history is kept).
 Production is an owner-approved remediation, not this script.

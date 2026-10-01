@@ -13,3 +13,4 @@ export * from "../../src/lib/account/screen";
 export * from "../../src/lib/categories/options";
 export * from "../../src/lib/display/charts";
 export * from "../../src/lib/figures/savings-pct";
+export * from "../../src/lib/accounts/account-suggestion";

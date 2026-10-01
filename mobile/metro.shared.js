@@ -12,7 +12,9 @@ const webRoot = path.resolve(appRoot, "..");
  * - pure display helpers: money formatting and parsing, dates and month labels, the greeting, display names; the
  *   display figures both sides print from server totals (src/lib/figures: budget trend, savings share);
  * - screen constants the web and the app share: the deletion screen's words and paths, category options, the welcome
- *   guide's steps, gate and words.
+ *   guide's steps, gate and words;
+ * - the account-mapping sheet's suggestions (src/lib/accounts/account-suggestion.ts: suggested type and mode, the HSA
+ *   hint, the default name), one implementation for both apps; the folder's server code is never imported.
  * Never the money math (src/lib/budget, src/lib/plaid): figures come from the server.
  */
 const SHARED = [
@@ -22,6 +24,7 @@ const SHARED = [
   "src/lib/display",
   "src/lib/figures",
   "src/lib/account",
+  "src/lib/accounts",
   "src/lib/categories",
   "src/lib/tour",
   "src/components/tour",

@@ -32,6 +32,9 @@ describe("buildLimitedHistoryMessages", () => {
     expect(messages[0]).toMatch(/SoFi/);
     expect(messages[0]).toMatch(/Sep 11/);
     expect(messages[0]).toMatch(/won't appear in your budgets/i);
+    // sentence breaks, never an em-dash (UI copy rule)
+    expect(messages[0]).toMatch(/\. Spending before that won't appear in your budgets for this account\.$/);
+    expect(messages[0]).not.toContain("—");
   });
 
   it("omits a connection with real backfilled history", () => {

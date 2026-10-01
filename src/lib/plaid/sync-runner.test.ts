@@ -119,7 +119,7 @@ describe("drainItem", () => {
 describe("claimMissMessage", () => {
   it("tells the user when a busy Item's lease runs out, rounded up to whole minutes", () => {
     expect(claimMissMessage({ kind: "busy", retryAfterSeconds: 360 })).toBe(
-      "A sync for this bank is already running — new transactions will appear when it finishes. If nothing changes, you can sync again in about 6 min.",
+      "A sync for this bank is already running. New transactions will appear when it finishes. If nothing changes, you can sync again in about 6 min.",
     );
     expect(claimMissMessage({ kind: "busy", retryAfterSeconds: 61 })).toMatch(/in about 2 min\.$/);
     expect(claimMissMessage({ kind: "busy", retryAfterSeconds: 1 })).toMatch(/in about 1 min\.$/);
@@ -127,7 +127,7 @@ describe("claimMissMessage", () => {
 
   it("says a lease that just ended can be retried now", () => {
     expect(claimMissMessage({ kind: "busy", retryAfterSeconds: 0 })).toBe(
-      "A sync for this bank just finished — sync again if anything is missing.",
+      "A sync for this bank just finished. Sync again if anything is missing.",
     );
   });
 

@@ -103,8 +103,8 @@ export function claimMissMessage(miss: ClaimMiss): string {
       return "That bank connection no longer exists.";
     case "busy":
       return miss.retryAfterSeconds > 0
-        ? `A sync for this bank is already running — new transactions will appear when it finishes. If nothing changes, you can sync again in about ${Math.ceil(miss.retryAfterSeconds / 60)} min.`
-        : "A sync for this bank just finished — sync again if anything is missing.";
+        ? `A sync for this bank is already running. New transactions will appear when it finishes. If nothing changes, you can sync again in about ${Math.ceil(miss.retryAfterSeconds / 60)} min.`
+        : "A sync for this bank just finished. Sync again if anything is missing.";
   }
 }
 

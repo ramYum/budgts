@@ -193,7 +193,7 @@ export async function mapAccountsFor(
 
   // First sync — so transactions are on screen when the user lands back.
   const sync = await syncIfOwned(userId, item.item_id);
-  const warning = warningFor(sync, "Accounts saved.", "Accounts saved. The first sync didn't finish — it'll retry shortly.");
+  const warning = warningFor(sync, "Accounts saved.", "Accounts saved. The first sync didn't finish. It'll retry shortly.");
   return warning ? { ok: true, warning } : { ok: true };
 }
 
@@ -228,7 +228,7 @@ export async function setAccountImportingFor(
   if (importing) {
     const { data: item } = await supabase.from("plaid_items").select("item_id").eq("id", row.plaid_item_id).maybeSingle();
     const sync = item ? await syncIfOwned(userId, item.item_id) : null;
-    const warning = warningFor(sync, "Importing resumed.", "Importing resumed. The first sync didn't finish — it'll retry shortly.");
+    const warning = warningFor(sync, "Importing resumed.", "Importing resumed. The first sync didn't finish. It'll retry shortly.");
     if (warning) return { ok: true, warning };
   }
   return { ok: true };

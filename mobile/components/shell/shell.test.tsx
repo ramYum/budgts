@@ -8,6 +8,8 @@ import { Logo, wordmarkSize } from "../brand/logo";
 import { AppHeader, HEADER_TRANSLUCENT_BG } from "./app-header";
 import { BottomTabs, contentBottomPad, TAB_BAR_HEIGHT, TABS } from "./bottom-tabs";
 import { StatusBanners } from "./status-banners";
+import { PIP_IN } from "../../lib/motion/css";
+import { NEEDS_CATEGORY_LINK } from "../../lib/status/status-api";
 
 const insets = { top: 24, bottom: 0, left: 0, right: 0 };
 vi.mock("react-native-safe-area-context", () => ({ useSafeAreaInsets: () => insets }));
@@ -80,6 +82,24 @@ describe("AppHeader (web dashboard layout header)", () => {
     expect(texts(byTestId(r, "needs-category-count"))).toEqual(["3"]);
   });
 
+  it("the bell's count snaps in like the tab marker (pip-in 220ms steps(3)); still with reduced motion", () => {
+    const r = render(<AppHeader needsCategoryCount={3} onHome={() => {}} onBell={() => {}} />);
+    const pop = hosts(r, "Animated.View").map((v) => flat(v.props.style)).find((st) => st.animationName === PIP_IN)!;
+    expect(pop).toMatchObject({ animationName: PIP_IN, animationDuration: "220ms", animationFillMode: "backwards" });
+    expect(pop.animationTimingFunction).toEqual({ steps: 3, modifier: "jump-end" });
+    reducedMotion.value = true;
+    try {
+      const still = render(<AppHeader needsCategoryCount={3} onHome={() => {}} onBell={() => {}} />);
+      expect(hosts(still, "Animated.View").some((v) => flat(v.props.style).animationName === PIP_IN)).toBe(false);
+    } finally {
+      reducedMotion.value = false;
+    }
+  });
+
+  it("the bell opens Activity's current month, no category, at Needs a category (web /transactions#needs-category)", () => {
+    expect(NEEDS_CATEGORY_LINK).toEqual({ pathname: "/activity", params: { m: "", category: "", focus: "needs-category" } });
+  });
+
   it("has no bell when bank connections are off, and no count at zero", () => {
     expect(render(<AppHeader needsCategoryCount={null} onHome={() => {}} onBell={() => {}} />).root.findAll((n) => n.props.testID === "needs-category-bell")).toHaveLength(0);
     const zero = render(<AppHeader needsCategoryCount={0} onHome={() => {}} onBell={() => {}} />);
@@ -107,7 +127,14 @@ describe("StatusBanners (web DeletionBanner + ReviewBanner)", () => {
     const r = render(<StatusBanners status={{ ...quiet, deletionInProgress: true }} onFinishDeleting={finish} onReview={() => {}} />);
     expect(textContent(byTestId(r, "deletion-banner"))).toBe("Your account is being deleted. It's read-only, so changes won't save. Finish deleting.");
     hosts(r, "Text").find((t) => t.props.accessibilityRole === "link")!.props.onPress();
-    expect(finish).toHaveBeenCalled();
+    expect(finish).toHaveBeenCalledTimes(1);
+    // the whole banner takes the tap (its only action), so the inline link reaches 44pt with no visual change
+    byTestId(r, "deletion-banner-target").props.onPress();
+    expect(finish).toHaveBeenCalledTimes(2);
+    expect(byTestId(r, "deletion-banner-target").props).toMatchObject({ accessible: false, importantForAccessibility: "no" });
+    // the web's role="status" (a polite live region), not an alert
+    expect(byTestId(r, "deletion-banner").props).toMatchObject({ role: "status", accessibilityLiveRegion: "polite" });
+    expect(byTestId(r, "deletion-banner").props.accessibilityRole).toBeUndefined();
     expect(r.root.findAll((n) => n.type === PixelFrame)[0]!.props.frame).toBe("px-wash");
   });
 

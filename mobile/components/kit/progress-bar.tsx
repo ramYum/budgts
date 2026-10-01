@@ -69,6 +69,10 @@ export function ProgressBar({
   const animate = play && !reduced && layout !== null;
   const alarmTiming = useMotionTiming(alarmDelayMs(start));
   const sweepTiming = useMotionTiming(sweepDelayMs(start));
+  // Both sides of the sweep share this timing exactly, so the window and its cells move on the same frames.
+  const sweepMotion = animate && layout
+    ? { animationDuration: `${MOTION.cellsSweepMs}ms` as const, ...sweepTiming, animationTimingFunction: steps(layout.n, "jump-start"), animationFillMode: "backwards" as const }
+    : null;
 
   return (
     <Animated.View
@@ -89,24 +93,29 @@ export function ProgressBar({
       ]}
     >
       {layout ? (
+        // The sweep, by transform only (never width, which re-lays out every frame): a clip window as wide as the full
+        // sweep slides in from the left while the cells inside it slide the other way by the same amount, so the cells
+        // stay put and the window's right edge uncovers them, one whole cell a step (sweepEdge).
         <Animated.View
           style={[
             { height: cellHeight, width: layout.sweepWidth, overflow: "hidden" },
-            animate
-              ? {
-                  animationName: { from: { width: 0 }, to: { width: layout.sweepWidth } },
-                  animationDuration: `${MOTION.cellsSweepMs}ms`,
-                  ...sweepTiming,
-                  animationTimingFunction: steps(layout.n, "jump-start"),
-                  animationFillMode: "backwards",
-                }
+            sweepMotion
+              ? { ...sweepMotion, animationName: { from: { transform: [{ translateX: -layout.sweepWidth }] }, to: { transform: [{ translateX: 0 }] } } }
               : null,
           ]}
         >
-          <Svg width={width!} height={cellHeight}>
-            <Path d={track} fill={ROLE.track} />
-            {lit ? <Path d={lit} fill={TONE_FILL[tone]} /> : null}
-          </Svg>
+          <Animated.View
+            style={
+              sweepMotion
+                ? { ...sweepMotion, animationName: { from: { transform: [{ translateX: layout.sweepWidth }] }, to: { transform: [{ translateX: 0 }] } } }
+                : null
+            }
+          >
+            <Svg width={width!} height={cellHeight}>
+              <Path d={track} fill={ROLE.track} />
+              {lit ? <Path d={lit} fill={TONE_FILL[tone]} /> : null}
+            </Svg>
+          </Animated.View>
         </Animated.View>
       ) : null}
     </Animated.View>

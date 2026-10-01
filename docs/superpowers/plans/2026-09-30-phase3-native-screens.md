@@ -523,14 +523,14 @@ Test ids the parity tool can match (web `data-testid` of the same name to be add
 | id | what |
 | --- | --- |
 | `screen-root` | the scrolling body of every signed-in screen (crop rect) and of `+not-found` |
-| `app-header`, `header-home`, `needs-category-bell`, `needs-category-count` | header, lockup, bell, bell badge |
-| `bottom-tabs`, `tab-home`, `tab-budgets`, `tab-activity`, `tab-more`, `tab-pip` | tab bar, tabs, active marker |
-| `status-banners`, `deletion-banner`, `review-excluded`, `review-advisory` | banners |
-| `page-header`, `page-header-title`, `page-back` | page header |
-| `month-nav`, `month-nav-label`, `month-nav-prev`, `month-nav-next` | month switcher |
-| `segmented`, `segmented-<value>` | segmented control (screens pass their own id) |
-| `more-view`, `more-play-guide`, `more-goals`, `more-accounts`, `more-insights`, `more-banks`, `more-settings`, `more-help`, `more-about` | More |
-| `settings-view`, `settings-profile`, `settings-security`, `settings-delete-account`, `settings-categories`, `settings-budgets`, `settings-goals`, `settings-connected-banks`, `settings-accounts`, `settings-appearance`, `settings-help`, `settings-about`, `settings-export`, `settings-export-button`, `settings-sign-out` | Settings |
+| `app-header`, `app-logo`, `needs-category-bell`, `needs-category-count` | header, lockup, bell, bell badge |
+| `bottom-nav`, `tab-home`, `tab-budgets`, `tab-activity`, `tab-more`, `tab-pip` | tab bar, tabs (`tabTestId`), active marker |
+| `deletion-banner`, `review-banner-excluded`, `review-banner-advisory` (each banner's tap area `<id>-target`) | banners |
+| `page-header`, `page-title`, `page-back` | page header |
+| `month-nav`, `month-label`, `month-prev`, `month-next` | month switcher |
+| `segmented`, `segment-<value>` (an override `x` gives `x` / `x-<value>`) | segmented control |
+| `more-play-guide`, the hub rows `hub-<path>` (`hubTestId(href)`: `hub-goals`, `hub-accounts`, `hub-settings`...) | More (Lane C) |
+| `settings-export`, `settings-export-button`, `settings-sign-out`, the hub rows `hub-settings-<page>` | Settings (Lane C) |
 | `<row-id>-label`, `<row-id>-value` | a hub row's label and value |
 | `not-found`, `not-found-home`, `not-found-help` | not found |
 
@@ -538,8 +538,8 @@ Native deep links for captures (Expo Router paths): `budgts:///`, `budgts:///bud
 
 ### F4 as built (the lanes' motion API)
 
-- `components/kit/progress-bar.tsx` `<ProgressBar pct tone="under|near|over|growth" start cellHeight cells testID>`: geometry `lib/ui/cells.ts` (`cellLayout`, `cellsPath`), one SVG per bar; the sweep is a `steps(n, "jump-start")` width animation on a clip window whose every step edge falls in a gap (tested), the over flash is `cell-alarm` on `steps(1)`.
-- `components/motion/reveal.tsx` `<Reveal i style testID>` and `usePlay()`: a block below the fold waits (opacity 0, descendants' entrances off) until it is 10% up the screen, then rises in 640ms. Any new animated component must read `usePlay()` and `useReducedMotion()`.
+- `components/kit/progress-bar.tsx` `<ProgressBar pct tone="under|near|over|growth" start cellHeight cells testID>`: geometry `lib/ui/cells.ts` (`cellLayout`, `cellsPath`), one SVG per bar; the sweep is transform-only (`phase-m/p3-f-fix`; never a width animation, which re-lays out every frame): a clip window `sweepWidth` wide with `overflow: hidden` slides `translateX(-W to 0)` while the cells inside slide `translateX(+W to 0)`, both on the same `steps(n, "jump-start")` timing, so the cells stay put and the window's edge after step k is `sweepEdge(k)`, always in a gap (tested); the over flash is `cell-alarm` on `steps(1)`.
+- `components/motion/reveal.tsx` `<Reveal i style testID>` and `usePlay()`: a block below the fold waits (opacity 0, descendants' entrances off) until it is 10% up the screen, then rises in 640ms. Any new animated component must read `usePlay()` and `useReducedMotion()`. It listens to the scroll only until it is decided (at rest on arrival, or shown); with no scroll watch (a page outside `<Screen>`, e.g. sign-in) it rises in on mount with the stagger. Blocks measure against `watch.contentRef`, which now carries `<Screen>`'s header clearance, so a measured y is in the scroll content's space, the same as the viewport's offset and height (Reveal, Show more, Crystal). A `scrollTo(y)` to a measured block puts it at the very top, under the header: subtract the header's bottom to land it below.
 - `components/motion/rolling-amount.tsx` `<RollingAmount value currency variant color testID>`: per-digit reels clipped to the digits' ink band (Geist) or line box (Dogica), spin-in 1.4s at 45ms a column after 120ms, later values glide 900ms.
 - `lib/motion/css.ts`: `EASE_OUT`, `PAGE_ENTER`, `RISE_IN`, `CELL_ALARM` and the delay helpers, straight from `globals.css`.
 - `lib/motion/parity-clock.tsx` (P4 hook): development builds read `?clock=<ms>` in the root layout; `useMotionTiming(delayMs)` returns `animationDelay` + `animationPlayState`, paused at the frozen instant. Every animation must take its delay from `useMotionTiming`.
@@ -554,8 +554,8 @@ Native deep links for captures (Expo Router paths): `budgts:///`, `budgts:///bud
 
 ### F6 as built (sheets, menus, forms)
 
-- `components/kit/overlay.tsx` `<Overlay title onClose testID>`: the web's bottom sheet (ink scrim at 40%, `px-card-raised`, pixel title, square close, at most 90% of the screen, scrolls inside), rising 32px over 300ms. Closes on the scrim, the close button and Android back. **It is the one form sheet** (no separate FormSheet): `KeyboardAvoidingView` padding on both platforms, and a focused field scrolls itself `KEYBOARD_MARGIN` above the keyboard through `useSheetFocus()`, which the brand `Field` and the kit `Select` already call. Lanes put every form in an `<Overlay>` and use `Field` / `Select`; nothing else is needed for the keyboard.
-- `components/kit/row-menu.tsx` `<RowMenu label items testID>`: the kebab (40px) opens the web's lifted menu under it, right-aligned, `pop-in` on steps(3); closes on a pick, outside press or back. Item ids: `<testID>-<label-slug>`.
+- `components/kit/overlay.tsx` `<Overlay title onClose testID>`: the web's bottom sheet (ink scrim at 40%, `px-card-raised`, pixel title, square close, at most 90% of the space above the keyboard, scrolls inside), rising 32px over 300ms. `SHEET_BOX` (`flexShrink: 1`, `maxHeight: "90%"`) sizes the sheet from the KeyboardAvoidingView's padded box, never from the window, so a tall sheet never rises past the top when the keyboard opens. Closes on the scrim (hidden from screen readers: the Close button is the one "Close"), the close button and Android back. When the sheet's scroll viewport shrinks with a field focused (Android can report `keyboardDidShow` before the sheet has shrunk), it reveals the field again against the new height (tested: a 300pt keyboard on a 640-high window). **It is the one form sheet** (no separate FormSheet): `KeyboardAvoidingView` padding on both platforms, and a focused field scrolls itself `KEYBOARD_MARGIN` above the keyboard through `useSheetFocus()`, which the brand `Field` and the kit `Select` already call. Lanes put every form in an `<Overlay>` and use `Field` / `Select`; nothing else is needed for the keyboard.
+- `components/kit/row-menu.tsx` `<RowMenu label items testID>`: the kebab (40px) opens the web's lifted menu under it, right-aligned, `pop-in` on steps(3), or above it when below would pass the window's bottom less the bottom inset; items are drawn 40pt and reach 44pt through `hitSlop`; closes on a pick, outside press or back. Item ids: `<testID>-<label-slug>`.
 - `components/kit/select.tsx` `<Select label value options onChange placeholder invalid disabled testID>`: the web's framed select; opens a sheet of options (`<testID>-option-<value>`), the chosen one ticked.
 - The test setup now mocks `react-native-safe-area-context` for every test (insets 0; a test can mock it itself).
 
@@ -589,6 +589,8 @@ The app's gateways: `mobile/lib/brand/shared.ts` (brand) and `mobile/lib/shared.
 
 **`useResource(key, fetcher, { version })` (decision 2026-09-30):** `key` names WHICH resource (the month, a filter): a new key shows the loading state, as the web's navigation shows its loading page. `version` (`useVersion(...)`, realtime) refreshes the SAME resource in place. Put versions in `options.version`, never in the key.
 
+**The pull contract (project-wide, `phase-m/p3-f-fix`):** a version-driven reload (a save, a realtime event, `invalidate`) is silent: in place, no `refreshing`, and on failure it keeps the figures and sets `notice`. `refreshing` is ONLY the user's pull (`refresh()`), which behaves the same on failure (figures kept, `notice`), and it always ends when the latest pull settles, even when a newer request (a version bump mid-pull) won. Only the first load, a new key or Try again (`reload()`) shows loading and can land on the failure state. Every screen shows `notice` with a retry; a screen that drops it fails silently.
+
 ### Foundation change requests, batch 2 (2026-09-30)
 
 - **Parity ids with overrides:** every kit piece takes an optional `testID` that defaults to its contract id, so a screen with several instances gives each its own (screens.ts per-instance ids): `Overlay` ("sheet", title/close `<id>-title`/`<id>-close`), `RowMenu`, `Badge`, `SectionHead` (defaults "section-head"/"section-title"/"section-link"; an override `x` gives `x`/`x-title`/`x-link`), `RollingAmount`, `ProgressBar`, `EmptyState` (`<id>-title`), `SegmentedControl` (defaults "segmented"/"segment-<value>"; override `x` gives `x-<value>`), `HubSection`. `HubRow` is either `href` + `go` (ids from the href) or `onPress` + `testID` (a row that leaves the app).
@@ -600,8 +602,10 @@ The app's gateways: `mobile/lib/brand/shared.ts` (brand) and `mobile/lib/shared.
 - **`PageHeader`**: `title` may be a node (Home's word-by-word greeting); it keeps the `page-title` id.
 - **Type role `small`** (14/20 regular, web `text-sm leading-5`) in `src/lib/brand/tokens.ts`.
 - **`Rise` / `Lamp`** now live in `components/motion/rise.tsx` (moved from Lane B's `components/home/rise.tsx`; B deletes its copy on rebase).
-- **`useResource`** reloads a new key in place (no skeleton flash on a version bump or realtime event); only the first load or a retry after a failure shows loading; a failed reload replaces the old data (never another month's numbers).
-- **Realtime**: `useRealtimeRefresh(tables)` with the web's tables (`lib/realtime/topics.ts`); Home and Budgets add `["budgets"]`, Goals `["savings_goals", "savings_contributions"]`.
+- **`useResource`** reloads the same key in place (no skeleton flash on a version bump or realtime event); only the first load, a new key or a retry after a failure shows loading. On failure the pull contract above applies (a failed reload of the same key keeps the figures and sets `notice`); a new key never shows another key's numbers because it starts from the loading state.
+- **Realtime**: `useRealtimeRefresh(tables)` with the web's tables (`lib/realtime/topics.ts`); Home and Budgets add `["budgets"]`, Goals `["savings_goals", "savings_contributions"]`. One channel per table and user, reference-counted across every mounted screen (`watchTable`, `phase-m/p3-f-fix`): tab screens stay mounted and realtime-js returns the existing channel for a topic, so two screens on `budgets` crashed on `.on()` after `subscribe()`. Each channel's topic is unique, so a channel being removed is never handed back. 1500ms debounce, paused in the background, no polling.
+- **Header status** (`StatusProvider`) also reloads when the app returns to the foreground (an AppState event, not a timer).
+- **The bell** navigates to `NEEDS_CATEGORY_LINK` (`lib/status/status-api.ts`): `/activity` with `m` and `category` sent empty (cleared: the current month, no filter) and `focus=needs-category`, the web's `/transactions#needs-category`. Lane D-1 scrolls to the "Needs a category" section when `focus` is `needs-category`.
 - **`account_locked`**: `mutate()` answers `{ status: "error", kind: "locked", message: LOCKED_MESSAGE }`.
 - **Native batch for the post-F7 dev client:** `expo-blur` and `@react-native-community/datetimepicker` (`npm ci`, then `expo prebuild --clean`, which also applies the Android launch plugin).
 

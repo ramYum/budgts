@@ -98,6 +98,56 @@ describe("Connected banks (web /connected-banks)", () => {
     expect(byTestId(r, "import-row-1").props.accessibilityState).toEqual({ checked: true, disabled: false });
   });
 
+  it("Reconnect says Opening…, disabled, from the tap until Link closes: the token load and Link's own slow start alike", async () => {
+    type Outcome = Awaited<ReturnType<PlaidLinkClient["open"]>>;
+    let close!: (o: Outcome) => void;
+    const slow: PlaidLinkClient = { isAvailable: () => true, open: vi.fn(() => new Promise<Outcome>((res) => (close = res))) };
+    const a = actions({}, slow);
+    let token!: (t: { status: "ok"; linkToken: string }) => void;
+    a.ports.fetchLinkToken = vi.fn(() => new Promise<{ status: "ok"; linkToken: string }>((res) => (token = res)));
+    const r = view([bank({ status: "login_required" })], a);
+    const props = () => byTestId(r, "bank-item-row-reconnect").props;
+    await press(r, "bank-item-row-reconnect");
+    expect(props().accessibilityLabel).toBe("Opening…");
+    expect(props().accessibilityState).toMatchObject({ disabled: true, busy: true });
+    await act(async () => token({ status: "ok", linkToken: "link-1" }));
+    expect(slow.open).toHaveBeenCalledTimes(1);
+    // Link is starting: still no way to open a second update-mode session
+    expect(props().accessibilityLabel).toBe("Opening…");
+    expect(props().accessibilityState).toMatchObject({ disabled: true, busy: true });
+    await act(async () => close({ kind: "exit" }));
+    expect(props().accessibilityLabel).toBe("Reconnect");
+    expect(props().accessibilityState).toMatchObject({ disabled: false });
+  });
+
+  it("Reconnect never opens Link twice: a second tap while it loads, even in the same frame, does nothing", async () => {
+    const a = actions();
+    let token!: (t: { status: "ok"; linkToken: string }) => void;
+    a.ports.fetchLinkToken = vi.fn(() => new Promise<{ status: "ok"; linkToken: string }>((res) => (token = res)));
+    const r = view([bank({ status: "login_required" })], a);
+    const onPress = byTestId(r, "bank-item-row-reconnect").props.onPress as () => void;
+    await act(async () => {
+      onPress();
+      onPress();
+    });
+    await act(async () => byTestId(r, "bank-item-row-reconnect").props.onPress?.());
+    await act(async () => token({ status: "ok", linkToken: "link-1" }));
+    expect(a.ports.fetchLinkToken).toHaveBeenCalledTimes(1);
+    expect(a.link.open).toHaveBeenCalledTimes(1);
+  });
+
+  it("Reconnect never sticks on Opening… when starting throws: it says so and can be tapped again", async () => {
+    const a = actions();
+    a.ports.fetchLinkToken = vi.fn(async () => {
+      throw new Error("boom");
+    });
+    const r = view([bank({ status: "login_required" })], a);
+    await press(r, "bank-item-row-reconnect");
+    expect(texts(byTestId(r, "bank-item-row-reconnect-error"))).toEqual(["Couldn't start the reconnect. Try again."]);
+    expect(byTestId(r, "bank-item-row-reconnect").props.accessibilityLabel).toBe("Reconnect");
+    expect(byTestId(r, "bank-item-row-reconnect").props.accessibilityState).toMatchObject({ disabled: false });
+  });
+
   it("a bank that needs its login again says so and reconnects through Link in update mode, then syncs", async () => {
     const link: PlaidLinkClient = { isAvailable: () => true, open: vi.fn(async () => ({ kind: "success" as const, publicToken: "p", institution: null })) };
     const a = actions({}, link);

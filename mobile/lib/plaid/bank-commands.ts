@@ -12,7 +12,10 @@ import type { MapEntry } from "./mapping";
  * money or sync; each call reports one of two outcomes a sheet or a row can show. A server `warning` is the web's own
  * text (the work succeeded, a sync did not finish); failures are fixed sentences, never server or network text.
  */
-export type CommandOutcome = { status: "ok"; warning?: string } | { status: "error"; message: string };
+export type CommandOutcome =
+  | { status: "ok"; warning?: string }
+  /** `stale`: the server refused because what the screen shows is out of date (gone, already set up, no longer offered) */
+  | { status: "error"; message: string; stale?: true };
 
 const NETWORK = "Couldn't reach Budgts. Check your connection and try again.";
 const SESSION = "Your session has expired. Please sign in again.";
@@ -30,11 +33,11 @@ export async function runCommand(fetcher: () => Promise<Response>, m: Messages):
   if (r.kind === "auth") return { status: "error", message: SESSION };
   if (r.kind === "network") return { status: "error", message: NETWORK };
   if (r.status === 423) return { status: "error", message: LOCKED_MESSAGE };
-  if (r.status === 404) return { status: "error", message: m.missing };
-  if (r.status === 409 && m.conflict) return { status: "error", message: m.conflict };
+  if (r.status === 404) return { status: "error", message: m.missing, stale: true };
+  if (r.status === 409 && m.conflict) return { status: "error", message: m.conflict, stale: true };
   // an `invalid` reply carries the web's own sentence (mapAccounts: "Choose which Budgts account…"; a form's first field error)
   const invalid = r.code === "invalid" ? (r.fieldErrors?.form ?? Object.values(r.fieldErrors ?? {})[0]) : undefined;
-  if (invalid) return { status: "error", message: invalid };
+  if (invalid) return { status: "error", message: invalid, stale: true };
   return { status: "error", message: m.failed };
 }
 

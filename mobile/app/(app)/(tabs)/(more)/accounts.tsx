@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useMemo } from "react";
+import type { Session } from "@supabase/supabase-js";
 import { useRouter } from "expo-router";
 import { AccountsView } from "../../../../components/banks/accounts-view";
 import { LoadFailure } from "../../../../components/feedback/states";
@@ -17,26 +18,23 @@ import { useAuth } from "../../../../lib/auth/auth-context";
  * groups and this month's counts) and `GET /api/mobile/accounts` (the server's account types for the form). A save
  * invalidates "accounts", which reloads this screen in place.
  */
+async function loadAccountsScreen(s: Session | null) {
+  const [overview, accounts] = await Promise.all([
+    loadResource(() => authFetch("/api/mobile/accounts/overview", s), parseOverview),
+    loadResource(() => authFetch("/api/mobile/accounts", s), parseAccounts),
+  ]);
+  if (overview.status === "error") return overview;
+  if (accounts.status === "error") return accounts;
+  return { status: "ready" as const, data: { overview: overview.data, accountTypes: accounts.data.accountTypes } };
+}
+
 export default function AccountsScreen() {
   const router = useRouter();
   const { session, signOut } = useAuth();
-  const { state, refresh, refreshing, reload } = useResource("accounts-overview", async (s) => {
-    const [overview, accounts] = await Promise.all([
-      loadResource(() => authFetch("/api/mobile/accounts/overview", s), parseOverview),
-      loadResource(() => authFetch("/api/mobile/accounts", s), parseAccounts),
-    ]);
-    if (overview.status === "error") return overview;
-    if (accounts.status === "error") return accounts;
-    return { status: "ready" as const, data: { overview: overview.data, accountTypes: accounts.data.accountTypes } };
-  });
-
+  // A change to the user's accounts anywhere (a save here, a bank connected from the welcome guide, realtime) reloads
+  // in place and silently; `refreshing` is only the user's own pull.
   const version = useVersion("accounts");
-  const seen = useRef(version);
-  useEffect(() => {
-    if (seen.current === version) return;
-    seen.current = version;
-    void refresh();
-  }, [version, refresh]);
+  const { state, notice, refresh, refreshing, reload } = useResource("accounts-overview", loadAccountsScreen, { version });
 
   const commands = useMemo(() => accountCommands(session), [session]);
 
@@ -52,6 +50,8 @@ export default function AccountsScreen() {
           accountTypes={state.data.accountTypes}
           commands={commands}
           onBack={() => (router.canGoBack() ? router.back() : router.navigate("/more"))}
+          notice={notice}
+          onRetry={() => void refresh()}
         />
       )}
     </Screen>

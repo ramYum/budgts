@@ -19,8 +19,7 @@ import { Badge } from "../kit/tiles";
 import { SectionHead } from "../kit/section-head";
 import { AccountMappingSheet } from "./account-mapping";
 import { Overlay } from "../kit/overlay";
-
-/** A bold run inside small text (the web's `font-semibold` in `text-sm`). */
+import { pressStyle } from "../kit/press";
 
 /** What a bank card needs to act: the server commands, the Link ports and client, and the mapping choices. */
 export type BankActions = {
@@ -84,9 +83,9 @@ export function BankCard({ bank, actions, now }: { bank: ConnectedBank; actions:
               </Badge>
             )}
             {sandbox ? <Badge tone="gray">Sandbox</Badge> : null}
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+            <View testID={`${id}-synced`} style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
               <Icon name="sync" size={12} color={ROLE.muted} />
-              <Text testID={`${id}-synced`} variant="small" color={ROLE.muted}>
+              <Text variant="small" color={ROLE.muted}>
                 {syncedLabel(bank, now)}
               </Text>
             </View>
@@ -275,12 +274,15 @@ const SWITCH_SLIDE_MS = 150;
 function PixelSwitch({
   on,
   label,
+  hint,
   onPress,
   disabled,
   testID,
 }: {
   on: boolean;
   label: string;
+  /** the web's `title`: what a tap does (and, for pausing, what it costs) */
+  hint: string;
   onPress: () => void;
   disabled: boolean;
   testID: string;
@@ -291,39 +293,53 @@ function PixelSwitch({
       testID={testID}
       accessibilityRole="switch"
       accessibilityLabel={label}
+      accessibilityHint={hint}
       accessibilityState={{ checked: on, disabled }}
       disabled={disabled}
       onPress={onPress}
       hitSlop={{ top: 10, bottom: 10, left: 0, right: 0 }}
     >
-      <PixelFrame
-        frame="px-switch"
-        state={on ? "[aria-checked='true']" : ""}
-        style={{ width: 44, height: 24, paddingHorizontal: 2, justifyContent: "center", opacity: disabled ? 0.6 : 1 }}
-      >
-        <Animated.View
-          style={[
-            { width: 12, height: 12, backgroundColor: on ? COLOR.white : COLOR.silver, transform: [{ translateX: on ? 20 : 0 }] },
-            reduced ? null : { transitionProperty: "transform", transitionDuration: SWITCH_SLIDE_MS },
-          ]}
-        />
-      </PixelFrame>
+      {({ pressed }) => (
+        <PixelFrame
+          frame="px-switch"
+          state={on ? "[aria-checked='true']" : ""}
+          style={[{ width: 44, height: 24, paddingHorizontal: 2, justifyContent: "center", opacity: disabled ? 0.6 : 1 }, pressStyle(pressed)]}
+        >
+          <Animated.View
+            style={[
+              { width: 12, height: 12, backgroundColor: on ? COLOR.white : COLOR.silver, transform: [{ translateX: on ? 20 : 0 }] },
+              reduced ? null : { transitionProperty: "transform", transitionDuration: SWITCH_SLIDE_MS },
+            ]}
+          />
+        </PixelFrame>
+      )}
     </Pressable>
   );
 }
 
-function useCommand(): [boolean, string | null, (run: () => Promise<CommandOutcome>, onOk: () => void) => Promise<void>] {
+/**
+ * A command on one account row. After it succeeds the control stays disabled, showing the state it asked for, until
+ * the row itself changes (the reload landed with a new row). If that reload fails, the screen's refresh notice says so
+ * with a retry; the control never turns back on over stale data.
+ */
+function useRowCommand<T>(row: object) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const run = async (command: () => Promise<CommandOutcome>, onOk: () => void) => {
+  const [landed, setLanded] = useState<{ row: object; target: T } | null>(null);
+  const awaiting = landed && landed.row === row ? landed : null;
+  const run = async (command: () => Promise<CommandOutcome>, target: T) => {
     setPending(true);
     setError(null);
     const out = await command();
     setPending(false);
-    if (out.status === "error") setError(out.message);
-    else onOk();
+    if (out.status === "error") {
+      setError(out.message);
+      return;
+    }
+    setLanded({ row, target });
+    changedEverything();
   };
-  return [pending, error, run];
+  return { busy: pending || awaiting !== null, target: awaiting ? awaiting.target : null, error, run };
 }
 
 function ErrorLine({ message, testID }: { message: string | null; testID?: string }) {
@@ -336,45 +352,46 @@ function ErrorLine({ message, testID }: { message: string | null; testID?: strin
 
 /** Pause or resume one mapped account (web `ImportToggle`): reversible, the same Budgts account resumes. */
 function ImportToggle({ account, actions }: { account: BankAccount; actions: BankActions }) {
-  const [pending, error, run] = useCommand();
-  const importing = account.linkState === "mapped";
+  const cmd = useRowCommand<boolean>(account);
+  const importing = cmd.target ?? account.linkState === "mapped";
   return (
     <View style={{ gap: 4, flexShrink: 0 }}>
       <PixelSwitch
         testID={`import-${account.rowId}`}
         on={importing}
         label={`Importing ${account.name ?? "Account"}`}
-        disabled={pending}
-        onPress={() =>
-          void run(
-            () => actions.commands.setImporting(account.rowId, !importing),
-            changedEverything,
-          )
+        hint={
+          importing
+            ? "Importing. Tap to pause. New transactions from a paused account aren't recovered later."
+            : "Paused. Tap to resume importing new transactions from now on."
         }
+        disabled={cmd.busy}
+        onPress={() => void cmd.run(() => actions.commands.setImporting(account.rowId, !importing), !importing)}
       />
-      <ErrorLine message={error} />
+      <ErrorLine message={cmd.error} />
     </View>
   );
 }
 
 /** Start importing an account never set up (web `ConnectToggle`): the mapping's "new account" with its guessed name and type. */
 function ConnectToggle({ account, plaidItemId, actions }: { account: BankAccount; plaidItemId: string; actions: BankActions }) {
-  const [pending, error, run] = useCommand();
+  const cmd = useRowCommand<true>(account);
   return (
     <View style={{ gap: 4, flexShrink: 0 }}>
       <PixelSwitch
         testID={`connect-${account.rowId}`}
-        on={false}
+        on={cmd.target ?? false}
         label={`Connect ${account.name ?? "Account"}`}
-        disabled={pending}
+        hint="Not connected. Tap to start importing this account into a new Budgts account."
+        disabled={cmd.busy}
         onPress={() =>
-          void run(
+          void cmd.run(
             () => actions.commands.mapAccounts(plaidItemId, [{ plaidAccountId: account.plaidAccountId, mode: "new", name: accountLabel(account), type: guessType(account) }]),
-            changedEverything,
+            true,
           )
         }
       />
-      <ErrorLine message={error} />
+      <ErrorLine message={cmd.error} />
     </View>
   );
 }
@@ -398,9 +415,10 @@ function SignCheckNotice({ count }: { count: number }) {
 
 /** The review warning and the exclusion controls (web `AccountReviewNotice`); neither touches a transaction. */
 function AccountReviewNotice({ account, actions }: { account: BankAccount; actions: BankActions }) {
-  const [reviewPending, reviewError, runReview] = useCommand();
-  const [exclusionPending, exclusionError, runExclusion] = useCommand();
-  const done = changedEverything;
+  const review = useRowCommand<"reviewed">(account);
+  const exclusion = useRowCommand<boolean>(account);
+  // one change at a time on a row: either one's reload brings the new row
+  const busy = review.busy || exclusion.busy;
 
   if (account.excludedFromCalculations) {
     return (
@@ -413,15 +431,15 @@ function AccountReviewNotice({ account, actions }: { account: BankAccount; actio
             " This account's bank feed showed unreliable data, so its transactions no longer count toward Money Left, budgets, or spending. Nothing was deleted. Every transaction is still here in your history."
           }
         </Text>
-        <ErrorLine message={exclusionError} />
+        <ErrorLine message={exclusion.error} />
         <Button
           testID={`include-${account.rowId}`}
           variant="secondary"
-          loading={exclusionPending}
-          onPress={() => void runExclusion(() => actions.commands.setExcluded(account.rowId, false), done)}
+          loading={busy}
+          onPress={() => void exclusion.run(() => actions.commands.setExcluded(account.rowId, false), false)}
           style={{ alignSelf: "flex-start" }}
         >
-          {exclusionPending ? "Saving…" : "Include again"}
+          {busy ? "Saving…" : "Include again"}
         </Button>
       </PixelFrame>
     );
@@ -437,25 +455,25 @@ function AccountReviewNotice({ account, actions }: { account: BankAccount; actio
           {account.reviewReason ?? ""}
         </Text>
       </View>
-      <ErrorLine message={reviewError} />
-      <ErrorLine message={exclusionError} />
+      <ErrorLine message={review.error} />
+      <ErrorLine message={exclusion.error} />
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
         <Button
           testID={`mark-reviewed-${account.rowId}`}
           variant="secondary"
-          loading={reviewPending}
-          onPress={() => void runReview(() => actions.commands.clearReview(account.rowId), done)}
+          loading={busy}
+          onPress={() => void review.run(() => actions.commands.clearReview(account.rowId), "reviewed")}
         >
-          {reviewPending ? "Saving…" : "Mark reviewed"}
+          {review.busy ? "Saving…" : "Mark reviewed"}
         </Button>
         {account.needsReview ? (
           <Button
             testID={`exclude-${account.rowId}`}
             variant="danger"
-            loading={exclusionPending}
-            onPress={() => void runExclusion(() => actions.commands.setExcluded(account.rowId, true), done)}
+            loading={busy}
+            onPress={() => void exclusion.run(() => actions.commands.setExcluded(account.rowId, true), true)}
           >
-            {exclusionPending ? "Saving…" : "Exclude from totals"}
+            {exclusion.busy ? "Saving…" : "Exclude from totals"}
           </Button>
         ) : null}
       </View>
@@ -469,7 +487,21 @@ function AccountReviewNotice({ account, actions }: { account: BankAccount; actio
 /** Disconnect's confirm (web `DisconnectConfirm`): history kept by default; deleting the imported transactions is an explicit extra choice. */
 function DisconnectConfirm({ itemId, bankName: name, actions, onClose }: { itemId: string; bankName: string; actions: BankActions; onClose: () => void }) {
   const [purge, setPurge] = useState(false);
-  const [pending, error, run] = useCommand();
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit() {
+    setPending(true);
+    setError(null);
+    const out = await actions.commands.disconnect(itemId, purge);
+    setPending(false);
+    if (out.status === "error") {
+      setError(out.message);
+      return;
+    }
+    onClose();
+    changedEverything();
+  }
   return (
     <View style={{ gap: 16 }} testID="disconnect-confirm">
       <Text variant="body" color={ROLE.muted}>
@@ -487,7 +519,13 @@ function DisconnectConfirm({ itemId, bankName: name, actions, onClose }: { itemI
           />
         </View>
         {/* the web's <label> wraps the box and its sentence: tapping the sentence ticks it too */}
-        <Pressable style={{ flex: 1 }} onPress={() => setPurge((p) => !p)} accessible={false} importantForAccessibility="no">
+        <Pressable
+          style={{ flex: 1 }}
+          onPress={() => setPurge((p) => !p)}
+          accessible={false}
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+        >
           <Text variant="body" color={ROLE.ink}>
             {`Also delete the ${name} transactions Budgts imported. This can't be undone.`}
           </Text>
@@ -502,15 +540,7 @@ function DisconnectConfirm({ itemId, bankName: name, actions, onClose }: { itemI
           variant="danger"
           loading={pending}
           style={{ flex: 1 }}
-          onPress={() =>
-            void run(
-              () => actions.commands.disconnect(itemId, purge),
-              () => {
-                onClose();
-                changedEverything();
-              },
-            )
-          }
+          onPress={() => void submit()}
         >
           {pending ? "Disconnecting…" : purge ? "Disconnect and delete" : "Disconnect"}
         </Button>

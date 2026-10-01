@@ -158,13 +158,64 @@ describe("Connected banks (web /connected-banks)", () => {
     const sign = r.root.findAll((n) => typeof n.type === "string" && textContent(n).startsWith("We're checking this account's transaction format."))[0]!;
     expect(textContent(sign)).toBe("We're checking this account's transaction format. 3 transactions appear once it's verified.");
     expect(texts(r)).toContain("This feed sent the same purchase twice.");
-    await press(r, "mark-reviewed-row-1");
-    expect(a.commands.clearReview).toHaveBeenCalledWith("row-1");
     await press(r, "exclude-row-1");
     expect(a.commands.setExcluded).toHaveBeenCalledWith("row-1", true);
     expect(textContent(byTestId(r, "excluded-row-2"))).toContain("Excluded from totals.");
     await press(r, "include-row-2");
     expect(a.commands.setExcluded).toHaveBeenCalledWith("row-2", false);
+
+    const reviewed = view([bank({ accounts: [acct({ needsReview: true, reviewReason: "Odd feed." })] })], a);
+    await press(reviewed, "mark-reviewed-row-1");
+    expect(a.commands.clearReview).toHaveBeenCalledWith("row-1");
+  });
+
+  it("after a change lands, the switch stays disabled in its new position until the reloaded row arrives", async () => {
+    const a = actions();
+    const before = bank();
+    const r = view([before], a);
+    await press(r, "import-row-1");
+    expect(byTestId(r, "import-row-1").props.accessibilityState).toEqual({ checked: false, disabled: true });
+    // a reload that failed brings nothing new: still disabled, never an enabled stale switch, and the screen says so
+    act(() =>
+      r.update(
+        <ConnectedBanksView enabled banks={[before]} actions={a} now={NOW} onBack={() => {}} notice="Couldn't reach Budgts. Check your connection and try again." onRetry={() => {}} />,
+      ),
+    );
+    expect(byTestId(r, "import-row-1").props.accessibilityState).toEqual({ checked: false, disabled: true });
+    expect(textContent(byTestId(r, "home-refresh-notice"))).toContain("Couldn't reach Budgts.");
+    // the reload lands: the row is the server's again
+    act(() => r.update(<ConnectedBanksView enabled banks={[bank({ accounts: [acct({ linkState: "ignored" })] })]} actions={a} now={NOW} onBack={() => {}} />));
+    expect(byTestId(r, "import-row-1").props.accessibilityState).toEqual({ checked: false, disabled: false });
+  });
+
+  it("the review buttons stay disabled after Mark reviewed until the reload lands", async () => {
+    const a = actions();
+    const r = view([bank({ accounts: [acct({ needsReview: true, reviewReason: "Odd feed." })] })], a);
+    await press(r, "mark-reviewed-row-1");
+    expect(byTestId(r, "exclude-row-1").props.accessibilityState).toMatchObject({ disabled: true });
+    expect(byTestId(r, "mark-reviewed-row-1").props.accessibilityLabel).toBe("Saving…");
+  });
+
+  it("a connect switch shows on and stays disabled once connected, until the reload", async () => {
+    const a = actions();
+    const r = view([bank({ accounts: [acct({ linkState: "unmapped", mappedAccountName: null })] })], a);
+    await press(r, "connect-row-1");
+    expect(byTestId(r, "connect-row-1").props.accessibilityState).toEqual({ checked: true, disabled: true });
+  });
+
+  it("the switches say what a tap does, as the web's titles do", () => {
+    const r = view([
+      bank({
+        accounts: [
+          acct({}),
+          acct({ rowId: "row-2", plaidAccountId: "pa2", linkState: "ignored", mappedAccountName: "Rainy-day savings" }),
+          acct({ rowId: "row-3", plaidAccountId: "pa3", linkState: "unmapped", mappedAccountName: null }),
+        ],
+      }),
+    ]);
+    expect(byTestId(r, "import-row-1").props.accessibilityHint).toBe("Importing. Tap to pause. New transactions from a paused account aren't recovered later.");
+    expect(byTestId(r, "import-row-2").props.accessibilityHint).toBe("Paused. Tap to resume importing new transactions from now on.");
+    expect(byTestId(r, "connect-row-3").props.accessibilityHint).toBe("Not connected. Tap to start importing this account into a new Budgts account.");
   });
 
   it("Sync now reports the outcome beside the buttons", async () => {

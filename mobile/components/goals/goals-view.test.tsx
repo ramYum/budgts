@@ -6,6 +6,7 @@ import { ProgressBar } from "../kit/progress-bar";
 import { RowMenu } from "../kit/row-menu";
 import { Reveal } from "../motion/reveal";
 import { Button, TextButton } from "../brand/controls";
+import { Robin } from "../brand/robin";
 import { GoalsView } from "./goals-view";
 
 const goal = (over: Partial<MobileGoal> = {}): MobileGoal => ({
@@ -110,5 +111,7 @@ describe("Savings goals (web goals-view.tsx)", () => {
       "No goals yetA trip, a cushion, a big buy: add one with Add goal and watch it fill, cell by cell.",
     );
     expect(r.root.findAll((n) => n.props.testID === "goals-hero")).toHaveLength(0);
+    // the web's Mascot size={72}: 72x61, hopping when touched as it does on hover
+    expect(byTestId(r, "goals-empty").findByType(Robin).props).toMatchObject({ mood: "curious", size: 61, hopOnTap: true });
   });
 });

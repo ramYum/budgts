@@ -1,5 +1,5 @@
 import { View } from "react-native";
-import { COLOR, ROLE } from "../../lib/brand/shared";
+import { ROLE } from "../../lib/brand/shared";
 import { plural, type MobileHub } from "../../lib/status/status-api";
 import { Button, IconTile } from "../brand/controls";
 import { PixelFrame } from "../brand/pixel-frame";
@@ -80,7 +80,7 @@ export function SettingsView({
             </Button>
           </PixelFrame>
           {exportError ? (
-            <Text variant="meta" color={COLOR.signalInk} accessibilityRole="alert">
+            <Text testID="settings-export-error" variant="small" color={ROLE.neg} accessibilityRole="alert">
               {exportError}
             </Text>
           ) : null}

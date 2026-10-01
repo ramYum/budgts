@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { Pressable, View, type TextStyle } from "react-native";
-import Animated, { steps, useReducedMotion } from "react-native-reanimated";
-import { COLOR, MOTION, ROLE } from "../../lib/brand/shared";
+import { COLOR, ROLE } from "../../lib/brand/shared";
 import type { MobileInsights } from "../../lib/insights/insights-api";
-import { useMotionTiming } from "../../lib/motion/parity-clock";
 import { formatMoney, formatSavingsRate } from "../../lib/shared";
 import { IconTile } from "../brand/controls";
+import { Cell } from "../charts/cell";
 import { SpendingBreakdownCard } from "../charts/spending-breakdown-card";
 import { SpendingTrendCard } from "../charts/spending-trend-card";
 import { PixelFrame } from "../brand/pixel-frame";
@@ -16,14 +15,11 @@ import { PageHeader } from "../kit/page-header";
 import { pressStyle } from "../kit/press";
 import { SegmentedControl } from "../kit/segmented-control";
 import { CategoryIcon, Chevron } from "../kit/tiles";
-import { Reveal, usePlay } from "../motion/reveal";
+import { Reveal } from "../motion/reveal";
 
 const tnum = (size: number): TextStyle => ({ fontVariant: ["tabular-nums"], letterSpacing: -0.01 * size });
 const SM: TextStyle = { fontSize: 14, lineHeight: 20 };
 
-/** The web's `cell-in`: a cell pops from 30% to full in three stepped frames. */
-const CELL_IN = { from: { opacity: 0, transform: [{ scale: 0.3 }] }, to: { opacity: 1, transform: [{ scale: 1 }] } };
-const CELL_IN_MS = 240;
 const CELL = 6;
 const GAP = 2;
 
@@ -36,14 +32,9 @@ export function waffleLit(rate: number | null): number {
   return rate === null ? 0 : Math.max(0, Math.min(100, Math.round(rate * 100)));
 }
 
-/** Savings rate as a 10×10 waffle, filled from the bottom-left row by row; the rows pop in bottom first. */
+/** Savings rate as a 10×10 waffle, filled from the bottom-left row by row; the rows pop in bottom first (F7's `Cell`). */
 function Waffle({ rate }: { rate: number | null }) {
   const lit = waffleLit(rate);
-  const reduced = useReducedMotion();
-  const play = usePlay();
-  // one timing per row band (the web --d = the fill row, 0 at the bottom); a fixed count of hooks
-  const timings = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => useMotionTiming(d * MOTION.cellStepMs + 220));
-  const animate = play && !reduced;
   return (
     <View
       testID="insights-waffle"
@@ -52,25 +43,10 @@ function Waffle({ rate }: { rate: number | null }) {
       style={{ width: 10 * CELL + 9 * GAP, flexDirection: "row", flexWrap: "wrap", gap: GAP, flexShrink: 0 }}
     >
       {Array.from({ length: 100 }, (_, i) => {
+        // the web's --d: the cell's row counted from the bottom
         const band = 9 - Math.floor(i / 10);
         const fill = band * 10 + (i % 10);
-        return (
-          <Animated.View
-            key={i}
-            style={[
-              { width: CELL, height: CELL, backgroundColor: fill < lit ? ROLE.ink : ROLE.surface2 },
-              animate
-                ? {
-                    animationName: CELL_IN,
-                    animationDuration: `${CELL_IN_MS}ms`,
-                    animationTimingFunction: steps(3, "jump-end"),
-                    animationFillMode: "backwards",
-                    ...timings[band],
-                  }
-                : null,
-            ]}
-          />
-        );
+        return <Cell key={i} d={band} color={fill < lit ? ROLE.ink : ROLE.surface2} style={{ width: CELL, height: CELL }} />;
       })}
     </View>
   );
@@ -82,6 +58,13 @@ function Label({ children }: { children: string }) {
       {children}
     </Text>
   );
+}
+
+/** "Where you could save" as the card reads, both lines, for a screen reader. */
+export function suggestionLabel(s: NonNullable<MobileInsights["suggestion"]>, currency: string): string {
+  return s.kind === "unbudgeted"
+    ? `Where you could save. ${s.name} is ${s.share}% of your spending. ${formatMoney(s.amount, currency)} with no budget. Setting one makes the plan real.`
+    : `Where you could save. ${s.name}. ${formatMoney(s.amount, currency)} this month, up ${formatMoney(s.delta, currency)} vs. last month`;
 }
 
 export type InsightsTab = "spending" | "income";
@@ -177,7 +160,7 @@ export function InsightsView({
             <Pressable
               testID="insights-suggestion"
               accessibilityRole="link"
-              accessibilityLabel={`Where you could save: ${suggestion.name}`}
+              accessibilityLabel={suggestionLabel(suggestion, currency)}
               onPress={() => onSuggestion(suggestion)}
             >
               {({ pressed }) => (
@@ -218,7 +201,7 @@ export function InsightsView({
         ) : null}
 
         <Reveal i={4}>
-          {tab === "spending" && data.spent > 0 && data.breakdown.length > 0 ? (
+          {tab === "spending" && data.spent > 0 ? (
             <SpendingBreakdownCard breakdown={data.breakdown} totalSpent={data.spent} currency={currency} header={breakdownHeader} />
           ) : (
             <PixelFrame testID="insights-breakdown" frame="px-card" style={{ padding: 8 }}>

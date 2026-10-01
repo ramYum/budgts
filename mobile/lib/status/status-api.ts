@@ -53,3 +53,14 @@ export function bellLabel(count: number): { label: string; badge: string | null 
   if (n === 0) return { label: "Categories up to date", badge: null };
   return { label: `${n} ${n === 1 ? "transaction needs" : "transactions need"} a category`, badge: n > 9 ? "9+" : String(n) };
 }
+
+/**
+ * Where the bell goes (web `/transactions#needs-category`): Activity for the user's current month with no category
+ * filter, scrolled to "Needs a category". `m` and `category` are sent empty so a month or a category already open on
+ * the Activity tab is cleared (Activity ignores an empty value and falls back to the current month); `focus` asks it to
+ * scroll to the section (`needs-category`, implemented by Lane D-1).
+ */
+export const NEEDS_CATEGORY_LINK = {
+  pathname: "/activity",
+  params: { m: "", category: "", focus: "needs-category" },
+} as const;

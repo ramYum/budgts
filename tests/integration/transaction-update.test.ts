@@ -9,7 +9,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   attemptConditionalUpdate,
-  readObservedIsTransfer,
+  readObservedRow,
   updateTransactionRow,
   type UpdateTransactionFields,
 } from "@/server/transaction-update";
@@ -128,8 +128,8 @@ describe("updateTransactionRow — optimistic conditional transfer_user_set writ
     const id = await insertBankTxn(userId, accountId, { isTransfer: false, transferUserSet: false });
 
     // Step 1: the read updateTransactionRow's own first step performs.
-    const observed1 = await readObservedIsTransfer(supabase, id);
-    expect(observed1).toBe(false);
+    const observed1 = await readObservedRow(supabase, id);
+    expect(observed1?.isTransfer).toBe(false);
 
     // Step 2: simulate a concurrent sync landing between the read and the
     // write -- a real, separate write against real Postgres, not a mock.
@@ -148,8 +148,8 @@ describe("updateTransactionRow — optimistic conditional transfer_user_set writ
 
     // Step 4: the retry re-reads the fresh value and recomputes against
     // it -- not the stale one -- and succeeds.
-    const observed2 = await readObservedIsTransfer(supabase, id);
-    expect(observed2).toBe(true);
+    const observed2 = await readObservedRow(supabase, id);
+    expect(observed2?.isTransfer).toBe(true);
     const second = await attemptConditionalUpdate(supabase, id, observed2!, fields({ isTransfer: false }));
     expect(second).toBe("ok");
 
@@ -159,5 +159,23 @@ describe("updateTransactionRow — optimistic conditional transfer_user_set writ
     // (true), not the stale one (false) the first attempt started from.
     expect(after.is_transfer).toBe(false);
     expect(after.transfer_user_set).toBe(true);
+  });
+
+  it("an edit decided against one account never lands after the row moved to another", async () => {
+    const id = await insertBankTxn(userId, accountId, { isTransfer: false });
+    const observed = await readObservedRow(supabase, id);
+    expect(observed?.accountId).toBe(accountId);
+
+    // A second account, and a concurrent write moving the row onto it between the read and the edit.
+    const [{ id: otherAccountId }] = await client<{ id: string }[]>`
+      insert into public.accounts (user_id, name, type) values (${userId}, 'Other', 'checking') returning id`;
+    await client`update public.transactions set account_id = ${otherAccountId} where id = ${id}`;
+
+    const result = await updateTransactionRow(supabase, id, fields({ description: "stale edit" }), observed!);
+    expect(result.outcome).toBe("conflict");
+    const [row] = await client<{ account_id: string; description: string }[]>`
+      select account_id, description from public.transactions where id = ${id}`;
+    expect(row.account_id).toBe(otherAccountId);
+    expect(row.description).not.toBe("stale edit");
   });
 });

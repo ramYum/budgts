@@ -10,14 +10,15 @@ import { useResource } from "../../lib/api/use-resource";
 import { authFetch } from "../../lib/auth/api";
 import { useAuth } from "../../lib/auth/auth-context";
 import { ROLE } from "../../lib/brand/shared";
-import { howItWorksHref } from "../../lib/profile/gate";
+import { afterGuideNav, howItWorksNav, type GuideNav } from "../../lib/profile/gate";
 import { useProfile } from "../../lib/profile/profile-context";
 import { parseTourCards } from "../../lib/tour/tour-api";
 
 /**
  * The welcome guide (web /tour), over `GET /api/mobile/tour`: right after Get Started it continues from the onboarding
  * cards (`new=1`, the web's `/tour?new=1`); a replay from More, or a first visit by someone onboarded elsewhere, starts
- * with Crystal's intro. Skip and the last card mark the guide seen, then Home opens.
+ * with Crystal's intro. Skip and the last card mark the guide seen, then Home opens: replacing the guide on the first
+ * run, back into the tabs on a replay (never a second set of tabs).
  */
 export default function TourScreen() {
   const router = useRouter();
@@ -26,6 +27,9 @@ export default function TourScreen() {
   const tourSeen = profileState.status === "ready" && profileState.profile.tourSeen;
   // Resolved once for this visit: the cards must not reshuffle when the flag flips at the end.
   const [justOnboardedAtOpen] = useState(justOnboarded && !tourSeen);
+  // A replay (seen when it opened) sits over the tabs; the first run replaced Get Started. Decides how the guide leaves.
+  const [replay] = useState(tourSeen);
+  const go = useCallback((nav: GuideNav) => router[nav.method](nav.href), [router]);
   const path = `/api/mobile/tour${justOnboardedAtOpen ? "?new=1" : ""}`;
   const { state, reload } = useResource(`tour:${justOnboardedAtOpen}`, (session) => loadResource(() => authFetch(path, session), parseTourCards));
   useLoadingScreen(state.status === "loading", "Loading your welcome guide");
@@ -33,8 +37,8 @@ export default function TourScreen() {
   // Home opens once the server has marked the guide seen and the gate has let the app in.
   const [finished, setFinished] = useState(false);
   useEffect(() => {
-    if (finished && tourSeen) router.replace("/");
-  }, [finished, tourSeen, router]);
+    if (finished && tourSeen) go(afterGuideNav(replay));
+  }, [finished, tourSeen, replay, go]);
 
   const finish = useCallback(async () => {
     const result = await completeTour();
@@ -56,7 +60,7 @@ export default function TourScreen() {
       currency={state.data.currency}
       bank={(label) => <ConnectBank label={label} fullWidth />}
       onFinish={finish}
-      onHowItWorks={() => router.push(howItWorksHref(tourSeen))}
+      onHowItWorks={() => go(howItWorksNav(replay))}
     />
   );
 }

@@ -116,7 +116,7 @@ export function CategoriesView({ data, actions, onBack }: { data: CategorySettin
           Tap a category to see its transactions.
         </Text>
         {failure ? (
-          <Text testID="categories-error" variant="body" color={ROLE.neg} accessibilityRole="alert" style={{ fontSize: 14, lineHeight: 20 }}>
+          <Text testID="categories-error" variant="small" color={ROLE.neg} accessibilityRole="alert">
             {failure}
           </Text>
         ) : null}

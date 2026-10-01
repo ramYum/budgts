@@ -1,4 +1,5 @@
-import { act } from "react-test-renderer";
+import type { ReactElement } from "react";
+import { act, create, type ReactTestRenderer } from "react-test-renderer";
 import { describe, expect, it } from "vitest";
 import { COLOR, ROLE } from "../../lib/brand/shared";
 import { textStyle } from "../../lib/brand/type";
@@ -6,7 +7,9 @@ import { reducedMotion } from "../../test/native-hosts";
 import { byTestId, flat, hosts, render, texts } from "../../test/render";
 import { ProgressBar, TONE_FILL } from "../kit/progress-bar";
 import { reelOffset, reelWindow, RollingAmount } from "./rolling-amount";
+import { cellLayout, sweepEdge } from "../../lib/ui/cells";
 import { Reveal, scrolledIntoView, startsBelowFold, usePlay } from "./reveal";
+import { ScrollWatchProvider, type ScrollWatch } from "./scroll-context";
 
 function layoutTo(r: ReturnType<typeof render>, testID: string, width: number) {
   act(() => byTestId(r, testID).props.onLayout({ nativeEvent: { layout: { width, height: 8, x: 0, y: 0 } } }));
@@ -24,12 +27,32 @@ describe("ProgressBar (web .px-bar)", () => {
     expect((lit!.props.d as string).match(/M/g)).toHaveLength(17);
   });
 
-  it("sweeps its cells in whole steps over 352ms, `start` steps after the page's first", () => {
+  it("sweeps its cells in whole steps over 352ms, `start` steps after the page's first, by transform only", () => {
     const r = render(<ProgressBar pct={50} start={2} />);
     layoutTo(r, "progress-bar", 342);
-    const sweep = flat(hosts(r, "Animated.View")[1]!.props.style);
-    expect(sweep).toMatchObject({ animationDuration: "352ms", animationDelay: `${2 * 22 + 300}ms`, animationFillMode: "backwards" });
-    expect(sweep.animationTimingFunction).toEqual({ steps: 34, modifier: "jump-start" });
+    const [, windowView, inner] = hosts(r, "Animated.View").map((v) => flat(v.props.style));
+    const l = cellLayout(342, { share: 0.5, minLit: 1 });
+    const W = l.sweepWidth;
+    for (const sweep of [windowView!, inner!]) {
+      expect(sweep).toMatchObject({ animationDuration: "352ms", animationDelay: `${2 * 22 + 300}ms`, animationFillMode: "backwards" });
+      expect(sweep.animationTimingFunction).toEqual({ steps: 34, modifier: "jump-start" });
+      // no layout property animates: only translateX
+      const frames = sweep.animationName as { from: Record<string, unknown>; to: Record<string, unknown> };
+      expect(Object.keys(frames.from)).toEqual(["transform"]);
+      expect(Object.keys(frames.to)).toEqual(["transform"]);
+    }
+    expect(windowView).toMatchObject({ width: W, overflow: "hidden" });
+    const x = (v: Record<string, unknown>, at: "from" | "to") =>
+      ((v.animationName as Record<string, { transform: { translateX: number }[] }>)[at]!.transform[0]!.translateX);
+    expect([x(windowView!, "from"), x(windowView!, "to")]).toEqual([-W, 0]);
+    expect([x(inner!, "from"), x(inner!, "to")]).toEqual([W, 0]);
+    // at every step k the window's right edge is sweepEdge(k) (whole cells only) and the cells themselves never move
+    for (let k = 0; k <= l.n; k++) {
+      const outerX = -W + (k * W) / l.n;
+      const innerX = W - (k * W) / l.n;
+      expect(outerX + W).toBeCloseTo(sweepEdge(l, k));
+      expect(outerX + innerX).toBeCloseTo(0);
+    }
   });
 
   it("an over row is full and red, and flashes twice once full; nothing moves with reduced motion", () => {
@@ -44,7 +67,7 @@ describe("ProgressBar (web .px-bar)", () => {
       const still = render(<ProgressBar pct={130} tone="over" />);
       layoutTo(still, "progress-bar", 100);
       expect(flat(byTestId(still, "progress-bar").props.style).animationName).toBeUndefined();
-      expect(flat(hosts(still, "Animated.View")[1]!.props.style).animationName).toBeUndefined();
+      expect(hosts(still, "Animated.View").slice(1).every((v) => flat(v.props.style).animationName === undefined)).toBe(true);
     } finally {
       reducedMotion.value = false;
     }
@@ -98,6 +121,68 @@ describe("Reveal (web reveal.tsx)", () => {
       reducedMotion.value = false;
     }
   });
+
+  it("outside a scrolling screen (no scroll watch, e.g. sign-in) it rises in on mount with the stagger and lets children play", () => {
+    let plays: boolean | null = null;
+    function Probe() {
+      plays = usePlay();
+      return null;
+    }
+    const r = render(
+      <Reveal i={2} testID="rv">
+        <Probe />
+      </Reveal>,
+    );
+    expect(flat(byTestId(r, "rv").props.style)).toMatchObject({ animationName: expect.anything(), animationDelay: `${2 * 70 + 40}ms` });
+    expect(flat(byTestId(r, "rv").props.style).opacity).toBeUndefined();
+    expect(plays).toBe(true);
+  });
+
+  it("listens to the scroll only while it has something to decide: none once at rest, none once shown", () => {
+    function harness(blockTop: number) {
+      const listeners = new Set<() => void>();
+      const vp = { height: 800, y: 0 };
+      const watch: ScrollWatch = {
+        contentRef: { current: {} as never },
+        viewport: () => vp,
+        subscribe: (l) => {
+          listeners.add(l);
+          return () => void listeners.delete(l);
+        },
+      };
+      let r!: ReactTestRenderer;
+      const node: ReactElement = (
+        <ScrollWatchProvider watch={watch}>
+          <Reveal i={0} testID="rv">
+            <></>
+          </Reveal>
+        </ScrollWatchProvider>
+      );
+      act(() => {
+        r = create(node, { createNodeMock: () => ({ measureLayout: (_to: unknown, cb: (x: number, y: number) => void) => cb(0, blockTop) }) });
+      });
+      const measured = r.root.findAll((n) => (n.type as unknown) === "View" && typeof n.props.onLayout === "function")[0]!;
+      act(() => measured.props.onLayout());
+      const scrollTo = (y: number) =>
+        act(() => {
+          vp.y = y;
+          for (const l of [...listeners]) l();
+        });
+      return { r, listeners, scrollTo };
+    }
+    const onScreen = harness(100);
+    expect(onScreen.listeners.size).toBe(0);
+    expect(flat(byTestId(onScreen.r, "rv").props.style).opacity).toBeUndefined();
+
+    const below = harness(1000);
+    expect(below.listeners.size).toBe(1);
+    expect(flat(byTestId(below.r, "rv").props.style)).toMatchObject({ opacity: 0 });
+    below.scrollTo(200); // 1000 < 200 + 720? no
+    expect(below.listeners.size).toBe(1);
+    below.scrollTo(400);
+    expect(below.listeners.size).toBe(0);
+    expect(flat(byTestId(below.r, "rv").props.style).animationDuration).toBeDefined();
+  });
 });
 
 describe("RollingAmount (web rolling-amount.tsx)", () => {
@@ -120,6 +205,21 @@ describe("RollingAmount (web rolling-amount.tsx)", () => {
     expect(geist.height).toBeCloseTo(0.88 * fontSize);
     expect(geist.top).toBeCloseTo((lineHeight - 0.88 * fontSize) / 2);
     expect(reelWindow("pxFigureLg")).toEqual({ top: 0, height: textStyle("pxFigureLg").lineHeight });
+  });
+
+  it("takes the figure's own letter spacing on every glyph, moving and still (the web's .tnum -0.01em)", () => {
+    const spacing = (el: ReturnType<typeof render>) => hosts(el, "Text").map((t) => flat(t.props.style).letterSpacing);
+    const moving = spacing(render(<RollingAmount value={166073} currency="USD" letterSpacing={-0.32} />));
+    expect(moving.length).toBeGreaterThan(1);
+    expect(new Set(moving)).toEqual(new Set([-0.32]));
+    reducedMotion.value = true;
+    try {
+      expect(spacing(render(<RollingAmount value={166073} currency="USD" letterSpacing={-0.32} />))).toEqual([-0.32]);
+    } finally {
+      reducedMotion.value = false;
+    }
+    // unset, each glyph keeps its role's own tracking
+    expect(spacing(render(<RollingAmount value={1200} currency="USD" />)).every((v) => v === textStyle("tNumXl").letterSpacing)).toBe(true);
   });
 
   it("spins in left to right, 45ms a column after 120ms; plain text with reduced motion", () => {

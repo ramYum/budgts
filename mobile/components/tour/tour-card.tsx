@@ -36,6 +36,7 @@ export function TourCard({
   secondary,
   onBack,
   onSkip,
+  skipDisabled = false,
   footnote,
 }: {
   heading: string;
@@ -50,6 +51,8 @@ export function TourCard({
   secondary?: ReactNode;
   onBack?: () => void;
   onSkip?: () => void;
+  /** Skip is on its way (the guide is being marked seen): it can't be sent twice */
+  skipDisabled?: boolean;
   footnote?: ReactNode;
 }) {
   return (
@@ -60,7 +63,7 @@ export function TourCard({
         </View>
         <Progress count={dotCount} index={dotIndex} />
         <View style={{ flex: 1, alignItems: "flex-end" }}>
-          {onSkip ? <QuietButton testID="tour-skip" label="Skip" onPress={onSkip} style={{ marginRight: -8 }} /> : null}
+          {onSkip ? <QuietButton testID="tour-skip" label="Skip" onPress={onSkip} disabled={skipDisabled} style={{ marginRight: -8 }} /> : null}
         </View>
       </View>
 
@@ -125,6 +128,8 @@ function Enter({ i, style, testID, children }: { i: number; style?: StyleProp<Vi
 }
 
 const HEADING_SIZE = 26;
+/** one object for every word and render: the animation is keyed on it, so a re-render never replays the heading */
+const WORD_IN = wordIn(HEADING_SIZE);
 /** a Geist SemiBold space at 26px (0.236em) less the heading's −0.025em tracking */
 export const HEADING_SPACE = 6.136 - 0.65;
 
@@ -150,7 +155,7 @@ function Heading({ text }: { text: string }) {
 }
 
 function Word({ word, w }: { word: string; w: number }) {
-  const motion = useKeyframes(wordIn(HEADING_SIZE), { duration: ENTER_MS, delay: wordDelayMs(w), easing: EASE_OUT });
+  const motion = useKeyframes(WORD_IN, { duration: ENTER_MS, delay: wordDelayMs(w), easing: EASE_OUT });
   return (
     <Animated.View style={motion}>
       <Text
@@ -171,12 +176,14 @@ function QuietButton({
   label,
   icon,
   onPress,
+  disabled = false,
   style,
 }: {
   testID: string;
   label: string;
   icon?: "chevron-left";
   onPress: () => void;
+  disabled?: boolean;
   style?: { marginLeft?: number; marginRight?: number };
 }) {
   return (
@@ -184,6 +191,8 @@ function QuietButton({
       testID={testID}
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
       onPress={onPress}
       // 36px tall like the web's min-h-9, a 44px touch target
       hitSlop={4}

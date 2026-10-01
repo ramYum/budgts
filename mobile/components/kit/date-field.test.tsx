@@ -8,6 +8,8 @@ vi.mock("@react-native-community/datetimepicker", () => ({
   DateTimePickerAndroid: { open: (o: (typeof picker.opened)[number]) => picker.opened.push(o) },
 }));
 
+const { ProfileContext } = await import("../../lib/profile/profile-hooks");
+type ProfileContextValue = import("../../lib/profile/profile-hooks").ProfileContextValue;
 const { DateField, dateToDay, dayToDate, formatDateInput } = await import("./date-field");
 
 describe("DateField (the web's <input type=date>)", () => {
@@ -32,5 +34,37 @@ describe("DateField (the web's <input type=date>)", () => {
 
   it("an empty optional date shows the web's placeholder", () => {
     expect(texts(render(<DateField label="Target date" value={null} onChange={() => {}} />))).toEqual(["Target date", "mm/dd/yyyy"]);
+  });
+
+  it("with nothing chosen, the picker opens on the user's own today (the profile's zone), not the device's", () => {
+    const profile = { state: { status: "ready", profile: { month: "2026-10", today: "2026-10-01" } } } as unknown as ProfileContextValue;
+    const r = render(
+      <ProfileContext.Provider value={profile}>
+        <DateField testID="target" label="Target date" value={null} onChange={() => {}} />
+      </ProfileContext.Provider>,
+    );
+    act(() => r.root.findAll((n) => n.props.testID === "target" && typeof n.type === "string")[0]!.props.onPress());
+    expect(dateToDay(picker.opened.at(-1)!.value)).toBe("2026-10-01");
+  });
+
+  it("while the profile isn't ready (a reload) it is disabled and a tap never throws; it enables when the profile arrives", () => {
+    const loading = { state: { status: "loading" } } as unknown as ProfileContextValue;
+    const ready = { state: { status: "ready", profile: { month: "2026-10", today: "2026-10-01" } } } as unknown as ProfileContextValue;
+    const tree = (p: ProfileContextValue) => (
+      <ProfileContext.Provider value={p}>
+        <DateField testID="when" label="Date" value={null} onChange={() => {}} />
+      </ProfileContext.Provider>
+    );
+    const host = (r: ReturnType<typeof render>) => r.root.findAll((n) => n.props.testID === "when" && typeof n.type === "string")[0]!;
+    const before = picker.opened.length;
+    const r = render(tree(loading));
+    expect(host(r).props.disabled).toBe(true);
+    expect(host(r).props.accessibilityState).toMatchObject({ disabled: true });
+    expect(() => act(() => host(r).props.onPress())).not.toThrow();
+    expect(picker.opened.length).toBe(before);
+    act(() => r.update(tree(ready)));
+    expect(host(r).props.disabled).toBe(false);
+    act(() => host(r).props.onPress());
+    expect(dateToDay(picker.opened.at(-1)!.value)).toBe("2026-10-01");
   });
 });

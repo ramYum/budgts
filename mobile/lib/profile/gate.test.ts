@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { firstRunHelpOpen, howItWorksHref, profileFailure, shellRoute } from "./gate";
+import { afterGuideNav, firstRunHelpOpen, howItWorksNav, profileFailure, shellRoute } from "./gate";
 
 describe("shellRoute (the web's firstRunRedirect)", () => {
   it("holds a user without a currency on Get Started, whatever the tour flag says", () => {
@@ -28,9 +28,15 @@ describe("profileFailure", () => {
 });
 
 describe("How Budgts Works from the welcome guide", () => {
-  it("opens Help's page on a replay, and its own first-run route while the guide gates the app", () => {
-    expect(howItWorksHref(true)).toBe("/help/how-it-works");
-    expect(howItWorksHref(false)).toBe("/guide/how-it-works");
+  it("opens Help's page on a replay by going back into the app, and its own first-run route above the guide", () => {
+    // a replay is pushed over the tabs: going to Help returns into them, never stacking a second set of tabs
+    expect(howItWorksNav(true)).toEqual({ method: "dismissTo", href: "/help/how-it-works" });
+    expect(howItWorksNav(false)).toEqual({ method: "push", href: "/guide/how-it-works" });
+  });
+
+  it("leaves the guide for Home: back into the tabs on a replay, replacing the guide on the first run", () => {
+    expect(afterGuideNav(true)).toEqual({ method: "dismissTo", href: "/" });
+    expect(afterGuideNav(false)).toEqual({ method: "replace", href: "/" });
   });
 
   it("keeps the first-run route open only while the guide is the gate", () => {

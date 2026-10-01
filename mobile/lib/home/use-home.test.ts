@@ -87,13 +87,15 @@ describe("useHome", () => {
     expect(h.last().notice).toBeNull();
   });
 
-  it("a reload after a save that fails shows the failure, never the old numbers as current", async () => {
+  it("a reload after a save that fails keeps the figures and says so (the pull contract), with no pull indicator", async () => {
     const h = mount(null);
     await settle();
     respond = down;
     await act(async () => invalidate("home"));
     await settle();
-    expect(h.last().state.status).toBe("error");
+    expect(h.last().state.status).toBe("ready");
+    expect(h.last().notice).not.toBeNull();
+    expect(h.last().pulling).toBe(false);
   });
 
   it("the user's pull shows the indicator until it lands", async () => {

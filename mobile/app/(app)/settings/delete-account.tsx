@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { BackHandler, Linking, Platform } from "react-native";
+import { BackHandler, Linking, View } from "react-native";
 import { Stack, useLocalSearchParams, useRouter, type Href } from "expo-router";
 import * as ExpoLinking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
 import { ScreenSkeleton } from "../../../components/feedback/skeleton";
 import { LoadFailure } from "../../../components/feedback/states";
 import { DeleteAccountFlow, type DeleteFlowActions } from "../../../components/settings/delete-account-flow";
+import { LinkError } from "../../../components/settings/link-error";
 import { StandaloneShell } from "../../../components/settings/standalone-shell";
 import { requestAccountDeletion } from "../../../lib/account/delete-account";
 import {
@@ -22,6 +23,7 @@ import { signInWithGoogle } from "../../../lib/auth/google";
 import { expectReauthAs } from "../../../lib/auth/reauth-guard";
 import { returnAfterSignIn } from "../../../lib/auth/return-intent";
 import { legalUrl } from "../../../lib/legal";
+import { mailAppFailed, openInBrowser } from "../../../lib/open-in-browser";
 import { ACCOUNT_DELETED_PATH, DELETE_ACCOUNT_CONFIRM_PATH, DELETE_ACCOUNT_PATH } from "../../../lib/shared";
 import { supabase } from "../../../lib/supabase/client";
 
@@ -38,6 +40,7 @@ export default function DeleteAccountScreen() {
   const { step } = useLocalSearchParams<{ step?: string }>();
   const { session, signOut } = useAuth();
   const [busy, setBusy] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
   const { state, reload, refresh } = useResource("delete-screen", (s) =>
     loadResource(() => authFetch("/api/mobile/account/delete", s), parseDeleteScreen),
   );
@@ -68,7 +71,7 @@ export default function DeleteAccountScreen() {
     const screen = state.data;
     const actions: DeleteFlowActions = {
       deleteAccount: () =>
-        requestAccountDeletion(Platform.OS === "android" ? "google" : "apple", () =>
+        requestAccountDeletion(() =>
           authFetch("/api/account/delete", session, { method: "POST" }),
         ),
       onDeleted: (store) => {
@@ -108,7 +111,13 @@ export default function DeleteAccountScreen() {
           await signOut();
         })();
       },
-      openUrl: (url) => void (url.startsWith("mailto:") ? Linking.openURL(url) : WebBrowser.openBrowserAsync(url)),
+      openUrl: (url) => {
+        const mail = url.startsWith("mailto:") ? url.slice("mailto:".length) : null;
+        void openInBrowser(url, mail ? Linking.openURL : WebBrowser.openBrowserAsync).then((failed) =>
+          setLinkError(failed && mail ? mailAppFailed(mail) : failed),
+        );
+      },
+      onStage: () => setLinkError(null),
       deletionPageUrl: screen.supportEmail ? legalUrl(API_BASE, "accountDeletion") : null,
       onBusy: setBusy,
     };
@@ -120,6 +129,9 @@ export default function DeleteAccountScreen() {
       <Stack.Screen options={{ gestureEnabled: !busy }} />
       <StandaloneShell align="top" onHome={busy ? undefined : () => router.navigate("/")}>
         {content()}
+        <View style={{ paddingTop: linkError ? 16 : 0 }}>
+          <LinkError message={linkError} />
+        </View>
       </StandaloneShell>
     </>
   );

@@ -426,7 +426,7 @@ Lane rules: each lane owns only the files listed; shared atoms change only throu
 - **D3 Needs a category** ← `plaid/needs-category.tsx`: categorize a merchant group via `/api/mobile/transactions/[id]/categorize`; rescan.
 - **D4 Budgets** ← `budgets-view.tsx`, `copy-budgets.tsx`: hero with 12px cells, This month / All time, rows with cascading cells (`start = index*2`), detail sheet with the category's transactions, New budget sheet, Copy budgets; `/api/mobile/budgets`, `/budgets/copy`.
 - **D5 Goals** ← `goals-view.tsx`, `goal-form.tsx`, `contribution-form.tsx`: row menu, add money sheet, growth-tone cells.
-- **D6 Insights** ← `insights/page.tsx`, `insights-view.tsx`: MonthNav, charts (F7), income sources, idea lamp motion.
+- **D6 Insights** ← `insights/page.tsx`, `insights-view.tsx`: MonthNav, charts (F7), income sources, the savings-rate waffle. No lamp: the web's Insights page has none (the idea lamp is Home's).
 - Maestro: `add-transaction.yaml`, `edit-transaction.yaml`, `categorize.yaml`, `budget.yaml`, `goal-contribution.yaml`.
 
 ### Lane E — Banks and accounts. Owns `app/(app)/connected-banks.tsx`, `app/(app)/accounts.tsx`, `components/banks/**`, `lib/plaid/*` UI glue (not the pipeline).
@@ -523,14 +523,14 @@ Test ids the parity tool can match (web `data-testid` of the same name to be add
 | id | what |
 | --- | --- |
 | `screen-root` | the scrolling body of every signed-in screen (crop rect) and of `+not-found` |
-| `app-header`, `header-home`, `needs-category-bell`, `needs-category-count` | header, lockup, bell, bell badge |
-| `bottom-tabs`, `tab-home`, `tab-budgets`, `tab-activity`, `tab-more`, `tab-pip` | tab bar, tabs, active marker |
-| `status-banners`, `deletion-banner`, `review-excluded`, `review-advisory` | banners |
-| `page-header`, `page-header-title`, `page-back` | page header |
-| `month-nav`, `month-nav-label`, `month-nav-prev`, `month-nav-next` | month switcher |
-| `segmented`, `segmented-<value>` | segmented control (screens pass their own id) |
-| `more-view`, `more-play-guide`, `more-goals`, `more-accounts`, `more-insights`, `more-banks`, `more-settings`, `more-help`, `more-about` | More |
-| `settings-view`, `settings-profile`, `settings-security`, `settings-delete-account`, `settings-categories`, `settings-budgets`, `settings-goals`, `settings-connected-banks`, `settings-accounts`, `settings-appearance`, `settings-help`, `settings-about`, `settings-export`, `settings-export-button`, `settings-sign-out` | Settings |
+| `app-header`, `app-logo`, `needs-category-bell`, `needs-category-count` | header, lockup, bell, bell badge |
+| `bottom-nav`, `tab-home`, `tab-budgets`, `tab-activity`, `tab-more`, `tab-pip` | tab bar, tabs (`tabTestId`), active marker |
+| `deletion-banner`, `review-banner-excluded`, `review-banner-advisory` (each banner's tap area `<id>-target`) | banners |
+| `page-header`, `page-title`, `page-back` | page header |
+| `month-nav`, `month-label`, `month-prev`, `month-next` | month switcher |
+| `segmented`, `segment-<value>` (an override `x` gives `x` / `x-<value>`) | segmented control |
+| `more-play-guide`, the hub rows `hub-<path>` (`hubTestId(href)`: `hub-goals`, `hub-accounts`, `hub-settings`...) | More (Lane C) |
+| `settings-export`, `settings-export-button`, `settings-sign-out`, the hub rows `hub-settings-<page>` | Settings (Lane C) |
 | `<row-id>-label`, `<row-id>-value` | a hub row's label and value |
 | `not-found`, `not-found-home`, `not-found-help` | not found |
 
@@ -538,8 +538,8 @@ Native deep links for captures (Expo Router paths): `budgts:///`, `budgts:///bud
 
 ### F4 as built (the lanes' motion API)
 
-- `components/kit/progress-bar.tsx` `<ProgressBar pct tone="under|near|over|growth" start cellHeight cells testID>`: geometry `lib/ui/cells.ts` (`cellLayout`, `cellsPath`), one SVG per bar; the sweep is a `steps(n, "jump-start")` width animation on a clip window whose every step edge falls in a gap (tested), the over flash is `cell-alarm` on `steps(1)`.
-- `components/motion/reveal.tsx` `<Reveal i style testID>` and `usePlay()`: a block below the fold waits (opacity 0, descendants' entrances off) until it is 10% up the screen, then rises in 640ms. Any new animated component must read `usePlay()` and `useReducedMotion()`.
+- `components/kit/progress-bar.tsx` `<ProgressBar pct tone="under|near|over|growth" start cellHeight cells testID>`: geometry `lib/ui/cells.ts` (`cellLayout`, `cellsPath`), one SVG per bar; the sweep is transform-only (`phase-m/p3-f-fix`; never a width animation, which re-lays out every frame): a clip window `sweepWidth` wide with `overflow: hidden` slides `translateX(-W to 0)` while the cells inside slide `translateX(+W to 0)`, both on the same `steps(n, "jump-start")` timing, so the cells stay put and the window's edge after step k is `sweepEdge(k)`, always in a gap (tested); the over flash is `cell-alarm` on `steps(1)`.
+- `components/motion/reveal.tsx` `<Reveal i style testID>` and `usePlay()`: a block below the fold waits (opacity 0, descendants' entrances off) until it is 10% up the screen, then rises in 640ms. Any new animated component must read `usePlay()` and `useReducedMotion()`. It listens to the scroll only until it is decided (at rest on arrival, or shown); with no scroll watch (a page outside `<Screen>`, e.g. sign-in) it rises in on mount with the stagger. Blocks measure against `watch.contentRef`, which now carries `<Screen>`'s header clearance, so a measured y is in the scroll content's space, the same as the viewport's offset and height (Reveal, Show more, Crystal). A `scrollTo(y)` to a measured block puts it at the very top, under the header: subtract the header's bottom to land it below.
 - `components/motion/rolling-amount.tsx` `<RollingAmount value currency variant color testID>`: per-digit reels clipped to the digits' ink band (Geist) or line box (Dogica), spin-in 1.4s at 45ms a column after 120ms, later values glide 900ms.
 - `lib/motion/css.ts`: `EASE_OUT`, `PAGE_ENTER`, `RISE_IN`, `CELL_ALARM` and the delay helpers, straight from `globals.css`.
 - `lib/motion/parity-clock.tsx` (P4 hook): development builds read `?clock=<ms>` in the root layout; `useMotionTiming(delayMs)` returns `animationDelay` + `animationPlayState`, paused at the frozen instant. Every animation must take its delay from `useMotionTiming`.
@@ -554,8 +554,8 @@ Native deep links for captures (Expo Router paths): `budgts:///`, `budgts:///bud
 
 ### F6 as built (sheets, menus, forms)
 
-- `components/kit/overlay.tsx` `<Overlay title onClose testID>`: the web's bottom sheet (ink scrim at 40%, `px-card-raised`, pixel title, square close, at most 90% of the screen, scrolls inside), rising 32px over 300ms. Closes on the scrim, the close button and Android back. **It is the one form sheet** (no separate FormSheet): `KeyboardAvoidingView` padding on both platforms, and a focused field scrolls itself `KEYBOARD_MARGIN` above the keyboard through `useSheetFocus()`, which the brand `Field` and the kit `Select` already call. Lanes put every form in an `<Overlay>` and use `Field` / `Select`; nothing else is needed for the keyboard.
-- `components/kit/row-menu.tsx` `<RowMenu label items testID>`: the kebab (40px) opens the web's lifted menu under it, right-aligned, `pop-in` on steps(3); closes on a pick, outside press or back. Item ids: `<testID>-<label-slug>`.
+- `components/kit/overlay.tsx` `<Overlay title onClose testID>`: the web's bottom sheet (ink scrim at 40%, `px-card-raised`, pixel title, square close, at most 90% of the space above the keyboard, scrolls inside), rising 32px over 300ms. `SHEET_BOX` (`flexShrink: 1`, `maxHeight: "90%"`) sizes the sheet from the KeyboardAvoidingView's padded box, never from the window, so a tall sheet never rises past the top when the keyboard opens. Closes on the scrim (hidden from screen readers: the Close button is the one "Close"), the close button and Android back. When the sheet's scroll viewport shrinks with a field focused (Android can report `keyboardDidShow` before the sheet has shrunk), it reveals the field again against the new height (tested: a 300pt keyboard on a 640-high window). **It is the one form sheet** (no separate FormSheet): `KeyboardAvoidingView` padding on both platforms, and a focused field scrolls itself `KEYBOARD_MARGIN` above the keyboard through `useSheetFocus()`, which the brand `Field` and the kit `Select` already call. Lanes put every form in an `<Overlay>` and use `Field` / `Select`; nothing else is needed for the keyboard.
+- `components/kit/row-menu.tsx` `<RowMenu label items testID>`: the kebab (40px) opens the web's lifted menu under it, right-aligned, `pop-in` on steps(3), or above it when below would pass the window's bottom less the bottom inset; items are drawn 40pt and reach 44pt through `hitSlop`; closes on a pick, outside press or back. Item ids: `<testID>-<label-slug>`.
 - `components/kit/select.tsx` `<Select label value options onChange placeholder invalid disabled testID>`: the web's framed select; opens a sheet of options (`<testID>-option-<value>`), the chosen one ticked.
 - The test setup now mocks `react-native-safe-area-context` for every test (insets 0; a test can mock it itself).
 
@@ -579,7 +579,7 @@ The app's gateways: `mobile/lib/brand/shared.ts` (brand) and `mobile/lib/shared.
 | `greetingForHour`, `relativeDayLabel`, `shiftDateKey`, `dateKeyAt`, `localDateKey` | `src/lib/display/local-date.ts` (moved from `src/lib/local-date.ts`) | B's `greetingForHour` copy |
 | `displayName` | `src/lib/display/display-name.ts` (moved from `src/lib/user`) | B's copy |
 | `figureSizeOf` → kit `figureVariant` | `src/lib/brand/figure-size.ts` | D-2's `figureVariant` stand-in |
-| `DELETE_ACCOUNT_PATH`, `ACCOUNT_DELETED_PATH`, `REAUTH_WINDOW_MINUTES`, `CONFIRM_WORD`, `confirmWordMatches`, `outcomeFromResponse`, `deletedDestination`, `DeleteOutcome` | `src/lib/account/screen.ts` (already pure) | C's deletion constants, DELETE check, deleted-screen destination. **Intentional exception:** `mobile/lib/account/delete-account.ts` keeps its own outcome mapping, not the web's `outcomeFromResponse`: the app's carries the stores' manage-subscription links and separates an expired session from a network failure (reviewed deletion code; decided 2026-09-30) |
+| `DELETE_ACCOUNT_PATH`, `ACCOUNT_DELETED_PATH`, `REAUTH_WINDOW_MINUTES`, `CONFIRM_WORD`, `confirmWordMatches`, `outcomeFromResponse`, `deletedDestination`, `DeleteOutcome` | `src/lib/account/screen.ts` (already pure) | C's deletion constants, DELETE check, deleted-screen destination. **Intentional exception:** `mobile/lib/account/delete-account.ts` keeps its own outcome mapping, not the web's `outcomeFromResponse`: the app's separates an expired session from a network failure (reviewed deletion code; decided 2026-09-30). The account-deleted screen links both stores' own pages as the web's does, so the app no longer reads the server's per-store links (review G6, 2026-09-30) |
 | `CATEGORY_KINDS`, `CATEGORY_COLORS` (the first colour is `CATEGORY_COLORS[0]`) | `src/lib/categories/options.ts` (already pure) | C's first-colour copy |
 | `hubTestId`, `tabTestId` | `src/lib/brand/test-ids.ts` | — |
 | Tour steps, gate, guide copy | `src/lib/tour/steps.ts`, `gate.ts`; `src/components/tour/guide-copy.ts` (A: make its `@/lib/tour/steps` import relative `../../lib/tour/steps.ts`) | A's copies |
@@ -588,6 +588,8 @@ The app's gateways: `mobile/lib/brand/shared.ts` (brand) and `mobile/lib/shared.
 **Display-only figure formulas are shared (decision 2026-09-30, superseding this table's first draft):** `src/lib/figures` (`budgetTrendPct`, `savingsPct`, `savingsBarPct`) holds the small percentages the web computed inline for drawing (a bar's fill, a goal's progress), as pure modules served through `metro.shared.js`; B and D-2 add the folder to `SHARED`. They turn server figures into a drawing, like the progress cells. Money itself (totals, budgets, Money Left, savings rate) still comes only from the `/api/mobile/*` payload; `src/lib/budget` and `src/lib/plaid` stay outside `SHARED`.
 
 **`useResource(key, fetcher, { version })` (decision 2026-09-30):** `key` names WHICH resource (the month, a filter): a new key shows the loading state, as the web's navigation shows its loading page. `version` (`useVersion(...)`, realtime) refreshes the SAME resource in place. Put versions in `options.version`, never in the key.
+
+**The pull contract (project-wide, `phase-m/p3-f-fix`):** a version-driven reload (a save, a realtime event, `invalidate`) is silent: in place, no `refreshing`, and on failure it keeps the figures and sets `notice`. `refreshing` is ONLY the user's pull (`refresh()`), which behaves the same on failure (figures kept, `notice`), and it always ends when the latest pull settles, even when a newer request (a version bump mid-pull) won. Only the first load, a new key or Try again (`reload()`) shows loading and can land on the failure state. Every screen shows `notice` with a retry; a screen that drops it fails silently.
 
 ### Foundation change requests, batch 2 (2026-09-30)
 
@@ -600,8 +602,10 @@ The app's gateways: `mobile/lib/brand/shared.ts` (brand) and `mobile/lib/shared.
 - **`PageHeader`**: `title` may be a node (Home's word-by-word greeting); it keeps the `page-title` id.
 - **Type role `small`** (14/20 regular, web `text-sm leading-5`) in `src/lib/brand/tokens.ts`.
 - **`Rise` / `Lamp`** now live in `components/motion/rise.tsx` (moved from Lane B's `components/home/rise.tsx`; B deletes its copy on rebase).
-- **`useResource`** reloads a new key in place (no skeleton flash on a version bump or realtime event); only the first load or a retry after a failure shows loading; a failed reload replaces the old data (never another month's numbers).
-- **Realtime**: `useRealtimeRefresh(tables)` with the web's tables (`lib/realtime/topics.ts`); Home and Budgets add `["budgets"]`, Goals `["savings_goals", "savings_contributions"]`.
+- **`useResource`** reloads the same key in place (no skeleton flash on a version bump or realtime event); only the first load, a new key or a retry after a failure shows loading. On failure the pull contract above applies (a failed reload of the same key keeps the figures and sets `notice`); a new key never shows another key's numbers because it starts from the loading state.
+- **Realtime**: `useRealtimeRefresh(tables)` with the web's tables (`lib/realtime/topics.ts`); Home and Budgets add `["budgets"]`, Goals `["savings_goals", "savings_contributions"]`. One channel per table and user, reference-counted across every mounted screen (`watchTable`, `phase-m/p3-f-fix`): tab screens stay mounted and realtime-js returns the existing channel for a topic, so two screens on `budgets` crashed on `.on()` after `subscribe()`. Each channel's topic is unique, so a channel being removed is never handed back. 1500ms debounce, paused in the background, no polling.
+- **Header status** (`StatusProvider`) also reloads when the app returns to the foreground (an AppState event, not a timer).
+- **The bell** navigates to `NEEDS_CATEGORY_LINK` (`lib/status/status-api.ts`): `/activity` with `m` and `category` sent empty (cleared: the current month, no filter) and `focus=needs-category`, the web's `/transactions#needs-category`. Lane D-1 scrolls to the "Needs a category" section when `focus` is `needs-category`.
 - **`account_locked`**: `mutate()` answers `{ status: "error", kind: "locked", message: LOCKED_MESSAGE }`.
 - **Native batch for the post-F7 dev client:** `expo-blur` and `@react-native-community/datetimepicker` (`npm ci`, then `expo prebuild --clean`, which also applies the Android launch plugin).
 
@@ -642,9 +646,19 @@ Stable interface; changes go through Lane E.
 ### D4 as built (Budgets: the route contract other lanes link to)
 
 - **Route:** `/budgets` (`app/(app)/(tabs)/(budgets)/budgets.tsx`), the web's `/budgets?m=&range=&edit=`, read by `mobile/lib/budgets/params.ts` exactly as `src/app/(app)/(dashboard)/budgets/page.tsx` reads them: `m` (`YYYY-MM`, else the user's current month), `range` (`all` for All time, anything else This month), `edit` (a category uuid: its sheet opens straight in "Monthly budget" edit mode; This month only, as on the web). An invalid value is ignored.
-- **Linking in:** `router.navigate(budgetsLink.edit(month, categoryId))` → `{ pathname: "/budgets", params: { m, edit } }` (Home's "Set budget", Lane B). A later link while the tab is open applies its params as a web navigation would (month, range, the sheet).
+- **Linking in:** `router.navigate(budgetsLink.edit(month, categoryId))` → `{ pathname: "/budgets", params: { m, range: "month", edit } }` (Home's "Set budget", Lane B; `range` so a link merged into a screen left on All time still opens). A later link while the tab is open applies its params as a web navigation would (month, range, the sheet); the params follow the screen (`lib/budgets/use-budgets-route.ts`: a month or range step writes `m`/`range` and drops `edit`, closing the sheet drops `edit`), so a repeated link is always a real change.
 - **Linking out:** the category sheet's "See transactions" → `router.navigate(budgetsLink.activity(month, categoryId))` → `/activity?m=&category=` (D1's contract above).
 - **Shared display figure:** "vs. last month" is `budgetTrendPct` in `src/lib/figures/budget-trend.ts`, moved verbatim out of the web `budgets-view.tsx` (zero-pixel: the web sheet captured before and after for the `full` and `over` users, Dining out and Groceries, 0 changed pixels at threshold 0). `src/lib/figures` (also `savings-pct.ts`: `savingsPct` / `savingsBarPct`, Goals and Home) is in `SHARED` (mobile/metro.shared.js); brand-purity follows the imports.
+
+### Lane C: accepted exceptions to the web (accepted in review, 2026-09-30)
+
+| Where | Native | Web | Why |
+| --- | --- | --- | --- |
+| Delete account, "Deleting your account" card | "…so keep this screen open." | "…so keep this page open." | an app has screens, not pages |
+| Settings → Categories, Archive / Restore | a failure is said under the hint ("Your account is being deleted…", "Couldn't save…") | the result is dropped silently | no silent failure states (CLAUDE.md); the web's silence is logged as a web issue |
+| About, Account deleted, Delete account | a page that won't open in the in-app browser says "Couldn't open that page. Try again in a moment." | the browser opens the link | a native browser sheet can fail; never a dead tap |
+| Delete account, "Still stuck? Email …" | with no email app: "Couldn't open your email app. Write to <address>." (selectable) | the browser hands `mailto:` to the OS | a phone may have no mail app; the address stays reachable |
+| More / Settings hub counts (review G9, narrowed) | re-read in place after any change in the app and on every return to the screen (`useFocusEffect`, a navigation event) | rendered fresh on every visit | matches the web's per-visit freshness; the one difference left: a screen kept open doesn't see another device's change until it is revisited, as a web page left open doesn't either |
 
 ### Phase 3 device checklist (the owner's device pass)
 
@@ -669,3 +683,16 @@ The root `vitest.config.mts` sets `testTimeout: 15_000` for every test: the Reac
 ### Header blur (2026-09-30, with the post-merge dev client)
 
 The signed-in header now lives in `<Screen>` (the tab stacks show no stack header): `AppHeader` at the web's `bg-bg/90` over an expo-blur `BlurView` of the content scrolling under it (`HEADER_BLUR`: intensity 100, Android `dimezisBlurViewSdk31Plus`, radius 100 ÷ 4 = 25 ≈ the web's `backdrop-blur-xl` 24px; Android 11 and older get the 90% colour only). Android blurs a `BlurTargetView` wrapping the scroll view. Needs the dev client built after F7 (expo-blur is native).
+
+### Lane A as built: first run, the welcome guide, Crystal and the sign-in stage
+
+**The gate contract** (`mobile/app/(app)/_layout.tsx`, `mobile/lib/profile/gate.ts`):
+- `shellRoute(profile)` is the web's own `firstRunRedirect` (`src/lib/tour/gate.ts`, imported) over `/api/mobile/profile`'s `onboarded` and `tourSeen`: `onboarding` until a currency is saved, then `tour` until the guide is finished or skipped, then `app`. A failed profile read never guesses: `profileFailure(kind)` picks the web's error / offline screen (Try again, except for a missing profile) plus Sign out.
+- Each part is a `Stack.Protected` set, so the stack only shows what the gate allows: `(tabs)` and `transaction` when `app`; `tour` whenever onboarded (it stays open for the replay from More, `/tour`); `onboarding` before a currency; `guide/how-it-works` only while the guide is the gate (`firstRunHelpOpen`). `settings/delete-account` is left undeclared on purpose (reachable before onboarding, as on the web).
+- Onboarding → tour: the currency save re-reads the profile in place (no loader); `justOnboarded` makes the tour continue from the onboarding cards (`?new=1`). Leaving the guide (`afterGuideNav`): `replace("/")` on the first run, `dismissTo("/")` on a replay (never a second set of tabs).
+
+**How Budgts Works from the last card**: on a replay, `dismissTo("/help/how-it-works")` (Lane C's page, back into the tabs); during the first run, `push("/guide/how-it-works")`, the same `HowItWorksView` on the bare canvas above the guide, back returning to the card left (`howItWorksNav`). **Native-only improvement:** the web bounces this link back to `/tour` during first run (its dashboard gate); the web stays unchanged in Phase 3.
+
+**Components:** `components/tour/*` (the card, wizard, nine scenes and their keyframes, `guide-keyframes.ts`); the one animated `Robin` (`components/brand/robin.tsx`: blink, chirp, flicker, `hopOnTap`, `size`, and `choreography` for Crystal on Home, Lane B); the sign-in stage (`components/brand/brand-stage.tsx`) and the sign-in entrance (`components/sign-in/entrance.tsx`: page-enter, then `.reveal` `--i` 2 and 3). The wizard's Android back listens only while the guide is focused (`useFocusEffect`).
+
+**For Foundation:** `RollingAmount` (`components/motion/rolling-amount.tsx`) gained an optional `letterSpacing` (a figure tracked other than its role; the welcome guide's Money Left uses the web's `.tnum` −0.01em = −0.32px on 32px), applied to every glyph, moving and still.

@@ -7,7 +7,7 @@ import { apiRequest } from "../api/request";
  * Deleting the account does not cancel an Apple / Google subscription — the server says when one may still be running.
  */
 export type DeleteOutcome =
-  | { status: "deleted"; storeSubscriptionMayBeActive: boolean; manageSubscriptionUrl: string | null }
+  | { status: "deleted"; storeSubscriptionMayBeActive: boolean }
   | { status: "reauth_required" }
   | { status: "unavailable" }
   | { status: "incomplete" }
@@ -21,20 +21,14 @@ export type DeleteOutcome =
   | { status: "auth" }
   | { status: "network" };
 
-/** `store` is this device's store: the server lists each store's own manage page, and the app opens its own. */
-export async function requestAccountDeletion(
-  store: "apple" | "google",
-  fetcher: () => Promise<Response>,
-): Promise<DeleteOutcome> {
+/**
+ * `POST /api/account/delete`'s answer. When a store subscription may still be running, the account-deleted screen links
+ * both stores' own pages (as the web's does), so the server's per-store links aren't read here.
+ */
+export async function requestAccountDeletion(fetcher: () => Promise<Response>): Promise<DeleteOutcome> {
   const r = await apiRequest(fetcher, (b) => {
     if (!b || typeof b !== "object" || (b as { ok?: unknown }).ok !== true) throw new Error("delete: shape");
-    const body = b as { storeSubscriptionMayBeActive?: unknown; manageSubscriptionLinks?: unknown };
-    const links = Array.isArray(body.manageSubscriptionLinks) ? (body.manageSubscriptionLinks as { store?: unknown; url?: unknown }[]) : [];
-    const link = links.find((l) => l && l.store === store && typeof l.url === "string");
-    return {
-      storeSubscriptionMayBeActive: body.storeSubscriptionMayBeActive === true,
-      manageSubscriptionUrl: link ? (link.url as string) : null,
-    };
+    return { storeSubscriptionMayBeActive: (b as { storeSubscriptionMayBeActive?: unknown }).storeSubscriptionMayBeActive === true };
   });
 
   if (r.ok) return { status: "deleted", ...r.data };

@@ -1,7 +1,8 @@
-import { useRef, useState } from "react";
+import { useContext, useRef, useState } from "react";
 import { Platform, Pressable, View } from "react-native";
 import DateTimePicker, { DateTimePickerAndroid, type DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { COLOR, PLACEHOLDER, ROLE, SPACE } from "../../lib/brand/shared";
+import { ProfileContext } from "../../lib/profile/profile-hooks";
 import { PixelFrame } from "../brand/pixel-frame";
 import { Text } from "../brand/text";
 import { Overlay, useSheetFocus } from "./overlay";
@@ -55,19 +56,27 @@ export function DateField({
   const [open, setOpen] = useState(false);
   const field = useRef<View>(null);
   const revealInSheet = useSheetFocus();
-  const state = disabled ? "" : invalid ? "[data-invalid='true']" : open ? ":focus-within" : "";
+  // With nothing chosen the picker opens on the user's own today (the server's, in their profile's zone), never the
+  // device's. Read without throwing: while the profile reloads it is missing, and an empty field waits, disabled,
+  // instead of failing on a tap. A field with a value opens on that value and never needs it.
+  const profile = useContext(ProfileContext);
+  const today = profile?.state.status === "ready" ? profile.state.profile.today : null;
+  const off = disabled || (!value && !today);
+  const state = off ? "" : invalid ? "[data-invalid='true']" : open ? ":focus-within" : "";
   const shown = value ? formatDateInput(value) : placeholder;
-  const initial = value ? dayToDate(value) : new Date();
+  /** The day the picker opens on: the value, or with nothing chosen the user's today. Only called while enabled. */
+  const initialDate = (): Date => dayToDate(value ?? today!);
   const bounds = {
     minimumDate: minimumDate ? dayToDate(minimumDate) : undefined,
     maximumDate: maximumDate ? dayToDate(maximumDate) : undefined,
   };
 
   function openPicker() {
+    if (off) return;
     revealInSheet?.(field.current);
     if (Platform.OS === "android") {
       DateTimePickerAndroid.open({
-        value: initial,
+        value: initialDate(),
         mode: "date",
         ...bounds,
         onChange: (event: DateTimePickerEvent, date?: Date) => {
@@ -89,8 +98,8 @@ export function DateField({
         testID={testID}
         accessibilityRole="button"
         accessibilityLabel={`${label}, ${value ? shown : "not set"}`}
-        accessibilityState={{ disabled, expanded: open }}
-        disabled={disabled}
+        accessibilityState={{ disabled: off, expanded: open }}
+        disabled={off}
         onPress={openPicker}
       >
         {({ pressed }) => (
@@ -99,16 +108,16 @@ export function DateField({
             state={state}
             style={[{ height: SPACE.field, justifyContent: "center", paddingHorizontal: 8 }, pressStyle(pressed)]}
           >
-            <Text variant="input" color={disabled ? ROLE.muted : value ? ROLE.ink : PLACEHOLDER} style={{ fontVariant: ["tabular-nums"] }}>
+            <Text variant="input" color={off ? ROLE.muted : value ? ROLE.ink : PLACEHOLDER} style={{ fontVariant: ["tabular-nums"] }}>
               {shown}
             </Text>
           </PixelFrame>
         )}
       </Pressable>
-      {open ? (
+      {open && !off ? (
         <Overlay title={label} onClose={() => setOpen(false)} testID={testID ? `${testID}-sheet` : undefined}>
           <DateTimePicker
-            value={initial}
+            value={initialDate()}
             mode="date"
             display="inline"
             {...bounds}

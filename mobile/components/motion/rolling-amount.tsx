@@ -32,12 +32,19 @@ export function reelWindow(variant: TypeRoleName, lineHeightOverride?: number): 
   return { top: (lineHeight - height) / 2, height };
 }
 
+/** A figure's own line height and tracking over its role's, or nothing. */
+function textOverride(lineHeight?: number, letterSpacing?: number): { lineHeight?: number; letterSpacing?: number } | null {
+  if (!lineHeight && letterSpacing === undefined) return null;
+  return { ...(lineHeight ? { lineHeight } : {}), ...(letterSpacing !== undefined ? { letterSpacing } : {}) };
+}
+
 function Reel({
   ch,
   place,
   column,
   variant,
   lineHeightOverride,
+  letterSpacing,
   color,
   play,
 }: {
@@ -46,12 +53,13 @@ function Reel({
   column: number;
   variant: TypeRoleName;
   lineHeightOverride?: number;
+  letterSpacing?: number;
   color: string;
   play: boolean;
 }) {
   const { fontSize } = textStyle(variant);
   const lineHeight = lineHeightOverride ?? textStyle(variant).lineHeight;
-  const lh = lineHeightOverride ? { lineHeight: lineHeightOverride } : null;
+  const lh = textOverride(lineHeightOverride, letterSpacing);
   const win = reelWindow(variant, lineHeightOverride);
   const rest = reelOffset(Number(ch), place < LAP_PLACES, lineHeight);
   // The spin-in plays once, from the first value; later values glide (a transition), like the web's reels.
@@ -102,6 +110,7 @@ export function RollingAmount({
   variant = "tNumXl",
   color = ROLE.ink,
   lineHeight,
+  letterSpacing,
   testID = "rolling-amount",
 }: {
   value: number;
@@ -109,6 +118,8 @@ export function RollingAmount({
   variant?: TypeRoleName;
   /** a figure set tighter than its role (the ring's 15/20 total) */
   lineHeight?: number;
+  /** a figure tracked other than its role (the welcome guide's Money Left: the web's `.tnum` −0.01em outranks the size's) */
+  letterSpacing?: number;
   color?: string;
   testID?: string;
 }) {
@@ -116,7 +127,7 @@ export function RollingAmount({
   const play = usePlay() && !reduced;
   const text = formatMoney(value, currency);
   const chars = [...text];
-  const lh = lineHeight ? { lineHeight } : null;
+  const lh = textOverride(lineHeight, letterSpacing);
 
   if (reduced) {
     return (
@@ -141,7 +152,7 @@ export function RollingAmount({
         }
         const place = digitCount - 1 - seen;
         seen += 1;
-        return <Reel key={`d${key}`} ch={ch} place={place} column={seen} variant={variant} lineHeightOverride={lineHeight} color={color} play={play} />;
+        return <Reel key={`d${key}`} ch={ch} place={place} column={seen} variant={variant} lineHeightOverride={lineHeight} letterSpacing={letterSpacing} color={color} play={play} />;
       })}
     </View>
   );

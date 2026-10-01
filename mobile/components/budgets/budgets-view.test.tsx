@@ -120,6 +120,16 @@ describe("Budgets (web budgets-view.tsx)", () => {
     ]);
   });
 
+  it("reads each card to a screen reader as it reads on screen", () => {
+    const { r } = view();
+    expect(all(r, "budget-card").map((c) => c.props.accessibilityLabel)).toEqual([
+      "Groceries, $120.00 spent, $280.00 left, of $400.00",
+      "Dining, $130.00 spent, over by $30.00, of $100.00",
+      "Entertainment, $50.00 spent, no budget, all unplanned, set budget",
+      "Transportation, $0.00 spent, no budget set, set budget",
+    ]);
+  });
+
   it("opens a category from its card", () => {
     const { r, props } = view();
     all(r, "budget-card")[1]!.props.onPress();

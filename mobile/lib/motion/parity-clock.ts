@@ -3,9 +3,8 @@ import { devLinkParams, isDev } from "../dev/fault";
 /**
  * The parity capture's frozen clock (Phase 3 plan, Task P4): the ms a `?clock=` dev link pinned motion to, or null (motion
  * runs normally; always null in release builds). The web capture pauses every animation at the same ms, so both sides are
- * photographed at the same frame. One clock for all motion:
- *   - `useSteppedClock` (sprite timelines) shows `stepAt(ms)` and stops its frame clock;
- *   - every Reanimated CSS animation takes its delay from `useMotionTiming`, which pauses it at that ms.
+ * photographed at the same frame. One clock for all motion: every Reanimated CSS animation (stepped sprites included)
+ * takes its delay from `useMotionTiming`, which pauses it at that ms.
  */
 export function parityClockMs(dev: boolean = isDev()): number | null {
   return devLinkParams(dev).clockMs;

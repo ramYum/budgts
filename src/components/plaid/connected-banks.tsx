@@ -5,6 +5,7 @@ import { Overlay } from "@/components/overlay";
 import { Icon } from "@/components/icon";
 import { Badge, Button, SectionHead } from "@/components/ui";
 import {
+  answerSignCheckAction,
   clearAccountReview,
   disconnectBank,
   mapAccounts,
@@ -13,7 +14,8 @@ import {
   syncConnection,
   type PlaidActionState,
 } from "@/server/plaid/actions";
-import { accountLabel, suggestAccount } from "@/lib/accounts/account-suggestion";
+import { accountLabel, notImportedHint, suggestAccount } from "@/lib/accounts/account-suggestion";
+import { formatMoney } from "@/lib/budget/money";
 import { AccountMapping } from "./account-mapping";
 import { ReconnectButton } from "./reconnect-button";
 
@@ -173,7 +175,7 @@ function BankCard({
                     </p>
                   </div>
                 </div>
-                {a.pendingSignCheckCount > 0 ? <SignCheckNotice count={a.pendingSignCheckCount} /> : null}
+                {a.pendingSignCheckCount > 0 ? <SignCheckNotice account={a} /> : null}
                 {a.needsReview || a.excludedFromCalculations ? <AccountReviewNotice account={a} /> : null}
               </li>
             ))}
@@ -209,7 +211,10 @@ function BankCard({
                     ) : null}
                   </span>
                 </div>
-                {a.pendingSignCheckCount > 0 ? <SignCheckNotice count={a.pendingSignCheckCount} /> : null}
+                {notImportedHint(a) ? (
+                  <p className="text-sm leading-5 text-muted md:ml-[60px]">{notImportedHint(a)}</p>
+                ) : null}
+                {a.pendingSignCheckCount > 0 ? <SignCheckNotice account={a} /> : null}
                 {a.needsReview || a.excludedFromCalculations ? <AccountReviewNotice account={a} /> : null}
               </li>
             ))}
@@ -359,18 +364,48 @@ function ConnectToggle({ account, plaidItemId }: { account: ConnectedBankAccount
  * an account's convention is still unresolved, so held transactions never
  * just silently disappear from every total with no explanation.
  */
-function SignCheckNotice({ count }: { count: number }) {
+function SignCheckNotice({ account }: { account: ConnectedBankAccount }) {
+  const count = account.pendingSignCheckCount;
+  const sample = account.signCheckSample;
+  const [state, formAction, pending] = useActionState<PlaidActionState, FormData>(answerSignCheckAction, {});
   return (
-    <p className="px-band flex items-start gap-2 px-1.5 py-1.5 text-sm leading-5 text-ink md:ml-[60px] md:px-2 md:py-2 md:text-[15px] md:leading-6">
-      <Icon name="pending" className="text-graphite" />
-      <span>
-        We&apos;re checking this account&apos;s transaction format.{" "}
-        <span className="font-semibold">
-          {count} {count === 1 ? "transaction" : "transactions"}
-        </span>{" "}
-        {count === 1 ? "appears" : "appear"} once it&apos;s verified.
-      </span>
-    </p>
+    <div className="px-band space-y-2 px-1.5 py-1.5 text-sm leading-5 text-ink md:ml-[60px] md:px-2 md:py-2 md:text-[15px] md:leading-6">
+      <p className="flex items-start gap-2">
+        <Icon name="pending" className="text-graphite" />
+        <span>
+          We&apos;re checking this account&apos;s transaction format.{" "}
+          <span className="font-semibold">
+            {count} {count === 1 ? "transaction" : "transactions"}
+          </span>{" "}
+          {count === 1 ? "appears" : "appear"} once it&apos;s verified.
+        </span>
+      </p>
+      {sample ? (
+        // The exit for an account whose format never settles (design: 2026-10-01 card payments §5): one plain
+        // question about a held transaction resolves the account and releases every held row.
+        <form action={formAction} className="space-y-2">
+          <input type="hidden" name="plaidAccountRowId" value={account.rowId} />
+          <input type="hidden" name="transactionId" value={sample.transactionId} />
+          <p className="text-graphite">You can verify it now. Was this money going out or coming in?</p>
+          <p className="flex flex-wrap items-baseline justify-between gap-x-3">
+            <span className="min-w-0 truncate font-medium">{sample.description}</span>
+            <span className="tabular-nums">
+              {formatMoney(sample.amount, sample.currency)} ·{" "}
+              {new Date(sample.occurredAt).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}
+            </span>
+          </p>
+          {state.error ? <p className="text-neg">{state.error}</p> : null}
+          <div className="flex flex-wrap gap-2">
+            <Button type="submit" name="answer" value="out" variant="secondary" disabled={pending}>
+              Going out
+            </Button>
+            <Button type="submit" name="answer" value="in" variant="secondary" disabled={pending}>
+              Coming in
+            </Button>
+          </div>
+        </form>
+      ) : null}
+    </div>
   );
 }
 

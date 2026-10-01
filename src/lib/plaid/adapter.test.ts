@@ -7,8 +7,8 @@ const CHECKING = "acct-plaid-1";
 const BUDGTS_ACCT = "budgts-acct-1";
 
 const accountMap = new Map<string, AccountMapEntry>([
-  [CHECKING, { plaidAccountRowId: "pa-row-1", budgtsAccountId: BUDGTS_ACCT, ignored: false, signConvention: "standard" }],
-  ["acct-ignored", { plaidAccountRowId: "pa-row-2", budgtsAccountId: "x", ignored: true, signConvention: "standard" }],
+  [CHECKING, { plaidAccountRowId: "pa-row-1", budgtsAccountId: BUDGTS_ACCT, ignored: false, signConvention: "standard", accountType: "depository" }],
+  ["acct-ignored", { plaidAccountRowId: "pa-row-2", budgtsAccountId: "x", ignored: true, signConvention: "standard", accountType: "depository" }],
 ]);
 
 function ctx(over: Partial<NormalizeCtx> = {}): NormalizeCtx {
@@ -335,5 +335,47 @@ describe("normalizePlaidTxn", () => {
       const unknown = normalizePlaidTxn(txn({ account_id: "nope" }), ctx());
       expect(unknown).toMatchObject({ kind: "skip", reason: "unknown-account" });
     });
+  });
+});
+
+describe("normalizePlaidTxn — card payments on the card's own feed (design: 2026-10-01 card payments)", () => {
+  const CARD = "acct-card";
+  const payment = (over: Partial<PlaidTxnInput> = {}) =>
+    txn({
+      account_id: CARD,
+      name: "AUTOMATIC PAYMENT - THANK",
+      merchant_name: null,
+      personal_finance_category: { primary: "LOAN_PAYMENTS", detailed: "LOAN_PAYMENTS_OTHER_PAYMENT", confidence_level: "LOW" },
+      ...over,
+    });
+  const cardMap = (signConvention: "standard" | "inverted" | "unknown") =>
+    new Map<string, AccountMapEntry>([
+      ...accountMap,
+      [CARD, { plaidAccountRowId: "pa-card", budgtsAccountId: "budgts-card", ignored: false, signConvention, accountType: "credit" }],
+    ]);
+
+  it("a standard card's incoming LOAN_PAYMENTS_OTHER_PAYMENT (raw < 0) is a CARD_PAYMENT", () => {
+    const t = expectTxn(normalizePlaidTxn(payment({ amount: -2078.5 }), ctx({ accountMap: cardMap("standard") })));
+    expect(t.direction).toBe("credit");
+    expect(t.eventRole).toBe("CARD_PAYMENT");
+    expect(t.isTransfer).toBe(false);
+  });
+
+  it("an inverted card's payment (raw > 0, flipped to credit) is a CARD_PAYMENT", () => {
+    const t = expectTxn(normalizePlaidTxn(payment({ amount: 2078.5 }), ctx({ accountMap: cardMap("inverted") })));
+    expect(t.direction).toBe("credit");
+    expect(t.eventRole).toBe("CARD_PAYMENT");
+  });
+
+  it("an unknown-convention card's payment is held, and resolves its role once the direction is known", () => {
+    const t = expectTxn(normalizePlaidTxn(payment({ amount: -50 }), ctx({ accountMap: cardMap("unknown") })));
+    expect(t.status).toBe("pending_review");
+    expect(t.eventRole).toBe("CARD_PAYMENT");
+  });
+
+  it("the Sandbox shape (a payment sent as a positive charge on a standard card) stays unresolved, for the user to review", () => {
+    const t = expectTxn(normalizePlaidTxn(payment({ amount: 2078.5 }), ctx({ accountMap: cardMap("standard") })));
+    expect(t.direction).toBe("debit");
+    expect(t.eventRole).toBeNull();
   });
 });

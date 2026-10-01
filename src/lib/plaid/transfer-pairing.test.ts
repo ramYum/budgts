@@ -82,12 +82,34 @@ describe("findTransferPairs — Tier B (corrective classify + link)", () => {
     expect(ambiguous).toHaveLength(1);
   });
 
-  it("does not widen beyond next-day for the corrective tier (2 days apart -> no match)", () => {
+  // Widened 1 -> 3 days (design: 2026-10-01 card payments §3): a card payment posts on the card one to three days
+  // after it leaves checking.
+  it("accepts the corrective tier up to 3 days apart (a card payment posting late on the card)", () => {
+    const shaped = c({ id: "card", accountId: "card", direction: "credit", eventRole: "CARD_PAYMENT", occurredAt: "2026-09-13T00:00:00.000Z" });
+    const unresolved = c({ id: "checking", accountId: "checking", direction: "debit", eventRole: null, occurredAt: "2026-09-10T00:00:00.000Z" });
+    const { accepted, ambiguous } = findTransferPairs([shaped, unresolved]);
+    expect(ambiguous).toEqual([]);
+    expect(accepted).toEqual([{ tier: "B", legA: "checking", legB: "card", classifyLegId: "checking" }]);
+  });
+
+  it("does not widen the corrective tier beyond 3 days (4 days apart -> no match)", () => {
     const shaped = c({ id: "shaped", accountId: "checking", direction: "debit", isTransfer: true, occurredAt: "2026-09-10T00:00:00.000Z" });
-    const unresolved = c({ id: "unresolved", accountId: "ext", direction: "credit", eventRole: null, occurredAt: "2026-09-12T00:00:00.000Z" });
+    const unresolved = c({ id: "unresolved", accountId: "ext", direction: "credit", eventRole: null, occurredAt: "2026-09-14T00:00:00.000Z" });
     const { accepted, ambiguous } = findTransferPairs([shaped, unresolved]);
     expect(accepted).toEqual([]);
     expect(ambiguous).toEqual([]);
+  });
+
+  it("never pairs a mismatched amount (the Sandbox shape: $2,078.50 on the card vs $25.00 from savings)", () => {
+    const card = c({ id: "card", accountId: "card", amount: 207850, direction: "credit", eventRole: "CARD_PAYMENT" });
+    const checking = c({ id: "checking", accountId: "savings", amount: 2500, direction: "debit", eventRole: "CARD_PAYMENT" });
+    expect(findTransferPairs([card, checking])).toEqual({ accepted: [], ambiguous: [] });
+  });
+
+  it("never pairs two legs with the same effective direction", () => {
+    const card = c({ id: "card", accountId: "card", direction: "debit", eventRole: null });
+    const checking = c({ id: "checking", accountId: "checking", direction: "debit", eventRole: "CARD_PAYMENT" });
+    expect(findTransferPairs([card, checking])).toEqual({ accepted: [], ambiguous: [] });
   });
 });
 

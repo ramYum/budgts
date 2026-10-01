@@ -9,6 +9,7 @@ const mapAccounts = vi.fn();
 const clearAccountReview = vi.fn();
 const setAccountCalculationExclusionAction = vi.fn();
 const setAccountImportingAction = vi.fn();
+const answerSignCheckAction = vi.fn();
 const refresh = vi.fn();
 
 vi.mock("next/navigation", () => ({
@@ -22,6 +23,7 @@ vi.mock("@/server/plaid/actions", () => ({
   clearAccountReview: (...args: unknown[]) => clearAccountReview(...args),
   setAccountCalculationExclusionAction: (...args: unknown[]) => setAccountCalculationExclusionAction(...args),
   setAccountImportingAction: (...args: unknown[]) => setAccountImportingAction(...args),
+  answerSignCheckAction: (...args: unknown[]) => answerSignCheckAction(...args),
 }));
 
 vi.mock("./reconnect-button", () => ({
@@ -50,6 +52,7 @@ function bank(over: Partial<ConnectedBank> = {}): ConnectedBank {
         reviewReason: null,
         excludedFromCalculations: false,
         pendingSignCheckCount: 0,
+        signCheckSample: null,
       },
       {
         rowId: "row-saving",
@@ -65,6 +68,7 @@ function bank(over: Partial<ConnectedBank> = {}): ConnectedBank {
         reviewReason: null,
         excludedFromCalculations: false,
         pendingSignCheckCount: 0,
+        signCheckSample: null,
       },
     ],
     unmappedAccounts: [],
@@ -160,6 +164,7 @@ describe("ConnectedBanks", () => {
           reviewReason: "50 transactions with identical content — this connection's data may be unreliable.",
           excludedFromCalculations: false,
           pendingSignCheckCount: 0,
+          signCheckSample: null,
         },
       ],
     });
@@ -192,6 +197,7 @@ describe("ConnectedBanks", () => {
           reviewReason: "Suspicious repetition detected.",
           excludedFromCalculations: false,
           pendingSignCheckCount: 0,
+          signCheckSample: null,
         },
       ],
     });
@@ -223,6 +229,7 @@ describe("ConnectedBanks", () => {
           reviewReason: "Suspicious repetition detected.",
           excludedFromCalculations: true,
           pendingSignCheckCount: 0,
+          signCheckSample: null,
         },
       ],
     });
@@ -259,6 +266,7 @@ describe("ConnectedBanks", () => {
           reviewReason: "Suspicious repetition detected.",
           excludedFromCalculations: false,
           pendingSignCheckCount: 0,
+          signCheckSample: null,
         },
       ],
     });
@@ -296,6 +304,7 @@ describe("ConnectedBanks — sign-convention 'checking this account' notice", ()
           reviewReason: null,
           excludedFromCalculations: false,
           pendingSignCheckCount: 3,
+          signCheckSample: null,
         },
       ],
     });
@@ -333,6 +342,7 @@ describe("ConnectedBanks — sign-convention 'checking this account' notice", ()
           reviewReason: "Suspicious repetition detected.",
           excludedFromCalculations: false,
           pendingSignCheckCount: 5,
+          signCheckSample: null,
         },
       ],
     });
@@ -383,6 +393,7 @@ describe("ConnectedBanks — import on/off switch (already-mapped accounts)", ()
           reviewReason: null,
           excludedFromCalculations: false,
           pendingSignCheckCount: 0,
+          signCheckSample: null,
         },
       ],
     });
@@ -433,6 +444,7 @@ describe("ConnectedBanks — connect switch (never-mapped accounts)", () => {
           reviewReason: null,
           excludedFromCalculations: false,
           pendingSignCheckCount: 0,
+          signCheckSample: null,
         },
       ],
     });
@@ -484,3 +496,108 @@ describe("ConnectedBanks — connect switch (never-mapped accounts)", () => {
     expect(await screen.findByText("Could not create the account. Try again.")).toBeInTheDocument();
   });
 });
+
+// Design: 2026-10-01 card payments §5. An account whose transaction format never settles gets a reachable exit.
+describe("ConnectedBanks — the held-transaction question", () => {
+  const held = (over: Partial<ConnectedBank["accounts"][number]> = {}) =>
+    bank({
+      accounts: [
+        {
+          rowId: "row-checking",
+          plaidAccountId: "plaid-acc-checking",
+          name: "Plaid Checking",
+          ...checkingDefaults,
+          mask: "0000",
+          linkState: "mapped",
+          mappedAccountName: "Checking",
+          needsReview: false,
+          reviewReason: null,
+          excludedFromCalculations: false,
+          pendingSignCheckCount: 14,
+          signCheckSample: {
+            transactionId: "11111111-1111-4111-8111-111111111111",
+            description: "Trader Joe's",
+            occurredAt: "2026-09-16T00:00:00.000Z",
+            amount: 4210,
+            currency: "USD",
+          },
+          ...over,
+        },
+      ],
+    });
+
+  it("asks one plain question about a held transaction and sends the answer", async () => {
+    answerSignCheckAction.mockResolvedValue({ ok: true });
+    const user = userEvent.setup();
+    render(<ConnectedBanks banks={[held()]} budgtsAccounts={[{ id: "acc-1", name: "Checking" }]} />);
+
+    expect(screen.getByText("You can verify it now. Was this money going out or coming in?")).toBeInTheDocument();
+    expect(screen.getByText("Trader Joe's")).toBeInTheDocument();
+    expect(screen.getByText(/\$42\.10/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Going out" }));
+    expect(answerSignCheckAction).toHaveBeenCalledTimes(1);
+    const fd = answerSignCheckAction.mock.calls[0][1] as FormData;
+    expect(fd.get("plaidAccountRowId")).toBe("row-checking");
+    expect(fd.get("transactionId")).toBe("11111111-1111-4111-8111-111111111111");
+    expect(fd.get("answer")).toBe("out");
+    // internal terms never reach the user, and no em-dashes in UI copy
+    expect(screen.queryByText(/sign convention|inverted/i)).not.toBeInTheDocument();
+    expect(document.body.textContent).not.toContain("\u2014");
+  });
+
+  it("sends 'in' for Coming in", async () => {
+    answerSignCheckAction.mockResolvedValue({ ok: true });
+    const user = userEvent.setup();
+    render(<ConnectedBanks banks={[held()]} budgtsAccounts={[{ id: "acc-1", name: "Checking" }]} />);
+    await user.click(screen.getByRole("button", { name: "Coming in" }));
+    expect((answerSignCheckAction.mock.calls[0][1] as FormData).get("answer")).toBe("in");
+  });
+
+  it("shows the error when the transaction is no longer waiting", async () => {
+    answerSignCheckAction.mockResolvedValue({ error: "That transaction is no longer waiting. Refresh and try again." });
+    const user = userEvent.setup();
+    render(<ConnectedBanks banks={[held()]} budgtsAccounts={[{ id: "acc-1", name: "Checking" }]} />);
+    await user.click(screen.getByRole("button", { name: "Going out" }));
+    expect(await screen.findByText("That transaction is no longer waiting. Refresh and try again.")).toBeInTheDocument();
+  });
+
+  it("asks nothing without a sample", () => {
+    render(<ConnectedBanks banks={[held({ signCheckSample: null })]} budgtsAccounts={[{ id: "acc-1", name: "Checking" }]} />);
+    expect(screen.queryByRole("button", { name: "Going out" })).not.toBeInTheDocument();
+  });
+});
+
+// Design: 2026-10-01 card payments §6. Case (c): a card left out means its purchases never reach the budget.
+describe("ConnectedBanks — a card that isn't imported", () => {
+  it("says card purchases aren't tracked unless the card is imported", () => {
+    const withCard = bank({
+      accounts: [
+        {
+          rowId: "row-card",
+          plaidAccountId: "plaid-acc-card",
+          name: "Plaid Credit Card",
+          officialName: null,
+          type: "credit",
+          subtype: "credit card",
+          mask: "3333",
+          linkState: "ignored",
+          mappedAccountName: null,
+          needsReview: false,
+          reviewReason: null,
+          excludedFromCalculations: false,
+          pendingSignCheckCount: 0,
+          signCheckSample: null,
+        },
+      ],
+    });
+    render(<ConnectedBanks banks={[withCard]} budgtsAccounts={[{ id: "acc-1", name: "Checking" }]} />);
+    expect(screen.getByText("Card purchases aren't tracked unless this card is imported.")).toBeInTheDocument();
+  });
+
+  it("says nothing under a savings account that isn't imported", () => {
+    render(<ConnectedBanks banks={[bank()]} budgtsAccounts={[{ id: "acc-1", name: "Checking" }]} />);
+    expect(screen.queryByText(/card purchases/i)).not.toBeInTheDocument();
+  });
+});
+

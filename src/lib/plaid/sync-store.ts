@@ -17,7 +17,7 @@ import type * as schema from "@/lib/db/schema";
 import { plaidAccounts, plaidItems, transactions } from "@/lib/db/schema";
 import type { SyncPlan, TxnPatch } from "./apply-sync";
 import { plaidToInsert } from "./land";
-import { resolveEventRole } from "./event-role";
+import { planHeldRowRelease } from "./held-rows";
 import type { SignEvidenceTxn } from "./sign-convention";
 import type { PlaidSyncStore, PlaidTxnRow } from "./sync-engine";
 
@@ -303,11 +303,16 @@ export function createPlaidSyncStore(db: PlaidDb): PlaidSyncStore {
     },
 
     async finalizeSignConvention(plaidAccountRowId, convention) {
-      await db.transaction(async (tx) => {
-        await tx
+      return db.transaction(async (tx) => {
+        // Only an account still `unknown` resolves, under the row lock this UPDATE takes: a sync's evidence verdict
+        // and the user's answer (design: 2026-10-01 card payments §5) can race, and the first one wins. The loser
+        // finds no row and changes nothing, so a resolved convention is never overwritten or flipped twice.
+        const [account] = await tx
           .update(plaidAccounts)
           .set({ signConvention: convention, updatedAt: sql`now()` })
-          .where(eq(plaidAccounts.id, plaidAccountRowId));
+          .where(and(eq(plaidAccounts.id, plaidAccountRowId), eq(plaidAccounts.signConvention, "unknown")))
+          .returning({ type: plaidAccounts.type });
+        if (!account) return false;
 
         // event_role is direction-dependent for spend-shaped primaries
         // (event-role.ts rows 6/7, PURCHASE <-> REFUND) — a bare direction
@@ -338,17 +343,7 @@ export function createPlaidSyncStore(db: PlaidDb): PlaidSyncStore {
         // (an account needing this can hold thousands of pending rows — see
         // countByAccountFingerprint above for the same VALUES-join pattern).
         for (const batch of chunk(pendingRows, BATCH_SIZE)) {
-          const computed = batch.map((row) => {
-            const direction =
-              convention === "inverted" ? (row.direction === "debit" ? "credit" : "debit") : row.direction;
-            const eventRole = resolveEventRole({
-              primary: row.primary,
-              detailed: row.detailed,
-              isTransfer: row.isTransfer,
-              direction,
-            });
-            return { id: row.id, direction, eventRole };
-          });
+          const computed = planHeldRowRelease(batch, convention, account.type ?? null);
           const valuesList = sql.join(
             computed.map((c) => sql`(${c.id}::uuid, ${c.direction}::text, ${c.eventRole}::text)`),
             sql`, `,
@@ -361,6 +356,7 @@ export function createPlaidSyncStore(db: PlaidDb): PlaidSyncStore {
             where t.id = v.id
           `);
         }
+        return true;
       });
     },
 

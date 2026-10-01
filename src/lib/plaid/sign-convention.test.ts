@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   AMBIGUOUS_REVIEW_SAMPLE_THRESHOLD,
+  conventionFromAnswer,
   detectSignConvention,
   INVERTED_VOTE_THRESHOLD,
   MIN_EVIDENCE_SAMPLES,
@@ -72,5 +73,51 @@ describe("detectSignConvention", () => {
     expect(INVERTED_VOTE_THRESHOLD).toBeGreaterThan(0.5);
     expect(STANDARD_VOTE_THRESHOLD).toBeLessThan(0.5);
     expect(AMBIGUOUS_REVIEW_SAMPLE_THRESHOLD).toBeGreaterThan(MIN_EVIDENCE_SAMPLES);
+  });
+});
+
+describe("detectSignConvention on a credit-type account (design: 2026-10-01 card payments §4)", () => {
+  const purchase = (raw: number): SignEvidenceTxn => ({ rawAmount: raw, primary: "GENERAL_MERCHANDISE" });
+  const cardPayment = (raw: number): SignEvidenceTxn => ({ rawAmount: raw, primary: "LOAN_PAYMENTS" });
+  const gig = (raw: number): SignEvidenceTxn => ({ rawAmount: raw, primary: "INCOME" });
+
+  it("a standard card with one purchase per payment resolves standard (payments come IN to a card)", () => {
+    const evidence = Array.from({ length: 6 }, () => [purchase(20), cardPayment(-20)]).flat();
+    expect(detectSignConvention(evidence, "credit")).toBe("standard");
+  });
+
+  it("the same evidence on a depository account stays unknown (the old reading, still right there)", () => {
+    const evidence = Array.from({ length: 6 }, () => [purchase(20), cardPayment(-20)]).flat();
+    expect(detectSignConvention(evidence, "depository")).toBe("unknown");
+  });
+
+  it("an inverted card (purchases and payments both flipped) resolves inverted", () => {
+    const evidence = Array.from({ length: 6 }, () => [purchase(-20), cardPayment(20)]).flat();
+    expect(detectSignConvention(evidence, "credit")).toBe("inverted");
+  });
+
+  it("INCOME rows do not vote on a card (gig-economy charges like rides are labelled INCOME there)", () => {
+    const evidence = [...Array.from({ length: 8 }, () => purchase(15)), ...Array.from({ length: 8 }, () => gig(15))];
+    expect(detectSignConvention(evidence, "credit")).toBe("standard");
+  });
+
+  it("matches Plaid's account type case-insensitively", () => {
+    const evidence = Array.from({ length: 6 }, () => [purchase(20), cardPayment(-20)]).flat();
+    expect(detectSignConvention(evidence, "Credit")).toBe("standard");
+  });
+});
+
+describe("conventionFromAnswer (the user's answer to 'Was this money going out or coming in?')", () => {
+  it.each([
+    [12.34, "out", "standard"],
+    [-12.34, "in", "standard"],
+    [-12.34, "out", "inverted"],
+    [12.34, "in", "inverted"],
+  ] as const)("raw %s answered %s → %s", (raw, answer, expected) => {
+    expect(conventionFromAnswer(raw, answer)).toBe(expected);
+  });
+
+  it("refuses a zero amount, which carries no sign", () => {
+    expect(() => conventionFromAnswer(0, "out")).toThrow();
   });
 });

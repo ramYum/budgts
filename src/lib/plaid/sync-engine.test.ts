@@ -20,7 +20,7 @@ import type { AccountMapEntry, NormalizeCtx, PlaidTxnInput } from "./types";
 
 const ACCT = "plaid-acct-1";
 const accountMap = new Map<string, AccountMapEntry>([
-  [ACCT, { plaidAccountRowId: "pa-1", budgtsAccountId: "b-acct-1", ignored: false, signConvention: "standard" }],
+  [ACCT, { plaidAccountRowId: "pa-1", budgtsAccountId: "b-acct-1", ignored: false, signConvention: "standard", accountType: "depository" }],
 ]);
 
 const normalizeCtx: NormalizeCtx = {
@@ -143,6 +143,7 @@ function fakeStore(
     },
     async finalizeSignConvention(plaidAccountRowId, convention) {
       calls.finalizedSignConventions.push({ plaidAccountRowId, convention });
+      return true;
     },
     async findContainmentCandidates(accountId) {
       return (liveRowsByAccount.get(accountId) ?? [])
@@ -361,7 +362,7 @@ describe("runSync", () => {
       ...normalizeCtx,
       accountMap: new Map([
         ...accountMap,
-        ["paused", { plaidAccountRowId: "pa-2", budgtsAccountId: "b-acct-2", ignored: true, signConvention: "standard" }],
+        ["paused", { plaidAccountRowId: "pa-2", budgtsAccountId: "b-acct-2", ignored: true, signConvention: "standard", accountType: "depository" }],
       ]),
     };
     const out = await runSync(
@@ -467,7 +468,7 @@ describe("runSync", () => {
 
     it("never combines two different accounts' identical-content transactions into one anomaly", async () => {
       const acctMap2 = new Map(accountMap);
-      acctMap2.set("plaid-acct-2", { plaidAccountRowId: "pa-2", budgtsAccountId: "b-acct-2", ignored: false, signConvention: "standard" });
+      acctMap2.set("plaid-acct-2", { plaidAccountRowId: "pa-2", budgtsAccountId: "b-acct-2", ignored: false, signConvention: "standard", accountType: "depository" });
       const ctx2: NormalizeCtx = { ...normalizeCtx, accountMap: acctMap2 };
 
       const { store, calls } = fakeStore();

@@ -93,6 +93,7 @@ describe("loadConnectedBanks", () => {
           reviewReason: null,
           excludedFromCalculations: false,
           pendingSignCheckCount: 0,
+          signCheckSample: null,
         },
       ],
       unmappedAccounts: [],
@@ -127,6 +128,32 @@ describe("loadConnectedBanks", () => {
       expect.arrayContaining([
         ["eq", "status", "pending_review"],
         ["eq", "pending_reason", "sign_convention_unknown"],
+      ]),
+    );
+  });
+
+  it("gives an account still being checked its most recent held transaction to ask about (design: 2026-10-01 card payments §5)", async () => {
+    const held = { plaid_account_id: "pa-row-1", id: "t-1", description: "Trader Joe's", occurred_at: "2026-09-16T00:00:00Z", amount: 4210 };
+    const { supabase, calls } = fakeSupabase({
+      plaid_items: { data: [{ id: "item-1", item_id: "plaid-item-1", institution_name: null, status: "active", last_synced_at: null }] },
+      plaid_accounts: { data: [accountRow({ iso_currency_code: "CAD" })] },
+      accounts: { data: [{ id: "acct-1", name: "Everyday Checking" }] },
+      transactions: { data: [held], count: 1 },
+    });
+
+    const data = await loadConnectedBanks(supabase);
+    expect(data?.banks[0]!.accounts[0]!.signCheckSample).toEqual({
+      transactionId: "t-1",
+      description: "Trader Joe's",
+      occurredAt: "2026-09-16T00:00:00Z",
+      amount: 4210,
+      currency: "CAD",
+    });
+    expect(calls.transactions).toEqual(
+      expect.arrayContaining([
+        ["eq", "plaid_account_id", "pa-row-1"],
+        ["order", "occurred_at", { ascending: false }],
+        ["limit", 1],
       ]),
     );
   });

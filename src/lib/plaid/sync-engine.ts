@@ -18,7 +18,7 @@ import {
   type ContainmentCandidate,
   type ContainmentUpdate,
 } from "./replay-containment";
-import { AMBIGUOUS_REVIEW_SAMPLE_THRESHOLD, detectSignConvention } from "./sign-convention";
+import { AMBIGUOUS_REVIEW_SAMPLE_THRESHOLD, detectSignConvention, SIGN_CONVENTION_REVIEW_MARKER } from "./sign-convention";
 import type { SignEvidenceTxn } from "./sign-convention";
 import { isEventRole } from "./event-role";
 import { findTransferPairs, type PairingCandidate } from "./transfer-pairing";
@@ -164,7 +164,9 @@ export interface PlaidSyncStore {
    * touches a different Plaid account even if it maps to the same Budgts
    * account.
    */
-  finalizeSignConvention(plaidAccountRowId: string, convention: "standard" | "inverted"): Promise<void>;
+  /** Resolves a still-`unknown` account and releases its held rows; false (and nothing written) when the account was
+   * already resolved. */
+  finalizeSignConvention(plaidAccountRowId: string, convention: "standard" | "inverted"): Promise<boolean>;
   /**
    * Every not-yet-excluded row for one Budgts account, for Advancial replay
    * containment (design 2026-09-14, replay-containment.ts). Institution-
@@ -453,6 +455,9 @@ export async function runSync(deps: SyncDeps): Promise<SyncOutcome> {
   const conventionByPlaidAccountRowId = new Map(
     [...normalizeCtx.accountMap.values()].map((a) => [a.plaidAccountRowId, a.signConvention]),
   );
+  const accountTypeByPlaidAccountRowId = new Map(
+    [...normalizeCtx.accountMap.values()].map((a) => [a.plaidAccountRowId, a.accountType]),
+  );
   const budgtsAccountIdByPlaidAccountRowId = new Map(
     [...normalizeCtx.accountMap.values()].map((a) => [a.plaidAccountRowId, a.budgtsAccountId]),
   );
@@ -464,7 +469,7 @@ export async function runSync(deps: SyncDeps): Promise<SyncOutcome> {
     const evidenceByAccount = await store.getSignConventionEvidence(unknownPlaidAccountRowIds);
     for (const plaidAccountRowId of unknownPlaidAccountRowIds) {
       const evidence = evidenceByAccount.get(plaidAccountRowId) ?? [];
-      const verdict = detectSignConvention(evidence);
+      const verdict = detectSignConvention(evidence, accountTypeByPlaidAccountRowId.get(plaidAccountRowId));
       if (verdict === "standard" || verdict === "inverted") {
         await store.finalizeSignConvention(plaidAccountRowId, verdict);
       } else if (evidence.length >= AMBIGUOUS_REVIEW_SAMPLE_THRESHOLD) {
@@ -472,7 +477,7 @@ export async function runSync(deps: SyncDeps): Promise<SyncOutcome> {
         if (budgtsAccountId) {
           await store.flagAccountForReview(
             budgtsAccountId,
-            `Budgts can't confidently determine this account's transaction sign convention after ${evidence.length} transactions — some data may be miscategorized until reviewed.`,
+            `Budgts can't confidently determine this account's ${SIGN_CONVENTION_REVIEW_MARKER} after ${evidence.length} transactions — some data may be miscategorized until reviewed.`,
           );
         }
       }

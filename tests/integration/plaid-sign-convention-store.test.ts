@@ -7,7 +7,7 @@
  * Budgts account, and pooling their evidence would let one institution's feed
  * sign-invert another's genuinely-correct transactions.
  */
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createPlaidSyncStore } from "@/lib/plaid/sync-store";
 import { cleanupUser, client, insertBankTxn, mainAccountId, seedUser } from "./_db";
 import { db } from "./_db";
@@ -38,6 +38,12 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await cleanupUser(userId);
+});
+
+// finalizeSignConvention only resolves a still-`unknown` account (design: 2026-10-01 card payments §5), so each case
+// starts from an unresolved feed, as a real account would.
+beforeEach(async () => {
+  await client`update public.plaid_accounts set sign_convention = 'unknown' where user_id = ${userId}`;
 });
 
 async function readTxn(id: string) {

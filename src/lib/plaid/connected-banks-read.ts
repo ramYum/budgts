@@ -27,6 +27,19 @@ export type ConnectedBankAccount = {
    *  is 0. Drives the "We're checking this account's transaction format"
    *  notice; must never be silently omitted. */
   pendingSignCheckCount: number;
+  /** One held transaction to ask the user about while `pendingSignCheckCount > 0` (design: 2026-10-01 card payments
+   *  §5): "Was this money going out or coming in?" The answer resolves the account. The most recent held row, so
+   *  the user is likely to remember it; amount in minor units, unsigned (the sign is what is being asked). */
+  signCheckSample: SignCheckSample | null;
+};
+
+export type SignCheckSample = {
+  transactionId: string;
+  description: string;
+  occurredAt: string;
+  amount: number;
+  /** The account's currency (Plaid's `iso_currency_code`), for showing the amount. */
+  currency: string;
 };
 
 export type MappableAccount = {
@@ -127,6 +140,36 @@ export async function loadConnectedBanks(supabase: SupabaseClient): Promise<Conn
     pendingSignCheckCounts.set(r.plaid_account_id, (pendingSignCheckCounts.get(r.plaid_account_id) ?? 0) + 1);
   }
 
+  // One bounded read per account still being checked (a handful at most): the question's sample transaction.
+  const heldAccountIds = [...pendingSignCheckCounts.keys()];
+  const samples = await Promise.all(
+    heldAccountIds.map((id) =>
+      supabase
+        .from("transactions")
+        .select("id, description, occurred_at, amount")
+        .eq("plaid_account_id", id)
+        .eq("status", "pending_review")
+        .eq("pending_reason", "sign_convention_unknown")
+        .order("occurred_at", { ascending: false })
+        .order("id")
+        .limit(1),
+    ),
+  );
+  const sampleByAccount = new Map<string, Omit<SignCheckSample, "currency">>();
+  heldAccountIds.forEach((id, i) => {
+    const row = (samples[i].data ?? [])[0] as
+      | { id: string; description: string; occurred_at: string; amount: number }
+      | undefined;
+    if (row?.id) {
+      sampleByAccount.set(id, {
+        transactionId: row.id,
+        description: row.description,
+        occurredAt: row.occurred_at,
+        amount: Number(row.amount),
+      });
+    }
+  });
+
   const banks: ConnectedBank[] = items.map((item) => {
     const rows = plaidAccounts.filter((a) => a.plaid_item_id === item.id);
     const accounts: ConnectedBankAccount[] = rows.map((a) => ({
@@ -143,6 +186,10 @@ export async function loadConnectedBanks(supabase: SupabaseClient): Promise<Conn
       reviewReason: a.review_reason,
       excludedFromCalculations: a.excluded_from_calculations,
       pendingSignCheckCount: pendingSignCheckCounts.get(a.id) ?? 0,
+      signCheckSample: (() => {
+        const sample = sampleByAccount.get(a.id);
+        return sample ? { ...sample, currency: a.iso_currency_code ?? "USD" } : null;
+      })(),
     }));
     const unmappedAccounts: MappableAccount[] = rows
       .filter((a) => a.link_state === "unmapped")

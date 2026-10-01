@@ -44,6 +44,7 @@ export async function buildNormalizeCtx(
         accountId: plaidAccounts.accountId,
         linkState: plaidAccounts.linkState,
         signConvention: plaidAccounts.signConvention,
+        type: plaidAccounts.type,
       })
       .from(plaidAccounts)
       .where(and(eq(plaidAccounts.userId, userId), eq(plaidAccounts.plaidItemId, plaidItemRowId))),
@@ -63,6 +64,7 @@ export async function buildNormalizeCtx(
         budgtsAccountId: a.accountId ?? "",
         ignored: a.linkState === "ignored" || a.accountId == null,
         signConvention: a.signConvention,
+        accountType: a.type,
       },
     ]),
   );

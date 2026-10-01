@@ -59,7 +59,10 @@ export interface PairingResult {
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** Product rule, not a derived fact — see the design doc §Tier A/B. */
 const TIER_A_WINDOW_DAYS = 3;
-const TIER_B_WINDOW_DAYS = 1; // same calendar day, or the immediate next day
+// Widened from 1 (same or next day) to 3, matching Tier A (owner-approved 2026-10-01, design: 2026-10-01 card
+// payments §3): a card payment posts on the card one to three days after it leaves checking. Exact amount and
+// opposite direction still gate every match.
+const TIER_B_WINDOW_DAYS = 3;
 
 const TRANSFER_SHAPED_ROLES = new Set<EventRole>(["TRANSFER", "CARD_PAYMENT"]);
 

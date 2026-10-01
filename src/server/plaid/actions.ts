@@ -18,6 +18,7 @@ import { standardCategory } from "@/lib/categories/standard";
 import { recategorizeUncategorizedBankTxns } from "@/lib/plaid/recategorize";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import {
+  answerSignCheckSchema,
   categorizeBankTxnSchema,
   clearAccountReviewSchema,
   disconnectBankSchema,
@@ -29,6 +30,7 @@ import { setAccountCalculationExclusion } from "./account-exclusion";
 import { disconnectPlaidItem } from "./disconnect";
 import { db } from "@/lib/db";
 import { mapAccountsFor, setAccountImportingFor, syncConnectionFor } from "./commands";
+import { resolveSignConventionFromAnswer } from "./sign-answer";
 
 export type PlaidActionState = {
   error?: string;
@@ -99,6 +101,36 @@ export async function clearAccountReview(
     .update({ needs_review: false, review_reason: null, review_flagged_at: null })
     .eq("id", parsed.data.plaidAccountRowId);
   if (error) return { error: "Could not update the review status. Try again." };
+
+  revalidateUserData();
+  return { ok: true };
+}
+
+/**
+ * The user's answer to "Was this money going out or coming in?" about one held transaction (design: 2026-10-01 card
+ * payments §5): resolves the account's transaction format and releases its held rows. Ownership is enforced inside
+ * `resolveSignConventionFromAnswer` against the session user, never client state.
+ */
+export async function answerSignCheckAction(
+  _prev: PlaidActionState,
+  formData: FormData,
+): Promise<PlaidActionState> {
+  const parsed = answerSignCheckSchema.safeParse({
+    plaidAccountRowId: String(formData.get("plaidAccountRowId") ?? ""),
+    transactionId: String(formData.get("transactionId") ?? ""),
+    answer: String(formData.get("answer") ?? ""),
+  });
+  if (!parsed.success) return { error: "Something went wrong. Refresh and try again." };
+
+  const { user } = await withUser();
+  const result = await resolveSignConventionFromAnswer(
+    db(),
+    user.id,
+    parsed.data.plaidAccountRowId,
+    parsed.data.transactionId,
+    parsed.data.answer,
+  );
+  if (result.outcome === "not_found") return { error: "That transaction is no longer waiting. Refresh and try again." };
 
   revalidateUserData();
   return { ok: true };

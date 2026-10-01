@@ -49,6 +49,15 @@ export function accountHint(a: SuggestableAccount): string | null {
   return norm(a.subtype) === "hsa" ? "Import it if you pay for care from it." : null;
 }
 
+/**
+ * The small hint under a card on Connected banks while it isn't imported, or `null` (owner-approved 2026-10-01, design:
+ * 2026-10-01 card payments §6). A payment to a card from an imported checking account is never counted as spending, so
+ * a card's purchases only reach the budget when the card itself is imported.
+ */
+export function notImportedHint(a: SuggestableAccount): string | null {
+  return norm(a.type) === "credit" ? "Card purchases aren't tracked unless this card is imported." : null;
+}
+
 /** The default name for a new Budgts account: Plaid's name, else its official name, else "Account", with the mask. */
 export function accountLabel(a: { name: string | null; officialName: string | null; mask: string | null }): string {
   const base = a.name?.trim() || a.officialName?.trim() || "Account";

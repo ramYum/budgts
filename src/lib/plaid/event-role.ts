@@ -31,6 +31,11 @@ export interface EventRoleInput {
   detailed: string | null;
   isTransfer: boolean;
   direction: "debit" | "credit";
+  /**
+   * Plaid's account `type` for the account the row landed on (`plaid_accounts.type`: "credit", "depository", ...).
+   * Only the card-side payment rule (row 1b) reads it; omitted or null, that rule never applies.
+   */
+  accountType?: string | null;
 }
 
 /**
@@ -60,13 +65,21 @@ export const SPEND_SHAPED_PRIMARIES = new Set([
  * there returns null — never guess.
  */
 export function resolveEventRole(input: EventRoleInput): EventRole | null {
-  const { primary, detailed, isTransfer, direction } = input;
+  const { primary, detailed, isTransfer, direction, accountType } = input;
 
   // Row 1: LOAN_PAYMENTS + LOAN_PAYMENTS_CREDIT_CARD_PAYMENT → CARD_PAYMENT
   if (
     primary === "LOAN_PAYMENTS" &&
     detailed === "LOAN_PAYMENTS_CREDIT_CARD_PAYMENT"
   ) {
+    return "CARD_PAYMENT";
+  }
+
+  // Row 1b (design: 2026-10-01 card payments §2): money coming IN to a credit-type account under any LOAN_PAYMENTS
+  // subtype is a payment to that card. Plaid labels the card-side leg inconsistently (LOAN_PAYMENTS_OTHER_PAYMENT in
+  // production and Sandbox), and without this it fell through to "unresolved" and counted as negative spend. The
+  // direction is the already sign-corrected one, so an inverted card's payment resolves the same way.
+  if (primary === "LOAN_PAYMENTS" && direction === "credit" && accountType?.trim().toLowerCase() === "credit") {
     return "CARD_PAYMENT";
   }
 

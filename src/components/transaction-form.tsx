@@ -16,6 +16,10 @@ export type TransactionInitial = {
   note: string | null;
   isTransfer: boolean;
   accountId: string;
+  /** Shown when the row's account can't take new entries and so isn't in `accounts` (e.g. a disconnected bank's). */
+  accountName: string;
+  /** Imported from a bank: the account is shown read-only and can't be changed (owner decision 2026-09-30). */
+  accountLocked?: boolean;
   categoryId: string | null;
 };
 
@@ -49,6 +53,13 @@ export function TransactionForm({
   const [state, formAction, pending] = useActionState<TxnActionState, FormData>(action, {});
   const fe = state.fieldErrors ?? {};
   const directionLocked = lockDirection && !initial;
+  // `accounts` lists only accounts that can take new entries. An edited row keeps its own account in the list even when
+  // it can't (a disconnected bank's kept history); otherwise the browser would preselect the first option and saving
+  // would silently move the row to another account.
+  const accountOptions =
+    initial && !accounts.some((a) => a.id === initial.accountId)
+      ? [...accounts, { id: initial.accountId, name: initial.accountName }]
+      : accounts;
   const visibleCategories =
     directionLocked && initialDirection === "credit" ? categories.filter((c) => c.kind === "income") : categories;
 
@@ -95,13 +106,20 @@ export function TransactionForm({
 
       <label className={label}>
         Account
-        <Select name="accountId" defaultValue={initial?.accountId ?? accounts[0]?.id} required>
-          {accounts.map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.name}
-            </option>
-          ))}
-        </Select>
+        {initial?.accountLocked ? (
+          <>
+            <p className="px-band px-2 py-1 text-base leading-6 text-graphite">{initial.accountName}</p>
+            <input type="hidden" name="accountId" value={initial.accountId} />
+          </>
+        ) : (
+          <Select name="accountId" defaultValue={initial?.accountId ?? accountOptions[0]?.id} required>
+            {accountOptions.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </Select>
+        )}
       </label>
       {fe.accountId ? <p className="text-sm text-neg">{fe.accountId}</p> : null}
 

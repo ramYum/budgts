@@ -33,6 +33,7 @@ function item(over: Partial<TxnListItem> = {}): TxnListItem {
     is_transfer: false,
     category_id: null,
     account_id: "acc-1",
+    source: "manual",
     category: null,
     account: { name: "Checking" },
     ...over,

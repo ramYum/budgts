@@ -4,6 +4,7 @@ import {
   type RecurringGroupKey,
   type RecurringObservationRow,
   type RecurringStore,
+  RECURRING_SCAN_OVERLAP_MS,
   runRecurringDetectionForUser,
 } from "./recurring-engine";
 import { computeAmountToleranceMinor } from "./recurring-detection";
@@ -33,8 +34,11 @@ function fakeStore(opts: {
   groups?: RecurringGroupKey[];
   observations?: RecurringObservationRow[];
   existing?: ExistingSeriesRow | null;
+  /** What the store's (database) clock reads. */
+  dbNow?: string;
 }) {
   const calls = {
+    currentTime: 0,
     applySeriesUpdate: [] as Array<{ key: RecurringGroupKey; update: SeriesUpdate; eventRole: string }>,
     markScanned: [] as string[],
     findCandidateGroupsArgs: [] as { since: string | null; upTo: string }[],
@@ -56,42 +60,43 @@ function fakeStore(opts: {
     async markScanned(_userId, at) {
       calls.markScanned.push(at);
     },
+    async currentTime() {
+      calls.currentTime += 1;
+      return opts.dbNow ?? "2026-09-20T00:00:00.000Z";
+    },
   };
   return { store, calls };
 }
 
 describe("runRecurringDetectionForUser", () => {
-  it("passes the watermark through to findCandidateGroups, bounded by a captured scanStartTime", async () => {
-    const { store, calls } = fakeStore({ groups: [] });
-    const fixedNow = () => new Date("2026-09-20T00:00:00.000Z");
-    await runRecurringDetectionForUser({
-      userId: "u1",
-      watermark: "2026-09-01T00:00:00.000Z",
-      store,
-      now: fixedNow,
-    });
+  it("reaches back RECURRING_SCAN_OVERLAP_MS before the watermark, bounded above by the database clock's scan start", async () => {
+    const { store, calls } = fakeStore({ groups: [], dbNow: "2026-09-20T00:00:00.000Z" });
+    await runRecurringDetectionForUser({ userId: "u1", watermark: "2026-09-01T00:00:00.000Z", store });
     expect(calls.findCandidateGroupsArgs).toEqual([
-      { since: "2026-09-01T00:00:00.000Z", upTo: "2026-09-20T00:00:00.000Z" },
+      { since: "2026-08-31T23:45:00.000Z", upTo: "2026-09-20T00:00:00.000Z" },
     ]);
   });
 
+  it("the overlap is 15 minutes: longer than any serverless sync transaction can stay open", () => {
+    expect(RECURRING_SCAN_OVERLAP_MS).toBe(15 * 60_000);
+  });
+
   it("passes null watermark through untouched (never scanned)", async () => {
-    const { store, calls } = fakeStore({ groups: [] });
-    const fixedNow = () => new Date("2026-09-20T00:00:00.000Z");
-    await runRecurringDetectionForUser({ userId: "u1", watermark: null, store, now: fixedNow });
+    const { store, calls } = fakeStore({ groups: [], dbNow: "2026-09-20T00:00:00.000Z" });
+    await runRecurringDetectionForUser({ userId: "u1", watermark: null, store });
     expect(calls.findCandidateGroupsArgs).toEqual([{ since: null, upTo: "2026-09-20T00:00:00.000Z" }]);
   });
 
-  it("B1 fix: persists the SAME scanStartTime it queried with as the new watermark, never a later now()", async () => {
+  it("B1 fix: persists the SAME scanStartTime it queried with as the new watermark, never a later clock read", async () => {
     const { store, calls } = fakeStore({ groups: [] });
-    let callCount = 0;
-    // A `now` that would expose the bug if the code called it twice --
-    // second and later calls return a much later time.
-    const drifting = () => {
-      callCount += 1;
-      return callCount === 1 ? new Date("2026-09-20T00:00:00.000Z") : new Date("2026-09-20T00:10:00.000Z");
+    // A database clock that would expose the bug if the code read it twice --
+    // second and later reads return a much later time.
+    store.currentTime = async () => {
+      calls.currentTime += 1;
+      return calls.currentTime === 1 ? "2026-09-20T00:00:00.000Z" : "2026-09-20T00:10:00.000Z";
     };
-    await runRecurringDetectionForUser({ userId: "u1", watermark: null, store, now: drifting });
+    await runRecurringDetectionForUser({ userId: "u1", watermark: null, store });
+    expect(calls.currentTime).toBe(1);
     expect(calls.findCandidateGroupsArgs[0].upTo).toBe("2026-09-20T00:00:00.000Z");
     // The persisted watermark must equal the FIRST (discovery-time) value,
     // not a later one -- this is exactly what B1 requires.
@@ -116,6 +121,7 @@ describe("runRecurringDetectionForUser", () => {
     ];
     const midScanKey: RecurringGroupKey = { merchantEntityId: "m2", accountId: "acct1", direction: "debit" };
     let insertedMidScan = false;
+    let dbNow = "";
 
     const store: RecurringStore = {
       async findCandidateGroups(_userId, since, upTo) {
@@ -161,16 +167,15 @@ describe("runRecurringDetectionForUser", () => {
       },
       async applySeriesUpdate() {},
       async markScanned() {},
+      async currentTime() {
+        return dbNow;
+      },
     };
 
     // Run 1: scanStartTime = 00:00:00, i.e. BEFORE the mid-scan transaction
     // (00:05:00) lands. Only the original group is discovered.
-    const run1 = await runRecurringDetectionForUser({
-      userId: "u1",
-      watermark: null,
-      store,
-      now: () => new Date("2026-09-01T00:00:00.000Z"),
-    });
+    dbNow = "2026-09-01T00:00:00.000Z";
+    const run1 = await runRecurringDetectionForUser({ userId: "u1", watermark: null, store });
     expect(run1.groupCount).toBe(1); // midScanKey not yet visible to discovery
     expect(insertedMidScan).toBe(true); // but it landed during this run
 
@@ -178,14 +183,52 @@ describe("runRecurringDetectionForUser", () => {
     // the engine would have persisted. The mid-scan transaction's
     // createdAt (00:05:00) is strictly after that watermark, so it MUST
     // surface now, not be permanently skipped.
-    const run2 = await runRecurringDetectionForUser({
-      userId: "u1",
-      watermark: "2026-09-01T00:00:00.000Z",
-      store,
-      now: () => new Date("2026-09-01T01:00:00.000Z"),
-    });
+    dbNow = "2026-09-01T01:00:00.000Z";
+    const run2 = await runRecurringDetectionForUser({ userId: "u1", watermark: "2026-09-01T00:00:00.000Z", store });
+    // Both groups: the mid-scan one, plus the original (created exactly at the
+    // old watermark), re-evaluated idempotently inside the overlap window.
+    expect(run2.groupCount).toBe(2);
+    expect(run2.updatedCount).toBe(2); // the mid-scan group forms a valid series
+  });
+
+  it("IN-FLIGHT SYNC REGRESSION: rows whose created_at predates the watermark but committed after the scan are picked up by the next run", async () => {
+    // created_at is the inserting transaction's START time, so a sync that
+    // began at 23:58 and committed at 00:02 lands with created_at = 23:58,
+    // before run 1's 00:00 watermark, yet was invisible to run 1.
+    const lateKey: RecurringGroupKey = { merchantEntityId: "m3", accountId: "acct1", direction: "debit" };
+    const committed: { key: RecurringGroupKey; createdAt: string }[] = [];
+    let dbNow = "";
+    const store: RecurringStore = {
+      async findCandidateGroups(_userId, since, upTo) {
+        const sinceMs = since ? new Date(since).getTime() : -Infinity;
+        const upToMs = new Date(upTo).getTime();
+        return committed
+          .filter((t) => new Date(t.createdAt).getTime() > sinceMs && new Date(t.createdAt).getTime() <= upToMs)
+          .map((t) => t.key);
+      },
+      async loadGroupObservations() {
+        return [row("x", 0), row("y", 30), row("z", 60)];
+      },
+      async findExistingSeries() {
+        return null;
+      },
+      async applySeriesUpdate() {},
+      async markScanned() {},
+      async currentTime() {
+        return dbNow;
+      },
+    };
+
+    dbNow = "2026-09-01T00:00:00.000Z";
+    const run1 = await runRecurringDetectionForUser({ userId: "u1", watermark: null, store });
+    expect(run1.groupCount).toBe(0); // the sync had not committed yet
+
+    committed.push({ key: lateKey, createdAt: "2026-08-31T23:58:00.000Z" }); // commits now
+
+    dbNow = "2026-09-02T00:00:00.000Z";
+    const run2 = await runRecurringDetectionForUser({ userId: "u1", watermark: "2026-09-01T00:00:00.000Z", store });
     expect(run2.groupCount).toBe(1);
-    expect(run2.updatedCount).toBe(1); // the mid-scan group forms a valid series
+    expect(run2.updatedCount).toBe(1);
   });
 
   it("skips a group with zero observations without calling applySeriesUpdate", async () => {
@@ -246,9 +289,8 @@ describe("runRecurringDetectionForUser", () => {
   });
 
   it("always marks the user scanned, even with zero candidate groups", async () => {
-    const { store, calls } = fakeStore({ groups: [] });
-    const fixedNow = () => new Date("2026-09-20T00:00:00.000Z");
-    await runRecurringDetectionForUser({ userId: "u1", watermark: null, store, now: fixedNow });
+    const { store, calls } = fakeStore({ groups: [], dbNow: "2026-09-20T00:00:00.000Z" });
+    await runRecurringDetectionForUser({ userId: "u1", watermark: null, store });
     expect(calls.markScanned).toEqual(["2026-09-20T00:00:00.000Z"]);
   });
 
@@ -268,6 +310,9 @@ describe("runRecurringDetectionForUser", () => {
       },
       async applySeriesUpdate() {},
       async markScanned() {},
+      async currentTime() {
+        return "2026-09-20T00:00:00.000Z";
+      },
     };
     const outcome = await runRecurringDetectionForUser({ userId: "u1", watermark: null, store });
     expect(calls.sort()).toEqual(["m1", "m2"]);

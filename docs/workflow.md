@@ -1190,12 +1190,23 @@ implementation goes to `budgts-architect`.
     it under heavier load earlier the same session: port 2 of 8 runs passed, `e5cfbda` 2 of 6).
   - **Pre-existing follow-ups found while verifying (not caused by the port):**
     - 16 recurring / bill / subscription detection integration tests failed on the drifted staging, identically on
-      clean `e5cfbda`. The reviewer attributed it to the scan cutoff coming from this machine's clock while
-      `transactions.created_at` comes from the database's `now()` (about 0.32 s ahead). **After the staging rebuild
-      all 16 passed** (172/172), so the drifted schema is the likelier cause. One run: watch the next runs, and if
-      they fail again, take the scan time from the database.
-    - The Path B concurrency test's "a deadlock must actually happen" condition did not trigger on the drifted
-      staging; it passed once after the rebuild. It is timing-dependent, so not yet called fixed.
+      clean `e5cfbda`, passed after the rebuild and failed again on 2026-09-30. **Cause: clock skew, not schema
+      drift** (resolved 2026-09-30, branch `fix/recurring-db-clock`). The scan cutoff came from this machine's clock
+      while `transactions.created_at` comes from the database's `now()` (0.3 to 0.5 s ahead; Windows Time here is not
+      syncing, so the skew drifts, which is why they passed once). Proved on staging on one date: app clock shifted
+      0 s and -1 s failed exactly the 16, +1 s passed 30/30; the pure detector passed at every month-end date
+      tried. The scan window now comes from the database clock, with a 15-minute overlap on the watermark for sync
+      transactions still open during a scan; `tests/integration/plaid-recurring-clock-skew.test.ts` pins it.
+    - The Path B concurrency test's "a deadlock must actually happen" condition was flaky because the cycle
+      often never formed: it held one of two transactions rows and guessed the deletion's scan order from ctid,
+      but the planner often visited them in index order (seen on staging 2026-09-30: the deletion blocked on the
+      held row first in both hold orders). It also read `pg_stat_database.deadlocks` after a fixed 1.5 s. It now
+      holds the user's `accounts` row, which the deletion reaches only after taking every transactions row, then
+      touches a transactions row; it watches the cycle through `pg_blocking_pids()`, and the writer's
+      `deadlock_timeout` of 30 s makes the deletion always the victim. The Path A twin
+      (`account-deletion-concurrency.test.ts`) had the same flaw and got the same rewrite, except that the writer
+      holds a `budgets` row: GoTrue's `auth.users` cascade fires its FK triggers in trigger-name order (the text order of the names) and reaches
+      `accounts` before `transactions` but `budgets` after, and the test asserts that order first.
   - **Landed 2026-09-28.** Owner: "1. Move it into launch branch 2. Push 3. Rebuild staging".
     `phase-m/mobile-launch` fast-forwarded to `e26fcfe` and pushed, then `e8b4ed3` (the Expo env template: the
     README's `.env.example` only ever lived in the untracked `Budgts-mobile-archive` folder, because the root

@@ -246,7 +246,7 @@ describe("mapAccountsFor", () => {
     fakeRunner({ claimed: false });
     claimMissReason.mockResolvedValue({ kind: "unmapped" });
     const r = await mapAccountsFor(withItem().supabase, USER, ITEM_ROW, [{ plaidAccountId: "pa1", mode: "ignore" }]);
-    expect(r).toEqual({ ok: true, warning: "Accounts saved. Choose where this bank's new accounts go first — then it will sync." });
+    expect(r).toEqual({ ok: true, warning: "Accounts saved. Choose where this bank's new accounts go first. Then it will sync." });
   });
 
   it("saves the mapping but never syncs when the owner-level record belongs to someone else", async () => {

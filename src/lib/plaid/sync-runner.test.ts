@@ -133,7 +133,7 @@ describe("claimMissMessage", () => {
 
   it("explains unmapped and removed connections", () => {
     expect(claimMissMessage({ kind: "unmapped" })).toBe(
-      "Choose where this bank's new accounts go first — then it will sync.",
+      "Choose where this bank's new accounts go first. Then it will sync.",
     );
     expect(claimMissMessage({ kind: "gone" })).toBe("That bank connection no longer exists.");
   });

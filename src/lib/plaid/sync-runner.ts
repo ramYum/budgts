@@ -98,7 +98,7 @@ export async function sweepItems(
 export function claimMissMessage(miss: ClaimMiss): string {
   switch (miss.kind) {
     case "unmapped":
-      return "Choose where this bank's new accounts go first — then it will sync.";
+      return "Choose where this bank's new accounts go first. Then it will sync.";
     case "gone":
       return "That bank connection no longer exists.";
     case "busy":

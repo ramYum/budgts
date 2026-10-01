@@ -10,7 +10,11 @@
  * Two synthetic users with deliberately different numbers; tokens are minted the way the app obtains them.
  */
 import { createClient } from "@supabase/supabase-js";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+
+// GET /api/mobile/activity schedules the web's refresh nudge with next/server `after`, which needs a live request scope that a
+// direct route call here doesn't have; the nudge itself is covered by src/app/api/mobile/activity/route.test.ts.
+vi.mock("next/server", async (orig) => ({ ...(await orig<typeof import("next/server")>()), after: () => {} }));
 import { GET as getGoals, POST as postGoal } from "@/app/api/mobile/goals/route";
 import { PATCH as patchGoal } from "@/app/api/mobile/goals/[id]/route";
 import { POST as postContribution } from "@/app/api/mobile/goals/[id]/contributions/route";
@@ -388,7 +392,9 @@ describe("client-supplied ids that point at another table must be the caller's o
         body: { plaidItemId: item.id, entries: [{ plaidAccountId, mode: "existing", existingAccountId: aAccount }] },
       }),
     );
-    expect(res.status).toBe(404);
+    // The hotfix's check (mapAccountsFor, ab07cb3): a target that isn't the caller's own open account is refused as
+    // "no longer available" (422), the same answer as the caller's own archived account, so nothing about A leaks.
+    expect(res.status).toBe(422);
     const [pa] = await client<{ account_id: string | null; link_state: string }[]>`
       select account_id, link_state from public.plaid_accounts where plaid_account_id = ${plaidAccountId}`;
     expect(pa).toEqual({ account_id: null, link_state: "unmapped" });

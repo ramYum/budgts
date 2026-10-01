@@ -1,6 +1,7 @@
+import type { Href } from "expo-router";
+import { budgetsLink } from "../../lib/budgets/params";
 import { Pressable, View } from "react-native";
 import { COLOR, FONT, ROLE, categoryIcon } from "../../lib/brand/shared";
-import type { MobileCategory } from "../../lib/categories/categories-api";
 import type { HomeCategory, MobileHome } from "../../lib/home/contract";
 import { formatMoney } from "../../lib/shared";
 import { whereNote } from "../../lib/home/view";
@@ -9,12 +10,11 @@ import { PixelFrame } from "../brand/pixel-frame";
 import { Robin } from "../brand/robin";
 import { Text } from "../brand/text";
 import { ProgressBar } from "../kit/progress-bar";
-import { pressStyle } from "../kit/press";
 import { SectionHead } from "../kit/section-head";
 import { CategoryIcon } from "../kit/tiles";
 import { CardRows } from "./card-rows";
+import { TNUM } from "./type";
 
-const TNUM = { fontVariant: ["tabular-nums" as const] };
 
 /**
  * One row (web `WhereRow`): name and amount, the cells, then what's left or
@@ -22,22 +22,32 @@ const TNUM = { fontVariant: ["tabular-nums" as const] };
  * budget" opens its budget instead. Rows rise 60ms apart from 240ms, and
  * their cells cascade three steps apart.
  */
-function WhereRow({ c, row, currency, month, go }: { c: HomeCategory; row: number; currency: string; month: string; go: (path: string) => void }) {
+function WhereRow({ c, row, currency, month, go }: { c: HomeCategory; row: number; currency: string; month: string; go: (href: Href) => void }) {
   const note = whereNote(c);
   const flagged = note === "unplanned" || note === "over";
-  const setBudget = () => go(`/budgets?m=${month}&edit=${c.id}`);
+  const setBudget = () => go(budgetsLink.edit(month, c.id));
+  // what the row says under its cells, for a screen reader
+  const said =
+    note === "unplanned"
+      ? "No budget, all unplanned"
+      : note === "over"
+        ? `Over by ${formatMoney(-c.remaining, currency)} of ${formatMoney(c.budget, currency)}`
+        : note === "left"
+          ? `${formatMoney(c.remaining, currency)} left of ${formatMoney(c.budget, currency)}`
+          : "No budget set";
   return (
     <Pressable
         testID="home-where-row"
         accessibilityRole="link"
-        accessibilityLabel={`${c.name}, ${formatMoney(c.actual, currency)}`}
+        accessibilityLabel={`${c.name}, ${formatMoney(c.actual, currency)}, ${said}`}
         // the row is one stop for a screen reader; "Set budget" is its action there
         accessibilityActions={c.budget > 0 ? undefined : [{ name: "setBudget", label: "Set budget" }]}
         onAccessibilityAction={(e) => {
           if (e.nativeEvent.actionName === "setBudget") setBudget();
         }}
-        onPress={() => go(`/activity?m=${month}&category=${c.id}`)}
-        style={({ pressed }) => [{ flexDirection: "row", alignItems: "center", gap: 12 }, pressStyle(pressed)]}
+        onPress={() => go(budgetsLink.activity(month, c.id))}
+        // the web's row is a plain link (no press shrink); only its name underlines on hover
+        style={{ flexDirection: "row", alignItems: "center", gap: 12 }}
       >
         <CategoryIcon name={c.name} tone={flagged ? "wash" : "gray"} />
         <View style={{ flex: 1, minWidth: 0, gap: 6 }}>
@@ -100,8 +110,7 @@ function WhereRow({ c, row, currency, month, go }: { c: HomeCategory; row: numbe
 }
 
 /** Nothing spent yet: Crystal asleep, and the categories waiting, as chips (web `px-badge` h-8). */
-function NoSpending({ categories }: { categories: MobileCategory[] | null }) {
-  const expense = (categories ?? []).filter((c) => c.kind === "expense");
+function NoSpending({ expense }: { expense: MobileHome["expenseCategories"] }) {
   return (
     <PixelFrame testID="home-where-empty" frame="px-card" style={{ padding: 8 }}>
       <View style={{ alignSelf: "flex-start" }}>
@@ -141,17 +150,15 @@ function NoSpending({ categories }: { categories: MobileCategory[] | null }) {
  */
 export function WhereItWent({
   home,
-  categories,
   go,
 }: {
   home: MobileHome;
-  categories: MobileCategory[] | null;
-  go: (path: string) => void;
+  go: (href: Href) => void;
 }) {
   const { currency, month } = home;
   return (
     <View testID="home-where" style={{ gap: 12 }}>
-      <SectionHead title="Where it went" action="Budgets" onAction={() => go(`/budgets?m=${month}`)} />
+      <SectionHead title="Where it went" action="Budgets" onAction={() => go({ pathname: "/budgets", params: { m: month } })} />
       {home.budgeted > 0 && home.spent > 0 ? (
         home.leftToSpend < 0 ? (
           <View testID="home-where-summary" style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -173,12 +180,23 @@ export function WhereItWent({
         )
       ) : null}
       {home.spent === 0 ? (
-        <NoSpending categories={categories} />
+        <NoSpending expense={home.expenseCategories} />
       ) : home.categories.length === 0 ? (
-        <PixelFrame testID="home-where-no-budgets" frame="px-card" style={{ padding: 12 }}>
+        <PixelFrame
+          testID="home-where-no-budgets"
+          frame="px-card"
+          style={{ padding: 12 }}
+          // its one link is the card's action for a screen reader
+          accessible
+          accessibilityLabel="Set a budget on the Budgets screen to see how you're tracking."
+          accessibilityActions={[{ name: "activate", label: "Open Budgets" }]}
+          onAccessibilityAction={(e) => {
+            if (e.nativeEvent.actionName === "activate") go({ pathname: "/budgets" });
+          }}
+        >
           <Text variant="body" color={ROLE.muted}>
             Set a budget on the{" "}
-            <Text variant="listName" color={ROLE.ink} accessibilityRole="link" onPress={() => go("/budgets")} style={{ textDecorationLine: "underline" }}>
+            <Text variant="listName" color={ROLE.ink} accessibilityRole="link" onPress={() => go({ pathname: "/budgets" })} style={{ textDecorationLine: "underline" }}>
               Budgets
             </Text>{" "}
             screen to see how you&apos;re tracking.

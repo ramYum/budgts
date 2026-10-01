@@ -13,6 +13,7 @@ import {
 } from "../../lib/transactions/form";
 import type { Direction, MobileTransaction } from "../../lib/transactions/transactions-api";
 import { Button, Field } from "../brand/controls";
+import { PixelFrame } from "../brand/pixel-frame";
 import { Text } from "../brand/text";
 import { Checkbox } from "../kit/checkbox";
 import { DateField } from "../kit/date-field";
@@ -52,6 +53,8 @@ export function TransactionForm({
   save,
   onDone,
   onGone,
+  initialDirection = "debit",
+  lockDirection = false,
 }: {
   accounts: MobileAccount[];
   categories: MobileCategory[];
@@ -65,7 +68,15 @@ export function TransactionForm({
   onDone: (saved: boolean) => void;
   /** the row no longer exists */
   onGone?: () => void;
+  /** the direction a new entry starts with, e.g. "credit" for Home's Add income (web `initialDirection`) */
+  initialDirection?: Direction;
+  /**
+   * a new entry's direction is fixed: shown read-only, and money in lists only income categories (web `lockDirection`).
+   * Ignored when editing.
+   */
+  lockDirection?: boolean;
 }) {
+  const directionLocked = lockDirection && !initial;
   // A manual entry goes on an account that can still take one; an edited row keeps its own account listed even when it
   // no longer can (a disconnected bank's), so saving never moves it silently.
   const selectable = accounts.filter((a) => a.selectable);
@@ -73,13 +84,21 @@ export function TransactionForm({
     initial && !selectable.some((a) => a.id === initial.account.id)
       ? [{ value: initial.account.id, label: initial.account.name }, ...selectable.map((a) => ({ value: a.id, label: a.name }))]
       : selectable.map((a) => ({ value: a.id, label: a.name }));
+  const visibleCategories = directionLocked && initialDirection === "credit" ? categories.filter((c) => c.kind === "income") : categories;
   const categoryOptions = [
     { value: NONE, label: "Uncategorized" },
-    ...categories.map((c) => ({ value: c.id, label: `${c.name}${c.kind === "income" ? " (income)" : ""}` })),
+    ...visibleCategories.map((c) => ({ value: c.id, label: `${c.name}${!directionLocked && c.kind === "income" ? " (income)" : ""}` })),
   ];
 
   const [draft, setDraft] = useState<TransactionDraft>(() =>
-    initial ? draftFromTransaction(initial) : emptyDraft(defaultDate, selectable[0]?.id ?? null),
+    initial
+      ? draftFromTransaction(initial)
+      : {
+          ...emptyDraft(defaultDate, selectable[0]?.id ?? null),
+          direction: initialDirection,
+          // the web's default category: money in starts on the first income category
+          categoryId: initialDirection === "credit" ? (visibleCategories.find((c) => c.kind === "income")?.id ?? null) : null,
+        },
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<string | null>(null);
@@ -127,16 +146,35 @@ export function TransactionForm({
             />
           </View>
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Select<Direction>
-              testID="txn-form-direction"
-              label="Direction"
-              value={draft.direction}
-              options={[
-                { value: "debit", label: "Money out" },
-                { value: "credit", label: "Money in" },
-              ]}
-              onChange={(direction) => set({ direction })}
-            />
+            {directionLocked ? (
+              // the web's fixed direction: a px-band line, 16/24 graphite
+              <View style={{ gap: 6 }}>
+                <Text variant="formLabel" color={COLOR.graphite}>
+                  Direction
+                </Text>
+                <PixelFrame
+                  testID="txn-form-direction-locked"
+                  frame="px-band"
+                  accessibilityLabel={`Direction, ${initialDirection === "credit" ? "Money in" : "Money out"}`}
+                  style={{ paddingHorizontal: 8, paddingVertical: 4 }}
+                >
+                  <Text variant="input" color={COLOR.graphite}>
+                    {initialDirection === "credit" ? "Money in" : "Money out"}
+                  </Text>
+                </PixelFrame>
+              </View>
+            ) : (
+              <Select<Direction>
+                testID="txn-form-direction"
+                label="Direction"
+                value={draft.direction}
+                options={[
+                  { value: "debit", label: "Money out" },
+                  { value: "credit", label: "Money in" },
+                ]}
+                onChange={(direction) => set({ direction })}
+              />
+            )}
           </View>
         </View>
         <FieldError testID="txn-form-amount-error">{errors.amount}</FieldError>

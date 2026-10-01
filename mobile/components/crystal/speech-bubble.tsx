@@ -9,6 +9,45 @@ import { BIRD, SAY } from "./keyframes";
 /** A longer line wraps at 136px on a phone, so it never runs off screen. */
 export const BUBBLE_MAX = 136;
 
+/** The line's room inside the bubble: 136px less the ink badge's 4px frame and 8px padding, each side. */
+export const BUBBLE_TEXT_MAX = BUBBLE_MAX - 2 * 4 - 2 * 8;
+
+/** Dogica is monospaced: 8px a glyph at the tag size, plus the tag's 1px tracking; a space 2px narrower (word-spacing -0.25em). */
+export function tagWidth(text: string): number {
+  let w = 0;
+  for (const ch of text) w += ch === " " ? 7 : 9;
+  return w;
+}
+
+/** Greedy wrap at `width`: as many words per line as fit (a word longer than the line gets a line of its own). */
+function wrapAt(words: string[], width: number): string[] {
+  const lines: string[] = [];
+  let line = "";
+  for (const word of words) {
+    const next = line ? `${line} ${word}` : word;
+    if (line && tagWidth(next) > width) {
+      lines.push(line);
+      line = word;
+    } else line = next;
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+/**
+ * Her line as the web's `text-wrap: balance` sets it, the same on Android and iOS, decided before layout so the bubble
+ * never draws once and then re-wraps: as few lines as the bubble allows, then the narrowest width that still takes that
+ * many lines, so the lines come out as even as they can.
+ */
+export function bubbleText(text: string, max = BUBBLE_TEXT_MAX): string {
+  const words = text.split(" ");
+  const count = wrapAt(words, max).length;
+  if (count <= 1) return text;
+  let width = max;
+  while (width > 0 && wrapAt(words, width - 1).length === count) width -= 1;
+  return wrapAt(words, width).join("\n");
+}
+
 /** The tail: a two-cell step pointing at her (web `.crystal-tail`, a 4×6 stepped polygon). */
 function Tail({ side }: { side: "left" | "right" }) {
   // a bubble on her left points right: a full 2×6 column at its edge, then a 2×2 cell beyond it
@@ -44,6 +83,7 @@ export function SpeechBubble({
   testID?: string;
 }) {
   const timing = useMotionTiming(atMs);
+  const lines = bubbleText(text);
   const place = side === "left" ? { right: BIRD.width + 8 } : { left: BIRD.width + 8 };
   return (
     <Animated.View
@@ -75,9 +115,14 @@ export function SpeechBubble({
       ]}
     >
       <View>
-        <PixelFrame frame="px-badge-ink" style={{ paddingHorizontal: 8, paddingVertical: 3 }}>
-          <Text variant="pxTagBold" color={COLOR.white} textBreakStrategy="balanced" style={{ lineHeight: 12 }}>
-            {text}
+        <PixelFrame
+          testID={testID ? `${testID}-badge` : undefined}
+          frame="px-badge-ink"
+          // the web sizes the box to the unwrapped line, so a line that wraps draws the bubble's full 136px
+          style={[{ paddingHorizontal: 8, paddingVertical: 3 }, lines.includes("\n") ? { width: BUBBLE_MAX } : null]}
+        >
+          <Text variant="pxTagBold" color={COLOR.white} style={{ lineHeight: 12 }}>
+            {lines}
           </Text>
         </PixelFrame>
         <Tail side={side} />

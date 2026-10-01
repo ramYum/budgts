@@ -17,6 +17,13 @@ export function RefreshNotice({ message, onRetry }: { message: string; onRetry: 
       testID="home-refresh-notice"
       frame="px-warn"
       accessibilityRole="alert"
+      // Refresh is the card's one action: a screen reader reads the card and offers it
+      accessible
+      accessibilityLabel={`These numbers may be out of date. ${message}`}
+      accessibilityActions={[{ name: "activate", label: "Refresh" }]}
+      onAccessibilityAction={(e) => {
+        if (e.nativeEvent.actionName === "activate") onRetry();
+      }}
       style={{ flexDirection: "row", alignItems: "flex-start", gap: 12, padding: 12 }}
     >
       <Icon name="warning" color={ROLE.warn} />

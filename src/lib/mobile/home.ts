@@ -9,7 +9,8 @@
  * Removing or changing a field is a contract change: bump `MOBILE_HOME_VERSION`, update `mobile/lib/home/contract.ts`,
  * and update the shape test. Adding a field keeps the version (an older app ignores what it does not read); the shape test
  * still lists it. Added 2026-09-29 (Stage 2B): the spending cards (`suggestion`, `breakdown`, `trend`, `trendChange`) and
- * `bankConnected`, so the native Home can show everything the web Home does.
+ * `bankConnected`, so the native Home can show everything the web Home does. Added 2026-09-30 (Phase 3): `expenseCategories`
+ * (Home's chips and set-up count, so the app needs no second request).
  */
 import type { BudgetState } from "@/lib/budget/types";
 import type { HomeData, HomeRecentItem } from "@/lib/home/load-home";
@@ -51,6 +52,8 @@ export type MobileHome = MobileSpendingCards & {
   savings: { activeCount: number; totalSaved: number; totalTarget: number } | null;
   /** "Get set up": whether any bank connection exists; `null` when bank connections are switched off. */
   bankConnected: boolean | null;
+  /** The active expense categories, in the web Home's order: "Where it went"'s chips and "Get set up"'s count. */
+  expenseCategories: { id: string; name: string }[];
 };
 
 export function mobileCategories(home: { view: Pick<HomeData["view"], "bars"> }): MobileHomeCategory[] {
@@ -96,6 +99,7 @@ export function buildMobileHome(home: HomeData): MobileHome {
         ? { activeCount: savings.activeCount, totalSaved: savings.totalSaved, totalTarget: savings.totalTarget }
         : null,
     bankConnected: home.bankConnected,
+    expenseCategories: home.categories.filter((c) => c.kind === "expense").map((c) => ({ id: c.id, name: c.name })),
     ...spendingCards(home.view, home.prevView, home.trend),
   };
 }

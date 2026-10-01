@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ROAM } from "../../lib/brand/shared";
-import { advance, eventsOf, initialState, planUntil, replanAfterTap, standingAt, type RoamState } from "./roam-plan";
+import { advance, eventsOf, initialState, planUntil, replanAfterTap, standingAt, trimSteps, type RoamState } from "./roam-plan";
 
 /** A seeded generator, so a plan is the same every run. */
 function seeded(seed: number) {
@@ -117,5 +117,27 @@ describe("Crystal's walk plan (the web's timers, step for step)", () => {
   it("a narrow edge (nothing to walk) keeps her resting in place", () => {
     const { steps } = planUntil({ ...initialState(seeded(1)), at: 8600 }, 60_000, 0, seeded(2));
     expect(eventsOf(steps).hops).toEqual([]);
+  });
+});
+
+describe("trimming the walk as it is extended (review: she teleported to the middle)", () => {
+  it("keeps her place and facing identical across every extend, for many walks", async () => {
+    const { placeAt, facingAt } = await import("./motion");
+    let broken = 0;
+    for (let seed = 1; seed <= 200; seed++) {
+      const r = seeded(seed * 7919);
+      let plan = planUntil(initialState(r), 60_000, SPAN, r);
+      for (let now = 45_000; now < 300_000; now += 40_000) {
+        const before = eventsOf(plan.steps);
+        const more = planUntil(plan.pending, now + 60_000, SPAN, r);
+        const steps = [...trimSteps(plan.steps, now), ...more.steps];
+        const after = eventsOf(steps);
+        for (const t of [now, now + 100, now + 1000]) {
+          if (placeAt(after.hops, t) !== placeAt(before.hops, t) || facingAt(after.faces, t) !== facingAt(before.faces, t)) broken++;
+        }
+        plan = { steps, pending: more.pending };
+      }
+    }
+    expect(broken).toBe(0);
   });
 });

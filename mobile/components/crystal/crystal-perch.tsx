@@ -41,7 +41,7 @@ import {
   dust,
 } from "./keyframes";
 import { facingAt, hopArc, hopProgress, hopWing, peckOffset, placeAt, walkMoving } from "./motion";
-import { eventsOf, initialState, planUntil, replanAfterTap, standingAt, type Events, type RoamState, type Step } from "./roam-plan";
+import { eventsOf, initialState, planUntil, replanAfterTap, standingAt, trimSteps, type Events, type RoamState, type Step } from "./roam-plan";
 import { SpeechBubble } from "./speech-bubble";
 
 /** How far ahead her walk is worked out, and how long before its end the next stretch is added. */
@@ -142,7 +142,18 @@ type Speech = { id: number; kind: "tap" | "cheer"; text: string; side: "left" | 
  * the screen in front and the app is active. With motion off she sits in the
  * middle with her note on the month.
  */
-export function CrystalPerch({ name, savingsRate, awake = true }: { name: string; savingsRate: number | null; awake?: boolean }) {
+export function CrystalPerch({
+  name,
+  savingsRate,
+  awake = true,
+  layoutKey = "",
+}: {
+  name: string;
+  savingsRate: number | null;
+  awake?: boolean;
+  /** changes whenever something above the hero appears or goes (the budget warning, the refresh notice): her place on the page is measured again */
+  layoutKey?: string;
+}) {
   const reduced = useReducedMotion();
   const play = usePlay();
   const frozen = useMotionTiming(0).animationPlayState === "paused";
@@ -210,9 +221,8 @@ export function CrystalPerch({ name, savingsRate, awake = true }: { name: string
     if (!current) return;
     const now = clock.value;
     const more = planUntil(current.pending, now + PLAN_MS, spanSV.value, Math.random);
-    // drop what has long finished; keep the last few so her pose holds
-    const keep = current.steps.filter((s, i) => s.state.at >= now - 2000 || i >= current.steps.length - 3);
-    publish([...keep, ...more.steps], more.pending, now);
+    // drop what has long finished, never the last hop or turn her pose is read from
+    publish([...trimSteps(current.steps, now), ...more.steps], more.pending, now);
   }, [clock, spanSV, publish]);
 
   const onCheer = useCallback((k: number) => {
@@ -267,13 +277,22 @@ export function CrystalPerch({ name, savingsRate, awake = true }: { name: string
     return () => cancelAnimation(clock);
   }, [running, runClock, clock]);
 
-  function onTrackLayout(e: LayoutChangeEvent) {
-    setSpan(Math.max(0, e.nativeEvent.layout.width - BIRD.width));
+  // where her edge sits on the page, for the on-screen check; her own layout never changes when a block above her
+  // comes or goes, so the hero tells her (layoutKey) and she measures again
+  const measureTop = useCallback(() => {
     const content = watch?.contentRef.current;
-    if (content && trackRef.current && top.current === null)
+    if (content && trackRef.current)
       trackRef.current.measureLayout(content, (_x, y) => {
         top.current = y;
       });
+  }, [watch]);
+  useEffect(() => {
+    measureTop();
+  }, [layoutKey, measureTop]);
+
+  function onTrackLayout(e: LayoutChangeEvent) {
+    setSpan(Math.max(0, e.nativeEvent.layout.width - BIRD.width));
+    measureTop();
   }
 
   const tap = () => {

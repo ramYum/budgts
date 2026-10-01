@@ -1,7 +1,7 @@
+import type { Href } from "expo-router";
 import { act } from "react-test-renderer";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { byTestId, flat, hosts, render, textContent, texts } from "../../test/render";
-import type { MobileCategory } from "../../lib/categories/categories-api";
 import type { HomeCategory, MobileHome } from "../../lib/home/contract";
 import { HomeView } from "./home-view";
 import { resetOverAlertDismissals } from "./over-alert";
@@ -56,22 +56,20 @@ const full = (over: Partial<MobileHome> = {}): MobileHome => ({
     { month: "2026-09", spend: 174854 },
   ],
   trendChange: { total: 174854, delta: 24854, previousMonth: "2026-08" },
+  expenseCategories: [
+    { id: "a", name: "Groceries" },
+    { id: "c", name: "Dining" },
+  ],
   ...over,
 });
 
-const categories: MobileCategory[] = [
-  { id: "a", name: "Groceries", kind: "expense", color: "#000" },
-  { id: "b", name: "Salary", kind: "income", color: "#000" },
-  { id: "c", name: "Dining", kind: "expense", color: "#000" },
-];
 
-function view(home: MobileHome, over: { categories?: MobileCategory[] | null } = {}) {
+function view(home: MobileHome) {
   const props = {
     home,
-    categories: over.categories === undefined ? categories : over.categories,
     name: "Alex",
     hour: 14,
-    go: vi.fn<(path: string) => void>(),
+    go: vi.fn<(href: Href) => void>(),
     onMonth: vi.fn<(month: string) => void>(),
     onAddIncome: vi.fn<() => void>(),
     onAddTransaction: vi.fn<() => void>(),
@@ -152,7 +150,7 @@ describe("the budgets-over-income warning", () => {
       "This month's budgets add up to $4,000.00, more than the $3,200.00 you've brought in so far. Review your budgets.",
     );
     byTestId(r, "home-over-alert-review").props.onPress();
-    expect(props.go).toHaveBeenCalledWith("/budgets");
+    expect(props.go).toHaveBeenCalledWith({ pathname: "/budgets" });
     act(() => byTestId(r, "home-over-alert-dismiss").props.onPress());
     expect(r.root.findAll((n) => n.props.testID === "home-over-alert")).toHaveLength(0);
     // coming back to Home keeps it dismissed; another month still warns
@@ -189,9 +187,9 @@ describe("Where it went", () => {
     byTestId(r, "home-where-set-budget").props.onPress();
     rows[1]!.props.onAccessibilityAction({ nativeEvent: { actionName: "setBudget" } });
     expect(props.go.mock.calls.map((c) => c[0])).toEqual([
-      "/activity?m=2026-09&category=over",
-      "/budgets?m=2026-09&edit=unplanned",
-      "/budgets?m=2026-09&edit=unplanned",
+      { pathname: "/activity", params: { m: "2026-09", category: "over" } },
+      { pathname: "/budgets", params: { m: "2026-09", range: "month", edit: "unplanned" } },
+      { pathname: "/budgets", params: { m: "2026-09", range: "month", edit: "unplanned" } },
     ]);
     expect(rows[0]!.props.accessibilityActions).toBeUndefined();
   });
@@ -204,8 +202,8 @@ describe("Where it went", () => {
     expect(r.root.findAll((n) => n.props.testID === "home-where-summary")).toHaveLength(0);
   });
 
-  it("no chips while the categories load", () => {
-    const { r } = view(full({ spent: 0, categories: [] }), { categories: null });
+  it("no chips when there are no expense categories", () => {
+    const { r } = view(full({ spent: 0, categories: [], expenseCategories: [] }));
     expect(r.root.findAll((n) => n.props.testID === "home-category-chip")).toHaveLength(0);
   });
 
@@ -213,7 +211,7 @@ describe("Where it went", () => {
     const { r, props } = view(full({ categories: [], budgeted: 0 }));
     expect(textContent(byTestId(r, "home-where-no-budgets"))).toBe("Set a budget on the Budgets screen to see how you're tracking.");
     hosts(byTestId(r, "home-where-no-budgets"), "Text").find((t) => t.props.accessibilityRole === "link")!.props.onPress();
-    expect(props.go).toHaveBeenCalledWith("/budgets");
+    expect(props.go).toHaveBeenCalledWith({ pathname: "/budgets" });
   });
 });
 
@@ -223,14 +221,14 @@ describe("What can I change?", () => {
     const card = byTestId(r, "home-change");
     expect(textContent(card)).toBe("What can I change?Dining$150.00 this month, up $42.00 vs. last month");
     card.props.onPress();
-    expect(props.go).toHaveBeenCalledWith("/activity?m=2026-09&category=over");
+    expect(props.go).toHaveBeenCalledWith({ pathname: "/activity", params: { m: "2026-09", category: "over" } });
   });
 
   it("an unbudgeted category opens its budget", () => {
     const { r, props } = view(full({ suggestion: { kind: "unbudgeted", categoryId: "unplanned", name: "Fun", amount: 2500, share: 12 } }));
     expect(textContent(byTestId(r, "home-change"))).toBe("What can I change?Give Fun a budget$25.00 this month, 12% of spending.");
     byTestId(r, "home-change").props.onPress();
-    expect(props.go).toHaveBeenCalledWith("/budgets?m=2026-09&edit=unplanned");
+    expect(props.go).toHaveBeenCalledWith({ pathname: "/budgets", params: { m: "2026-09", range: "month", edit: "unplanned" } });
   });
 
   it("is absent with nothing to suggest", () => {
@@ -275,7 +273,7 @@ describe("Recent activity", () => {
     const { r, props } = view(full());
     for (const id of ["home-where", "home-savings", "home-recent"])
       byTestId(r, id).findAll((n) => typeof n.type === "string" && n.props.testID === "section-link")[0]!.props.onPress();
-    expect(props.go.mock.calls.map((c) => c[0])).toEqual(["/budgets?m=2026-09", "/goals", "/activity"]);
+    expect(props.go.mock.calls.map((c) => c[0])).toEqual([{ pathname: "/budgets", params: { m: "2026-09" } }, { pathname: "/goals" }, { pathname: "/activity" }]);
   });
 });
 
@@ -293,7 +291,6 @@ describe("a failed refresh", () => {
     const r = render(
       <HomeView
         home={full()}
-        categories={categories}
         name="Alex"
         hour={9}
         go={() => {}}
@@ -348,7 +345,7 @@ describe("Get set up", () => {
     byTestId(r, "home-setup-connect").props.onPress();
     byTestId(r, "home-setup-add-income").props.onPress();
     byTestId(r, "home-setup-set-budget").props.onPress();
-    expect(props.go.mock.calls.map((c) => c[0])).toEqual(["/connected-banks", "/budgets?m=2026-09"]);
+    expect(props.go.mock.calls.map((c) => c[0])).toEqual([{ pathname: "/connected-banks" }, { pathname: "/budgets", params: { m: "2026-09" } }]);
     expect(props.onAddIncome).toHaveBeenCalledOnce();
   });
 
@@ -361,9 +358,9 @@ describe("Get set up", () => {
     expect(textContent(byTestId(off, "home-setup"))).toContain("0 of 2");
   });
 
-  it("keeps the category line's place without a wrong count while the categories load", () => {
-    const { r } = view(fresh(), { categories: null });
-    expect(textContent(byTestId(r, "home-setup-budget"))).toBe("Give categories a budget\u00a0Set");
+  it("counts the expense categories from Home's own payload, in the web's singular", () => {
+    const { r } = view(fresh({ expenseCategories: [{ id: "a", name: "Groceries" }] }));
+    expect(textContent(byTestId(r, "home-setup-budget"))).toBe("Give categories a budget1 category is ready to plan.Set");
   });
 
   it("is gone once anything came in or went out", () => {
@@ -391,5 +388,33 @@ describe("the spending charts", () => {
       .findAll((n) => typeof n.type === "string" && n.props.testID === "section-title")
       .map((n) => textContent(n));
     expect(heads).toEqual(["Where it went", "Savings", "Recent activity", "Spending · 6 months", "Where your money goes"]);
+  });
+});
+
+describe("screen reader (review 🟢4, 🟢5)", () => {
+  it("a Where it went row reads its name, amount and the note under its cells, and has no press shrink", () => {
+    const { r } = view(full());
+    const rows = r.root.findAll((n) => typeof n.type === "string" && n.props.testID === "home-where-row");
+    expect(rows.map((n) => n.props.accessibilityLabel)).toEqual([
+      "Dining, $150.00, Over by $50.00 of $100.00",
+      "Fun, $25.00, No budget, all unplanned",
+      "Groceries, $185.55, $34.45 left of $220.00",
+    ]);
+    expect(typeof rows[0]!.props.style).not.toBe("function");
+  });
+
+  it("a card whose one link is its action offers it: the no-budgets card opens Budgets, the refresh notice refreshes", () => {
+    const { r, props } = view(full({ categories: [], budgeted: 0 }));
+    const card = byTestId(r, "home-where-no-budgets");
+    expect(card.props.accessibilityActions).toEqual([{ name: "activate", label: "Open Budgets" }]);
+    card.props.onAccessibilityAction({ nativeEvent: { actionName: "activate" } });
+    expect(props.go).toHaveBeenCalledWith({ pathname: "/budgets" });
+
+    const onRefresh = vi.fn();
+    const n = render(
+      <HomeView home={full()} name="Alex" hour={9} go={() => {}} onMonth={() => {}} onAddIncome={() => {}} onAddTransaction={() => {}} notice="Couldn't reach Budgts." onRefresh={onRefresh} />,
+    );
+    byTestId(n, "home-refresh-notice").props.onAccessibilityAction({ nativeEvent: { actionName: "activate" } });
+    expect(onRefresh).toHaveBeenCalledOnce();
   });
 });

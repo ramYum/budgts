@@ -8,7 +8,12 @@ const profileTimeZone = vi.fn();
 vi.mock("@/lib/auth/bearer-context", () => ({ getBearerContext: (...a: unknown[]) => getBearerContext(...a) }));
 vi.mock("@/lib/home/load-home", () => ({ loadHome: (...a: unknown[]) => loadHome(...a) }));
 vi.mock("@/lib/mobile/time-zone", () => ({ profileTimeZone: (...a: unknown[]) => profileTimeZone(...a) }));
-vi.mock("@/lib/plaid/ui-flag", () => ({ plaidUiEnabled: () => true }));
+const flag = vi.hoisted(() => ({ plaid: true }));
+const after = vi.hoisted(() => vi.fn());
+const nudgeRefresh = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/plaid/ui-flag", () => ({ plaidUiEnabled: () => flag.plaid }));
+vi.mock("next/server", async (orig) => ({ ...(await orig<typeof import("next/server")>()), after: (fn: () => unknown) => after(fn) }));
+vi.mock("@/server/plaid/service", () => ({ nudgeRefresh: (...a: unknown[]) => nudgeRefresh(...a) }));
 
 import { GET } from "./route";
 
@@ -19,6 +24,9 @@ function req(url = "https://example.test/api/mobile/home", headers: Record<strin
 }
 
 beforeEach(() => {
+  flag.plaid = true;
+  after.mockReset();
+  nudgeRefresh.mockReset();
   getBearerContext.mockReset();
   loadHome.mockReset();
   profileTimeZone.mockReset();
@@ -29,6 +37,27 @@ beforeEach(() => {
 });
 
 describe("GET /api/mobile/home", () => {
+  it("nudges the caller's bank sync after answering, as the web Home does (throttled in nudgeRefresh)", async () => {
+    const res = await GET(req());
+    expect(res.status).toBe(200);
+    expect(after).toHaveBeenCalledTimes(1);
+    expect(nudgeRefresh).not.toHaveBeenCalled(); // scheduled, not awaited
+    await after.mock.calls[0]![0]();
+    expect(nudgeRefresh).toHaveBeenCalledWith("user-a");
+  });
+
+  it("does not nudge while bank connections are switched off", async () => {
+    flag.plaid = false;
+    await GET(req());
+    expect(after).not.toHaveBeenCalled();
+  });
+
+  it("does not nudge for a request it refuses", async () => {
+    getBearerContext.mockResolvedValue(null);
+    await GET(req());
+    expect(after).not.toHaveBeenCalled();
+  });
+
   it("rejects an unauthenticated request with 401 and reads no data", async () => {
     getBearerContext.mockResolvedValue(null);
 

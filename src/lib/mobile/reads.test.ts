@@ -153,6 +153,7 @@ describe("loadTransactionsPage", () => {
     is_transfer: false,
     category: { id: UUID, name: "Groceries", color: "#0f0" },
     account: { id: "a1", name: "Wallet", is_archived: false },
+    source: "manual",
     ...over,
   });
 
@@ -183,11 +184,18 @@ describe("loadTransactionsPage", () => {
     expect(calls.transactions.some((c) => c[1] === "removed_at" || c[1] === "duplicate_of_id")).toBe(false);
   });
 
-  it("filters by category and searches descriptions with LIKE metacharacters escaped", async () => {
+  it("filters by category, and never by a text search (the app filters every row of the month itself, as the web)", async () => {
     const { supabase, calls } = fakeSupabase({ transactions: { data: [] } });
-    await loadTransactionsPage(supabase, { month: "2026-09", plaidOn: false, limit: 50, categoryId: UUID, search: "50%_off\\" });
+    await loadTransactionsPage(supabase, { month: "2026-09", plaidOn: false, limit: 50, categoryId: UUID });
     expect(calls.transactions).toContainEqual(["eq", "category_id", UUID]);
-    expect(calls.transactions).toContainEqual(["ilike", "description", "%50\\%\\_off\\\\%"]);
+    expect(calls.transactions.some((c) => c[0] === "ilike")).toBe(false);
+  });
+
+  it("says where each row came from, so a bank row's account can be shown locked (owner decision 2026-09-30)", async () => {
+    const { supabase, calls } = fakeSupabase({ transactions: { data: [row(1, { source: "bank" }), row(2)] } });
+    const { items } = await loadTransactionsPage(supabase, { month: "2026-09", plaidOn: false, limit: 10 });
+    expect(String(calls.transactions.find((c) => c[0] === "select")?.[1])).toContain("source");
+    expect(items.map((t) => t.source)).toEqual(["bank", "manual"]);
   });
 
   it("pages by the (occurred_at, created_at, id) keyset, and reports the next cursor only when more rows exist", async () => {
@@ -230,6 +238,7 @@ describe("loadTransactionsPage", () => {
       isTransfer: false,
       category: { id: UUID, name: "Groceries", color: "#0f0" },
       account: { id: "a1", name: "Wallet" },
+      source: "manual",
       uncategorized: false,
     });
     expect(items[1].uncategorized).toBe(true);

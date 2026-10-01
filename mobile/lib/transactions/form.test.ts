@@ -85,6 +85,7 @@ describe("draftFromTransaction", () => {
       isTransfer: true,
       category: { id: "c1", name: "Dining", color: "#f00" },
       account: { id: ACCOUNT, name: "Wallet" },
+      source: "manual",
       uncategorized: false,
     };
     expect(draftFromTransaction(t)).toEqual({

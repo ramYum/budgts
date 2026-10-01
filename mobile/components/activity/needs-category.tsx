@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, View } from "react-native";
 import { COLOR, ROLE } from "../../lib/brand/shared";
 import { formatDayShort, formatMoney } from "../../lib/shared";
@@ -140,6 +140,14 @@ export function NeedsCategory({
   const [error, setError] = useState<string | null>(null);
   const [rescanning, setRescanning] = useState(false);
   const [addingFor, setAddingFor] = useState<NeedsCategoryGroup | null>(null);
+
+  // A fresh list from the server forgets picks it no longer holds, so a merchant a later sync brings back shows again.
+  useEffect(() => {
+    setDone((prev) => {
+      const keep = [...prev].filter((key) => groups.some((g) => g.key === key));
+      return keep.length === prev.size ? prev : new Set(keep);
+    });
+  }, [groups]);
 
   const visible = groups.filter((g) => !done.has(g.key));
   if (visible.length === 0) return null;

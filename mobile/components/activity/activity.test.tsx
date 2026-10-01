@@ -1,4 +1,4 @@
-import { act } from "react-test-renderer";
+import { act, create, type ReactTestRenderer } from "react-test-renderer";
 import { describe, expect, it, vi } from "vitest";
 import { COLOR, ROLE } from "../../lib/brand/shared";
 import type { LoadState, MutationOutcome } from "../../lib/api/load";
@@ -8,7 +8,9 @@ import { SLICE } from "../../lib/transactions/activity-view";
 import type { MobileTransaction } from "../../lib/transactions/transactions-api";
 import type { LedgerState } from "../../lib/transactions/use-ledger";
 import { byTestId, flat, render, textContent, texts } from "../../test/render";
-import { ActivityView, type ActivityViewProps } from "./activity-view";
+import { reducedMotion } from "../../test/native-hosts";
+import { ScrollWatchProvider, type ScrollWatch } from "../motion/scroll-context";
+import { ActivityView, FOCUS_GAP, type ActivityViewProps } from "./activity-view";
 import { choiceOf, formatNet, groupMeta, humanizePfc, pickerOptions } from "./needs-category";
 import { AHEAD, withinReach } from "./show-more";
 
@@ -28,6 +30,7 @@ const txn = (id: string, over: Partial<MobileTransaction> = {}): MobileTransacti
   isTransfer: false,
   category: { id: "groceries", name: "Groceries", color: "#000" },
   account: { id: "a1", name: "Everyday checking" },
+  source: "manual",
   uncategorized: false,
   ...over,
 });
@@ -72,6 +75,7 @@ function view(over: Partial<ActivityViewProps> = {}) {
     currency: "USD",
     category: null,
     onClearCategory: vi.fn(),
+    onFocused: vi.fn(),
     ledger: ready([txn("a")]),
     notice: null,
     onRetryRest: vi.fn(),
@@ -195,15 +199,23 @@ describe("the category band (web ?category=)", () => {
   it("says 'Showing <name>' and clears", () => {
     const { r, props } = view({ category: { id: "groceries", name: "Groceries" } });
     expect(textContent(byTestId(r, "category-band"))).toContain("Showing Groceries");
-    act(() => byTestId(r, "category-band-clear").props.onPress());
+    const clear = byTestId(r, "category-band-clear");
+    expect(clear.props.accessibilityLabel).toBe("Clear category filter");
+    act(() => clear.props.onPress());
     expect(props.onClearCategory).toHaveBeenCalled();
+  });
+
+  it("waits for the category's name instead of flashing 'Showing category'", () => {
+    const { r } = view({ category: { id: "groceries", name: null } });
+    expect(has(r, "category-band")).toBe(0);
   });
 });
 
 describe("panels (GET /api/mobile/activity)", () => {
   it("shows each limited-history line", () => {
     const { r } = view({ extras: extrasOf({ limitedHistory: ["Chase sent 30 days.", "Amex sent 60 days."] }) });
-    expect(texts(byTestId(r, "limited-history-banner"))).toEqual(["Chase sent 30 days.", "Amex sent 60 days."]);
+    const lines = r.root.findAll((n) => typeof n.type === "string" && n.props.testID === "limited-history-banner");
+    expect(lines.map((l) => texts(l).join(""))).toEqual(["Chase sent 30 days.", "Amex sent 60 days."]); // one id per line, as the web
   });
 
   it("leads with 'Needs a category': the total, three merchants, then 'Show N more'", () => {
@@ -231,9 +243,106 @@ describe("panels (GET /api/mobile/activity)", () => {
 
   it("a failed panel read is said, with a way to try again (never a silently empty to-do list)", () => {
     const { r, props } = view({ extras: { status: "error", kind: "network", message: "x" } });
-    expect(textContent(byTestId(r, "needs-category-error"))).toContain("Couldn't check for purchases that need a category.");
+    expect(textContent(byTestId(r, "activity-extras-error"))).toContain("Couldn't check for purchases that need a category.");
     act(() => r.root.find((n) => n.props.accessibilityLabel === "Try again" && typeof n.type === "string").props.onPress());
     expect(props.onRetryExtras).toHaveBeenCalled();
+  });
+});
+
+describe("a month still arriving (the web shows the page only once every row is read)", () => {
+  const partial = (items: MobileTransaction[]) => ready(items, { cursor: "c1" });
+
+  it("never says 'No matching transactions.' before the rest has come; the skeleton footer says it is loading", () => {
+    const { r } = view({ ledger: partial([txn("a", { description: "Coffee" })]) });
+    act(() => byTestId(r, "activity-search-input").props.onChangeText("rent"));
+    expect(has(r, "activity-no-match")).toBe(0);
+    expect(has(r, "activity-rest-loading")).toBe(1);
+  });
+
+  it("holds each day's net until the day is complete", () => {
+    expect(has(view({ ledger: partial([txn("a")]) }).r, "txn-day-total")).toBe(0);
+    expect(has(view({ ledger: ready([txn("a")]) }).r, "txn-day-total")).toBe(1);
+  });
+
+  it("a later page that failed: the rows so far, no 'No matching', and the way to load the rest", () => {
+    const { r } = view({ ledger: ready([txn("a", { description: "Coffee" })], { cursor: "c1", restError: "Couldn't reach Budgts." }) });
+    act(() => byTestId(r, "activity-search-input").props.onChangeText("rent"));
+    expect(has(r, "activity-no-match")).toBe(0);
+    expect(has(r, "activity-rest-error")).toBe(1);
+    expect(has(r, "txn-day-total")).toBe(0);
+  });
+});
+
+describe("Needs a category after a sync", () => {
+  it("a merchant that was picked can come back when a later sync brings new rows for it", async () => {
+    const onCategorize = vi.fn(async (): Promise<MutationOutcome> => ({ status: "ok" }));
+    const g = group("m1", 1, { suggestedCategoryId: "dining" });
+    const other = group("m2", 1); // keeps the card on screen throughout
+    const base: Omit<ActivityViewProps, "extras"> = { ...view().props };
+    const r = render(<ActivityView {...base} onCategorize={onCategorize} extras={extrasOf({ needsCategory: [g, other] })} />);
+    await act(async () => byTestId(r, "needs-category-suggestion").props.onPress());
+    expect(has(r, "needs-category-group")).toBe(1);
+    // the refresh after the pick: the merchant is gone
+    act(() => r.update(<ActivityView {...base} onCategorize={onCategorize} extras={extrasOf({ needsCategory: [other] })} />));
+    // a later sync: new rows for the same merchant
+    act(() => r.update(<ActivityView {...base} onCategorize={onCategorize} extras={extrasOf({ needsCategory: [{ ...g, anchorId: "m1-9" }, other] })} />));
+    expect(has(r, "needs-category-group")).toBe(2);
+  });
+});
+
+describe("the header bell's focus=needs-category (web /transactions#needs-category)", () => {
+  function mounted(over: Partial<ActivityViewProps>) {
+    const scrollTo = vi.fn();
+    const watch: ScrollWatch = { contentRef: { current: {} as never }, viewport: () => ({ height: 800, y: 0 }), subscribe: () => () => {}, scrollTo };
+    const props = { ...view().props, ...over };
+    let r!: ReactTestRenderer;
+    act(() => {
+      r = create(
+        <ScrollWatchProvider watch={watch}>
+          <ActivityView {...props} />
+        </ScrollWatchProvider>,
+        // every host measures 640px down the content (the card's place under the header, month and banners)
+        { createNodeMock: () => ({ measureLayout: (_c: unknown, done: (x: number, y: number) => void) => done(0, 640) }) },
+      );
+    });
+    return { r, scrollTo, props };
+  }
+
+  it("scrolls the card to just under the header, once, then clears the param", () => {
+    const onFocused = vi.fn();
+    const { r, scrollTo, props } = mounted({ focus: "needs-category", onFocused, extras: extrasOf({ needsCategory: [group("m1")] }) });
+    expect(scrollTo).toHaveBeenCalledTimes(1);
+    expect(scrollTo).toHaveBeenCalledWith(640 - FOCUS_GAP, true);
+    expect(onFocused).toHaveBeenCalledTimes(1);
+    // a later layout (a group expanding) never scrolls again
+    act(() => r.root.findAll((n) => typeof n.props.onLayout === "function").forEach((n) => n.props.onLayout({ nativeEvent: { layout: {} } })));
+    expect(scrollTo).toHaveBeenCalledTimes(1);
+    void props;
+  });
+
+  it("waits for the panels to load; with nothing to categorize it only clears the param", () => {
+    const onFocused = vi.fn();
+    const loading = mounted({ focus: "needs-category", onFocused, extras: { status: "loading" } });
+    expect(loading.scrollTo).not.toHaveBeenCalled();
+    expect(onFocused).not.toHaveBeenCalled();
+    const none = mounted({ focus: "needs-category", onFocused, extras: extrasOf({ needsCategory: [] }) });
+    expect(none.scrollTo).not.toHaveBeenCalled();
+    expect(onFocused).toHaveBeenCalledTimes(1);
+  });
+
+  it("no param, no scroll", () => {
+    const { scrollTo } = mounted({ focus: null, extras: extrasOf({ needsCategory: [group("m1")] }) });
+    expect(scrollTo).not.toHaveBeenCalled();
+  });
+
+  it("under Reduce Motion the jump is instant", () => {
+    reducedMotion.value = true;
+    try {
+      const { scrollTo } = mounted({ focus: "needs-category", extras: extrasOf({ needsCategory: [group("m1")] }) });
+      expect(scrollTo).toHaveBeenCalledWith(640 - FOCUS_GAP, false);
+    } finally {
+      reducedMotion.value = false;
+    }
   });
 });
 

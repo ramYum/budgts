@@ -34,9 +34,11 @@ export function WarnLine({ children, testID, action }: { children: string; testI
 export function LimitedHistoryBanner({ messages }: { messages: string[] }) {
   if (messages.length === 0) return null;
   return (
-    <View testID="limited-history-banner" style={{ marginBottom: 24, gap: 8 }}>
+    <View style={{ marginBottom: 24, gap: 8 }}>
       {messages.map((m, i) => (
-        <WarnLine key={i}>{m}</WarnLine>
+        <WarnLine key={i} testID="limited-history-banner">
+          {m}
+        </WarnLine>
       ))}
     </View>
   );

@@ -343,6 +343,7 @@ export const NATIVE_ONLY: Readonly<Record<string, string>> = {
   "accounts-error": "the web drops a refused archive silently",
   "categories-error": "the web's category archive shows no error line",
   "activity-notice, activity-rest-loading, activity-rest-error": "native paging and refresh states",
+  "activity-extras-error": "native only: the web hides a failed Needs a category read; GET /api/mobile/activity answers 503, shown with Try again",
 };
 
 /** A contract entry as a matcher: each `<name>` placeholder stands for one or more characters. */

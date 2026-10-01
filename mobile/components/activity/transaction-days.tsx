@@ -69,8 +69,8 @@ export const TransactionDays = memo(function TransactionDays({
   onOpen,
 }: {
   rows: MobileTransaction[];
-  /** each day's net across every matching row, not just the rendered slice */
-  totals: Map<string, number>;
+  /** each day's net across every matching row, not just the rendered slice; null while the month is still arriving */
+  totals: Map<string, number> | null;
   kinds: Map<string, "expense" | "income">;
   currency: string;
   onOpen: (t: MobileTransaction) => void;
@@ -86,9 +86,11 @@ export const TransactionDays = memo(function TransactionDays({
             <Text testID="txn-day-label" variant="tLabelStrong" color={COLOR.graphite}>
               {dayLabel(day)}
             </Text>
-            <Text testID="txn-day-total" variant="tLabel" color={ROLE.muted} style={TNUM}>
-              {signedTotal(totals.get(day) ?? 0, currency)}
-            </Text>
+            {totals ? (
+              <Text testID="txn-day-total" variant="tLabel" color={ROLE.muted} style={TNUM}>
+                {signedTotal(totals.get(day) ?? 0, currency)}
+              </Text>
+            ) : null}
           </View>
           <View style={{ paddingHorizontal: 8 }}>
             {dayRows.map((t, j) => (

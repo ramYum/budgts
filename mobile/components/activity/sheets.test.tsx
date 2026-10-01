@@ -35,6 +35,7 @@ const txn = (over: Partial<MobileTransaction> = {}): MobileTransaction => ({
   isTransfer: false,
   category: { id: "c-food", name: "Groceries", color: "#000" },
   account: { id: "a2", name: "Travel card" },
+  source: "manual",
   uncategorized: false,
   ...over,
 });
@@ -54,7 +55,7 @@ function form(over: Partial<Parameters<typeof TransactionForm>[0]> = {}) {
   const save = vi.fn(async (): Promise<MutationOutcome> => ({ status: "ok" }));
   const onDone = vi.fn();
   const r = render(
-    <TransactionForm accounts={accounts} categories={categories} defaultDate="2026-09-29" submitLabel="Add transaction" save={save} onDone={onDone} {...over} />,
+    <TransactionForm accounts={accounts} categories={categories} defaultDate="2026-09-29" submitLabel="Add" save={save} onDone={onDone} {...over} />,
   );
   return { r, save, onDone };
 }
@@ -72,7 +73,7 @@ describe("TransactionForm (web transaction-form.tsx)", () => {
     expect(find(r, "txn-form-direction").props.accessibilityLabel).toBe("Direction, Money out");
     expect(find(r, "txn-form-category").props.accessibilityLabel).toBe("Category, Uncategorized");
     expect(find(r, "txn-form-date").props.accessibilityLabel).toBe("Date, 09/29/2026");
-    expect(texts(find(r, "txn-form-save"))).toContain("Add transaction");
+    expect(texts(find(r, "txn-form-save"))).toContain("Add");
   });
 
   it("lists only accounts that can take an entry, and marks income categories", () => {
@@ -105,7 +106,7 @@ describe("TransactionForm (web transaction-form.tsx)", () => {
     expect(draft).toMatchObject({ accountId: "a1", categoryId: "c-food", amount: "12.50", direction: "debit", date: "2026-09-29", description: "Lunch", isTransfer: true });
     expect(id1).toMatch(/^[A-Za-z0-9-]{8,64}$/);
     expect(id2).toBe(id1);
-    expect(onDone).toHaveBeenCalledWith(true);
+    expect(onDone).toHaveBeenCalledWith(true, { id: undefined, retried: true });
   });
 
   it("shows each field error the server names under its field (occurredAt under Date)", async () => {
@@ -132,12 +133,53 @@ describe("TransactionForm (web transaction-form.tsx)", () => {
     expect(find(r, "txn-form-transfer").props.accessibilityState).toMatchObject({ checked: true });
   });
 
-  it("edits a row as it is, keeping its account listed even when it can no longer take entries, with no request id", async () => {
+  it("edits a row as it is, its own account added at the end of the list when it can no longer take entries, no request id", async () => {
     const { r, save } = form({ initial: txn({ account: { id: "gone", name: "Old bank" } }), submitLabel: "Save changes" });
     expect(find(r, "txn-form-account").props.accessibilityLabel).toBe("Account, Old bank");
+    act(() => find(r, "txn-form-account").props.onPress());
+    const listed = r.root
+      .findAll((n) => typeof n.type === "string" && typeof n.props.testID === "string" && n.props.testID.startsWith("txn-form-account-option-"))
+      .map((n) => n.props.testID.replace("txn-form-account-option-", ""));
+    expect(listed).toEqual(["a1", "a2", "gone"]); // the web appends it (transaction-form.tsx accountOptions)
     expect(find(r, "txn-form-amount").props.value).toBe("12.34");
     await press(r, "txn-form-save");
     expect(save.mock.calls[0]).toEqual([expect.objectContaining({ accountId: "gone", note: "weekly shop" }), undefined]);
+  });
+
+  it("a bank row's account is shown, not chosen: the web's px-band line, and the save keeps it (owner decision 2026-09-30)", async () => {
+    const { r, save } = form({ initial: txn({ source: "bank", account: { id: "gone", name: "Chase checking" } }), submitLabel: "Save changes" });
+    expect(() => find(r, "txn-form-account")).toThrow();
+    const locked = r.root.find((n) => n.type === PixelFrame && n.props.testID === "txn-form-account-locked");
+    expect(textContent(locked)).toBe("Chase checking");
+    expect(locked.props.frame).toBe("px-band");
+    const words = r.root.find((n) => (n.type as unknown) === "Text" && textContent(n) === "Chase checking");
+    expect(flat(words.props.style)).toMatchObject({ fontSize: 16, lineHeight: 24, color: "#3d3d3d" });
+    await press(r, "txn-form-save");
+    expect((save.mock.calls[0] as unknown as [Record<string, unknown>])[0]).toMatchObject({ accountId: "gone" });
+  });
+
+  it("a manual row's account is still a choice", () => {
+    const { r } = form({ initial: txn({ source: "manual" }), submitLabel: "Save changes" });
+    expect(find(r, "txn-form-account").props.accessibilityLabel).toBe("Account, Travel card");
+  });
+
+  it("a create retried after a failure reports the row the server kept, so the sheet can show what was saved", async () => {
+    const { r, save, onDone } = form();
+    act(() => find(r, "txn-form-amount").props.onChangeText("12.50"));
+    save.mockResolvedValueOnce({ status: "error", kind: "network", message: "Couldn't reach Budgts." });
+    await press(r, "txn-form-save");
+    act(() => find(r, "txn-form-amount").props.onChangeText("15.00"));
+    save.mockResolvedValueOnce({ status: "ok", id: "t-kept" });
+    await press(r, "txn-form-save");
+    expect(onDone).toHaveBeenCalledWith(true, { id: "t-kept", retried: true });
+  });
+
+  it("a first-try create reports its row too, without the retry mark", async () => {
+    const { r, save, onDone } = form();
+    act(() => find(r, "txn-form-amount").props.onChangeText("12.50"));
+    save.mockResolvedValueOnce({ status: "ok", id: "t-new" });
+    await press(r, "txn-form-save");
+    expect(onDone).toHaveBeenCalledWith(true, { id: "t-new", retried: false });
   });
 
   it("Cancel closes without saving", async () => {
@@ -271,7 +313,9 @@ describe("Add and Edit sheets", () => {
     act(() => failed.root.find((n) => typeof n.type === "string" && n.props.accessibilityLabel === "Try again").props.onPress());
     expect(onRetry).toHaveBeenCalled();
     const r = render(<AddTransactionSheet data={ready} defaultDate="2026-09-15" commands={commands()} onClose={vi.fn()} />);
-    expect(texts(r.root)).toContain("Add transaction");
+    expect(textContent(find(r, "sheet-title"))).toBe("Add transaction"); // the sheet's title
+    expect(texts(find(r, "txn-form-save"))).toContain("Add"); // web add-transaction.tsx: submitLabel "Add"
+    expect(texts(find(r, "txn-form-save"))).not.toContain("Add transaction");
     expect(find(r, "txn-form-date").props.accessibilityLabel).toBe("Date, 09/15/2026");
   });
 

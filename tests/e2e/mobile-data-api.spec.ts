@@ -31,7 +31,7 @@ const nextMonth = (() => {
 type Account = { id: string; name: string; source: string; archived: boolean; selectable: boolean };
 /** `/categories` rows carry `kind`; `/budgets` rows carry `budget`. */
 type Category = { id: string; kind: string; budget: number };
-type Txn = { id: string; description: string; amount: number };
+type Txn = { id: string; description: string; amount: number; source: string };
 /** The union of every field this test reads from the native API's JSON bodies (asserted where it matters). */
 type Body = {
   error: string;
@@ -175,8 +175,10 @@ test("native data API end to end, with cross-user isolation", async ({ request }
     // Filters.
     body = await json(await request.get(`/api/mobile/transactions?month=${thisMonth}&category=${catOne.id}`, { headers: headersA }));
     expect(body.items).toHaveLength(2);
+    // No server text search: the app filters every row of the month itself, as the web does; a stray param changes nothing.
     body = await json(await request.get(`/api/mobile/transactions?month=${thisMonth}&search=${encodeURIComponent("50%_off")}`, { headers: headersA }));
-    expect(body.items.map((t) => t.description)).toEqual(["Groceries 50%_off"]); // LIKE metacharacters are literal
+    expect(body.items).toHaveLength(3);
+    expect(body.items.every((t) => t.source === "manual")).toBe(true);
     expect((await request.get(`/api/mobile/transactions?month=${thisMonth}&cursor=garbage`, { headers: headersA })).status()).toBe(422);
 
     // Edit and delete.

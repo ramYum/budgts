@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ActivityView } from "../../../../components/activity/activity-view";
 import { transferToggleDraft } from "../../../../components/activity/transaction-form";
@@ -12,12 +12,12 @@ import { useAuth } from "../../../../lib/auth/auth-context";
 import { useVersion } from "../../../../lib/api/invalidate";
 import { loadResource } from "../../../../lib/api/load";
 import { useResource } from "../../../../lib/api/use-resource";
-import { parseCategories } from "../../../../lib/categories/categories-api";
 import { useProfile, useUserDates } from "../../../../lib/profile/profile-context";
-import { parseActivityExtras } from "../../../../lib/transactions/activity-api";
 import { newRequestId } from "../../../../lib/transactions/form";
 import type { MobileTransaction } from "../../../../lib/transactions/transactions-api";
 import { useLedger } from "../../../../lib/transactions/use-ledger";
+import { useActivityPanels } from "../../../../lib/transactions/use-activity-panels";
+import { revealAfterSave } from "../../../../lib/transactions/activity-view";
 import { useTransactionCommands } from "../../../../lib/transactions/use-transaction-commands";
 
 type Sheet = { kind: "view"; t: MobileTransaction } | { kind: "edit"; t: MobileTransaction } | { kind: "add" } | null;
@@ -28,12 +28,12 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 /**
  * Activity: the web's /transactions (components/activity/activity-view.tsx). The month and the category live in the route
  * (`/activity?m=2026-09&category=<id>`, the web's `?m=` and `?category=`), so Home, Budgets, Insights and Categories can
- * open it narrowed. Rows come from `GET /api/mobile/transactions` (every page of the month), the panels from
+ * open it narrowed; the header bell adds `focus=needs-category` (the web's `#needs-category`). Rows come from `GET /api/mobile/transactions` (every page of the month), the panels from
  * `GET /api/mobile/activity`; the device computes no money.
  */
 export default function ActivityScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ m?: string; category?: string }>();
+  const params = useLocalSearchParams<{ m?: string; category?: string; focus?: string }>();
   const { signOut } = useAuth();
   const { month: thisMonth, today } = useUserDates();
   const { state: profile } = useProfile();
@@ -43,30 +43,32 @@ export default function ActivityScreen() {
   const categoryId = typeof params.category === "string" && UUID.test(params.category) ? params.category : null;
 
   const ledger = useLedger({ month, category: categoryId });
-  const extras = useResource("activity-extras", (s) => loadResource(() => authFetch("/api/mobile/activity", s), parseActivityExtras));
-  const categories = useResource("activity-categories", (s) => loadResource(() => authFetch("/api/mobile/categories", s), parseCategories));
+  const { extras, categories } = useActivityPanels();
   const accountsVersion = useVersion("accounts");
   const accounts = useResource("activity-accounts", (s) => loadResource(() => authFetch("/api/mobile/accounts", s), parseAccounts), {
     version: accountsVersion,
   });
   const commands = useTransactionCommands();
   const [sheet, setSheet] = useState<Sheet>(null);
-
-  // A save or a sync (the transactions topic) can change what needs a category and which categories exist: re-read quietly.
-  const version = useVersion("transactions");
-  const seen = useRef(version);
-  const { refresh: refreshExtras } = extras;
-  const { refresh: refreshCategories } = categories;
-  useEffect(() => {
-    if (seen.current === version) return;
-    seen.current = version;
-    void refreshExtras();
-    void refreshCategories();
-  }, [version, refreshExtras, refreshCategories]);
+  /** the pull-to-refresh spinner: only a pull shows it, never a save or a sync refreshing in the background */
+  const [pulling, setPulling] = useState(false);
+  /** a create that may have been a replay: its row opens once the refreshed month has it (see `revealAfterSave`) */
+  const [reveal, setReveal] = useState<{ id: string; since: unknown } | null>(null);
 
   const cats = categories.state.status === "ready" ? categories.state.data : null;
   const kinds = useMemo(() => new Map((cats ?? []).map((c) => [c.id, c.kind] as const)), [cats]);
-  const category = categoryId ? { id: categoryId, name: cats?.find((c) => c.id === categoryId)?.name ?? "category" } : null;
+  // the name once the categories are in (the web's "category" when it isn't one of them); null while they load
+  const category = categoryId
+    ? { id: categoryId, name: categories.state.status === "loading" ? null : (cats?.find((c) => c.id === categoryId)?.name ?? "category") }
+    : null;
+
+  useEffect(() => {
+    if (!reveal) return;
+    const next = revealAfterSave(ledger.state, reveal);
+    if (next === "wait") return;
+    setReveal(null);
+    if (next !== "drop") setSheet({ kind: "view", t: next.open });
+  }, [ledger.state, reveal]);
 
   // The web's rule for a new entry's date: today in the current month, else the shown month's 15th.
   const defaultDate = month === thisMonth ? today : `${month}-15`;
@@ -91,7 +93,15 @@ export default function ActivityScreen() {
     ) : sheet?.kind === "edit" ? (
       <EditTransactionSheet transaction={sheet.t} data={formData} commands={commands} onClose={() => setSheet(null)} />
     ) : sheet?.kind === "add" ? (
-      <AddTransactionSheet data={formData} defaultDate={defaultDate} commands={commands} onClose={() => setSheet(null)} />
+      <AddTransactionSheet
+        data={formData}
+        defaultDate={defaultDate}
+        commands={commands}
+        onClose={(saved) => {
+          setSheet(null);
+          if (saved?.retried && saved.id) setReveal({ id: saved.id, since: ledger.state.status === "ready" ? ledger.state.page : null });
+        }}
+      />
     ) : null;
 
   // The web's one loading shape while the month loads, and its error / offline screens when it can't.
@@ -109,11 +119,10 @@ export default function ActivityScreen() {
 
   return (
     <Screen
-      refreshing={ledger.refreshing}
+      refreshing={pulling}
       onRefresh={() => {
-        void ledger.refresh();
-        void extras.refresh();
-        void categories.refresh();
+        setPulling(true);
+        void Promise.all([ledger.refresh(), extras.refresh(), categories.refresh()]).finally(() => setPulling(false));
       }}
     >
       <ActivityView
@@ -122,6 +131,8 @@ export default function ActivityScreen() {
         currency={currency}
         category={category}
         onClearCategory={() => router.setParams({ category: undefined })}
+        focus={params.focus ?? null}
+        onFocused={() => router.setParams({ focus: undefined })}
         ledger={ledger.state}
         notice={ledger.notice ?? extras.notice}
         onRetryRest={() => void ledger.retryRest()}

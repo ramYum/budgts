@@ -14,7 +14,7 @@ import { Text } from "../brand/text";
 import { Skeleton } from "../feedback/skeleton";
 import { Overlay } from "../kit/overlay";
 import { CategoryIcon } from "../kit/tiles";
-import { FieldError, TransactionForm } from "./transaction-form";
+import { FieldError, TransactionForm, type Saved } from "./transaction-form";
 
 
 /** "Tuesday, September 29, 2026" (the web's own formatter). */
@@ -154,7 +154,7 @@ function FormGate({ data, children }: { data: TransactionFormData; children: (ac
   return <>{children(accounts.data, categories.data)}</>;
 }
 
-/** "Add transaction" (web `add-transaction.tsx`): the form in a sheet, "Add transaction" to save. */
+/** "Add transaction" (web `add-transaction.tsx`): the form in a sheet, "Add" to save; `onClose` hears what was saved. */
 export function AddTransactionSheet({
   data,
   defaultDate,
@@ -164,19 +164,19 @@ export function AddTransactionSheet({
   data: TransactionFormData;
   defaultDate: string;
   commands: TransactionCommands;
-  onClose: () => void;
+  onClose: (saved?: Saved) => void;
 }) {
   return (
-    <Overlay title="Add transaction" onClose={onClose}>
+    <Overlay title="Add transaction" onClose={() => onClose()}>
       <FormGate data={data}>
         {(accounts, categories) => (
           <TransactionForm
             accounts={accounts.accounts}
             categories={categories}
             defaultDate={defaultDate}
-            submitLabel="Add transaction"
+            submitLabel="Add"
             save={(draft, requestId) => commands.create(draft, requestId)}
-            onDone={onClose}
+            onDone={(_saved, what) => onClose(what)}
           />
         )}
       </FormGate>

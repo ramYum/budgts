@@ -11,6 +11,7 @@ const txn = (id: string, over: Record<string, unknown> = {}) => ({
   isTransfer: false,
   category: { id: "c1", name: "Groceries", color: "#0f0" },
   account: { id: "a1", name: "Wallet" },
+  source: "manual",
   uncategorized: false,
   ...over,
 });
@@ -19,6 +20,10 @@ describe("parseTransactionsPage", () => {
   it("accepts the server contract, tolerating fields it does not know (older apps must survive additive changes)", () => {
     const page = parseTransactionsPage({ version: 1, month: "2026-09", items: [{ ...txn("t1"), somethingNew: true }], nextCursor: null, extra: 1 });
     expect(page).toEqual({ month: "2026-09", items: [txn("t1")], nextCursor: null });
+  });
+
+  it("says where a row came from (a bank row keeps its account on edit)", () => {
+    expect(parseTransactionsPage({ version: 1, month: "2026-09", items: [txn("t1", { source: "bank" })], nextCursor: null }).items[0].source).toBe("bank");
   });
 
   it("keeps a null category and a cursor", () => {
@@ -31,6 +36,7 @@ describe("parseTransactionsPage", () => {
     ["a non-integer amount", { items: [txn("t1", { amount: 12.34 })] }],
     ["an unknown direction", { items: [txn("t1", { direction: "sideways" })] }],
     ["a missing account", { items: [txn("t1", { account: null })] }],
+    ["an unknown source", { items: [txn("t1", { source: "carrier-pigeon" })] }],
     ["items that are not a list", { items: "nope" }],
     ["a missing month", { month: undefined }],
   ])("rejects %s", (_name, over) => {

@@ -180,7 +180,7 @@ describe("plaid item-store (staging Postgres)", () => {
   it("an Item with no accounts recorded is never claimable (every row would be skipped past)", async () => {
     expect(await claimItemForSync(db, E, { kind: "due" })).toBeNull();
     expect(await claimItemForSync(db, E, { kind: "requested" })).toBeNull();
-    expect(await claimMissReason(db, E)).toEqual({ kind: "unmapped" });
+    expect(await claimMissReason(db, E)).toEqual({ kind: "no_accounts" });
     expect(await findSyncCandidates(db, new Date())).not.toContain(E);
   });
 

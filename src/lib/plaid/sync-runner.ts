@@ -99,6 +99,8 @@ export function claimMissMessage(miss: ClaimMiss): string {
   switch (miss.kind) {
     case "unmapped":
       return "Choose where this bank's new accounts go first — then it will sync.";
+    case "no_accounts":
+      return "This connection didn't finish setting up. Disconnect it and connect again.";
     case "gone":
       return "That bank connection no longer exists.";
     case "busy":

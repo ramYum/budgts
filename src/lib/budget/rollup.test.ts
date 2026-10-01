@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { rollup } from "./rollup";
-import type { BudgetCategory, BudgetTxn, CategoryBudget } from "./types";
+import type { BudgetCategory, BudgetTxn } from "./types";
 
 const cats: BudgetCategory[] = [
   { id: "groceries", kind: "expense" },
@@ -28,7 +28,6 @@ describe("rollup", () => {
     const r = rollup(
       [txn({ amount: 3000 }), txn({ categoryId: "salary", amount: 500000, direction: "credit" })],
       cats,
-      [],
       "2026-09",
     );
     expect(r.spend).toBe(3000);
@@ -45,7 +44,6 @@ describe("rollup", () => {
         txn({ amount: 9999, occurredAt: new Date("2026-08-15T00:00:00Z") }),
       ],
       cats,
-      [],
       "2026-09",
     );
     expect(r.spend).toBe(3000);
@@ -60,7 +58,6 @@ describe("rollup", () => {
         txn({ categoryId: "salary", direction: "credit", amount: 888888, duplicateOfId: "canonical-2" }),
       ],
       cats,
-      [],
       "2026-09",
     );
     expect(r.spend).toBe(3000);
@@ -76,7 +73,6 @@ describe("rollup", () => {
         txn({ categoryId: "salary", direction: "credit", amount: 888888, accountExcluded: true }),
       ],
       cats,
-      [],
       "2026-09",
     );
     expect(r.spend).toBe(3000);
@@ -85,7 +81,7 @@ describe("rollup", () => {
   });
 
   it("counts uncategorized debits as spend", () => {
-    const r = rollup([txn({ categoryId: null, amount: 1500 })], cats, [], "2026-09");
+    const r = rollup([txn({ categoryId: null, amount: 1500 })], cats, "2026-09");
     expect(r.spend).toBe(1500);
   });
 
@@ -93,7 +89,6 @@ describe("rollup", () => {
     const r = rollup(
       [txn({ amount: 2000 }), txn({ amount: 800, direction: "credit" })],
       cats,
-      [],
       "2026-09",
     );
     expect(r.spend).toBe(1200);
@@ -103,40 +98,16 @@ describe("rollup", () => {
     const r = rollup(
       [txn({ categoryId: "salary", amount: 500000, direction: "credit" }), txn({ categoryId: "salary", amount: 50000 })],
       cats,
-      [],
       "2026-09",
     );
     expect(r.income).toBe(450000);
   });
 
-  it("sums all budget rows into totalBudgeted", () => {
-    const budgets: CategoryBudget[] = [
-      { categoryId: "groceries", amount: 40000 },
-      { categoryId: "transport", amount: 15000 },
-    ];
-    const r = rollup([], cats, budgets, "2026-09");
-    expect(r.totalBudgeted).toBe(55000);
-  });
-
-  it("computes totalRemaining against expense-category actuals only, not uncategorized", () => {
-    const budgets: CategoryBudget[] = [{ categoryId: "groceries", amount: 40000 }];
-    const r = rollup(
-      [txn({ categoryId: "groceries", amount: 10000 }), txn({ categoryId: null, amount: 5000 })],
-      cats,
-      budgets,
-      "2026-09",
-    );
-    expect(r.spend).toBe(15000); // includes the uncategorized 5000
-    expect(r.totalRemaining).toBe(30000); // 40000 - 10000; uncategorized excluded
-  });
-
   it("returns zeros for an empty month", () => {
-    expect(rollup([], cats, [], "2026-09")).toEqual({
+    expect(rollup([], cats, "2026-09")).toEqual({
       income: 0,
       spend: 0,
       net: 0,
-      totalBudgeted: 0,
-      totalRemaining: 0,
     });
   });
 
@@ -145,7 +116,7 @@ describe("rollup", () => {
   // classified via budgetEffectOf, not category.kind.
 
   it("test 1: a PURCHASE-role debit with no category counts as spend — regression guard", () => {
-    const r = rollup([txn({ eventRole: "PURCHASE", categoryId: null, amount: 4200 })], cats, [], "2026-09");
+    const r = rollup([txn({ eventRole: "PURCHASE", categoryId: null, amount: 4200 })], cats, "2026-09");
     expect(r.spend).toBe(4200);
     expect(r.income).toBe(0);
   });
@@ -154,7 +125,6 @@ describe("rollup", () => {
     const r = rollup(
       [txn({ eventRole: "INCOME", direction: "credit", categoryId: "groceries", amount: 500000 })],
       cats,
-      [],
       "2026-09",
     );
     expect(r.income).toBe(500000);
@@ -177,7 +147,6 @@ describe("rollup", () => {
     const r = rollup(
       [txn({ eventRole: "INCOME", direction: "credit", categoryId: null, amount: 250000 })],
       cats,
-      [],
       "2026-09",
     );
     expect(r.income).toBe(250000);
@@ -188,7 +157,6 @@ describe("rollup", () => {
     const r = rollup(
       [txn({ eventRole: "P2P_PAYMENT", direction: "credit", categoryId: null, amount: 40000 })],
       cats,
-      [],
       "2026-09",
     );
     expect(r.income).toBe(40000);
@@ -202,7 +170,6 @@ describe("rollup", () => {
         txn({ eventRole: "REFUND", direction: "credit", categoryId: "groceries", amount: 1200 }),
       ],
       cats,
-      [],
       "2026-09",
     );
     expect(r.spend).toBe(3800);
@@ -213,7 +180,6 @@ describe("rollup", () => {
     const r = rollup(
       [txn({ eventRole: null, categoryId: "salary", direction: "credit", amount: 500000 })],
       cats,
-      [],
       "2026-09",
     );
     expect(r.income).toBe(500000);
@@ -227,7 +193,6 @@ describe("rollup", () => {
         txn({ eventRole: "CARD_PAYMENT", amount: 999999 }),
       ],
       cats,
-      [],
       "2026-09",
     );
     expect(r.spend).toBe(3000);

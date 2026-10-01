@@ -42,13 +42,15 @@ const budgets: CategoryBudget[] = [
 ];
 
 describe("buildDashboard", () => {
-  it("computes the six tiles", () => {
+  it("computes the tiles", () => {
     const { tiles } = buildDashboard(txns, cats, budgets, "2026-09");
     expect(tiles).toEqual({
       income: 500000,
       spent: 55000, // 340 + 200 + 10
       netSavings: 445000,
       budgeted: 75000,
+      budgetedSpent: 55000, // every category here has a budget
+      spentOutsideBudgets: 0,
       leftToSpend: 20000, // 75000 - 55000
       savingsRate: 0.89, // 445000 / 500000
     });
@@ -107,5 +109,85 @@ describe("buildDashboard", () => {
   it("a non-excluded account continues to calculate normally alongside an excluded one — regression guard", () => {
     const mixed = [...txns, txn({ categoryId: "groceries", amount: 5000, accountExcluded: false })];
     expect(buildDashboard(mixed, cats, budgets, "2026-09").tiles.spent).toBe(55000 + 5000);
+  });
+
+  // The Budgets hero (owner-approved 2026-10-01): "spent of budgeted" and "Remaining" add up, and nothing spent
+  // disappears: what went outside the budgets is its own figure.
+  describe("the budget figures add up", () => {
+    const withGifts: DashboardCategory[] = [...cats, { id: "gifts", kind: "expense", name: "Gifts", color: "#a855f7" }];
+    const monthBudgets: CategoryBudget[] = [
+      { categoryId: "groceries", amount: 30000 },
+      { categoryId: "transport", amount: 20000 },
+    ];
+    const month = [
+      txn({ categoryId: "groceries", amount: 34000 }), // over its 300 budget by 40
+      txn({ categoryId: "transport", amount: 5000 }),
+      txn({ categoryId: "transport", amount: 1000, direction: "credit" }), // a refund nets against Transportation
+      txn({ categoryId: "gifts", amount: 6000 }), // no budget
+      txn({ categoryId: null, amount: 2000 }), // uncategorized
+      txn({ categoryId: "groceries", amount: 99999, isTransfer: true }), // a transfer is never spending
+      txn({ categoryId: "groceries", amount: 77777, status: "pending_review" }), // nor is an unconfirmed row
+      txn({ categoryId: "salary", amount: 500000, direction: "credit" }),
+    ];
+
+    it("spent counts budgeted categories only; remaining is budgeted minus that; the rest is spent outside the budgets", () => {
+      const { tiles } = buildDashboard(month, withGifts, monthBudgets, "2026-09");
+      expect(tiles.budgeted).toBe(50000);
+      expect(tiles.budgetedSpent).toBe(38000); // groceries 340 + transport (50 - 10 refund)
+      expect(tiles.leftToSpend).toBe(12000); // 500 - 380
+      expect(tiles.spent).toBe(46000); // all spending: 380 + gifts 60 + uncategorized 20; Money Left still uses it
+      expect(tiles.spentOutsideBudgets).toBe(8000); // gifts 60 + uncategorized 20
+      expect(tiles.netSavings).toBe(500000 - 46000);
+      expect(tiles.budgetedSpent + tiles.leftToSpend).toBe(tiles.budgeted);
+      expect(tiles.budgetedSpent + tiles.spentOutsideBudgets).toBe(tiles.spent);
+    });
+
+    it("goes negative when the budgeted categories together spend more than their budgets", () => {
+      const { tiles } = buildDashboard(
+        [txn({ categoryId: "groceries", amount: 45000 }), txn({ categoryId: "transport", amount: 20000 })],
+        withGifts,
+        monthBudgets,
+        "2026-09",
+      );
+      expect(tiles.budgetedSpent).toBe(65000);
+      expect(tiles.leftToSpend).toBe(-15000);
+    });
+
+    it("equals the sum of the budgeted cards, over and under alike (no clamping at zero)", () => {
+      const { tiles, bars } = buildDashboard(month, withGifts, monthBudgets, "2026-09");
+      const budgetedBars = bars.filter((b) => b.budget > 0);
+      expect(tiles.budgeted).toBe(budgetedBars.reduce((s, b) => s + b.budget, 0));
+      expect(tiles.budgetedSpent).toBe(budgetedBars.reduce((s, b) => s + b.actual, 0));
+      expect(tiles.leftToSpend).toBe(budgetedBars.reduce((s, b) => s + b.remaining, 0)); // -40 + 160
+    });
+
+    it("a $0 budget is no budget: its spending counts outside the budgets, like the card's 'No budget'", () => {
+      const { tiles } = buildDashboard(month, withGifts, [...monthBudgets, { categoryId: "gifts", amount: 0 }], "2026-09");
+      expect(tiles.budgetedSpent).toBe(38000);
+      expect(tiles.spentOutsideBudgets).toBe(8000);
+    });
+
+    it("leaves out a budget row with no card: an archived category's, or an income category's", () => {
+      const { tiles } = buildDashboard(
+        month,
+        withGifts,
+        [...monthBudgets, { categoryId: "archived-cat", amount: 9000 }, { categoryId: "salary", amount: 5000 }],
+        "2026-09",
+      );
+      expect(tiles.budgeted).toBe(50000);
+      expect(tiles.leftToSpend).toBe(12000);
+    });
+
+    it("refunds larger than the purchases in a budgeted category lower its spent below zero, and raise remaining", () => {
+      const { tiles } = buildDashboard(
+        [txn({ categoryId: "transport", amount: 3000, direction: "credit" })],
+        withGifts,
+        monthBudgets,
+        "2026-09",
+      );
+      expect(tiles.budgetedSpent).toBe(-3000);
+      expect(tiles.leftToSpend).toBe(53000);
+      expect(tiles.spentOutsideBudgets).toBe(0);
+    });
   });
 });

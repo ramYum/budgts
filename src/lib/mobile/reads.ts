@@ -74,7 +74,13 @@ export type MobileBudgets = {
   month: string;
   currency: string;
   budgeted: number;
+  /** All of the month's spending (`tiles.spent`). */
   spent: number;
+  /** Spending in the categories that have a budget: the hero's "spent of budgeted" (added 2026-10-01). */
+  budgetedSpent: number;
+  /** `spent − budgetedSpent`: the hero's "spent outside your budgets" line, shown when above zero (added 2026-10-01). */
+  spentOutsideBudgets: number;
+  /** `budgeted − budgetedSpent`; negative when over ("Over by"). */
   leftToSpend: number;
   /** One per expense category, in the dashboard's own order. Copied from the authoritative budget-vs-actual, never recomputed. */
   categories: MobileHomeCategory[];
@@ -88,6 +94,8 @@ export function buildMobileBudgets(home: HomeData): MobileBudgets {
     currency: home.currency,
     budgeted: tiles.budgeted,
     spent: tiles.spent,
+    budgetedSpent: tiles.budgetedSpent,
+    spentOutsideBudgets: tiles.spentOutsideBudgets,
     leftToSpend: tiles.leftToSpend,
     categories: mobileCategories(home),
   };

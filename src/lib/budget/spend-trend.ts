@@ -29,6 +29,6 @@ export function spendTrend(
 ): MonthSpend[] {
   return months.map((month) => ({
     month,
-    spend: rollup(txns, categories, [], month).spend,
+    spend: rollup(txns, categories, month).spend,
   }));
 }

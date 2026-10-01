@@ -412,7 +412,12 @@ no new index.
    category) counts as spend — regression guard, current behavior
    unchanged.
 2. An `INCOME`-role credit counts as income regardless of category —
-   regression guard.
+   regression guard. **Amended 2026-10-01 (fix/money-presentation, option
+   A):** only outside an expense category. An `INCOME`-effect row filed in
+   an expense category nets against that category's spend, as its budget
+   card counts it (CLAUDE.md: a refund is a credit in an expense category;
+   user categorization survives), so the Budgets hero's spent figures add
+   up. Money Left is unchanged; Income and Spending both drop by the amount.
 3. A hypothetical `P2P_PAYMENT`-incoming credit (role-resolved `INCOME`)
    with no category counts as income, not spend — the fix's actual
    proof; today's code would misclassify this.

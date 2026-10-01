@@ -178,6 +178,99 @@ describe("buildDashboard", () => {
       expect(tiles.leftToSpend).toBe(12000);
     });
 
+    it("an INCOME-role credit filed under a budgeted category lowers that card and spent alike: no phantom outside spending", () => {
+      const { tiles, bars } = buildDashboard(
+        [
+          txn({ categoryId: "groceries", amount: 10000, eventRole: "PURCHASE" }),
+          txn({ categoryId: "groceries", amount: 4000, direction: "credit", eventRole: "INCOME" }),
+          txn({ categoryId: "salary", amount: 500000, direction: "credit", eventRole: "INCOME" }),
+        ],
+        withGifts,
+        monthBudgets,
+        "2026-09",
+      );
+      expect(bars.find((b) => b.categoryId === "groceries")!.actual).toBe(6000);
+      expect(tiles.budgetedSpent).toBe(6000);
+      expect(tiles.spent).toBe(6000);
+      expect(tiles.spentOutsideBudgets).toBe(0);
+      expect(tiles.income).toBe(500000);
+      expect(tiles.netSavings).toBe(494000);
+    });
+
+    it("an INCOME-role debit filed under a budgeted category is spending there: outside never goes negative", () => {
+      const { tiles } = buildDashboard(
+        [
+          txn({ categoryId: "groceries", amount: 3000, eventRole: "INCOME" }),
+          txn({ categoryId: "salary", amount: 500000, direction: "credit", eventRole: "INCOME" }),
+        ],
+        withGifts,
+        monthBudgets,
+        "2026-09",
+      );
+      expect(tiles.budgetedSpent).toBe(3000);
+      expect(tiles.spent).toBe(3000);
+      expect(tiles.spentOutsideBudgets).toBe(0);
+      expect(tiles.income).toBe(500000);
+    });
+
+    // A small deterministic generator (no Math.random), so a failure always reproduces.
+    function generator(start: number) {
+      let seed = start;
+      return (n: number) => {
+        seed = (seed * 1103515245 + 12345) % 2147483648;
+        return seed % n;
+      };
+    }
+    const ROLES = [null, "PURCHASE", "REFUND", "INCOME", "CARD_PAYMENT", "TRANSFER", "P2P_PAYMENT", "FEE", "INTEREST", "CASH_ADVANCE", "ADJUSTMENT"] as const;
+
+    function mixedRows(next: (n: number) => number, categoryIds: (string | null)[]): BudgetTxn[] {
+      return Array.from({ length: 1 + next(12) }, () =>
+        txn({
+          categoryId: categoryIds[next(categoryIds.length)]!,
+          amount: 1 + next(50000),
+          direction: next(2) === 0 ? "debit" : "credit",
+          eventRole: ROLES[next(ROLES.length)]!,
+          isTransfer: next(5) === 0,
+          transferUserSet: next(7) === 0,
+          status: next(9) === 0 ? "pending_review" : "confirmed",
+          accountExcluded: next(11) === 0,
+        }),
+      );
+    }
+
+    function mixedBudgets(next: (n: number) => number): CategoryBudget[] {
+      return [
+        { categoryId: "groceries", amount: next(60000) },
+        { categoryId: "transport", amount: next(60000) },
+        ...(next(2) === 0 ? [{ categoryId: "gifts", amount: 0 }] : []),
+      ];
+    }
+
+    it("property: when every row sits in an expense category, spent is exactly the cards' total, whatever the roles", () => {
+      const next = generator(20261001);
+      for (let run = 0; run < 300; run++) {
+        const rows = mixedRows(next, ["groceries", "transport", "fun", "gifts"]);
+        const { tiles, bars } = buildDashboard(rows, withGifts, mixedBudgets(next), "2026-09");
+        const ctx = JSON.stringify({ run, rows });
+        expect(tiles.spent, ctx).toBe(bars.reduce((sum, b) => sum + b.actual, 0));
+        expect(tiles.spentOutsideBudgets, ctx).toBe(bars.filter((b) => b.budget <= 0).reduce((sum, b) => sum + b.actual, 0));
+      }
+    });
+
+    it("property: over mixed rows in any category (or none), the hero's identities hold", () => {
+      const next = generator(4242);
+      for (let run = 0; run < 300; run++) {
+        const rows = mixedRows(next, ["groceries", "transport", "fun", "gifts", "salary", null, "archived-cat"]);
+        const { tiles, bars } = buildDashboard(rows, withGifts, mixedBudgets(next), "2026-09");
+        const ctx = JSON.stringify({ run, rows });
+        const budgeted = bars.filter((b) => b.budget > 0);
+        expect(tiles.budgetedSpent, ctx).toBe(budgeted.reduce((sum, b) => sum + b.actual, 0));
+        expect(tiles.budgetedSpent + tiles.spentOutsideBudgets, ctx).toBe(tiles.spent);
+        expect(tiles.budgetedSpent + tiles.leftToSpend, ctx).toBe(tiles.budgeted);
+        expect(tiles.income - tiles.spent, ctx).toBe(tiles.netSavings);
+      }
+    });
+
     it("refunds larger than the purchases in a budgeted category lower its spent below zero, and raise remaining", () => {
       const { tiles } = buildDashboard(
         [txn({ categoryId: "transport", amount: 3000, direction: "credit" })],

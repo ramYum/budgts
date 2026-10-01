@@ -16,7 +16,10 @@ import type { BudgetCategory, BudgetTxn, MonthRollup } from "./types";
  *   reduce it either way.
  * - `income` — net over `INCOME`-effect transactions when `eventRole` is
  *   resolved, or income-category transactions when it is `null`/unrecognized
- *   (`credit − debit`).
+ *   (`credit − debit`). An `INCOME`-effect row the user (or a rule) filed in
+ *   an expense category is not income: it nets against that category's spend,
+ *   as its card counts it (2026-10-01, superseding "income regardless of
+ *   category" in the 2026-09-13 Money Left design §14 test 2).
  * - `net` — `income − spend`.
  *
  * The budget figures (budgeted, spent in budgeted categories, remaining) are
@@ -41,8 +44,14 @@ export function rollup(
       // countsForMonth already excluded NONE/UNKNOWN effects (TRANSFER,
       // CARD_PAYMENT, CASH_ADVANCE, ADJUSTMENT) before this row was ever
       // reached, so budgetEffectOf is guaranteed EXPENSE, EXPENSE_REVERSAL,
-      // or INCOME here.
-      if (budgetEffectOf(t.eventRole, t.direction) === "INCOME") {
+      // or INCOME here. An INCOME effect counts as income unless the row sits
+      // in an expense category: there it nets against that category's spend
+      // (a credit reverses spending, a debit is spending), exactly as the
+      // category's card counts it, so spend always equals what the cards show.
+      if (
+        budgetEffectOf(t.eventRole, t.direction) === "INCOME" &&
+        !(t.categoryId !== null && kindById.get(t.categoryId) === "expense")
+      ) {
         income -= net; // credit increases income
       } else {
         spend += net;

@@ -121,14 +121,45 @@ describe("rollup", () => {
     expect(r.income).toBe(0);
   });
 
-  it("test 2: an INCOME-role credit counts as income regardless of category", () => {
+  it("test 2: an INCOME-role credit counts as income when it is in an income category", () => {
     const r = rollup(
-      [txn({ eventRole: "INCOME", direction: "credit", categoryId: "groceries", amount: 500000 })],
+      [txn({ eventRole: "INCOME", direction: "credit", categoryId: "salary", amount: 500000 })],
       cats,
       "2026-09",
     );
     expect(r.income).toBe(500000);
     expect(r.spend).toBe(0);
+  });
+
+  // 2026-10-01 (option A, replacing "income regardless of category"): the category a row sits in wins over an
+  // INCOME role. A credit in an expense category nets against that category's spend (CLAUDE.md: "a refund is a
+  // credit in an expense category"), so spend agrees with the category cards and the user's categorization survives.
+  it("test 2c: an INCOME-role credit in an expense category reverses spending instead of adding income", () => {
+    const r = rollup(
+      [
+        txn({ eventRole: "PURCHASE", categoryId: "groceries", amount: 10000 }),
+        txn({ eventRole: "INCOME", direction: "credit", categoryId: "groceries", amount: 4000 }),
+      ],
+      cats,
+      "2026-09",
+    );
+    expect(r.spend).toBe(6000);
+    expect(r.income).toBe(0);
+    expect(r.net).toBe(-6000); // Money Left is the same either way: -10000 + 4000
+  });
+
+  it("test 2d: an INCOME-role debit in an expense category is spending, not negative income", () => {
+    const r = rollup(
+      [
+        txn({ eventRole: "INCOME", direction: "credit", categoryId: "salary", amount: 500000 }),
+        txn({ eventRole: "INCOME", direction: "debit", categoryId: "groceries", amount: 3000 }),
+      ],
+      cats,
+      "2026-09",
+    );
+    expect(r.income).toBe(500000);
+    expect(r.spend).toBe(3000);
+    expect(r.net).toBe(497000);
   });
 
   // The real, currently-reachable case this fix exists for (design §7's

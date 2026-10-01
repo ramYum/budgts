@@ -45,13 +45,15 @@ describe("useReplayReveal (a create the server answered replayed: true)", () => 
     expect(h.onAnotherMonth).toHaveBeenCalledTimes(1);
   });
 
-  it("a refresh that fails cancels it: it never fires later, out of the blue", () => {
+  it("a refresh that fails still says it was already saved (the saved notice), and never opens the row later", () => {
     const h = harness(ready(["a"]));
     h.start("kept");
     h.show(ready(["a"], "c1"), "Couldn't reach Budgts.");
+    // the fact isn't dropped: Activity's saved notice says it at once
+    expect(h.onAnotherMonth).toHaveBeenCalledTimes(1);
     h.show(ready(["kept", "a"]));
     expect(h.onOpen).not.toHaveBeenCalled();
-    expect(h.onAnotherMonth).not.toHaveBeenCalled();
+    expect(h.onAnotherMonth).toHaveBeenCalledTimes(1);
   });
 
   it("another sheet opening cancels it", () => {

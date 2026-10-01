@@ -48,7 +48,7 @@ export function describeSubscription(e: EntitlementView | null, loadFailed: bool
         headline: "Payment problem",
         detail: `The store could not charge your payment method. You keep access until ${
           date(e.accessUntil) ?? "the grace period ends"
-        } — update your payment method in the store to keep your subscription.`,
+        }. Update your payment method in the store to keep your subscription.`,
       };
     case "expired":
       return { headline: "No active subscription", detail: "Your subscription has ended." };
@@ -71,10 +71,10 @@ export function describeFlow(state: FlowState): FlowMessage | null {
     case "confirming":
       return { text: "Confirming your purchase…", tone: "info" };
     case "premium":
-      return { text: "You're all set — your subscription is active.", tone: "success" };
+      return { text: "You're all set. Your subscription is active.", tone: "success" };
     case "not_confirmed":
       return {
-        text: "The store completed your purchase, but we haven't been able to confirm it yet. This usually resolves in a moment — check again.",
+        text: "The store completed your purchase, but we haven't been able to confirm it yet. This usually resolves in a moment. Check again.",
         tone: "info",
       };
     case "pending":

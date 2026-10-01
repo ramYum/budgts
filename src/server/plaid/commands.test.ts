@@ -238,7 +238,7 @@ describe("mapAccountsFor", () => {
   it("runs the first sync after mapping, and warns (still ok) when it doesn't finish", async () => {
     const calls = fakeRunner({ outcome: { ok: false } });
     const r = await mapAccountsFor(withItem().supabase, USER, ITEM_ROW, [{ plaidAccountId: "pa1", mode: "ignore" }]);
-    expect(r).toEqual({ ok: true, warning: "Accounts saved. The first sync didn't finish — it'll retry shortly." });
+    expect(r).toEqual({ ok: true, warning: "Accounts saved. The first sync didn't finish. It'll retry shortly." });
     expect(calls.claim).toEqual([[ITEM_ID, { kind: "requested" }]]);
   });
 
@@ -246,7 +246,7 @@ describe("mapAccountsFor", () => {
     fakeRunner({ claimed: false });
     claimMissReason.mockResolvedValue({ kind: "unmapped" });
     const r = await mapAccountsFor(withItem().supabase, USER, ITEM_ROW, [{ plaidAccountId: "pa1", mode: "ignore" }]);
-    expect(r).toEqual({ ok: true, warning: "Accounts saved. Choose where this bank's new accounts go first — then it will sync." });
+    expect(r).toEqual({ ok: true, warning: "Accounts saved. Choose where this bank's new accounts go first. Then it will sync." });
   });
 
   it("saves the mapping but never syncs when the owner-level record belongs to someone else", async () => {
@@ -545,7 +545,7 @@ describe("setAccountImportingFor", () => {
     fakeRunner({ outcome: { ok: false } });
     expect(await setAccountImportingFor(withRow({ account_id: "acct-1", plaid_item_id: ITEM_ROW }).supabase, USER, PA_ROW, true)).toEqual({
       ok: true,
-      warning: "Importing resumed. The first sync didn't finish — it'll retry shortly.",
+      warning: "Importing resumed. The first sync didn't finish. It'll retry shortly.",
     });
   });
 

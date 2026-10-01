@@ -22,7 +22,15 @@ export const reactNativeMock = () => ({
   Text: host("Text"),
   TextInput: Object.assign(host("TextInput"), { State: { currentlyFocusedInput: () => null } }),
   Modal: host("Modal"),
-  AccessibilityInfo: { announceForAccessibility: (message: string) => void announcements.push(message), isReduceMotionEnabled: async () => reducedMotion.value },
+  AccessibilityInfo: {
+    announceForAccessibility: (message: string) => void announcements.push(message),
+    isReduceMotionEnabled: async () => reducedMotion.value,
+    addEventListener: (event: string, listener: (on: boolean) => void) => {
+      if (event !== "reduceMotionChanged") return { remove: () => {} };
+      reduceMotionListeners.add(listener);
+      return { remove: () => void reduceMotionListeners.delete(listener) };
+    },
+  },
   Linking: { addEventListener: () => ({ remove: () => {} }), getInitialURL: async () => null, openURL: async () => {} },
   KeyboardAvoidingView: host("KeyboardAvoidingView"),
   Keyboard: { addListener: () => ({ remove: () => {} }), dismiss: () => {} },
@@ -49,14 +57,33 @@ export const svgMock = () => ({
 });
 
 /**
+ * The OS's Reduce Motion / Remove animations setting. Setting `value` changes it as the OS does: AccessibilityInfo answers
+ * with it and fires `reduceMotionChanged` to its listeners. `launch` is Reanimated's `useReducedMotion`, the reading it
+ * took once when the bundle loaded; it follows `value` unless a test pins it (a setting changed after launch).
+ */
+const reduceMotionListeners = new Set<(on: boolean) => void>();
+let osReducedMotion = false;
+export const reducedMotion = {
+  get value() {
+    return osReducedMotion;
+  },
+  set value(on: boolean) {
+    osReducedMotion = on;
+    for (const listener of [...reduceMotionListeners]) listener(on);
+  },
+  launch: null as boolean | null,
+};
+
+/**
  * react-native-reanimated without a UI thread: shared values are plain boxes,
  * animated styles read them whenever a property is read, timings land on
  * their target at once (finishing their callback), and CSS animations are
- * plain style props the tests read back. `reducedMotion.value` stands in for the OS setting.
+ * plain style props the tests read back.
  */
-export const reducedMotion = { value: false };
 /** What a component asked the screen reader to say (AccessibilityInfo.announceForAccessibility), in order. */
 export const announcements: string[] = [];
+/** Every shared-value timing and delay started, in order, with the `reduceMotion` each was given. */
+export const animationCalls: { kind: "timing" | "delay"; to?: unknown; reduceMotion: unknown }[] = [];
 export const reanimatedMock = () => {
   const AnimatedView = host("Animated.View");
   return {
@@ -70,8 +97,12 @@ export const reanimatedMock = () => {
       for (const k of Object.keys(fn())) Object.defineProperty(style, k, { enumerable: true, get: () => fn()[k] });
       return style;
     },
-    useReducedMotion: () => reducedMotion.value,
-    withDelay: <T,>(_ms: number, animation: T) => animation,
+    useReducedMotion: () => reducedMotion.launch ?? reducedMotion.value,
+    ReduceMotion: { System: "system", Always: "always", Never: "never" },
+    withDelay: <T,>(_ms: number, animation: T, reduceMotion?: unknown) => {
+      animationCalls.push({ kind: "delay", reduceMotion });
+      return animation;
+    },
     // CSS animation timing functions: a plain description the tests can read back
     steps: (n: number, modifier = "jump-end") => ({ steps: n, modifier }),
     cubicBezier: (x1: number, y1: number, x2: number, y2: number) => ({ cubicBezier: [x1, y1, x2, y2] }),
@@ -82,7 +113,8 @@ export const reanimatedMock = () => {
     withSequence: <T,>(...animations: T[]) => animations[animations.length - 1],
     withRepeat: <T,>(animation: T) => animation,
     createAnimatedComponent: <T,>(c: T) => c,
-    withTiming: <T,>(to: T, _config?: unknown, done?: (finished: boolean) => void) => {
+    withTiming: <T,>(to: T, config?: { reduceMotion?: unknown }, done?: (finished: boolean) => void) => {
+      animationCalls.push({ kind: "timing", to, reduceMotion: config?.reduceMotion });
       done?.(true);
       return to;
     },

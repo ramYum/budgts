@@ -128,6 +128,34 @@ describe("Overlay (web overlay.tsx, the bottom sheet)", () => {
     focus.mockRestore();
   });
 
+  it("leaves the scroll where it is when the field is already in view (a picker deep in a long list)", () => {
+    let reveal: ((input: unknown) => void) | null = null;
+    function Probe() {
+      reveal = useSheetFocus() as typeof reveal;
+      return null;
+    }
+    const scrolls: number[] = [];
+    let r!: ReactTestRenderer;
+    act(() => {
+      r = create(
+        <Overlay title="Choose which accounts to import" onClose={() => {}}>
+          <Probe />
+        </Overlay>,
+        { createNodeMock: (el) => (el.type === "ScrollView" ? { scrollTo: ({ y }: { y: number }) => void scrolls.push(y) } : {}) },
+      );
+    });
+    const scrollView = hosts(r, "ScrollView")[0]!;
+    act(() => scrollView.props.onLayout({ nativeEvent: { layout: { x: 0, y: 0, width: 400, height: 600 } } }));
+    act(() => scrollView.props.onScroll({ nativeEvent: { contentOffset: { x: 0, y: 1200 } } }));
+    const at = (y: number, h = 44) => ({ measureLayout: (_to: unknown, cb: (x: number, y: number, w: number, h: number) => void) => cb(0, y, 300, h) });
+    // row 10's picker, on screen at 1500-1544 of a view showing 1200-1800: no jump
+    act(() => reveal!(at(1500)));
+    expect(scrolls).toEqual([]);
+    // a field hidden below the view still scrolls up into it, KEYBOARD_MARGIN above the bottom
+    act(() => reveal!(at(2000)));
+    expect(scrolls).toEqual([2000 + 44 + KEYBOARD_MARGIN - 600]);
+  });
+
   it("gives the fields inside it a way to scroll themselves into view", () => {
     let reveal: unknown = null;
     function Probe() {

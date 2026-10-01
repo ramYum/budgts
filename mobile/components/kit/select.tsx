@@ -25,6 +25,7 @@ export function Select<T extends string>({
   disabled = false,
   hideLabel = false,
   plaidHint,
+  fitOptions = false,
   testID,
 }: {
   /** the label above the field, the sheet's title and what a screen reader hears */
@@ -42,6 +43,11 @@ export function Select<T extends string>({
    * chevron ("Plaid: Other"); a longer one gets its own line under the field ("Plaid suggests: Food and drink").
    */
   plaidHint?: string | null;
+  /**
+   * Size the field like a browser's auto-width select: as wide as its widest option, so no option is cut short (the
+   * field's own box sets any minimum and maximum; past a maximum the label truncates). Off, the field fills its box.
+   */
+  fitOptions?: boolean;
   /** a test id for the field; its options get `<testID>-option-<value>` */
   testID?: string;
 }) {
@@ -77,9 +83,25 @@ export function Select<T extends string>({
             state={state}
             style={[{ height: SPACE.field, flexDirection: "row", alignItems: "center", paddingLeft: 8, paddingRight: 6 }, pressStyle(pressed)]}
           >
-            <Text variant="input" color={disabled ? ROLE.muted : chosen ? ROLE.ink : PLACEHOLDER} numberOfLines={1} style={{ flex: 1 }}>
-              {chosen?.label ?? placeholder}
-            </Text>
+            {fitOptions ? (
+              <View style={{ flexGrow: 1, flexShrink: 1, minWidth: 0 }}>
+                {/* the sizing layer: every option's label, unseen, so the field takes the widest one's width */}
+                <View testID={testID ? `${testID}-sizer` : undefined} style={{ height: 0, overflow: "hidden" }} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
+                  {options.map((o) => (
+                    <Text key={o.value} variant="input" color={ROLE.ink}>
+                      {o.label}
+                    </Text>
+                  ))}
+                </View>
+                <Text variant="input" color={disabled ? ROLE.muted : chosen ? ROLE.ink : PLACEHOLDER} numberOfLines={1}>
+                  {chosen?.label ?? placeholder}
+                </Text>
+              </View>
+            ) : (
+              <Text variant="input" color={disabled ? ROLE.muted : chosen ? ROLE.ink : PLACEHOLDER} numberOfLines={1} style={{ flex: 1 }}>
+                {chosen?.label ?? placeholder}
+              </Text>
+            )}
             {hintInside ? (
               <Text variant="small" color={ROLE.muted} style={{ marginRight: 8 }}>
                 {`Plaid: ${plaidHint}`}

@@ -25,7 +25,7 @@ beforeEach(() => {
 
 describe("POST /api/mobile/plaid/accounts/map", () => {
   it("maps the caller's accounts with the validated entries", async () => {
-    mapAccountsFor.mockResolvedValue({ ok: true, warning: "Accounts saved. The first sync didn't finish — it'll retry shortly." });
+    mapAccountsFor.mockResolvedValue({ ok: true, warning: "Accounts saved. The first sync didn't finish. It'll retry shortly." });
     const res = await POST(post(valid));
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({ ok: true, warning: expect.stringContaining("Accounts saved") });

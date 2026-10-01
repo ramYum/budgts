@@ -83,8 +83,19 @@ describe("parseMobileHome", () => {
     expect(() => parseMobileHome({ ...valid, version: 2 })).toThrow(HomeContractError);
   });
 
+  // The server's pctUsed is (actual / budget) × 100, unrounded (src/lib/budget/budget-vs-actual.ts): $250 of $400 is 62.5.
+  it.each([62.5, 100 / 3, 0.1, 0, 150])("accepts a category's pctUsed of %s as sent", (pctUsed) => {
+    const home = parseMobileHome({ ...valid, categories: [{ ...valid.categories[0], pctUsed }] });
+    expect(home.categories[0]!.pctUsed).toBe(pctUsed);
+  });
+
   it.each([
     ["not an object", null],
+    ["a non-finite pctUsed", { ...valid, categories: [{ ...valid.categories[0], pctUsed: Number.POSITIVE_INFINITY }] }],
+    ["a NaN pctUsed", { ...valid, categories: [{ ...valid.categories[0], pctUsed: Number.NaN }] }],
+    ["a string pctUsed", { ...valid, categories: [{ ...valid.categories[0], pctUsed: "62.5" }] }],
+    ["a category's fractional budget (money stays integer minor units)", { ...valid, categories: [{ ...valid.categories[0], budget: 400.5 }] }],
+    ["a category's fractional actual", { ...valid, categories: [{ ...valid.categories[0], actual: 250.5 }] }],
     ["a string", "nope"],
     ["missing moneyLeft", { ...valid, moneyLeft: undefined }],
     ["fractional money (must be integer minor units)", { ...valid, spent: 12.5 }],

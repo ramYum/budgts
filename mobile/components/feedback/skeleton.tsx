@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { View, type DimensionValue, type LayoutChangeEvent } from "react-native";
-import Animated, { useReducedMotion } from "react-native-reanimated";
+import Animated from "react-native-reanimated";
+import { useReducedMotion } from "../motion/reduced-motion";
 import { useMotionTiming } from "../../lib/motion/parity-clock";
 import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import { ROLE } from "../../lib/brand/shared";

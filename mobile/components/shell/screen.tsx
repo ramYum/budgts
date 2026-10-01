@@ -1,6 +1,7 @@
 import { useRef, type ReactNode } from "react";
 import { RefreshControl, ScrollView, View } from "react-native";
-import Animated, { useReducedMotion } from "react-native-reanimated";
+import Animated from "react-native-reanimated";
+import { useReducedMotion } from "../motion/reduced-motion";
 import { useRouter } from "expo-router";
 import { BlurTargetView, BlurView } from "expo-blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";

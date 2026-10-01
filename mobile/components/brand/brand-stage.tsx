@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { Text as RNText, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
-import Animated, { steps, useReducedMotion } from "react-native-reanimated";
+import Animated, { steps } from "react-native-reanimated";
+import { useReducedMotion } from "../motion/reduced-motion";
 import Svg, { Path } from "react-native-svg";
 import { COLOR, ROBIN_FEET_X, ROLE, TYPE } from "../../lib/brand/shared";
 import { robinSize } from "../../lib/brand/robin-paths";

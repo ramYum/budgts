@@ -1,6 +1,6 @@
 import { act } from "react-test-renderer";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { byTestId, render, texts } from "../../test/render";
+import { byTestId, flat, render, texts } from "../../test/render";
 
 vi.mock("../../lib/auth/auth-context", () => ({ useAuth: () => ({ session: null }) }));
 const api = vi.hoisted(() => ({ authFetch: vi.fn() }));
@@ -48,6 +48,45 @@ describe("AccountMapping (web account-mapping.tsx)", () => {
     expect(texts(r)).toContain("Import transactions");
   });
 
+  it("sizes the type picker like a select: the web's 112px at least, wide enough for its longest option, never truncated", () => {
+    const r = render(<AccountMapping plaidAccounts={[account()]} choices={choices} onSave={vi.fn()} onDone={() => {}} />);
+    const field = byTestId(r, "account-mapping-type-0");
+    let box = field.parent!;
+    while (typeof box.type !== "string" || box.props.testID !== "account-mapping-type-0-box") box = box.parent!;
+    const style = flat(box.props.style);
+    expect(style.minWidth).toBe(112);
+    expect(style.width).toBeUndefined();
+    expect(style.flexShrink).toBe(0);
+    // every option's label sits in the field's sizing layer, so the field is as wide as the widest; none is cut short
+    expect(texts(byTestId(r, "account-mapping-type-0-sizer"))).toEqual(["Checking", "Credit", "Cash", "Savings"]);
+    let label = byTestId(r, "account-mapping-type-0-sizer").parent!;
+    while (typeof label.type !== "string" || label.props.testID === "account-mapping-type-0-sizer") label = label.parent!;
+    expect(flat(label.props.style)).toMatchObject({ flexGrow: 1 });
+  });
+
+  it("caps the type picker at half the row, so a long type label can't squeeze the name field away", () => {
+    const long = { ...choices, accountTypes: ["checking", "a very long account type from the server"] };
+    const r = render(<AccountMapping plaidAccounts={[account()]} choices={long} onSave={vi.fn()} onDone={() => {}} />);
+    expect(flat(byTestId(r, "account-mapping-type-0-box").props.style)).toMatchObject({ minWidth: 112, maxWidth: "50%" });
+    // the name field keeps the rest of the row (at 360px: 280 of content, at least 140 for the name)
+    expect(flat(byTestId(r, "account-mapping-name-0").parent!.props.style)).toMatchObject({ flex: 1 });
+    // past the cap the chosen label truncates on one line instead of spilling out of the field
+    let label = byTestId(r, "account-mapping-type-0-sizer").parent!;
+    while (typeof label.type !== "string" || label.props.testID === "account-mapping-type-0-sizer") label = label.parent!;
+    expect(flat(label.props.style)).toMatchObject({ flexShrink: 1, minWidth: 0 });
+  });
+
+  it("shows a long name from its start when the field isn't being edited, as a web input does", () => {
+    const long = account({ name: "Plaid Money Market", mask: "4444" });
+    const r = render(<AccountMapping plaidAccounts={[long]} choices={choices} onSave={vi.fn()} onDone={() => {}} />);
+    const name = () => byTestId(r, "account-mapping-name-0").props;
+    expect(name().selection).toEqual({ start: 0, end: 0 });
+    act(() => name().onFocus?.({}));
+    expect(name().selection).toBeUndefined(); // editing: the caret is the user's
+    act(() => name().onBlur?.({}));
+    expect(name().selection).toEqual({ start: 0, end: 0 });
+  });
+
   it("saves the web's entries: new, existing and left out", async () => {
     const onSave = vi.fn(async () => ({ status: "ok" as const }));
     const onDone = vi.fn();
@@ -92,7 +131,9 @@ describe("AccountMapping (web account-mapping.tsx)", () => {
 });
 
 describe("AccountMapping refusals over stale data", () => {
-  beforeEach(() => api.authFetch.mockReset());
+  beforeEach(() => {
+    api.authFetch.mockReset();
+  });
 
   it("shows the server's refusal with a Refresh that closes onto the current list", async () => {
     const onDone = vi.fn();
@@ -150,7 +191,9 @@ describe("AccountMapping refusals over stale data", () => {
 });
 
 describe("AccountMappingSheet", () => {
-  beforeEach(() => api.authFetch.mockReset());
+  beforeEach(() => {
+    api.authFetch.mockReset();
+  });
 
   it("is the web's sheet: its title, a close, and the saved mapping reaches every screen", async () => {
     api.authFetch.mockResolvedValue(json(200, { ok: true }));
@@ -169,7 +212,9 @@ describe("AccountMappingSheet", () => {
 });
 
 describe("ConnectBank (web connect-bank.tsx)", () => {
-  beforeEach(() => api.authFetch.mockReset());
+  beforeEach(() => {
+    api.authFetch.mockReset();
+  });
   const link = (outcome: Awaited<ReturnType<PlaidLinkClient["open"]>>): PlaidLinkClient => ({ isAvailable: () => true, open: vi.fn(async () => outcome) });
 
   it("connects, then opens the mapping sheet with the new bank's accounts and the user's accounts", async () => {
@@ -224,6 +269,54 @@ describe("ConnectBank (web connect-bank.tsx)", () => {
     await press(r, "connect-bank");
     expect(texts(byTestId(r, "connect-bank-notice"))).toEqual(["Your bank is connected. Choose which of its accounts to import from Connected banks."]);
     expect(() => byTestId(r, "sheet")).toThrow();
+  });
+
+  it("says Opening…, disabled, from the tap until Link closes: the token load and Link's own slow start alike", async () => {
+    let token!: (r: Response) => void;
+    api.authFetch.mockImplementation((path: string) => (path === "/api/plaid/link-token" ? new Promise<Response>((res) => (token = res)) : Promise.resolve(json(404, {}))));
+    let close!: (o: Awaited<ReturnType<PlaidLinkClient["open"]>>) => void;
+    const slow: PlaidLinkClient = { isAvailable: () => true, open: vi.fn(() => new Promise<Awaited<ReturnType<PlaidLinkClient["open"]>>>((res) => (close = res))) };
+    const r = render(<ConnectBank link={slow} />);
+    await press(r, "connect-bank");
+    const opening = () => byTestId(r, "connect-bank").props;
+    expect(opening().accessibilityLabel).toBe("Opening…");
+    expect(opening().accessibilityState).toMatchObject({ disabled: true, busy: true });
+    await act(async () => token(json(200, { link_token: "link-1" })));
+    expect(slow.open).toHaveBeenCalledTimes(1);
+    // Link is starting (the native SDK can take a while to show): still no way to start a second one
+    expect(opening().accessibilityLabel).toBe("Opening…");
+    expect(opening().accessibilityState).toMatchObject({ disabled: true, busy: true });
+    await act(async () => close({ kind: "exit" }));
+    expect(opening().accessibilityLabel).toBe("Connect a bank");
+    expect(opening().accessibilityState).toMatchObject({ disabled: false });
+  });
+
+  it("never opens Link twice: a second tap while it loads, even before the button re-renders, does nothing", async () => {
+    let token!: (r: Response) => void;
+    api.authFetch.mockImplementation((path: string) => (path === "/api/plaid/link-token" ? new Promise<Response>((res) => (token = res)) : Promise.resolve(json(404, {}))));
+    const once: PlaidLinkClient = { isAvailable: () => true, open: vi.fn(async () => ({ kind: "exit" as const })) };
+    const r = render(<ConnectBank link={once} />);
+    const onPress = byTestId(r, "connect-bank").props.onPress as () => void;
+    await act(async () => {
+      onPress();
+      onPress(); // the same frame: the disabled state hasn't rendered yet
+    });
+    await act(async () => byTestId(r, "connect-bank").props.onPress?.());
+    await act(async () => token(json(200, { link_token: "link-1" })));
+    expect(api.authFetch.mock.calls.filter(([path]) => path === "/api/plaid/link-token")).toHaveLength(1);
+    expect(once.open).toHaveBeenCalledTimes(1);
+  });
+
+  it("never sticks on Opening… when starting throws: it says so and can be tapped again", async () => {
+    api.authFetch.mockImplementation(async () => {
+      throw new Error("boom");
+    });
+    const throwing: PlaidLinkClient = { isAvailable: () => true, open: vi.fn(async () => ({ kind: "exit" as const })) };
+    const r = render(<ConnectBank link={throwing} />);
+    await press(r, "connect-bank");
+    expect(texts(byTestId(r, "connect-bank-error"))).toEqual(["Couldn't start the bank connection. Try again."]);
+    expect(byTestId(r, "connect-bank").props.accessibilityLabel).toBe("Connect a bank");
+    expect(byTestId(r, "connect-bank").props.accessibilityState).toMatchObject({ disabled: false });
   });
 
   it("shows a failed start and lets the user try again", async () => {

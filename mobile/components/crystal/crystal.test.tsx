@@ -11,6 +11,7 @@ import { BUBBLE_MAX, BUBBLE_TEXT_MAX, SpeechBubble, bubbleText, tagWidth } from 
 
 
 afterEach(() => {
+  reducedMotion.launch = null;
   reducedMotion.value = false;
   announcements.length = 0;
 });
@@ -114,6 +115,19 @@ describe("Crystal on Home", () => {
     act(() => byTestId(r, "crystal").props.onPress());
     expect(textContent(bubble(r, "crystal-say-tap"))).toBe("32% saved!");
     expect(flat(bubble(r, "crystal-say-tap").props.style).opacity).toBeUndefined();
+  });
+
+  it("follows the app's one motion source: Remove animations turned on after launch stills her too", async () => {
+    reducedMotion.launch = false; // Reanimated's reading from when the app started: motion on
+    const r = perch(0.32);
+    const hello = () => r.root.findAll((n) => typeof n.type === "string" && n.props.testID === "crystal-say-hello");
+    expect(hello()).toHaveLength(1);
+    await act(async () => {
+      reducedMotion.value = true; // the device's animations are switched off
+    });
+    expect(hello()).toHaveLength(0);
+    expect(flat(bubble(r, "crystal-say-note").props.style).animationName).toBeUndefined();
+    expect(textContent(bubble(r, "crystal-say-note"))).toBe("32% saved!");
   });
 });
 

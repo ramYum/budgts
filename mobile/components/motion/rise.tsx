@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { StyleProp, ViewStyle } from "react-native";
-import Animated, { steps, useReducedMotion } from "react-native-reanimated";
+import Animated, { steps } from "react-native-reanimated";
+import { useReducedMotion } from "./reduced-motion";
 import { EASE_OUT, RISE_IN } from "../../lib/motion/css";
 import { useMotionTiming } from "../../lib/motion/parity-clock";
 import { usePlay } from "./reveal";

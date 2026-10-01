@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, View } from "react-native";
-import { useReducedMotion } from "react-native-reanimated";
+import { useReducedMotion } from "../motion/reduced-motion";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { COLOR, ROLE } from "../../lib/brand/shared";
 import type { LoadState, MutationOutcome } from "../../lib/api/load";

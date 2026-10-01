@@ -65,47 +65,70 @@ export function ConnectBank({
     };
   }, [version, open, session]);
 
-  const start = useCallback(async () => {
+  const run = useCallback(async () => {
     setError(null);
     setNotice(null);
     setPhase("starting");
-    const ports = linkPorts(session);
-    const outcome = await connectBank(
-      {
-        fetchLinkToken: ports.fetchLinkToken,
-        link: {
-          isAvailable: () => link.isAvailable(),
-          open: (token) => {
-            setPhase("linking");
-            return link.open(token);
+    let exchanging = false;
+    try {
+      const ports = linkPorts(session);
+      const outcome = await connectBank(
+        {
+          fetchLinkToken: ports.fetchLinkToken,
+          link: {
+            isAvailable: () => link.isAvailable(),
+            open: (token) => {
+              setPhase("linking");
+              return link.open(token);
+            },
+          },
+          exchange: (publicToken, institution) => {
+            exchanging = true;
+            setPhase("exchanging");
+            return ports.exchange(publicToken, institution);
           },
         },
-        exchange: (publicToken, institution) => {
-          setPhase("exchanging");
-          return ports.exchange(publicToken, institution);
-        },
-      },
-      currentPlatform(),
-    );
+        currentPlatform(),
+      );
 
-    if (outcome.status === "linked") {
-      // the sheet offers the user's accounts and the server's account types
-      const loaded = await loadResource(() => authFetch("/api/mobile/accounts", session), parseAccounts);
-      setPhase("idle");
-      if (loaded.status === "ready") {
-        setMapping({ plaidItemId: outcome.plaidItemId, accounts: outcome.accounts, choices: mappingChoices(loaded.data) });
-      } else {
-        // the bank is connected; its accounts wait in Connected banks under "Choose accounts to import"
-        invalidate("accounts");
-        setNotice("Your bank is connected. Choose which of its accounts to import from Connected banks.");
+      if (outcome.status === "linked") {
+        // the sheet offers the user's accounts and the server's account types
+        const loaded = await loadResource(() => authFetch("/api/mobile/accounts", session), parseAccounts);
+        if (loaded.status === "ready") {
+          setMapping({ plaidItemId: outcome.plaidItemId, accounts: outcome.accounts, choices: mappingChoices(loaded.data) });
+        } else {
+          // the bank is connected; its accounts wait in Connected banks under "Choose accounts to import"
+          invalidate("accounts");
+          setNotice("Your bank is connected. Choose which of its accounts to import from Connected banks.");
+        }
+        return;
       }
-      return;
+      if (outcome.status === "already_linked") setNotice("You've already connected this bank. Reconnect it from the list below if it needs attention.");
+      else if (outcome.status === "unavailable") setError("Bank connections aren't available in this build yet.");
+      else if (outcome.status === "error") setError(outcome.message);
+    } catch {
+      // a port that threw rather than answering: never a stuck button, and the user hears where it stopped
+      if (exchanging) {
+        // the bank may exist now: the lists reload to show it
+        invalidate("accounts");
+        setError("Couldn't finish connecting the bank. Try again.");
+      } else setError("Couldn't start the bank connection. Try again.");
+    } finally {
+      setPhase("idle");
     }
-    setPhase("idle");
-    if (outcome.status === "already_linked") setNotice("You've already connected this bank. Reconnect it from the list below if it needs attention.");
-    else if (outcome.status === "unavailable") setError("Bank connections aren't available in this build yet.");
-    else if (outcome.status === "error") setError(outcome.message);
   }, [session, link]);
+
+  // One run at a time, decided synchronously: two taps in the same frame both land before the disabled button renders.
+  const running = useRef(false);
+  const start = useCallback(async () => {
+    if (running.current) return;
+    running.current = true;
+    try {
+      await run();
+    } finally {
+      running.current = false;
+    }
+  }, [run]);
 
   // Dismissed without mapping: the bank was still created, so the lists reload to show it with its "choose accounts" prompt.
   const cancelMapping = useCallback(() => {
@@ -113,7 +136,9 @@ export function ConnectBank({
     invalidate("accounts");
   }, []);
 
-  const busy = phase === "starting" || phase === "exchanging";
+  // The web's Link opens over the page at once; native Link can take a while to appear after `open`, so the button
+  // stays on "Opening…", disabled, until Link closes (Link covers it once it shows, as on the web).
+  const busy = phase !== "idle";
 
   return (
     <View style={{ gap: 8 }}>
@@ -125,7 +150,7 @@ export function ConnectBank({
         loading={busy}
         style={fullWidth ? undefined : { alignSelf: "flex-start" }}
       >
-        {phase === "starting" ? "Opening…" : phase === "exchanging" ? "Connecting…" : label}
+        {phase === "starting" || phase === "linking" ? "Opening…" : phase === "exchanging" ? "Connecting…" : label}
       </Button>
 
       {error ? (

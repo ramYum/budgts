@@ -1,6 +1,7 @@
 import { memo, useMemo } from "react";
 import { PixelRatio, useWindowDimensions, View, type LayoutChangeEvent } from "react-native";
-import Animated, { steps, useReducedMotion } from "react-native-reanimated";
+import Animated, { steps } from "react-native-reanimated";
+import { useReducedMotion } from "../motion/reduced-motion";
 import Svg, { Path } from "react-native-svg";
 import {
   EGG_FRAMES,

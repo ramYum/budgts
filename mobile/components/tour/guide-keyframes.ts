@@ -159,16 +159,8 @@ export const HOP: Keyframes = {
   "75%": { transform: [{ translateY: -5 }] },
   "100%": { transform: [{ translateY: 0 }], animationTimingFunction: rise },
 };
-/** `tabs`: the pip tours the four tabs, one per 1.5s of a 6s loop (`width` is one tab's) */
-export const tabsTour = (width: number): Keyframes => ({
-  "0%": { transform: [{ translateX: 0 }] },
-  "25%": { transform: [{ translateX: width }] },
-  "50%": { transform: [{ translateX: width * 2 }] },
-  "75%": { transform: [{ translateX: width * 3 }] },
-  "100%": { transform: [{ translateX: width * 3 }] },
-});
 /**
- * `slot` with the web's delay `k × 1.5s − 6s` folded in: tab `k` is lit (and captioned) for its own quarter of the 6s
+ * `slot` with the web's delay `k × 1.5s − 6s` folded in: tab `k` is lit (captioned, and under the pip) for its own quarter of the 6s
  * loop, the same frames as the web's negative delay, without one.
  */
 export const slot = (k: number): Keyframes => {

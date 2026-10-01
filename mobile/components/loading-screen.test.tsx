@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { EGG_FRAMES } from "../lib/brand/shared";
+import { animationCalls, reducedMotion } from "../test/native-hosts";
 import { LoadingScreenProvider, useLoadingScreen } from "./loading-screen";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -125,5 +126,47 @@ describe("the loading screen", () => {
     expect(content().props).toMatchObject({ importantForAccessibility: "no-hide-descendants", accessibilityElementsHidden: true });
     act(() => setScreenLoading(false));
     expect(content().props).toMatchObject({ importantForAccessibility: "auto", accessibilityElementsHidden: false });
+  });
+});
+
+describe("the loading screen's fade follows the app's one motion source", () => {
+  afterEach(() => {
+    reducedMotion.launch = null;
+    act(() => {
+      reducedMotion.value = false;
+    });
+    animationCalls.length = 0;
+  });
+
+  const fades = () => animationCalls.map((c) => [c.kind, c.reduceMotion]);
+
+  it("fades in and out with motion on, whatever Reanimated read at launch", () => {
+    reducedMotion.launch = true; // a stale launch reading: motion was off when the app started
+    act(() => {
+      reducedMotion.value = false;
+    });
+    const r = render(<LoadingScreenProvider loading={false}>{<Screen initial />}</LoadingScreenProvider>);
+    animationCalls.length = 0;
+    act(() => setScreenLoading(false));
+    expect(fades()).toEqual([
+      ["timing", "never"],
+      ["delay", "never"],
+    ]);
+    r.unmount();
+  });
+
+  it("snaps without a fade with motion off, even when Remove animations came on after launch", () => {
+    reducedMotion.launch = false;
+    act(() => {
+      reducedMotion.value = true;
+    });
+    const r = render(<LoadingScreenProvider loading={false}>{<Screen initial />}</LoadingScreenProvider>);
+    animationCalls.length = 0;
+    act(() => setScreenLoading(false));
+    expect(fades()).toEqual([
+      ["timing", "always"],
+      ["delay", "always"],
+    ]);
+    r.unmount();
   });
 });

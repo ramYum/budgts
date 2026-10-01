@@ -12,7 +12,9 @@ const lastCall = () => {
 };
 
 describe("bankCommands", () => {
-  beforeEach(() => api.authFetch.mockReset());
+  beforeEach(() => {
+    api.authFetch.mockReset();
+  });
   const c = bankCommands(null);
 
   it("sends each command to the server's own Plaid command with the web's body", async () => {
@@ -83,7 +85,9 @@ describe("bankCommands offline", () => {
 });
 
 describe("linkPorts", () => {
-  beforeEach(() => api.authFetch.mockReset());
+  beforeEach(() => {
+    api.authFetch.mockReset();
+  });
   const ports = linkPorts(null);
 
   it("mints a link token, update mode when an item is named", async () => {

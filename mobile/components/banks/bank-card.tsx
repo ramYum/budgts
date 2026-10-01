@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Pressable, View } from "react-native";
-import Animated, { useReducedMotion } from "react-native-reanimated";
+import Animated from "react-native-reanimated";
+import { useReducedMotion } from "../motion/reduced-motion";
 import { COLOR, ROLE } from "../../lib/brand/shared";
 import { invalidate } from "../../lib/api/invalidate";
 import { statusNeedsAttention, type BankAccount, type ConnectedBank } from "../../lib/plaid/banks-api";
@@ -221,43 +222,57 @@ function ReconnectButton({ itemId, actions, testID }: { itemId: string; actions:
   const [phase, setPhase] = useState<"idle" | "starting" | "linking" | "finishing">("idle");
   const [error, setError] = useState<string | null>(null);
 
+  // One run at a time, decided synchronously: two taps in the same frame both land before the disabled button renders.
+  const running = useRef(false);
   async function start() {
+    if (running.current) return;
+    running.current = true;
     setError(null);
     setPhase("starting");
     let syncing = false;
-    const out = await reconnectBank(
-      {
-        fetchLinkToken: actions.ports.fetchLinkToken,
-        link: {
-          isAvailable: () => actions.link.isAvailable(),
-          open: (token) => {
-            setPhase("linking");
-            return actions.link.open(token);
+    try {
+      const out = await reconnectBank(
+        {
+          fetchLinkToken: actions.ports.fetchLinkToken,
+          link: {
+            isAvailable: () => actions.link.isAvailable(),
+            open: (token) => {
+              setPhase("linking");
+              return actions.link.open(token);
+            },
+          },
+          sync: (id) => {
+            syncing = true;
+            setPhase("finishing");
+            return actions.ports.sync(id);
           },
         },
-        sync: (id) => {
-          syncing = true;
-          setPhase("finishing");
-          return actions.ports.sync(id);
-        },
-      },
-      itemId,
-      currentPlatform(),
-    );
-    setPhase("idle");
-    if (out.status === "unavailable") setError("Bank connections aren't available in this build yet.");
-    // the web shows only a failed start; a sync that didn't finish shows on the card as its status
-    else if (out.status === "error" && !syncing) setError(out.message);
-    if (out.status === "ok" || out.status === "error") {
-      changedEverything();
+        itemId,
+        currentPlatform(),
+      );
+      if (out.status === "unavailable") setError("Bank connections aren't available in this build yet.");
+      // the web shows only a failed start; a sync that didn't finish shows on the card as its status
+      else if (out.status === "error" && !syncing) setError(out.message);
+      if (out.status === "ok" || out.status === "error") {
+        changedEverything();
+      }
+    } catch {
+      // a port that threw rather than answering: the button never sticks, and the user hears it didn't start
+      if (!syncing) setError("Couldn't start the reconnect. Try again.");
+      else changedEverything();
+    } finally {
+      running.current = false;
+      setPhase("idle");
     }
   }
 
-  const busy = phase === "starting" || phase === "finishing";
+  // The web's Link opens over the page at once; native Link can take a while to appear after `open`, so the button
+  // stays on "Opening…", disabled, until Link closes.
+  const busy = phase !== "idle";
   return (
     <View style={{ gap: 4 }}>
       <Button testID={testID} onPress={() => void start()} loading={busy} style={{ alignSelf: "flex-start" }}>
-        {phase === "starting" ? "Opening…" : phase === "finishing" ? "Finishing…" : "Reconnect"}
+        {phase === "starting" || phase === "linking" ? "Opening…" : phase === "finishing" ? "Finishing…" : "Reconnect"}
       </Button>
       {error ? (
         <Text testID={`${testID}-error`} variant="small" color={ROLE.neg} accessibilityRole="alert">

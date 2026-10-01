@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { PixelRatio, View, type LayoutChangeEvent } from "react-native";
-import Animated, { steps, useReducedMotion } from "react-native-reanimated";
+import Animated, { steps } from "react-native-reanimated";
+import { useReducedMotion } from "../motion/reduced-motion";
 import Svg, { Path } from "react-native-svg";
 import { MOTION, ROLE } from "../../lib/brand/shared";
 import { alarmDelayMs, CELL_ALARM, CELL_ALARM_MS, sweepDelayMs } from "../../lib/motion/css";

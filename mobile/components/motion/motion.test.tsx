@@ -6,7 +6,7 @@ import { textStyle } from "../../lib/brand/type";
 import { reducedMotion } from "../../test/native-hosts";
 import { byTestId, flat, hosts, render, texts } from "../../test/render";
 import { ProgressBar, TONE_FILL } from "../kit/progress-bar";
-import { reelOffset, reelWindow, RollingAmount } from "./rolling-amount";
+import { reelOffset, reelWindow, RollingAmount, separatorInk } from "./rolling-amount";
 import { cellLayout, sweepEdge } from "../../lib/ui/cells";
 import { Reveal, scrolledIntoView, startsBelowFold, usePlay } from "./reveal";
 import { ScrollWatchProvider, type ScrollWatch } from "./scroll-context";
@@ -206,6 +206,26 @@ describe("RollingAmount (web rolling-amount.tsx)", () => {
     expect(geist.height).toBeCloseTo(0.88 * fontSize);
     expect(geist.top).toBeCloseTo((lineHeight - 0.88 * fontSize) / 2);
     expect(reelWindow("pxFigureLg")).toEqual({ top: 0, height: textStyle("pxFigureLg").lineHeight });
+  });
+
+  it("draws every separator in full: outside the clipped reels, its ink inside the role's line box", () => {
+    // the comma's tail and the dollar's stroke reach furthest from the digits (Geist glyf: yMin -158, yMax 800 per em)
+    for (const [variant, lh] of [["tNumXl"], ["tNumLg"], ["bodyStrong", 20]] as const) {
+      const line = lh ?? textStyle(variant).lineHeight;
+      const ink = separatorInk(variant, lh);
+      expect(ink.top).toBeGreaterThanOrEqual(0);
+      expect(ink.bottom).toBeLessThanOrEqual(line);
+    }
+    // $ , and . sit in the row itself, never under a reel's clip window, on the full line box
+    const r = render(<RollingAmount value={-166073} currency="USD" />);
+    const seps = hosts(r, "Text").filter((t) => typeof t.props.children === "string" && /^[^0-9]$/.test(t.props.children));
+    expect(seps.map((t) => t.props.children).join("")).toBe("-$,.");
+    for (const sep of seps) {
+      expect(flat(sep.props.style).lineHeight).toBe(textStyle("tNumXl").lineHeight);
+      for (let p = sep.parent; p && p.props.testID !== "rolling-amount"; p = p.parent) {
+        expect(flat(p.props.style).overflow).not.toBe("hidden");
+      }
+    }
   });
 
   it("takes the figure's own letter spacing on every glyph, moving and still (the web's .tnum -0.01em)", () => {

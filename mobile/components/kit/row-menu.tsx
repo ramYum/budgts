@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { Modal, Pressable, View, useWindowDimensions } from "react-native";
-import Animated, { steps, useReducedMotion } from "react-native-reanimated";
+import Animated, { steps } from "react-native-reanimated";
+import { useReducedMotion } from "../motion/reduced-motion";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { COLOR, ROLE, type IconName } from "../../lib/brand/shared";
 import { POP_IN, POP_MS } from "../../lib/motion/css";

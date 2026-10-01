@@ -51,6 +51,6 @@ export function buildLimitedHistoryMessages(inputs: HistoryCoverageInput[]): str
     .map((i) => {
       const name = i.institutionName ?? "this connection";
       const date = formatDate(i.earliestTxnAt!);
-      return `Limited history from ${name}. Transactions only go back to ${date} — spending before that won't appear in your budgets for this account.`;
+      return `Limited history from ${name}. Transactions only go back to ${date}. Spending before that won't appear in your budgets for this account.`;
     });
 }

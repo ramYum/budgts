@@ -241,6 +241,28 @@ Expo stops generating that call. Prefer a config-plugin mod like this over a
 native patch; if a native patch is ever unavoidable, add the module to
 `buildFromSource` and prove on a device that the patched code runs.
 
+### The one patch: react-native-screens launch crash (2026-10-01)
+
+`patches/react-native-screens+4.26.2.patch` (applied by `postinstall:
+patch-package`) backports upstream's fix
+[#4413](https://github.com/software-mansion/react-native-screens/pull/4413),
+first released in 4.28.0, verbatim. Expo SDK 57 pins `~4.26.0`.
+
+The bug: Android cold launches could die with `SIGSEGV SEGV_ACCERR` on
+`mqt_v_js`, frame #01 `MountingCoordinator::pullTransaction+713`. That
+address is the virtual `shouldOverridePullTransaction()` call on a mounting
+override delegate. Screens created its `RNSScreenRemovalListener` delegate
+lazily without a lock. On a cold start, `ScreensModule.initialize()` and
+`onHostResume()` both reach `nativeAddMutationsListener`, so the racing
+`shared_ptr` writes could register a freed listener.
+
+react-native-screens is not an Expo module. Its C++ compiles from
+`node_modules`, so the patch reaches the APK (no `buildFromSource` needed).
+Check the built `librnscreens.so` for `setListener`/`clearListener`.
+`test/screens-launch-crash-guard.test.ts` fails once the installed version
+carries the fix itself. At that point, delete the patch, `patch-package` and
+the `postinstall`.
+
 ## Native config verification (2026-09-18)
 
 Ran `npx expo prebuild --platform all` once, inspected the generated native

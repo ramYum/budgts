@@ -14,6 +14,8 @@ export const EASE_OUT = cubicBezier(MOTION.easeOut[0], MOTION.easeOut[1], MOTION
  * A transform origin `x` px across and `y` (px or a percentage) down a view, as numbers React Native takes as they are.
  * Never write it as a "…px" string: React Native reads a string origin with /\d+px/, so a float such as
  * "54.00000000000001px" reads as 1px (Crystal turned about her left edge, off her shadow, not on her feet).
+ * The only way to write a computed origin: test/transform-origin-guard.test.ts fails on any other (a template, a `+`,
+ * or a string beyond `left|right|top|bottom|center|N%`).
  */
 export const pxOrigin = (x: number, y: number | `${number}%`): [number, number | string, number] => [x, y, 0];
 

@@ -11,6 +11,7 @@ import { readOwnOpenAccount } from "@/lib/accounts/selectable-accounts";
 import { db } from "@/lib/db";
 import { describePlaidError } from "@/lib/plaid/error-policy";
 import { claimMissReason, findItemByPlaidItemId } from "@/lib/plaid/item-store";
+import { NEW_ACCOUNTS_UNMAPPED } from "@/lib/plaid/sync-engine";
 import { claimMissMessage, runClaimedSync } from "@/lib/plaid/sync-runner";
 import type { AccountMapEntryInput } from "@/lib/validation/plaid";
 import { drainItemInBackground, syncRunner } from "./service";
@@ -27,6 +28,10 @@ async function syncOwnedItem(itemId: string): Promise<SyncKind> {
     return { kind: "not_started", message: claimMissMessage(await claimMissReason(db(), itemId)) };
   }
   if (out.result.ok && out.morePending) after(() => drainItemInBackground(itemId));
+  // The bank added accounts: the pass landed nothing and holds until the user maps them, which is a choice, not a failure.
+  if (!out.result.ok && out.result.error === NEW_ACCOUNTS_UNMAPPED) {
+    return { kind: "not_started", message: claimMissMessage({ kind: "unmapped" }) };
+  }
   return out.result.ok ? { kind: "synced" } : { kind: "failed" };
 }
 

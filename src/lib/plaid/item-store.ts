@@ -97,11 +97,19 @@ const leaseFree = () =>
     lt(plaidItems.syncClaimedAt, sql`now() - make_interval(secs => ${SYNC_LEASE_SECONDS})`),
   );
 
-/** An Item with an account still awaiting the user's mapping choice. Syncing
- * it would skip that account's rows AND advance the cursor past them, losing
- * them for good — so it is never claimable until mapping is saved. */
+/** An Item still awaiting the user's mapping choice: an account is `unmapped`,
+ * or no account is recorded yet (the exchange writes the Item, then its
+ * accounts, in two statements; and a failed accounts write leaves the Item with
+ * none). Syncing it would skip those accounts' rows AND advance the cursor past
+ * them, losing them for good — so it is never claimable until mapping is saved. */
 const hasUnmappedAccount = () =>
-  sql`exists (select 1 from ${plaidAccounts} where ${plaidAccounts.plaidItemId} = ${plaidItems.id} and ${plaidAccounts.linkState} = 'unmapped')`;
+  sql`(exists (select 1 from ${plaidAccounts} where ${plaidAccounts.plaidItemId} = ${plaidItems.id} and ${plaidAccounts.linkState} = 'unmapped')
+    or ${hasNoAccount()})`;
+
+/** No account recorded for the Item. Embed it as `${hasNoAccount()}`: a bare sql select field renders its columns
+ * unqualified, and `id` would then resolve to plaid_accounts.id inside the subquery. */
+const hasNoAccount = () =>
+  sql`not exists (select 1 from ${plaidAccounts} where ${plaidAccounts.plaidItemId} = ${plaidItems.id})`;
 
 function dueConds(staleBefore?: Date) {
   return and(
@@ -169,6 +177,8 @@ export async function releaseSyncClaim(
 
 export type ClaimMiss =
   | { kind: "unmapped" }
+  /** No accounts recorded: a connection whose setup never finished (the exchange now removes these; legacy rows). */
+  | { kind: "no_accounts" }
   | { kind: "gone" }
   /** Another run holds the lease; it expires in `retryAfterSeconds` (0 = already free). */
   | { kind: "busy"; retryAfterSeconds: number };
@@ -178,12 +188,14 @@ export async function claimMissReason(db: PlaidDb, itemId: string): Promise<Clai
   const [row] = await db
     .select({
       unmapped: sql<boolean>`${hasUnmappedAccount()}`,
+      noAccounts: sql<boolean>`${hasNoAccount()}`,
       retryAfterSeconds: sql<number>`coalesce(greatest(0, ceil(extract(epoch from ${plaidItems.syncClaimedAt} + make_interval(secs => ${SYNC_LEASE_SECONDS}) - now())))::int, 0)`,
     })
     .from(plaidItems)
     .where(eq(plaidItems.itemId, itemId))
     .limit(1);
   if (!row) return { kind: "gone" };
+  if (row.noAccounts) return { kind: "no_accounts" };
   if (row.unmapped) return { kind: "unmapped" };
   return { kind: "busy", retryAfterSeconds: Number(row.retryAfterSeconds) };
 }
@@ -234,4 +246,70 @@ export async function recordSyncFailure(
       updatedAt: sql`now()`,
     })
     .where(eq(plaidItems.itemId, itemId));
+}
+
+/** A Plaid account the sync found rows for but the Item has no link for. */
+export interface NewPlaidAccount {
+  plaidAccountId: string;
+  name: string | null;
+  officialName: string | null;
+  mask: string | null;
+  type: string | null;
+  subtype: string | null;
+  isoCurrencyCode: string | null;
+}
+
+/**
+ * Record accounts the bank added to an Item as `unmapped`, so the Item holds
+ * (never claimable, see `hasUnmappedAccount`) and Connected banks asks the user
+ * where they go; the rows land on the sync after mapping, from the cursor the
+ * refused pass left unchanged. Idempotent: an account already linked is left
+ * exactly as it is. Scoped to the Item's own user.
+ */
+export async function recordUnmappedAccounts(
+  db: PlaidDb,
+  item: { id: string; userId: string },
+  accounts: NewPlaidAccount[],
+): Promise<void> {
+  if (accounts.length === 0) return;
+  await db
+    .insert(plaidAccounts)
+    .values(
+      accounts.map((a) => ({
+        userId: item.userId,
+        plaidItemId: item.id,
+        plaidAccountId: a.plaidAccountId,
+        accountId: null,
+        linkState: "unmapped" as const,
+        name: a.name,
+        officialName: a.officialName,
+        mask: a.mask,
+        type: a.type,
+        subtype: a.subtype,
+        isoCurrencyCode: a.isoCurrencyCode,
+      })),
+    )
+    .onConflictDoNothing({ target: [plaidAccounts.userId, plaidAccounts.plaidAccountId] });
+}
+
+/**
+ * Recovery for an Item whose cursor was stored past rows that never landed (a
+ * sync that ran before its accounts were mapped). Clearing the cursor makes the
+ * next sync re-pull the Item's whole history from Plaid; landing is idempotent
+ * on the Plaid transaction id (`transactions_source_ref_uq`), so rows already
+ * here are matched and updated in place (user categories and notes kept), and
+ * only the missing ones are inserted. Rows of accounts the user chose not to
+ * import stay skipped. Two caveats, why it is never automatic: a bank row the
+ * user deleted is hard-deleted (no tombstone), so the re-pull inserts it again;
+ * and an account that was paused and later resumed gets its paused-window rows
+ * back (pausing keeps no history, so those can't be told apart). Flags the Item so the sweep picks it up. An owner-run
+ * remediation (tools/plaid-resync-item.mjs), never automatic.
+ */
+export async function resetItemCursor(db: PlaidDb, itemId: string): Promise<boolean> {
+  const rows = await db
+    .update(plaidItems)
+    .set({ transactionsCursor: null, needsSync: true, updatedAt: sql`now()` })
+    .where(eq(plaidItems.itemId, itemId))
+    .returning({ id: plaidItems.id });
+  return rows.length > 0;
 }

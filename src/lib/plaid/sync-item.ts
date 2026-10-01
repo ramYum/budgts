@@ -13,6 +13,7 @@ import { classifyPlaidError, describePlaidError, readPlaidError } from "./error-
 import {
   type PlaidItemRecord,
   recordSyncFailure,
+  recordUnmappedAccounts,
   setItemStatus,
 } from "./item-store";
 import { buildResolveCategory, loadMerchantRules } from "./merchant-rules";
@@ -20,9 +21,11 @@ import { runRecurringDetectionForUser } from "./recurring-engine";
 import { createRecurringStore, loadRecurringWatermark } from "./recurring-store";
 import {
   MUTATION_DURING_PAGINATION_CODE,
+  NEW_ACCOUNTS_UNMAPPED,
   type PlaidSyncPage,
   runSync,
   SyncMutationDuringPagination,
+  SyncUnknownAccounts,
 } from "./sync-engine";
 import { type PlaidDb, createPlaidSyncStore } from "./sync-store";
 import type { AccountMapEntry, NormalizeCtx } from "./types";
@@ -49,8 +52,11 @@ export async function buildNormalizeCtx(
     loadMerchantRules(db, userId),
   ]);
 
+  // An `unmapped` link is not a decision to skip: leaving it out of the map makes its rows "unknown", so the pass holds
+  // (SyncUnknownAccounts) instead of skipping them past the cursor. The claim already refuses such an Item; this keeps
+  // the engine safe on its own.
   const accountMap = new Map<string, AccountMapEntry>(
-    accts.map((a) => [
+    accts.filter((a) => a.linkState !== "unmapped").map((a) => [
       a.plaidAccountId,
       {
         plaidAccountRowId: a.id,
@@ -88,7 +94,7 @@ export type SyncItemResult =
 
 export async function syncItem(deps: {
   db: PlaidDb;
-  client: Pick<PlaidApi, "transactionsSync">;
+  client: Pick<PlaidApi, "transactionsSync" | "accountsGet">;
   item: PlaidItemRecord;
   tokenEncKey: Buffer;
 }): Promise<SyncItemResult> {
@@ -155,6 +161,8 @@ export async function syncItem(deps: {
       cursor: outcome.cursor,
     };
   } catch (e) {
+    if (e instanceof SyncUnknownAccounts) return holdForNewAccounts({ db, client, item, accessToken }, e.plaidAccountIds);
+
     // Diagnostic only — never changes classifyPlaidError's decision or any
     // downstream behavior. See describePlaidError for why this is safe to
     // log (never the raw Plaid error body, never an unknown object dumped
@@ -166,4 +174,42 @@ export async function syncItem(deps: {
     else if (decision.countFailure) await recordSyncFailure(db, item.itemId, decision.errorCode);
     return { itemId: item.itemId, ok: false, error: decision.errorCode, retry: decision.retry };
   }
+}
+
+/**
+ * The pass found rows for accounts this Item has no link for and applied
+ * nothing (the cursor is unchanged). Record those accounts as `unmapped`, with
+ * Plaid's details where `/accounts/get` still lists them, so the Item holds and
+ * Connected banks asks where they go; the rows land on the sync after mapping.
+ */
+async function holdForNewAccounts(
+  deps: { db: PlaidDb; client: Pick<PlaidApi, "accountsGet">; item: PlaidItemRecord; accessToken: string },
+  plaidAccountIds: string[],
+): Promise<SyncItemResult> {
+  const { db, client, item, accessToken } = deps;
+  try {
+    const listed = new Map((await client.accountsGet({ access_token: accessToken })).data.accounts.map((a) => [a.account_id, a]));
+    await recordUnmappedAccounts(
+      db,
+      item,
+      plaidAccountIds.map((id) => {
+        const a = listed.get(id);
+        return {
+          plaidAccountId: id,
+          name: a?.name ?? null,
+          officialName: a?.official_name ?? null,
+          mask: a?.mask ?? null,
+          type: a?.type ?? null,
+          subtype: a?.subtype ?? null,
+          isoCurrencyCode: a?.balances?.iso_currency_code ?? null,
+        };
+      }),
+    );
+  } catch (e) {
+    // The cursor is still unchanged, so nothing is lost: the Item stays flagged and the next pass tries again.
+    console.error("[plaid] could not record new accounts", { itemId: item.itemId, ...describePlaidError(e) });
+    return { itemId: item.itemId, ok: false, error: NEW_ACCOUNTS_UNMAPPED, retry: true };
+  }
+  console.warn("[plaid] sync held: new accounts await mapping", { itemId: item.itemId, accounts: plaidAccountIds.length });
+  return { itemId: item.itemId, ok: false, error: NEW_ACCOUNTS_UNMAPPED, retry: false };
 }

@@ -99,6 +99,8 @@ export function claimMissMessage(miss: ClaimMiss): string {
   switch (miss.kind) {
     case "unmapped":
       return "Choose where this bank's new accounts go first. Then it will sync.";
+    case "no_accounts":
+      return "This connection didn't finish setting up. Disconnect it and connect again.";
     case "gone":
       return "That bank connection no longer exists.";
     case "busy":
@@ -111,7 +113,7 @@ export function claimMissMessage(miss: ClaimMiss): string {
 /** Real deps over a Drizzle db + Plaid client (wired by src/server/plaid/service.ts). */
 export function plaidSyncRunnerDeps(deps: {
   db: PlaidDb;
-  client: Pick<PlaidApi, "transactionsSync">;
+  client: Pick<PlaidApi, "transactionsSync" | "accountsGet">;
   tokenEncKey: Buffer;
 }): SyncRunnerDeps {
   const { db, client, tokenEncKey } = deps;

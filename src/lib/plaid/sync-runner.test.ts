@@ -131,6 +131,12 @@ describe("claimMissMessage", () => {
     );
   });
 
+  it("tells a half-set-up connection (no accounts recorded) to reconnect, not to map", () => {
+    const msg = claimMissMessage({ kind: "no_accounts" });
+    expect(msg).toBe("This connection didn't finish setting up. Disconnect it and connect again.");
+    expect(msg).not.toMatch(/—/);
+  });
+
   it("explains unmapped and removed connections", () => {
     expect(claimMissMessage({ kind: "unmapped" })).toBe(
       "Choose where this bank's new accounts go first. Then it will sync.",

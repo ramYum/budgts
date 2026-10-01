@@ -42,6 +42,26 @@ import type {
  */
 export const ANOMALY_REVIEW_THRESHOLD = 10;
 
+/**
+ * Thrown when a sync pass returns rows for Plaid accounts this Item has no
+ * link for (`plaid_accounts`): an account the bank added after the user mapped,
+ * or an Item whose accounts were never recorded. Such a row can't land, and a
+ * cursor stored past it is lost for good (Plaid never re-sends it), so the
+ * pass applies nothing and keeps the old cursor. sync-item.ts records the
+ * accounts as `unmapped`, which holds the Item until the user maps them.
+ */
+export class SyncUnknownAccounts extends Error {
+  constructor(readonly plaidAccountIds: string[]) {
+    super(`sync returned rows for ${plaidAccountIds.length} unlinked Plaid account(s)`);
+    this.name = "SyncUnknownAccounts";
+  }
+}
+
+/** The failed-result `error` for a pass refused because the bank added accounts
+ * the user hasn't mapped yet (see `SyncUnknownAccounts`), set by sync-item.ts. Not a Plaid failure:
+ * no failure is counted and the Item waits for mapping, not for a retry. */
+export const NEW_ACCOUNTS_UNMAPPED = "NEW_ACCOUNTS_UNMAPPED";
+
 /** One page of `/transactions/sync`. */
 export interface PlaidSyncPage {
   added: PlaidTxnInput[];
@@ -353,6 +373,14 @@ export async function runSync(deps: SyncDeps): Promise<SyncOutcome> {
   };
   const added = normalize(rawAdded);
   const modified = normalize(rawModified);
+
+  // Never skip-and-advance past an account we have no link for: apply nothing,
+  // keep the old cursor, and name the accounts (see SyncUnknownAccounts).
+  if (skips.some((s) => s.reason === "unknown-account")) {
+    const linked = normalizeCtx.accountMap;
+    const unknown = [...new Set([...rawAdded, ...rawModified].map((r) => r.account_id))].filter((id) => !linked.has(id));
+    throw new SyncUnknownAccounts(unknown);
+  }
 
   // ---- load the existing rows the reducer needs (by source_ref + pending refs)
   const refs = new Set<string>();

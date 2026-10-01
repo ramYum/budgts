@@ -38,7 +38,7 @@ const ITEM_ID = "plaid-item-1"; // Plaid's item id
 const ITEM_ROW = "11111111-1111-4111-8111-111111111111"; // plaid_items.id
 const PA_ROW = "22222222-2222-4222-8222-222222222222"; // plaid_accounts.id
 
-type SyncOutcome = { ok: true; hasMore: boolean } | { ok: false };
+type SyncOutcome = { ok: true; hasMore: boolean } | { ok: false; error?: string };
 
 /** The real runClaimedSync over a fake lease: `claimed` false = another run holds it. */
 function fakeRunner(opts: { claimed?: boolean; outcome?: SyncOutcome; pendingAfter?: boolean } = {}) {
@@ -58,7 +58,7 @@ function fakeRunner(opts: { claimed?: boolean; outcome?: SyncOutcome; pendingAft
       calls.sync.push(item);
       return outcome.ok
         ? { itemId: ITEM_ID, ok: true, inserts: 0, updates: 0, softDeletes: 0, skipped: 0, hasMore: outcome.hasMore, cursor: "c" }
-        : { itemId: ITEM_ID, ok: false, error: "x", retry: true };
+        : { itemId: ITEM_ID, ok: false, error: outcome.error ?? "x", retry: true };
     },
     now: () => 0,
   };
@@ -107,6 +107,14 @@ beforeEach(() => {
 
 describe("syncConnectionFor", () => {
   const owned = () => fakeSupabase((t) => (t === "plaid_items" ? { data: { item_id: ITEM_ID } } : {})).supabase;
+
+  it("says the bank's new accounts need mapping when the sync held for them, never 'Synced.'", async () => {
+    fakeRunner({ outcome: { ok: false, error: "NEW_ACCOUNTS_UNMAPPED" } });
+    expect(await syncConnectionFor(owned(), USER, ITEM_ID)).toEqual({
+      ok: true,
+      warning: "Choose where this bank's new accounts go first. Then it will sync.",
+    });
+  });
 
   it("says not found when RLS hides the Item from the caller, and never reaches the sync engine", async () => {
     const calls = fakeRunner();

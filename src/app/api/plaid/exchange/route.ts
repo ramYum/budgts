@@ -120,6 +120,14 @@ export async function POST(request: Request) {
   const { error: acctErr } = await supabase.from("plaid_accounts").insert(accountRows);
   if (acctErr) {
     console.error("[plaid] exchange: accounts insert", describePlaidError(acctErr));
+    // Never leave a half-created connection: an Item with no accounts can't be mapped, so it could never sync and
+    // would block reconnecting this bank (the same-institution guard above). Delete the row and remove the Item at
+    // Plaid, as the deletion branch does, so the user simply connects again.
+    const { error: delErr } = await supabase.from("plaid_items").delete().eq("id", item.id);
+    if (delErr) console.error("[plaid] exchange: could not delete the Item after its accounts failed", describePlaidError(delErr));
+    await client.itemRemove({ access_token: accessToken }).catch((removeErr: unknown) => {
+      console.error("[plaid] exchange: could not remove the Item after its accounts failed", describePlaidError(removeErr));
+    });
     return NextResponse.json({ error: "could not save the accounts" }, { status: 500 });
   }
 

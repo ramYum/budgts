@@ -76,6 +76,17 @@ describe("AccountMapping (web account-mapping.tsx)", () => {
     expect(flat(label.props.style)).toMatchObject({ flexShrink: 1, minWidth: 0 });
   });
 
+  it("shows a long name from its start when the field isn't being edited, as a web input does", () => {
+    const long = account({ name: "Plaid Money Market", mask: "4444" });
+    const r = render(<AccountMapping plaidAccounts={[long]} choices={choices} onSave={vi.fn()} onDone={() => {}} />);
+    const name = () => byTestId(r, "account-mapping-name-0").props;
+    expect(name().selection).toEqual({ start: 0, end: 0 });
+    act(() => name().onFocus?.({}));
+    expect(name().selection).toBeUndefined(); // editing: the caret is the user's
+    act(() => name().onBlur?.({}));
+    expect(name().selection).toEqual({ start: 0, end: 0 });
+  });
+
   it("saves the web's entries: new, existing and left out", async () => {
     const onSave = vi.fn(async () => ({ status: "ok" as const }));
     const onDone = vi.fn();

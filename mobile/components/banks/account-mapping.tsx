@@ -26,6 +26,8 @@ const typeLabel = (t: string) => t[0]!.toUpperCase() + t.slice(1);
  * server's own mapping and first sync; a sync that didn't finish shows its
  * warning with Done, as the web does.
  */
+const FROM_START = { start: 0, end: 0 };
+
 export function AccountMapping({
   plaidAccounts,
   choices,
@@ -42,6 +44,9 @@ export function AccountMapping({
   const [accounts] = useState(plaidAccounts);
   const [rows, setRows] = useState<MapRow[]>(() => emptyMapRows(accounts, budgtsAccounts[0]?.id ?? ""));
   const [pending, setPending] = useState(false);
+  // The name field being edited, if any. Any other shows its name from the start, as a web input does (Android otherwise
+  // leaves a long prefilled value scrolled to its end: "aid Money Market ••4444").
+  const [editing, setEditing] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [stale, setStale] = useState(false);
@@ -131,6 +136,9 @@ export function AccountMapping({
                       value={r.name}
                       onChangeText={(name) => update(i, { name })}
                       maxLength={40}
+                      selection={editing === i ? undefined : FROM_START}
+                      onFocus={() => setEditing(i)}
+                      onBlur={() => setEditing((e) => (e === i ? null : e))}
                       accessibilityLabel="New account name"
                       placeholderTextColor={PLACEHOLDER}
                       cursorColor={ROLE.ink}

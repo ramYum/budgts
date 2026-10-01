@@ -9,6 +9,7 @@ import { Text } from "../brand/text";
 import { DOT, dotsPath } from "../kit/empty-state";
 import { HubRow, HubSection } from "../kit/hub-list";
 import { PageHeader } from "../kit/page-header";
+import { LinkError } from "./link-error";
 import { RowsCard } from "./rows-card";
 
 /** The web About page's facts (about/page.tsx): the roadmap tier, not a made-up semver. */
@@ -80,10 +81,13 @@ export function AboutView({
   onBack,
   legal,
   onOpen,
+  linkError = null,
 }: {
   onBack: () => void;
   legal: LegalLink[];
   onOpen: (url: string) => void;
+  /** a legal page that wouldn't open */
+  linkError?: string | null;
 }) {
   return (
     <View testID="about-view">
@@ -121,6 +125,7 @@ export function AboutView({
             ))}
           </HubSection>
         ) : null}
+        <LinkError message={linkError} />
       </View>
     </View>
   );

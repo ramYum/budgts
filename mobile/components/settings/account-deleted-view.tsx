@@ -7,6 +7,7 @@ import { PixelFrame } from "../brand/pixel-frame";
 import { Robin } from "../brand/robin";
 import { Text } from "../brand/text";
 import { Stage } from "../kit/empty-state";
+import { LinkError } from "./link-error";
 
 function Link({ children, onPress }: { children: string; onPress: () => void }) {
   return (
@@ -28,6 +29,7 @@ export function AccountDeletedView({
   privacyUrl,
   openUrl,
   onDone,
+  linkError = null,
 }: {
   /** the deletion endpoint said a store subscription may still be running */
   store: boolean;
@@ -37,6 +39,8 @@ export function AccountDeletedView({
   privacyUrl: string | null;
   openUrl: (url: string) => void;
   onDone: () => void;
+  /** a store or privacy page that wouldn't open */
+  linkError?: string | null;
 }) {
   return (
     <View testID="account-deleted" style={{ gap: 24 }}>
@@ -82,6 +86,8 @@ export function AccountDeletedView({
           ) : null}
         </Text>
       ) : null}
+
+      <LinkError message={linkError} />
 
       <Button testID="account-deleted-done" size="lg" onPress={onDone}>
         Done

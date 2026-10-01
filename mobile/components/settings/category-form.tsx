@@ -67,7 +67,7 @@ export function CategoryForm({
       />
       <Select testID="category-kind" label="Type" value={kind} options={KINDS} onChange={setKind} />
       {message ? (
-        <Text testID="category-form-error" variant="body" color={ROLE.neg} accessibilityRole="alert" style={{ fontSize: 14, lineHeight: 20 }}>
+        <Text testID="category-form-error" variant="small" color={ROLE.neg} accessibilityRole="alert">
           {message}
         </Text>
       ) : null}

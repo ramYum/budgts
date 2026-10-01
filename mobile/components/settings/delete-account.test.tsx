@@ -18,7 +18,7 @@ const screen: DeleteScreen = {
 
 function actions(over: Partial<DeleteFlowActions> = {}): DeleteFlowActions {
   return {
-    deleteAccount: vi.fn(async (): Promise<DeleteOutcome> => ({ status: "deleted", storeSubscriptionMayBeActive: false, manageSubscriptionUrl: null })),
+    deleteAccount: vi.fn(async (): Promise<DeleteOutcome> => ({ status: "deleted", storeSubscriptionMayBeActive: false })),
     onDeleted: vi.fn(),
     sendReauthLink: vi.fn(async () => ({ sent: true as const })),
     reauthWithGoogle: vi.fn(async () => null),
@@ -61,7 +61,7 @@ describe("Delete account (web delete-account-flow.tsx)", () => {
 
   it("asks for DELETE, then deletes and hands over the store answer", async () => {
     const a = actions({
-      deleteAccount: vi.fn(async (): Promise<DeleteOutcome> => ({ status: "deleted", storeSubscriptionMayBeActive: true, manageSubscriptionUrl: null })),
+      deleteAccount: vi.fn(async (): Promise<DeleteOutcome> => ({ status: "deleted", storeSubscriptionMayBeActive: true })),
     });
     const r = render(<DeleteAccountFlow screen={screen} step="intro" actions={a} />);
     await press(r, "delete-continue");

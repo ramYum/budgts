@@ -1,6 +1,9 @@
 import { list, obj, oneOf, str } from "../api/parse";
 
-/** The response contract of `GET /api/mobile/categories` (server: `src/lib/mobile/reads.ts`). Read-only: category management is post-launch. */
+/**
+ * The response contract of `GET /api/mobile/categories` (server: `src/lib/mobile/reads.ts`): the active categories, for
+ * pickers. Settings → Categories manages them through lib/categories/manage.ts.
+ */
 export type MobileCategory = { id: string; name: string; kind: "expense" | "income"; color: string };
 
 export function parseCategories(body: unknown): MobileCategory[] {

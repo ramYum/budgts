@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { View } from "react-native";
+import { AccessibilityInfo, Platform, View } from "react-native";
 import { COLOR, ROLE, type IconName } from "../../lib/brand/shared";
 import type { DeleteOutcome } from "../../lib/account/delete-account";
 import {
@@ -41,6 +41,8 @@ export type DeleteFlowActions = {
   openUrl: (url: string) => void;
   /** budgts.com's "how deletion works" page, when the legal pages are live */
   deletionPageUrl: string | null;
+  /** the stage changed (the screen clears a stale message) */
+  onStage?: () => void;
   /** true while the server works: the screen holds the back gesture, as the web warns before unload */
   onBusy?: (busy: boolean) => void;
 };
@@ -234,7 +236,7 @@ function Reauth({ screen, stale, a }: { screen: DeleteScreen; stale: boolean; a:
       </TileCard>
 
       {error ? (
-        <Text testID="delete-reauth-error" variant="body" color={ROLE.neg} accessibilityRole="alert" style={{ fontSize: 14, lineHeight: 20 }}>
+        <Text testID="delete-reauth-error" variant="small" color={ROLE.neg} accessibilityRole="alert">
           {error}
         </Text>
       ) : null}
@@ -279,7 +281,16 @@ function Confirm({ screen, onDelete, a }: { screen: DeleteScreen; onDelete: () =
         </Para>
         <Field
           testID="delete-confirm-word"
-          label={`Type ${CONFIRM_WORD} to confirm`}
+          label={
+            <>
+              {"Type "}
+              <Text testID="delete-confirm-word-strong" variant="smallStrong" color={ROLE.ink}>
+                {CONFIRM_WORD}
+              </Text>
+              {" to confirm"}
+            </>
+          }
+          accessibilityLabel={`Type ${CONFIRM_WORD} to confirm`}
           value={typed}
           onChangeText={setTyped}
           autoComplete="off"
@@ -406,6 +417,25 @@ export function DeleteAccountFlow({ screen, step, actions: a }: { screen: Delete
     }
   }, [screen]);
 
+  const subtitle = stage === "error" ? ERROR_COPY[error].title : STAGE_TITLE[stage];
+
+  // Each stage change is spoken once, never the first render: Android's TalkBack reads the subtitle's live region;
+  // iOS's VoiceOver ignores live regions, so it is announced there. The screen also hears the change (onStage).
+  const announced = useRef(false);
+  // the screen's actions are rebuilt each render; only a stage change calls onStage
+  const onStage = useRef(a.onStage);
+  useEffect(() => {
+    onStage.current = a.onStage;
+  });
+  useEffect(() => {
+    if (!announced.current) {
+      announced.current = true;
+      return;
+    }
+    if (Platform.OS === "ios") AccessibilityInfo.announceForAccessibility(subtitle);
+    onStage.current?.();
+  }, [subtitle]);
+
   const onBusy = a.onBusy;
   useEffect(() => {
     onBusy?.(stage === "deleting");
@@ -423,8 +453,6 @@ export function DeleteAccountFlow({ screen, step, actions: a }: { screen: Delete
     if (next.error) setError(next.error);
     setStage(next.stage);
   }
-
-  const subtitle = stage === "error" ? ERROR_COPY[error].title : STAGE_TITLE[stage];
 
   return (
     <View testID="delete-account-view" style={{ gap: 24 }}>

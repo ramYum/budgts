@@ -90,7 +90,7 @@ export function HowItWorksView({ onBack, onGuide }: { onBack: () => void; onGuid
                       {s.heading}
                     </Text>
                   </View>
-                  <Text variant="body" color={ROLE.muted} style={{ fontSize: 14, lineHeight: 20 }}>
+                  <Text variant="small" color={ROLE.muted}>
                     {s.body}
                   </Text>
                 </View>

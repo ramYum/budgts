@@ -579,7 +579,7 @@ The app's gateways: `mobile/lib/brand/shared.ts` (brand) and `mobile/lib/shared.
 | `greetingForHour`, `relativeDayLabel`, `shiftDateKey`, `dateKeyAt`, `localDateKey` | `src/lib/display/local-date.ts` (moved from `src/lib/local-date.ts`) | B's `greetingForHour` copy |
 | `displayName` | `src/lib/display/display-name.ts` (moved from `src/lib/user`) | B's copy |
 | `figureSizeOf` → kit `figureVariant` | `src/lib/brand/figure-size.ts` | D-2's `figureVariant` stand-in |
-| `DELETE_ACCOUNT_PATH`, `ACCOUNT_DELETED_PATH`, `REAUTH_WINDOW_MINUTES`, `CONFIRM_WORD`, `confirmWordMatches`, `outcomeFromResponse`, `deletedDestination`, `DeleteOutcome` | `src/lib/account/screen.ts` (already pure) | C's deletion constants, DELETE check, deleted-screen destination. **Intentional exception:** `mobile/lib/account/delete-account.ts` keeps its own outcome mapping, not the web's `outcomeFromResponse`: the app's carries the stores' manage-subscription links and separates an expired session from a network failure (reviewed deletion code; decided 2026-09-30) |
+| `DELETE_ACCOUNT_PATH`, `ACCOUNT_DELETED_PATH`, `REAUTH_WINDOW_MINUTES`, `CONFIRM_WORD`, `confirmWordMatches`, `outcomeFromResponse`, `deletedDestination`, `DeleteOutcome` | `src/lib/account/screen.ts` (already pure) | C's deletion constants, DELETE check, deleted-screen destination. **Intentional exception:** `mobile/lib/account/delete-account.ts` keeps its own outcome mapping, not the web's `outcomeFromResponse`: the app's separates an expired session from a network failure (reviewed deletion code; decided 2026-09-30). The account-deleted screen links both stores' own pages as the web's does, so the app no longer reads the server's per-store links (review G6, 2026-09-30) |
 | `CATEGORY_KINDS`, `CATEGORY_COLORS` (the first colour is `CATEGORY_COLORS[0]`) | `src/lib/categories/options.ts` (already pure) | C's first-colour copy |
 | `hubTestId`, `tabTestId` | `src/lib/brand/test-ids.ts` | — |
 | Tour steps, gate, guide copy | `src/lib/tour/steps.ts`, `gate.ts`; `src/components/tour/guide-copy.ts` (A: make its `@/lib/tour/steps` import relative `../../lib/tour/steps.ts`) | A's copies |
@@ -645,6 +645,16 @@ Stable interface; changes go through Lane E.
 - **Linking in:** `router.navigate(budgetsLink.edit(month, categoryId))` → `{ pathname: "/budgets", params: { m, range: "month", edit } }` (Home's "Set budget", Lane B; `range` so a link merged into a screen left on All time still opens). A later link while the tab is open applies its params as a web navigation would (month, range, the sheet); the params follow the screen (`lib/budgets/use-budgets-route.ts`: a month or range step writes `m`/`range` and drops `edit`, closing the sheet drops `edit`), so a repeated link is always a real change.
 - **Linking out:** the category sheet's "See transactions" → `router.navigate(budgetsLink.activity(month, categoryId))` → `/activity?m=&category=` (D1's contract above).
 - **Shared display figure:** "vs. last month" is `budgetTrendPct` in `src/lib/figures/budget-trend.ts`, moved verbatim out of the web `budgets-view.tsx` (zero-pixel: the web sheet captured before and after for the `full` and `over` users, Dining out and Groceries, 0 changed pixels at threshold 0). `src/lib/figures` (also `savings-pct.ts`: `savingsPct` / `savingsBarPct`, Goals and Home) is in `SHARED` (mobile/metro.shared.js); brand-purity follows the imports.
+
+### Lane C: accepted exceptions to the web (accepted in review, 2026-09-30)
+
+| Where | Native | Web | Why |
+| --- | --- | --- | --- |
+| Delete account, "Deleting your account" card | "…so keep this screen open." | "…so keep this page open." | an app has screens, not pages |
+| Settings → Categories, Archive / Restore | a failure is said under the hint ("Your account is being deleted…", "Couldn't save…") | the result is dropped silently | no silent failure states (CLAUDE.md); the web's silence is logged as a web issue |
+| About, Account deleted, Delete account | a page that won't open in the in-app browser says "Couldn't open that page. Try again in a moment." | the browser opens the link | a native browser sheet can fail; never a dead tap |
+| Delete account, "Still stuck? Email …" | with no email app: "Couldn't open your email app. Write to <address>." (selectable) | the browser hands `mailto:` to the OS | a phone may have no mail app; the address stays reachable |
+| More / Settings hub counts (review G9, narrowed) | re-read in place after any change in the app and on every return to the screen (`useFocusEffect`, a navigation event) | rendered fresh on every visit | matches the web's per-visit freshness; the one difference left: a screen kept open doesn't see another device's change until it is revisited, as a web page left open doesn't either |
 
 ### Phase 3 device checklist (the owner's device pass)
 

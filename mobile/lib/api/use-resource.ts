@@ -56,6 +56,11 @@ export function useResource<T>(
   const [state, setState] = useState<LoadState<T>>({ status: "loading" });
   const [refreshing, setRefreshing] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  // what is on screen now: a failed reload only adds a notice over figures still shown, never over the failure state
+  const shown = useRef(state);
+  useEffect(() => {
+    shown.current = state;
+  });
 
   const fetchInto = useCallback(async (mode: Mode) => {
     const mine = ++seq.current;
@@ -75,7 +80,8 @@ export function useResource<T>(
         setState(next);
       } else {
         setState((prev) => (prev.status === "ready" ? prev : next));
-        setNotice(next.message);
+        // one warning for one failure: the failure state already says it when nothing was on screen
+        setNotice(shown.current.status === "ready" ? next.message : null);
       }
     } finally {
       // the latest pull is over, whether its answer landed or a newer request won

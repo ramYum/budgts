@@ -72,6 +72,25 @@ describe("useResource", () => {
     expect(h.seen.at(-1)).toMatchObject({ status: "error" });
   });
 
+  it("one warning for one failure: a read already showing its failure gets no notice when a silent reload or pull fails too", async () => {
+    const h = harness();
+    const r = render(<h.Probe k="activity" v={1} />);
+    const fail: Settled = { status: "error", kind: "network", message: "Couldn't reach Budgts." };
+    await act(async () => h.pending.shift()!(fail));
+    expect(h.last().state).toEqual(fail);
+    act(() => r.update(<h.Probe k="activity" v={2} />)); // a save or a sync while the failure is on screen
+    await act(async () => h.pending.shift()!(fail));
+    expect(h.last().state).toEqual(fail);
+    expect(h.last().notice).toBeNull(); // the failure state already says it
+    await act(async () => void h.last().refresh());
+    await act(async () => h.pending.shift()!(fail));
+    expect(h.last().notice).toBeNull();
+    await act(async () => void h.last().refresh()); // and once it recovers, all clear
+    await act(async () => h.pending.shift()!({ status: "ready", data: "back" }));
+    expect(h.last().state).toEqual({ status: "ready", data: "back" });
+    expect(h.last().notice).toBeNull();
+  });
+
   it("refreshing is only the user's pull, and it ends even when a newer request wins", async () => {
     const h = harness();
     const r = render(<h.Probe k="x" v={1} />);

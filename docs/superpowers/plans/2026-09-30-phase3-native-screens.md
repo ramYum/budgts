@@ -505,6 +505,12 @@ Calendar with six parallel lanes: about **8–10 working days** to Android parit
 - `get-started.tsx`'s doc comment cites "Get Started with no forced tour" as the approved direction; the owner's 2026-09-30 rule (the PWA is approved: onboarding → welcome guide) supersedes it. The spec §7 already lists "onboarding and the welcome guide" for mobile v1.
 - The PWA's More page has "Install app" (`install-app.tsx`); it is a PWA install prompt with no native meaning and is omitted natively.
 - Paywall / subscription UI is native-only by design (spec §9, Phase 4) and is removed from Phase 3 so the app matches the PWA until Phase 4 builds it in this design.
+- **`commands.ts` exception (Global Constraints say "No change to … any `commands.ts`").**
+  - `src/lib/goals/commands.ts` (`f046e2a`) and `src/lib/transactions/commands.ts` / `landTransaction` (D-1's `c5aa17e`, merged at `e16b187`) gained an additive `replayed` field on their write results.
+  - No money math, amounts or totals changed, and the web's `toState` ignores the field.
+  - It follows the owner's rule ("Dont touch any of the calculation codes"): these are write-result shapes, not calculations.
+  - The owner was told on 2026-10-01 and can veto. If they do, the field comes out and the app falls back to a client-side "already saved" check.
+  - The Plaid `commands.ts` changes came from the reviewed, owner-approved hotfix and mapping fix.
 
 ---
 

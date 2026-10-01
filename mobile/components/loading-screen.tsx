@@ -1,8 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useId, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
 import { View, type LayoutChangeEvent } from "react-native";
-import Animated, { useAnimatedStyle, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
+import Animated, { ReduceMotion, useAnimatedStyle, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
 import { scheduleOnRN } from "react-native-worklets";
 import { EggLoader } from "./brand/egg-loader";
+import { useReducedMotion } from "./motion/reduced-motion";
 
 /**
  * The app's one full-screen loading state: the egg loader over everything
@@ -51,17 +52,20 @@ export function LoadingScreenProvider({
   if (active && !shown) setShown(true);
 
   const opacity = useSharedValue(active ? 1 : 0);
+  // the app's one motion source decides, not Reanimated's launch-time reading: with motion off the fade is a cut
+  const reduceMotion = useReducedMotion() ? ReduceMotion.Always : ReduceMotion.Never;
   useEffect(() => {
-    if (active) opacity.value = withTiming(1, { duration: FADE_IN_MS });
+    if (active) opacity.value = withTiming(1, { duration: FADE_IN_MS, reduceMotion });
     else
       opacity.value = withDelay(
         FADE_OUT_DELAY_MS,
-        withTiming(0, { duration: LOADING_FADE_OUT_MS }, (finished) => {
+        withTiming(0, { duration: LOADING_FADE_OUT_MS, reduceMotion }, (finished) => {
           "worklet";
           if (finished) scheduleOnRN(setShown, false);
         }),
+        reduceMotion,
       );
-    // (opacity is a stable shared value)
+    // (opacity is a stable shared value; a setting flipped mid-fade applies from the next one)
   }, [active]);
   const fade = useAnimatedStyle(() => ({ opacity: opacity.value }));
 

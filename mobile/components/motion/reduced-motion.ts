@@ -12,32 +12,54 @@ import { useReducedMotion as useLaunchReading } from "react-native-reanimated";
  * from that launch reading, which is there on the first frame, then asks the OS once and follows its
  * `reduceMotionChanged` events from then on (no polling); every reader re-renders when the setting flips.
  */
-let live: boolean | null = null; // null until the OS has answered
-let started = false;
-const listeners = new Set<() => void>();
 
-function set(on: boolean) {
-  if (live === on) return;
-  live = on;
-  for (const listener of [...listeners]) listener();
-}
+/** The OS's side: its answer when asked, and its change events (React Native's AccessibilityInfo). */
+type ReduceMotionOs = {
+  isReduceMotionEnabled: () => Promise<boolean>;
+  addEventListener: (event: "reduceMotionChanged", listener: (on: boolean) => void) => unknown;
+};
 
-function subscribe(listener: () => void): () => void {
-  if (!started) {
-    started = true;
-    AccessibilityInfo.addEventListener("reduceMotionChanged", set);
-    void AccessibilityInfo.isReduceMotionEnabled().then(set);
+/**
+ * The setting as last heard from `os`: null until it first says. It starts listening (and asks once) on its first
+ * subscriber. Once any change event has arrived, the answer to that first question is stale and is ignored.
+ */
+export function reducedMotionStore(os: ReduceMotionOs) {
+  let live: boolean | null = null;
+  let started = false;
+  let heardEvent = false;
+  const listeners = new Set<() => void>();
+
+  function set(on: boolean) {
+    if (live === on) return;
+    live = on;
+    for (const listener of [...listeners]) listener();
   }
-  listeners.add(listener);
-  return () => {
-    listeners.delete(listener);
+
+  return {
+    subscribe(listener: () => void): () => void {
+      if (!started) {
+        started = true;
+        os.addEventListener("reduceMotionChanged", (on) => {
+          heardEvent = true;
+          set(on);
+        });
+        void os.isReduceMotionEnabled().then((on) => {
+          if (!heardEvent) set(on);
+        });
+      }
+      listeners.add(listener);
+      return () => {
+        listeners.delete(listener);
+      };
+    },
+    snapshot: (): boolean | null => live,
   };
 }
 
-const snapshot = () => live;
+const store = reducedMotionStore(AccessibilityInfo);
 
 /** Whether motion is off right now: every animated component's gate (with it, each rests on its finished frame). */
 export function useReducedMotion(): boolean {
   const launch = useLaunchReading();
-  return useSyncExternalStore(subscribe, snapshot) ?? launch;
+  return useSyncExternalStore(store.subscribe, store.snapshot) ?? launch;
 }

@@ -82,6 +82,8 @@ export const reducedMotion = {
  */
 /** What a component asked the screen reader to say (AccessibilityInfo.announceForAccessibility), in order. */
 export const announcements: string[] = [];
+/** Every shared-value timing and delay started, in order, with the `reduceMotion` each was given. */
+export const animationCalls: { kind: "timing" | "delay"; to?: unknown; reduceMotion: unknown }[] = [];
 export const reanimatedMock = () => {
   const AnimatedView = host("Animated.View");
   return {
@@ -97,7 +99,10 @@ export const reanimatedMock = () => {
     },
     useReducedMotion: () => reducedMotion.launch ?? reducedMotion.value,
     ReduceMotion: { System: "system", Always: "always", Never: "never" },
-    withDelay: <T,>(_ms: number, animation: T) => animation,
+    withDelay: <T,>(_ms: number, animation: T, reduceMotion?: unknown) => {
+      animationCalls.push({ kind: "delay", reduceMotion });
+      return animation;
+    },
     // CSS animation timing functions: a plain description the tests can read back
     steps: (n: number, modifier = "jump-end") => ({ steps: n, modifier }),
     cubicBezier: (x1: number, y1: number, x2: number, y2: number) => ({ cubicBezier: [x1, y1, x2, y2] }),
@@ -108,7 +113,8 @@ export const reanimatedMock = () => {
     withSequence: <T,>(...animations: T[]) => animations[animations.length - 1],
     withRepeat: <T,>(animation: T) => animation,
     createAnimatedComponent: <T,>(c: T) => c,
-    withTiming: <T,>(to: T, _config?: unknown, done?: (finished: boolean) => void) => {
+    withTiming: <T,>(to: T, config?: { reduceMotion?: unknown }, done?: (finished: boolean) => void) => {
+      animationCalls.push({ kind: "timing", to, reduceMotion: config?.reduceMotion });
       done?.(true);
       return to;
     },

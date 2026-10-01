@@ -2,7 +2,7 @@ import { act } from "react-test-renderer";
 import { afterEach, describe, expect, it } from "vitest";
 import { reducedMotion } from "../../test/native-hosts";
 import { render, textContent } from "../../test/render";
-import { useReducedMotion } from "./reduced-motion";
+import { reducedMotionStore, useReducedMotion } from "./reduced-motion";
 
 function Probe() {
   return <>{useReducedMotion() ? "still" : "moving"}</>;
@@ -37,5 +37,50 @@ describe("the app's reduced-motion source", () => {
       reducedMotion.value = false;
     });
     expect(textContent(r.root)).toBe("moving");
+  });
+});
+
+/** An OS whose first answer the test releases by hand, and whose change events it fires. */
+function fakeOs() {
+  let answer!: (on: boolean) => void;
+  let event!: (on: boolean) => void;
+  return {
+    os: {
+      isReduceMotionEnabled: () => new Promise<boolean>((resolve) => (answer = resolve)),
+      addEventListener: (_e: "reduceMotionChanged", listener: (on: boolean) => void) => {
+        event = listener;
+        return { remove: () => {} };
+      },
+    },
+    answer: (on: boolean) => answer(on),
+    event: (on: boolean) => event(on),
+  };
+}
+
+describe("the OS's first answer and its change events, in either order", () => {
+  it("the answer, then an event: the event wins", async () => {
+    const o = fakeOs();
+    const store = reducedMotionStore(o.os);
+    store.subscribe(() => {});
+    expect(store.snapshot()).toBeNull();
+    o.answer(false);
+    await Promise.resolve();
+    expect(store.snapshot()).toBe(false);
+    o.event(true);
+    expect(store.snapshot()).toBe(true);
+  });
+
+  it("an event, then the older answer: the answer is ignored", async () => {
+    const o = fakeOs();
+    const store = reducedMotionStore(o.os);
+    const heard: number[] = [];
+    store.subscribe(() => heard.push(1));
+    o.event(true); // Remove animations switched on while the first question was in flight
+    expect(store.snapshot()).toBe(true);
+    o.answer(false); // the answer to the question asked before the switch
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(store.snapshot()).toBe(true);
+    expect(heard).toHaveLength(1);
   });
 });

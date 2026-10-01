@@ -226,6 +226,42 @@ describe("ConnectBank (web connect-bank.tsx)", () => {
     expect(() => byTestId(r, "sheet")).toThrow();
   });
 
+  it("says Opening…, disabled, from the tap until Link closes: the token load and Link's own slow start alike", async () => {
+    let token!: (r: Response) => void;
+    api.authFetch.mockImplementation((path: string) => (path === "/api/plaid/link-token" ? new Promise<Response>((res) => (token = res)) : Promise.resolve(json(404, {}))));
+    let close!: (o: Awaited<ReturnType<PlaidLinkClient["open"]>>) => void;
+    const slow: PlaidLinkClient = { isAvailable: () => true, open: vi.fn(() => new Promise<Awaited<ReturnType<PlaidLinkClient["open"]>>>((res) => (close = res))) };
+    const r = render(<ConnectBank link={slow} />);
+    await press(r, "connect-bank");
+    const opening = () => byTestId(r, "connect-bank").props;
+    expect(opening().accessibilityLabel).toBe("Opening…");
+    expect(opening().accessibilityState).toMatchObject({ disabled: true, busy: true });
+    await act(async () => token(json(200, { link_token: "link-1" })));
+    expect(slow.open).toHaveBeenCalledTimes(1);
+    // Link is starting (the native SDK can take a while to show): still no way to start a second one
+    expect(opening().accessibilityLabel).toBe("Opening…");
+    expect(opening().accessibilityState).toMatchObject({ disabled: true, busy: true });
+    await act(async () => close({ kind: "exit" }));
+    expect(opening().accessibilityLabel).toBe("Connect a bank");
+    expect(opening().accessibilityState).toMatchObject({ disabled: false });
+  });
+
+  it("never opens Link twice: a second tap while it loads, even before the button re-renders, does nothing", async () => {
+    let token!: (r: Response) => void;
+    api.authFetch.mockImplementation((path: string) => (path === "/api/plaid/link-token" ? new Promise<Response>((res) => (token = res)) : Promise.resolve(json(404, {}))));
+    const once: PlaidLinkClient = { isAvailable: () => true, open: vi.fn(async () => ({ kind: "exit" as const })) };
+    const r = render(<ConnectBank link={once} />);
+    const onPress = byTestId(r, "connect-bank").props.onPress as () => void;
+    await act(async () => {
+      onPress();
+      onPress(); // the same frame: the disabled state hasn't rendered yet
+    });
+    await act(async () => byTestId(r, "connect-bank").props.onPress?.());
+    await act(async () => token(json(200, { link_token: "link-1" })));
+    expect(api.authFetch.mock.calls.filter(([path]) => path === "/api/plaid/link-token")).toHaveLength(1);
+    expect(once.open).toHaveBeenCalledTimes(1);
+  });
+
   it("shows a failed start and lets the user try again", async () => {
     api.authFetch.mockResolvedValue(json(500, {}));
     const r = render(<ConnectBank label="Connect another bank" link={link({ kind: "exit" })} />);

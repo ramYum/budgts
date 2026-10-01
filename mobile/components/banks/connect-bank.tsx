@@ -65,7 +65,7 @@ export function ConnectBank({
     };
   }, [version, open, session]);
 
-  const start = useCallback(async () => {
+  const run = useCallback(async () => {
     setError(null);
     setNotice(null);
     setPhase("starting");
@@ -107,13 +107,27 @@ export function ConnectBank({
     else if (outcome.status === "error") setError(outcome.message);
   }, [session, link]);
 
+  // One run at a time, decided synchronously: two taps in the same frame both land before the disabled button renders.
+  const running = useRef(false);
+  const start = useCallback(async () => {
+    if (running.current) return;
+    running.current = true;
+    try {
+      await run();
+    } finally {
+      running.current = false;
+    }
+  }, [run]);
+
   // Dismissed without mapping: the bank was still created, so the lists reload to show it with its "choose accounts" prompt.
   const cancelMapping = useCallback(() => {
     setMapping(null);
     invalidate("accounts");
   }, []);
 
-  const busy = phase === "starting" || phase === "exchanging";
+  // The web's Link opens over the page at once; native Link can take a while to appear after `open`, so the button
+  // stays on "Opening…", disabled, until Link closes (Link covers it once it shows, as on the web).
+  const busy = phase !== "idle";
 
   return (
     <View style={{ gap: 8 }}>
@@ -125,7 +139,7 @@ export function ConnectBank({
         loading={busy}
         style={fullWidth ? undefined : { alignSelf: "flex-start" }}
       >
-        {phase === "starting" ? "Opening…" : phase === "exchanging" ? "Connecting…" : label}
+        {phase === "starting" || phase === "linking" ? "Opening…" : phase === "exchanging" ? "Connecting…" : label}
       </Button>
 
       {error ? (

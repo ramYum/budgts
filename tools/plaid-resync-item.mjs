@@ -9,8 +9,8 @@
 // or the sweep, since `needs_sync` is set) re-pull the Item's whole history.
 // Landing is idempotent on the Plaid transaction id (`transactions_source_ref_uq`):
 // rows already here are matched and updated in place, keeping user categories,
-// notes and transfer marks; only the missing rows are inserted. Accounts set
-// to "Don't import" stay skipped. Same logic as `resetItemCursor` in
+// notes and transfer marks; only the missing rows are inserted. Accounts that
+// are paused or set to "Don't import" now stay skipped. Same logic as `resetItemCursor` in
 // src/lib/plaid/item-store.ts, proven by tests/plaid-integration/sync-cursor-loss.test.ts.
 //
 // Two caveats, so a reset is never automatic and always reviewed first:
@@ -19,8 +19,8 @@
 //    The database keeps no record of deletions, so how many can't be
 //    estimated in advance: the dry run prints the current row counts as the
 //    baseline to compare against after the re-pull.
-//  - Paused-window rows come back. An account that was paused ("Don't import")
-//    and later resumed skipped its rows while paused; the re-pull lands them,
+//  - Paused-window rows come back. An account that was paused (it keeps its
+//    Budgts account) and later resumed skipped its rows while paused; the re-pull lands them,
 //    because it is mapped now. No pause history is kept (plaid_accounts holds
 //    only the current link_state, and updated_at is not maintained on change),
 //    so the dry run can't list which accounts were ever paused. It shows each

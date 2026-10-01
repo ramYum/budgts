@@ -6,7 +6,7 @@ import type { Href } from "expo-router";
  * - `range`: `all` for All time; anything else is This month;
  * - `edit`: a category id (uuid) whose sheet opens straight in "Monthly budget" edit mode (Home's "Set budget"). Only in
  *   This month, as on the web, where the All time view takes no `edit`.
- * Links: `/budgets?m=<month>&edit=<categoryId>` (Home, Lane B); "See transactions" → `/activity?m=<month>&category=<id>`
+ * Links: `/budgets?m=<month>&range=month&edit=<categoryId>` (Home, Lane B); "See transactions" → `/activity?m=<month>&category=<id>`
  * (the web's `/transactions?m=…&category=…`, Activity, Lane D-1).
  */
 const MONTH_RE = /^\d{4}-\d{2}$/;
@@ -27,8 +27,11 @@ export function readBudgetsParams(p: { m?: string | string[]; range?: string | s
 }
 
 export const budgetsLink = {
-  /** Home's "Set budget": the month's Budgets with that category's budget open for editing. */
-  edit: (month: string, categoryId: string): Href => ({ pathname: "/budgets", params: { m: month, edit: categoryId } }),
+  /**
+   * Home's "Set budget": the month's Budgets with that category's budget open for editing. `range` is set so a link
+   * merged into a screen left on All time still opens (`edit` applies in This month only).
+   */
+  edit: (month: string, categoryId: string): Href => ({ pathname: "/budgets", params: { m: month, range: "month", edit: categoryId } }),
   /** The category sheet's "See transactions": that month's Activity filtered to the category. */
   activity: (month: string, categoryId: string): Href => ({ pathname: "/activity", params: { m: month, category: categoryId } }),
 };

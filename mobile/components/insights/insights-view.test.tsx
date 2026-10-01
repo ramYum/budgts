@@ -7,6 +7,7 @@ import { MonthNav } from "../kit/month-nav";
 import { PageHeader } from "../kit/page-header";
 import { SegmentedControl } from "../kit/segmented-control";
 import { Reveal } from "../motion/reveal";
+import { Cell } from "../charts/cell";
 import { SpendingBreakdownCard } from "../charts/spending-breakdown-card";
 import { SpendingTrendCard } from "../charts/spending-trend-card";
 import { InsightsView, waffleLit } from "./insights-view";
@@ -24,7 +25,7 @@ const data = (over: Partial<MobileInsights> = {}): MobileInsights => ({
     { name: "Freelance", color: "#00f", amount: 50000, share: 10 },
   ],
   suggestion: null,
-  breakdown: [],
+  breakdown: [{ name: "Housing", amount: 380000, share: 100 }],
   trend: [],
   trendChange: { total: 380000, delta: null, previousMonth: null },
   ...over,
@@ -63,8 +64,12 @@ describe("Insights (web insights-view.tsx)", () => {
 
   it("lights one waffle cell per whole percent, bottom-left first, none for a negative month", () => {
     expect([waffleLit(null), waffleLit(-0.2), waffleLit(0.244), waffleLit(0.245), waffleLit(1.4)]).toEqual([0, 0, 24, 25, 100]);
-    const cells = byTestId(view().r, "insights-waffle").children as unknown as { props: { style: unknown } }[];
-    const lit = cells.map((c) => flat(c.props.style).backgroundColor === ROLE.ink);
+    const cells = byTestId(view().r, "insights-waffle").findAllByType(Cell);
+    expect(cells).toHaveLength(100);
+    const lit = cells.map((c) => c.props.color === ROLE.ink);
+    // rows pop in bottom first: the web's --d is the row counted from the bottom
+    expect(cells[95]!.props.d).toBe(0);
+    expect(cells[5]!.props.d).toBe(9);
     expect(lit.filter(Boolean)).toHaveLength(24);
     expect(lit.slice(90, 100).every(Boolean)).toBe(true); // the bottom row
     expect(lit.slice(80, 90).every(Boolean)).toBe(true); // the row above
@@ -79,6 +84,9 @@ describe("Insights (web insights-view.tsx)", () => {
     expect(textContent(byTestId(r, "insights-suggestion"))).toBe(
       "Where you could saveDining is 34% of your spending$130.00 with no budget. Setting one makes the plan real.",
     );
+    expect(byTestId(r, "insights-suggestion").props.accessibilityLabel).toBe(
+      "Where you could save. Dining is 34% of your spending. $130.00 with no budget. Setting one makes the plan real.",
+    );
     byTestId(r, "insights-suggestion").props.onPress();
     expect(props.onSuggestion).toHaveBeenCalledWith(unbudgeted);
 
@@ -86,12 +94,15 @@ describe("Insights (web insights-view.tsx)", () => {
     expect(textContent(byTestId(view({ data: data({ suggestion: mover }) }).r, "insights-suggestion"))).toBe(
       "Where you could saveDining$130.00 this month, up $30.00 vs. last month",
     );
+    expect(byTestId(view({ data: data({ suggestion: mover }) }).r, "insights-suggestion").props.accessibilityLabel).toBe(
+      "Where you could save. Dining. $130.00 this month, up $30.00 vs. last month",
+    );
     expect(view().r.root.findAll((n) => n.props.testID === "insights-suggestion")).toHaveLength(0);
   });
 
   it("switches the breakdown between spending and income by source", () => {
     const { r } = view();
-    expect(texts(byTestId(r, "insights-breakdown")).slice(0, 2)).toEqual(["Total spending", "$3,800.00"]);
+    expect(texts(r.root.findByType(SpendingBreakdownCard)).slice(0, 2)).toEqual(["Total spending", "$3,800.00"]);
     act(() => r.root.findByType(SegmentedControl).props.onChange("income"));
     const rows = r.root.findAll((n) => typeof n.type === "string" && n.props.testID === "insights-income-row");
     expect(rows.map((row) => texts(row))).toEqual([

@@ -109,12 +109,21 @@ export function BudgetRow({
   const unplanned = b.budget <= 0 && b.actual > 0;
   const over = b.state === "over" && b.budget > 0;
   const spent = formatMoney(b.actual, currency);
+  // what the card says, in its order, for a screen reader
+  const status = unplanned
+    ? "no budget, all unplanned"
+    : over
+      ? `over by ${formatMoney(-b.remaining, currency)}`
+      : b.budget > 0
+        ? `${formatMoney(b.remaining, currency)} left`
+        : "no budget set";
+  const plan = b.budget > 0 ? `of ${formatMoney(b.budget, currency)}` : "set budget";
   return (
     <Reveal i={index + 2}>
       <Pressable
         testID="budget-card"
         accessibilityRole="button"
-        accessibilityLabel={`${b.name}, ${spent} spent`}
+        accessibilityLabel={`${b.name}, ${spent} spent, ${status}, ${plan}`}
         onPress={onOpen}
       >
         {({ pressed }) => (

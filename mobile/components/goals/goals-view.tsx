@@ -88,7 +88,7 @@ export function GoalCard({
 function NoGoals() {
   return (
     <PixelFrame testID="goals-empty" frame="px-card-raised" style={{ alignItems: "flex-start", gap: 12, padding: 16 }}>
-      <Robin mood="curious" scale={3} />
+      <Robin mood="curious" size={61} hopOnTap />
       <View>
         <Text variant="pxFigure" color={ROLE.ink}>
           No goals yet

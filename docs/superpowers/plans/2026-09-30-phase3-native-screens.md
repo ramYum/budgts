@@ -426,7 +426,7 @@ Lane rules: each lane owns only the files listed; shared atoms change only throu
 - **D3 Needs a category** ← `plaid/needs-category.tsx`: categorize a merchant group via `/api/mobile/transactions/[id]/categorize`; rescan.
 - **D4 Budgets** ← `budgets-view.tsx`, `copy-budgets.tsx`: hero with 12px cells, This month / All time, rows with cascading cells (`start = index*2`), detail sheet with the category's transactions, New budget sheet, Copy budgets; `/api/mobile/budgets`, `/budgets/copy`.
 - **D5 Goals** ← `goals-view.tsx`, `goal-form.tsx`, `contribution-form.tsx`: row menu, add money sheet, growth-tone cells.
-- **D6 Insights** ← `insights/page.tsx`, `insights-view.tsx`: MonthNav, charts (F7), income sources, idea lamp motion.
+- **D6 Insights** ← `insights/page.tsx`, `insights-view.tsx`: MonthNav, charts (F7), income sources, the savings-rate waffle. No lamp: the web's Insights page has none (the idea lamp is Home's).
 - Maestro: `add-transaction.yaml`, `edit-transaction.yaml`, `categorize.yaml`, `budget.yaml`, `goal-contribution.yaml`.
 
 ### Lane E — Banks and accounts. Owns `app/(app)/connected-banks.tsx`, `app/(app)/accounts.tsx`, `components/banks/**`, `lib/plaid/*` UI glue (not the pipeline).
@@ -642,7 +642,7 @@ Stable interface; changes go through Lane E.
 ### D4 as built (Budgets: the route contract other lanes link to)
 
 - **Route:** `/budgets` (`app/(app)/(tabs)/(budgets)/budgets.tsx`), the web's `/budgets?m=&range=&edit=`, read by `mobile/lib/budgets/params.ts` exactly as `src/app/(app)/(dashboard)/budgets/page.tsx` reads them: `m` (`YYYY-MM`, else the user's current month), `range` (`all` for All time, anything else This month), `edit` (a category uuid: its sheet opens straight in "Monthly budget" edit mode; This month only, as on the web). An invalid value is ignored.
-- **Linking in:** `router.navigate(budgetsLink.edit(month, categoryId))` → `{ pathname: "/budgets", params: { m, edit } }` (Home's "Set budget", Lane B). A later link while the tab is open applies its params as a web navigation would (month, range, the sheet).
+- **Linking in:** `router.navigate(budgetsLink.edit(month, categoryId))` → `{ pathname: "/budgets", params: { m, range: "month", edit } }` (Home's "Set budget", Lane B; `range` so a link merged into a screen left on All time still opens). A later link while the tab is open applies its params as a web navigation would (month, range, the sheet); the params follow the screen (`lib/budgets/use-budgets-route.ts`: a month or range step writes `m`/`range` and drops `edit`, closing the sheet drops `edit`), so a repeated link is always a real change.
 - **Linking out:** the category sheet's "See transactions" → `router.navigate(budgetsLink.activity(month, categoryId))` → `/activity?m=&category=` (D1's contract above).
 - **Shared display figure:** "vs. last month" is `budgetTrendPct` in `src/lib/figures/budget-trend.ts`, moved verbatim out of the web `budgets-view.tsx` (zero-pixel: the web sheet captured before and after for the `full` and `over` users, Dining out and Groceries, 0 changed pixels at threshold 0). `src/lib/figures` (also `savings-pct.ts`: `savingsPct` / `savingsBarPct`, Goals and Home) is in `SHARED` (mobile/metro.shared.js); brand-purity follows the imports.
 

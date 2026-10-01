@@ -27,7 +27,7 @@ describe("readBudgetsParams (web budgets/page.tsx)", () => {
   });
 
   it("builds the web's links", () => {
-    expect(budgetsLink.edit("2026-09", ID)).toEqual({ pathname: "/budgets", params: { m: "2026-09", edit: ID } });
+    expect(budgetsLink.edit("2026-09", ID)).toEqual({ pathname: "/budgets", params: { m: "2026-09", range: "month", edit: ID } });
     expect(budgetsLink.activity("2026-09", ID)).toEqual({ pathname: "/activity", params: { m: "2026-09", category: ID } });
   });
 });

@@ -172,6 +172,7 @@ describe("budgets and transactions over the native API (real staging)", () => {
     expect(second.status).toBe(201);
     const [one, two] = [await first.json(), await second.json()];
     expect(two.id).toBe(one.id);
+    expect([one.replayed, two.replayed]).toEqual([false, true]); // the retry is told nothing new was written
     const rows = await client`select id from public.transactions where user_id = ${a.id} and description = 'ALICE-ITEST retried coffee'`;
     expect(rows).toHaveLength(1);
   });

@@ -22,7 +22,8 @@ function toFormInput(raw: unknown): Record<string, unknown> {
 /** A client-generated id that makes a retried create land once (see `createManualTransaction`). */
 const REQUEST_ID = /^[A-Za-z0-9-]{8,64}$/;
 
-export type CreateResult = { ok: true; id: string } | Invalid | MissingReference | Locked | Failed;
+/** `replayed`: the request id was already used, so this is the row that landed first and nothing of this call was written. */
+export type CreateResult = { ok: true; id: string; replayed: boolean } | Invalid | MissingReference | Locked | Failed;
 
 /** The account and category a manual transaction points at must be the caller's own (see src/lib/ownership.ts). */
 async function referencesOwned(
@@ -60,12 +61,12 @@ export async function createManualTransaction(
   const refused = await referencesOwned(supabase, n);
   if (refused) return refused;
   try {
-    const row = await landTransaction(
+    const { row, replayed } = await landTransaction(
       supabaseTransactionStore(supabase),
       userId,
       requestId ? { ...n, sourceRef: `client:${requestId}` } : n,
     );
-    return { ok: true, id: row.id };
+    return { ok: true, id: row.id, replayed };
   } catch (e) {
     return lockedOr(supabase, failed(e, "Could not save the transaction"));
   }

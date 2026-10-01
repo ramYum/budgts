@@ -119,13 +119,20 @@ describe("POST /api/mobile/transactions", () => {
   const body = { accountId: UUID, categoryId: null, amount: "12.34", direction: "debit", occurredAt: "2026-09-10", requestId: "req-1234abcd" };
 
   it("creates for the verified user, passing the request id for idempotency", async () => {
-    createManualTransaction.mockResolvedValue({ ok: true, id: "new-id" });
+    createManualTransaction.mockResolvedValue({ ok: true, id: "new-id", replayed: false });
 
     const res = await POST(post(body));
 
     expect(res.status).toBe(201);
-    expect(await res.json()).toEqual({ id: "new-id" });
+    expect(await res.json()).toEqual({ id: "new-id", replayed: false });
     expect(createManualTransaction).toHaveBeenCalledWith(supabase, "user-a", body, "req-1234abcd");
+  });
+
+  it("answers a repeated request id with the row that landed first, marked replayed", async () => {
+    createManualTransaction.mockResolvedValue({ ok: true, id: "first-id", replayed: true });
+    const res = await POST(post(body));
+    expect(res.status).toBe(201);
+    expect(await res.json()).toEqual({ id: "first-id", replayed: true });
   });
 
   it("returns the command's failures as stable codes", async () => {

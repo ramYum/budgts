@@ -20,7 +20,7 @@ import { useAuth } from "../../../../lib/auth/auth-context";
 export default function AccountsScreen() {
   const router = useRouter();
   const { session, signOut } = useAuth();
-  const { state, refresh, refreshing, reload } = useResource("accounts-overview", async (s) => {
+  const { state, notice, refresh, refreshing, reload } = useResource("accounts-overview", async (s) => {
     const [overview, accounts] = await Promise.all([
       loadResource(() => authFetch("/api/mobile/accounts/overview", s), parseOverview),
       loadResource(() => authFetch("/api/mobile/accounts", s), parseAccounts),
@@ -52,6 +52,8 @@ export default function AccountsScreen() {
           accountTypes={state.data.accountTypes}
           commands={commands}
           onBack={() => (router.canGoBack() ? router.back() : router.navigate("/more"))}
+          notice={notice}
+          onRetry={() => void refresh()}
         />
       )}
     </Screen>

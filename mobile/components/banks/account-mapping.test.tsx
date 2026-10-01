@@ -91,6 +91,55 @@ describe("AccountMapping (web account-mapping.tsx)", () => {
   });
 });
 
+describe("AccountMapping refusals over stale data", () => {
+  beforeEach(() => api.authFetch.mockReset());
+
+  it("shows the server's refusal with a Refresh that closes onto the current list", async () => {
+    const onDone = vi.fn();
+    const onSave = vi.fn(async () => ({ status: "error" as const, message: "That account is already imported. Refresh to see where it goes.", stale: true as const }));
+    const r = render(<AccountMapping plaidAccounts={[account()]} choices={choices} onSave={onSave} onDone={onDone} />);
+    await press(r, "account-mapping-save");
+    expect(texts(byTestId(r, "account-mapping-error"))).toEqual(["That account is already imported. Refresh to see where it goes."]);
+    await press(r, "account-mapping-refresh");
+    expect(onDone).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers no Refresh for a failure that isn't about stale data", async () => {
+    const onSave = vi.fn(async () => ({ status: "error" as const, message: "Could not save the account mapping. Try again." }));
+    const r = render(<AccountMapping plaidAccounts={[account()]} choices={choices} onSave={onSave} onDone={() => {}} />);
+    await press(r, "account-mapping-save");
+    expect(() => byTestId(r, "account-mapping-refresh")).toThrow();
+  });
+
+  it("moves a row off an existing account that is no longer offered when the choices reload", async () => {
+    const onSave = vi.fn(async () => ({ status: "ok" as const }));
+    const r = render(<AccountMapping plaidAccounts={[account()]} choices={choices} onSave={onSave} onDone={() => {}} />);
+    await press(r, "account-mapping-mode-0");
+    await press(r, "account-mapping-mode-0-option-existing");
+    await press(r, "account-mapping-existing-0");
+    await press(r, "account-mapping-existing-0-option-acct-2");
+    act(() => r.update(<AccountMapping plaidAccounts={[account()]} choices={{ ...choices, budgtsAccounts: [{ id: "acct-1", name: "Everyday checking" }] }} onSave={onSave} onDone={() => {}} />));
+    await press(r, "account-mapping-save");
+    expect(onSave).toHaveBeenLastCalledWith([{ plaidAccountId: "pa1", mode: "existing", existingAccountId: "acct-1" }]);
+    act(() => r.update(<AccountMapping plaidAccounts={[account()]} choices={{ ...choices, budgtsAccounts: [] }} onSave={onSave} onDone={() => {}} />));
+    await press(r, "account-mapping-save");
+    expect(onSave).toHaveBeenLastCalledWith([{ plaidAccountId: "pa1", mode: "new", name: "Plaid Checking ••0000", type: "checking" }]);
+  });
+
+  it("a refused save reloads the accounts behind the sheet; a no-op repeat counts as saved", async () => {
+    api.authFetch.mockResolvedValue(json(422, { error: "invalid", fieldErrors: { form: "That account is already imported. Refresh to see where it goes." } }));
+    const before = getVersion("accounts");
+    const r = render(<AccountMappingSheet plaidItemId="item-row" plaidAccounts={[account()]} choices={choices} onDone={() => {}} onClose={() => {}} />);
+    await press(r, "account-mapping-save");
+    expect(getVersion("accounts")).toBe(before + 1);
+    api.authFetch.mockResolvedValue(json(200, { ok: true }));
+    const onDone = vi.fn();
+    const again = render(<AccountMappingSheet plaidItemId="item-row" plaidAccounts={[account()]} choices={choices} onDone={onDone} onClose={() => {}} />);
+    await press(again, "account-mapping-save");
+    expect(onDone).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("AccountMappingSheet", () => {
   beforeEach(() => api.authFetch.mockReset());
 
@@ -154,6 +203,18 @@ describe("ConnectBank (web connect-bank.tsx)", () => {
     await press(closed, "connect-bank");
     expect(() => byTestId(closed, "connect-bank-error")).toThrow();
     expect(byTestId(closed, "connect-bank").props.accessibilityLabel).toBe("Connect a bank");
+  });
+
+  it("says the bank is connected and where to finish when the account choices can't load", async () => {
+    api.authFetch.mockImplementation(async (path: string) => {
+      if (path === "/api/plaid/link-token") return json(200, { link_token: "link-1" });
+      if (path === "/api/plaid/exchange") return json(200, { plaidItemId: "item-row", accounts: [account()] });
+      return json(503, { error: "unavailable" });
+    });
+    const r = render(<ConnectBank link={link({ kind: "success", publicToken: "public-1", institution: null })} />);
+    await press(r, "connect-bank");
+    expect(texts(byTestId(r, "connect-bank-notice"))).toEqual(["Your bank is connected. Choose which of its accounts to import from Connected banks."]);
+    expect(() => byTestId(r, "sheet")).toThrow();
   });
 
   it("shows a failed start and lets the user try again", async () => {

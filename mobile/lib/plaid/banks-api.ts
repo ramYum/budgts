@@ -60,6 +60,15 @@ export function parseUnmapped(v: unknown, i: number): UnmappedAccount {
   };
 }
 
+/**
+ * A status this version of the app doesn't know (the server added one) shows as a connection error on that bank
+ * alone, with Reconnect and Disconnect as its way out, instead of failing the whole screen. Never shown as healthy.
+ */
+function bankStatus(v: unknown): BankStatus {
+  const s = str(v, "status");
+  return (STATUSES as readonly string[]).includes(s) ? (s as BankStatus) : "error";
+}
+
 function parseAccount(v: unknown, i: number): BankAccount {
   const a = obj(v, `accounts[${i}]`);
   return {
@@ -93,7 +102,7 @@ export function parseBanks(body: unknown): BanksData {
       id: str(item.id, "id"),
       itemId: str(item.itemId, "itemId"),
       institutionName: optStr(item.institutionName, "institutionName"),
-      status: oneOf(item.status, "status", STATUSES),
+      status: bankStatus(item.status),
       lastSyncedAt: optStr(item.lastSyncedAt, "lastSyncedAt"),
       accounts: list(item.accounts, "accounts", parseAccount),
       unmappedAccounts: list(item.unmappedAccounts, "unmappedAccounts", parseUnmapped),

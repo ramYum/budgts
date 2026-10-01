@@ -1,7 +1,7 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 import { ROLE } from "../../lib/brand/shared";
-import { invalidate } from "../../lib/api/invalidate";
+import { invalidate, useVersion } from "../../lib/api/invalidate";
 import { loadResource } from "../../lib/api/load";
 import { parseAccounts } from "../../lib/accounts/accounts-api";
 import { authFetch } from "../../lib/auth/api";
@@ -47,6 +47,24 @@ export function ConnectBank({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
+  // While the sheet is open, its choices follow the user's accounts: a refusal (or a change elsewhere) reloads them, so
+  // a row pointing at an account no longer offered moves off it.
+  const version = useVersion("accounts");
+  const seen = useRef(version);
+  const open = mapping !== null;
+  useEffect(() => {
+    if (seen.current === version) return;
+    seen.current = version;
+    if (!open) return;
+    let alive = true;
+    void loadResource(() => authFetch("/api/mobile/accounts", session), parseAccounts).then((loaded) => {
+      if (alive && loaded.status === "ready") setMapping((m) => (m ? { ...m, choices: mappingChoices(loaded.data) } : m));
+    });
+    return () => {
+      alive = false;
+    };
+  }, [version, open, session]);
+
   const start = useCallback(async () => {
     setError(null);
     setNotice(null);
@@ -79,7 +97,7 @@ export function ConnectBank({
       } else {
         // the bank is connected; its accounts wait in Connected banks under "Choose accounts to import"
         invalidate("accounts");
-        setError(loaded.message);
+        setNotice("Your bank is connected. Choose which of its accounts to import from Connected banks.");
       }
       return;
     }

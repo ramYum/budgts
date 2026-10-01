@@ -57,8 +57,13 @@ describe("parseBanks", () => {
     expect(banks[0].unmappedAccounts[0].name).toBe("Savings");
   });
 
+  it("shows a status it doesn't know as a connection error on that bank only, never failing the screen or reading as healthy", () => {
+    const { banks } = parseBanks({ version: 1, enabled: true, budgtsAccounts: [], banks: [bank({ status: "mystery" }), bank({ id: "item-2" })] });
+    expect(banks.map((b) => b.status)).toEqual(["error", "active"]);
+  });
+
   it.each([
-    ["an unknown status", { status: "mystery" }],
+    ["a status that isn't text", { status: 7 }],
     ["a non-boolean needsReview", { accounts: [{ rowId: "r", plaidAccountId: "p", name: null, officialName: null, mask: null, type: null, subtype: null, currentBalance: null, isoCurrencyCode: null, linkState: "mapped", mappedAccountName: null, needsReview: "yes", reviewReason: null, excludedFromCalculations: false, pendingSignCheckCount: 0 }] }],
     ["banks that are not a list", "nope"],
   ])("rejects %s", (_name, over) => {

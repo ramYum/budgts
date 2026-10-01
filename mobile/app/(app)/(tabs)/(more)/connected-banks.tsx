@@ -23,7 +23,7 @@ import { createPlaidLinkClient } from "../../../../lib/plaid/plaid-link-native";
 export default function ConnectedBanksScreen() {
   const router = useRouter();
   const { session, signOut } = useAuth();
-  const { state, refresh, refreshing, reload } = useResource("connected-banks", async (s) => {
+  const { state, notice, refresh, refreshing, reload } = useResource("connected-banks", async (s) => {
     const [banks, accounts] = await Promise.all([
       loadResource(() => authFetch("/api/mobile/plaid/banks", s), parseBanks),
       loadResource(() => authFetch("/api/mobile/accounts", s), parseAccounts),
@@ -59,6 +59,8 @@ export default function ConnectedBanksScreen() {
           actions={{ commands, ports, link, choices: state.data.choices }}
           now={Date.now()}
           onBack={() => (router.canGoBack() ? router.back() : router.navigate("/more"))}
+          notice={notice}
+          onRetry={() => void refresh()}
         />
       )}
     </Screen>

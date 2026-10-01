@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { TextInput, View } from "react-native";
 import { COLOR, PLACEHOLDER, ROLE } from "../../lib/brand/shared";
 import { textStyle } from "../../lib/brand/type";
@@ -7,7 +7,7 @@ import { useAuth } from "../../lib/auth/auth-context";
 import type { UnmappedAccount } from "../../lib/plaid/banks-api";
 import { bankCommands, type CommandOutcome } from "../../lib/plaid/bank-commands";
 import { accountLabel, buildMapEntries, emptyMapRows, type MapEntry, type MapMode, type MapRow, type MappingChoices } from "../../lib/plaid/mapping";
-import { Button } from "../brand/controls";
+import { Button, TextButton } from "../brand/controls";
 import { PixelFrame } from "../brand/pixel-frame";
 import { Text } from "../brand/text";
 import { Overlay } from "../kit/overlay";
@@ -38,27 +38,48 @@ export function AccountMapping({
   onDone: () => void;
 }) {
   const { budgtsAccounts, accountTypes } = choices;
-  const [rows, setRows] = useState<MapRow[]>(() => emptyMapRows(plaidAccounts, budgtsAccounts[0]?.id ?? ""));
+  // The accounts and their rows are fixed when the sheet opens, so a reload behind it can never misalign the two.
+  const [accounts] = useState(plaidAccounts);
+  const [rows, setRows] = useState<MapRow[]>(() => emptyMapRows(accounts, budgtsAccounts[0]?.id ?? ""));
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
+  const [stale, setStale] = useState(false);
+
+  // When the choices reload (after a refusal, or any change elsewhere), a row pointing at an account no longer offered
+  // moves to the first one still offered, or back to a new account when none is: never a choice the server will refuse.
+  useEffect(() => {
+    const offered = new Set(budgtsAccounts.map((b) => b.id));
+    setRows((prev) => {
+      if (prev.every((r) => r.mode !== "existing" || offered.has(r.existingAccountId))) return prev;
+      return prev.map((r) =>
+        r.mode !== "existing" || offered.has(r.existingAccountId)
+          ? r
+          : budgtsAccounts[0]
+            ? { ...r, existingAccountId: budgtsAccounts[0].id }
+            : { ...r, mode: "new", existingAccountId: "" },
+      );
+    });
+  }, [budgtsAccounts]);
 
   const update = (i: number, patch: Partial<MapRow>) => setRows((prev) => prev.map((r, j) => (j === i ? { ...r, ...patch } : r)));
 
   async function save() {
     setPending(true);
     setError(null);
-    const out = await onSave(buildMapEntries(plaidAccounts, rows));
+    const out = await onSave(buildMapEntries(accounts, rows));
     setPending(false);
-    if (out.status === "error") setError(out.message);
-    else if (out.warning) setWarning(out.warning);
+    if (out.status === "error") {
+      setError(out.message);
+      setStale(!!out.stale);
+    } else if (out.warning) setWarning(out.warning);
     else onDone();
   }
 
   if (warning) {
     return (
-      <View style={{ gap: 12 }} testID="account-mapping-warning">
-        <Text variant="small" color={ROLE.muted}>
+      <View style={{ gap: 12 }}>
+        <Text testID="account-mapping-warning" variant="small" color={ROLE.muted}>
           {warning}
         </Text>
         <Button testID="account-mapping-done" onPress={onDone}>
@@ -81,8 +102,8 @@ export function AccountMapping({
       </Text>
 
       <View style={{ gap: 12 }}>
-        {plaidAccounts.map((a, i) => {
-          const r = rows[i]!;
+        {accounts.map((a, i) => {
+          const r = rows[i] as MapRow;
           return (
             <PixelFrame key={a.plaidAccountId} frame="px-card" testID={`account-mapping-row-${i}`} style={{ padding: 12, gap: 12 }}>
               <View style={{ flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
@@ -149,9 +170,13 @@ export function AccountMapping({
       </View>
 
       {error ? (
-        <Text testID="account-mapping-error" variant="small" color={ROLE.neg} accessibilityRole="alert">
-          {error}
-        </Text>
+        <View style={{ gap: 4 }}>
+          <Text testID="account-mapping-error" variant="small" color={ROLE.neg} accessibilityRole="alert">
+            {error}
+          </Text>
+          {/* refused over out-of-date data (already imported, no longer offered): close and show what is true now */}
+          {stale ? <TextButton testID="account-mapping-refresh" icon="sync" onPress={onDone}>Refresh</TextButton> : null}
+        </View>
       ) : null}
 
       <Button testID="account-mapping-save" onPress={() => void save()} loading={pending}>
@@ -168,7 +193,8 @@ export type AccountMappingSheetProps = {
   plaidAccounts: UnmappedAccount[];
   /** the existing accounts and account types on offer (`mappingChoices()` over `GET /api/mobile/accounts`) */
   choices: MappingChoices;
-  /** saved (after its Done, when the first sync left a warning); the app's data is already invalidated */
+  /** saved (after its Done, when the first sync left a warning), or Refresh after a stale refusal; the app's data is
+   * already invalidated */
   onDone: () => void;
   /** dismissed without saving: the bank stays connected, its accounts wait in Connected banks */
   onClose: () => void;
@@ -184,8 +210,10 @@ export function AccountMappingSheet({ plaidItemId, plaidAccounts, choices, onDon
   const { session } = useAuth();
   const onSave = async (entries: MapEntry[]) => {
     const out = await bankCommands(session).mapAccounts(plaidItemId, entries);
-    // saved: new accounts, and the first sync's transactions, reach every screen
+    // saved (a repeat the server already had counts too): new accounts and the first sync's transactions reach every
+    // screen. Refused over stale data: the accounts reload behind the sheet, so its choices and the list are current.
     if (out.status === "ok") invalidate("accounts", "transactions", "budgets", "home");
+    else if (out.stale) invalidate("accounts");
     return out;
   };
   return (

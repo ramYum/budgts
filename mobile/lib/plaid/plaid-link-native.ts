@@ -1,5 +1,5 @@
 import { Platform } from "react-native";
-import { createPlaidLinkSession, type LinkSuccess } from "react-native-plaid-link-sdk";
+import type { LinkSuccess } from "react-native-plaid-link-sdk";
 import type { LinkPlatform, PlaidLinkClient, PlaidLinkOutcome } from "./plaid-link";
 
 /**
@@ -30,20 +30,25 @@ export function createPlaidLinkClient(): PlaidLinkClient {
     isAvailable,
     open: (linkToken: string) =>
       new Promise<PlaidLinkOutcome>((resolve, reject) => {
-        void createPlaidLinkSession({
-          token: linkToken,
-          onSuccess: (success: LinkSuccess) => {
-            resolve({
-              kind: "success",
-              publicToken: success.publicToken,
-              institution: success.metadata.institution ? { id: success.metadata.institution.id, name: success.metadata.institution.name } : null,
-            });
-          },
-          // Link always ends in onSuccess or onExit. An ERROR event is not an ending: Link shows the error and lets the
-          // user retry (a mistyped password), so settling on it would drop a connection that then succeeds.
-          onExit: () => resolve({ kind: "exit" }),
-          onEvent: () => {},
-        })
+        // Loaded only when Link opens: importing the SDK at module load runs its native lookup on every screen that
+        // merely renders a Connect button.
+        import("react-native-plaid-link-sdk")
+          .then((sdk) =>
+            sdk.createPlaidLinkSession({
+              token: linkToken,
+              onSuccess: (success: LinkSuccess) => {
+                resolve({
+                  kind: "success",
+                  publicToken: success.publicToken,
+                  institution: success.metadata.institution ? { id: success.metadata.institution.id, name: success.metadata.institution.name } : null,
+                });
+              },
+              // Link always ends in onSuccess or onExit. An ERROR event is not an ending: Link shows the error and lets
+              // the user retry (a mistyped password), so settling on it would drop a connection that then succeeds.
+              onExit: () => resolve({ kind: "exit" }),
+              onEvent: () => {},
+            }),
+          )
           .then((session) => session.open())
           .catch((e: unknown) => reject(e instanceof Error ? e : new Error("Plaid Link failed to start")));
       }),

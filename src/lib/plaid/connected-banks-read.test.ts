@@ -47,6 +47,7 @@ const accountRow = (over: Record<string, unknown> = {}) => ({
   needs_review: false,
   review_reason: null,
   excluded_from_calculations: false,
+  sign_convention: "standard",
   ...over,
 });
 
@@ -94,6 +95,7 @@ describe("loadConnectedBanks", () => {
           excludedFromCalculations: false,
           pendingSignCheckCount: 0,
           signCheckSample: null,
+          signAnswer: null,
         },
       ],
       unmappedAccounts: [],
@@ -156,6 +158,42 @@ describe("loadConnectedBanks", () => {
         ["limit", 1],
       ]),
     );
+  });
+
+  it("offers Change answer for an account the user resolved by answering, re-asking about the answered transaction (design: 2026-10-01 card payments §5a)", async () => {
+    const answered = { id: "t-9", description: "Trader Joe's", occurred_at: "2026-09-16T00:00:00Z", amount: 4210, plaid_account_id: "pa-row-1" };
+    const { supabase } = fakeSupabase({
+      plaid_items: { data: [{ id: "item-1", item_id: "plaid-item-1", institution_name: null, status: "active", last_synced_at: null }] },
+      plaid_accounts: { data: [accountRow({ sign_convention: "inverted" }), accountRow({ id: "pa-row-2", plaid_account_id: "pa2", sign_convention: "unknown" })] },
+      accounts: { data: [] },
+      plaid_sign_answers: {
+        data: [
+          { plaid_account_id: "pa-row-1", sample_transaction_id: "t-9", created_at: "2026-10-01T10:00:00Z" },
+          { plaid_account_id: "pa-row-1", sample_transaction_id: "t-1", created_at: "2026-09-30T10:00:00Z" },
+          // an unknown account (e.g. re-linked) never offers a change
+          { plaid_account_id: "pa-row-2", sample_transaction_id: "t-2", created_at: "2026-10-01T10:00:00Z" },
+        ],
+      },
+      transactions: { data: [answered], count: 0 },
+    });
+
+    const data = await loadConnectedBanks(supabase);
+    expect(data?.banks[0]!.accounts[0]!.signAnswer).toEqual({
+      answeredAt: "2026-10-01T10:00:00Z",
+      sample: { transactionId: "t-9", description: "Trader Joe's", occurredAt: "2026-09-16T00:00:00Z", amount: 4210, currency: "USD" },
+    });
+    expect(data?.banks[0]!.accounts[1]!.signAnswer).toBeNull();
+  });
+
+  it("reads no answers on a deployment without migration 0025", async () => {
+    const { supabase } = fakeSupabase({
+      plaid_items: { data: [{ id: "item-1", item_id: "plaid-item-1", institution_name: null, status: "active", last_synced_at: null }] },
+      plaid_accounts: { data: [accountRow()] },
+      accounts: { data: [] },
+      plaid_sign_answers: { data: null, error: { message: "relation does not exist" } },
+      transactions: { data: [], count: 0 },
+    });
+    expect((await loadConnectedBanks(supabase))?.banks[0]!.accounts[0]!.signAnswer).toBeNull();
   });
 
   it("returns null (not an empty list that looks final) when the Plaid tables aren't present on this deployment", async () => {

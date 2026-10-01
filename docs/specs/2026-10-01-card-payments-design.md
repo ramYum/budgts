@@ -58,11 +58,43 @@ same `finalizeSignConvention` the sync uses. Rules:
 - `finalizeSignConvention` resolves only a still-`unknown` account, under the row lock its UPDATE takes. A sync
   verdict and an answer can race: the first wins and the second writes nothing.
 - It clears only the "can't confidently determine" review flag, never a flag raised for another reason.
-- Native: the read model (`signCheckSample`) already reaches `GET /api/mobile/plaid/banks`. The native question and
-  its POST route are the follow-up (same copy, same service).
+- It holds the bank's sync lease while it writes (`claimItemForSync`), so no sync lands rows under the old
+  convention meanwhile. While a sync holds it the answer is refused with "This bank is syncing right now. Try again in
+  a moment." and nothing is written.
+- Every answer is recorded in `plaid_sign_answers` (migration 0025) with the released rows' old values.
 
-Known limit: a wrong answer resolves the account the wrong way. Per-row direction edits remain available; an
-account-level "undo" is an owner decision.
+## 5a. Changing the answer
+
+A wrong answer must not leave an account resolved the wrong way for good (every state has a reachable exit). After
+answering, Connected banks shows under that account a quiet line, "Money direction set. Change answer" (the link
+style used elsewhere). "Change answer" asks the same question about the same transaction (the account's most recent
+one if that is gone). A different answer:
+
+- flips the account's convention, and re-evaluates every row whose stored direction is exactly what the old convention
+  derives from the raw sign (`planConventionChange`): corrected direction, event role recomputed. A row whose direction
+  disagrees was set another way (the user's own edit, or a row from before conventions existed) and is left alone;
+- unlinks a transfer pair whose leg it re-evaluates (the pair was matched on the old direction; the next sync re-pairs
+  it if it still matches). The partner keeps its own direction and role;
+- records the change in `plaid_sign_answers` with every changed row's old values (and each unlinked partner's old
+  link). Changing the answer back is the undo, recorded the same way.
+
+Rules (`changeSignConventionAnswer`, `sign-answer.ts`): the user comes from the session; the account and transaction
+must be theirs and the account must have been resolved by an answer (an account resolved from evidence has no "Change
+answer"). An answer matching the account changes nothing (idempotent). It holds the bank's sync lease, and the
+convention flips only from the value it read, under the row lock of a conditional UPDATE: of two racing changes, the
+first wins and the second writes nothing.
+
+### Native API contract (`GET /api/mobile/plaid/banks`, version 1)
+
+Each account carries, beside the existing fields (the native UI and POST routes are a later Phase 3 branch):
+
+- `signCheckSample`: `{ transactionId, description, occurredAt, amount, currency } | null`. Present while
+  `pendingSignCheckCount > 0`: the transaction to ask about. `amount` is unsigned minor units.
+- `signAnswer`: `{ answeredAt, sample: <same shape> | null } | null`. Present when the user resolved the account by
+  answering: show "Money direction set. Change answer", and re-ask about `sample`.
+
+The native POST routes will take `{ plaidAccountRowId, transactionId, answer: "out" | "in" }` (the web schema,
+`answerSignCheckSchema`) and call `resolveSignConventionFromAnswer` / `changeSignConventionAnswer`.
 
 ## 6. Case (c): only checking imported
 

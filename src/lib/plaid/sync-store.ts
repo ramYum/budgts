@@ -110,6 +110,104 @@ function patchToSet(patch: TxnPatch): Record<string, unknown> {
   return set;
 }
 
+/** A transaction handle on the Plaid pipeline's DB. */
+export type PlaidTx = Parameters<Parameters<PlaidDb["transaction"]>[0]>[0];
+
+/** A released or re-evaluated row's values before the write, kept for the audit trail (plaid_sign_answers). */
+export interface RowBefore {
+  id: string;
+  direction: "debit" | "credit";
+  status: "confirmed" | "pending_review";
+  pendingReason: string | null;
+  eventRole: string | null;
+}
+
+/** Writes direction + event_role per row in bulk (one UPDATE ... FROM (VALUES ...) per chunk); `confirm` also
+ * releases held rows (status confirmed, no pending reason). */
+export async function writeDirectionAndRole(
+  tx: PlaidTx,
+  computed: readonly { id: string; direction: "debit" | "credit"; eventRole: string | null }[],
+  confirm: boolean,
+): Promise<void> {
+  for (const batch of chunk([...computed], BATCH_SIZE)) {
+    const valuesList = sql.join(
+      batch.map((c) => sql`(${c.id}::uuid, ${c.direction}::text, ${c.eventRole}::text)`),
+      sql`, `,
+    ) as SQL;
+    await tx.execute(
+      confirm
+        ? sql`
+            update transactions t
+            set status = 'confirmed', pending_reason = null,
+                direction = v.direction::txn_direction, event_role = v.event_role
+            from (values ${valuesList}) as v(id, direction, event_role)
+            where t.id = v.id`
+        : sql`
+            update transactions t
+            set direction = v.direction::txn_direction, event_role = v.event_role
+            from (values ${valuesList}) as v(id, direction, event_role)
+            where t.id = v.id`,
+    );
+  }
+}
+
+/**
+ * Resolves a still-`unknown` account and releases its held rows, inside the caller's transaction; null (nothing
+ * written) when the account was already resolved. Returns the released rows' values before the write, for audit.
+ *
+ * Only an account still `unknown` resolves, under the row lock this UPDATE takes: a sync's evidence verdict and the
+ * user's answer (design: 2026-10-01 card payments §5) can race, and the first one wins. The loser finds no row and
+ * changes nothing, so a resolved convention is never overwritten or flipped twice.
+ *
+ * event_role is direction-dependent for spend-shaped primaries (event-role.ts rows 6/7, PURCHASE <-> REFUND) and for
+ * a card's incoming payment, so a bare direction flip on "inverted" would leave roles stale (found in production
+ * 2026-09-15: purchases stuck labeled REFUND). Each row is recomputed by planHeldRowRelease, from the SAME inputs the
+ * live adapter used, with the corrected direction and the account's type.
+ */
+export async function finalizeSignConventionIn(
+  tx: PlaidTx,
+  plaidAccountRowId: string,
+  convention: "standard" | "inverted",
+): Promise<{ released: RowBefore[] } | null> {
+  const [account] = await tx
+    .update(plaidAccounts)
+    .set({ signConvention: convention, updatedAt: sql`now()` })
+    .where(and(eq(plaidAccounts.id, plaidAccountRowId), eq(plaidAccounts.signConvention, "unknown")))
+    .returning({ type: plaidAccounts.type });
+  if (!account) return null;
+
+  const pendingRows = await tx
+    .select({
+      id: transactions.id,
+      direction: transactions.direction,
+      status: transactions.status,
+      pendingReason: transactions.pendingReason,
+      eventRole: transactions.eventRole,
+      primary: transactions.plaidCategoryPrimary,
+      detailed: transactions.plaidCategoryDetailed,
+      isTransfer: transactions.isTransfer,
+    })
+    .from(transactions)
+    .where(
+      and(
+        eq(transactions.plaidAccountId, plaidAccountRowId),
+        eq(transactions.source, "bank"),
+        eq(transactions.status, "pending_review"),
+        eq(transactions.pendingReason, "sign_convention_unknown"),
+      ),
+    );
+  await writeDirectionAndRole(tx, planHeldRowRelease(pendingRows, convention, account.type ?? null), true);
+  return {
+    released: pendingRows.map((r) => ({
+      id: r.id,
+      direction: r.direction,
+      status: r.status,
+      pendingReason: r.pendingReason,
+      eventRole: r.eventRole,
+    })),
+  };
+}
+
 export function createPlaidSyncStore(db: PlaidDb): PlaidSyncStore {
   return {
     async findBySourceRefs(userId: string, refs: string[]): Promise<PlaidTxnRow[]> {
@@ -303,61 +401,7 @@ export function createPlaidSyncStore(db: PlaidDb): PlaidSyncStore {
     },
 
     async finalizeSignConvention(plaidAccountRowId, convention) {
-      return db.transaction(async (tx) => {
-        // Only an account still `unknown` resolves, under the row lock this UPDATE takes: a sync's evidence verdict
-        // and the user's answer (design: 2026-10-01 card payments §5) can race, and the first one wins. The loser
-        // finds no row and changes nothing, so a resolved convention is never overwritten or flipped twice.
-        const [account] = await tx
-          .update(plaidAccounts)
-          .set({ signConvention: convention, updatedAt: sql`now()` })
-          .where(and(eq(plaidAccounts.id, plaidAccountRowId), eq(plaidAccounts.signConvention, "unknown")))
-          .returning({ type: plaidAccounts.type });
-        if (!account) return false;
-
-        // event_role is direction-dependent for spend-shaped primaries
-        // (event-role.ts rows 6/7, PURCHASE <-> REFUND) — a bare direction
-        // flip on "inverted" leaves those rows' role stale forever (found in
-        // production 2026-09-15: purchases stuck labeled REFUND). Recompute
-        // per row from the SAME inputs the live adapter used, with the
-        // corrected direction, rather than special-casing which primaries
-        // are direction-dependent — one source of truth (resolveEventRole).
-        const pendingRows = await tx
-          .select({
-            id: transactions.id,
-            direction: transactions.direction,
-            primary: transactions.plaidCategoryPrimary,
-            detailed: transactions.plaidCategoryDetailed,
-            isTransfer: transactions.isTransfer,
-          })
-          .from(transactions)
-          .where(
-            and(
-              eq(transactions.plaidAccountId, plaidAccountRowId),
-              eq(transactions.source, "bank"),
-              eq(transactions.status, "pending_review"),
-              eq(transactions.pendingReason, "sign_convention_unknown"),
-            ),
-          );
-
-        // One bulk UPDATE...FROM(VALUES...) per chunk, not one UPDATE per row
-        // (an account needing this can hold thousands of pending rows — see
-        // countByAccountFingerprint above for the same VALUES-join pattern).
-        for (const batch of chunk(pendingRows, BATCH_SIZE)) {
-          const computed = planHeldRowRelease(batch, convention, account.type ?? null);
-          const valuesList = sql.join(
-            computed.map((c) => sql`(${c.id}::uuid, ${c.direction}::text, ${c.eventRole}::text)`),
-            sql`, `,
-          ) as SQL;
-          await tx.execute(sql`
-            update transactions t
-            set status = 'confirmed', pending_reason = null,
-                direction = v.direction::txn_direction, event_role = v.event_role
-            from (values ${valuesList}) as v(id, direction, event_role)
-            where t.id = v.id
-          `);
-        }
-        return true;
-      });
+      return (await db.transaction((tx) => finalizeSignConventionIn(tx, plaidAccountRowId, convention))) !== null;
     },
 
     // Advancial replay containment only (design 2026-09-14) — the caller

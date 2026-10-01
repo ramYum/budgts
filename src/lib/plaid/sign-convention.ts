@@ -107,3 +107,10 @@ export function conventionFromAnswer(rawAmount: number, answer: MoneyFlowAnswer)
   const rawSaysOut = rawAmount > 0;
   return rawSaysOut === (answer === "out") ? "standard" : "inverted";
 }
+
+/** The direction Budgts derives from Plaid's raw amount under a resolved convention (adapter.ts's rule). */
+export function directionFromRaw(rawAmount: number, convention: "standard" | "inverted"): "debit" | "credit" {
+  const rawIsOutflow = rawAmount > 0;
+  const isOutflow = convention === "inverted" ? !rawIsOutflow : rawIsOutflow;
+  return isOutflow ? "debit" : "credit";
+}

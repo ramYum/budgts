@@ -27,7 +27,7 @@ describe("migration chain from an empty database", () => {
     const [{ n }] = (await pg.query<{ n: number }>(`select count(*)::int n from drizzle.__drizzle_migrations`)).rows;
     expect(n).toBe(journal.length);
     journal.forEach((e, i) => expect(e.idx, e.tag).toBe(i));
-    expect(journal.at(-1)?.tag).toBe("0024_entitlements_and_billing_events");
+    expect(journal.at(-1)?.tag).toBe("0025_plaid_sign_answers");
     // main's 0017 (sync lease) and 0018 (time zone) stay where production has them; the ported work follows.
     expect(journal.slice(17).map((e) => e.tag)).toEqual([
       "0017_thin_goblin_queen",
@@ -38,6 +38,7 @@ describe("migration chain from an empty database", () => {
       "0022_deletion_guard_allow_bank_disconnect",
       "0023_monetization_ledger",
       "0024_entitlements_and_billing_events",
+      "0025_plaid_sign_answers",
     ]);
   });
 
@@ -93,6 +94,27 @@ describe("migration chain from an empty database", () => {
     expect(writable).not.toContain("billing_events");
     expect(writable).not.toContain("subscriptions");
     expect(writable).not.toContain("payments");
+  });
+
+  it("0025: plaid_sign_answers is owner-readable, never client-writable, and only records a real resolution", async () => {
+    const [rls] = (await pg.query<{ relrowsecurity: boolean }>(
+      `select relrowsecurity from pg_class where relname = 'plaid_sign_answers' and relkind = 'r'`,
+    )).rows;
+    expect(rls.relrowsecurity).toBe(true);
+    const pol = (await pg.query<{ cmd: string }>(
+      `select cmd from pg_policies where schemaname='public' and tablename='plaid_sign_answers'`,
+    )).rows.map((r) => r.cmd);
+    expect(pol).toEqual(["SELECT"]);
+    const constraints = (await pg.query<{ conname: string }>(
+      `select conname from pg_constraint where conrelid = 'public.plaid_sign_answers'::regclass`,
+    )).rows.map((r) => r.conname);
+    expect(constraints).toEqual(
+      expect.arrayContaining([
+        "plaid_sign_answers_resolves",
+        "plaid_sign_answers_user_id_auth_users_fk",
+        "plaid_sign_answers_plaid_account_id_plaid_accounts_id_fk",
+      ]),
+    );
   });
 
   describe("the trial-only vs paid deletion boundary (why the entitlement is not a ledger row)", () => {
@@ -184,8 +206,11 @@ describe("migration chain from an empty database", () => {
 describe("the pre-deploy production probe (supabase/probes/0019-0024-preflight.sql)", () => {
   const probe = fs.readFileSync(path.join(MIGRATIONS_DIR, "..", "probes", "0019-0024-preflight.sql"), "utf8");
 
-  it("passes on a database that has every migration", async () => {
-    const pg = await newMigratedDb();
+  // The probe belongs to the 0019-0024 release (it checks the ledger at exactly 25 rows), so it runs against the
+  // schema of that release, 0000-0024; later migrations are outside its scope.
+  it("passes on a database that has every migration of its release (0000-0024)", async () => {
+    const pg = await newSupabaseStub();
+    await migrate(pg, { upTo: 25 });
     try {
       const rows = (await pg.query<{ check: string; ok: boolean }>(probe)).rows;
       expect(rows.length).toBeGreaterThanOrEqual(9);
@@ -223,7 +248,7 @@ describe("production-like release: an existing database receives the pending mig
     const pg = await newSupabaseStub();
     try {
       expect(await migrate(pg, { upTo: 19 })).toEqual({ applied: 19, skipped: 0 });
-      expect(await migrate(pg)).toEqual({ applied: 6, skipped: 19 });
+      expect(await migrate(pg, { upTo: 25 })).toEqual({ applied: 6, skipped: 19 });
     } finally {
       await pg.close();
     }

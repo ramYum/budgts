@@ -30,7 +30,7 @@ import { setAccountCalculationExclusion } from "./account-exclusion";
 import { disconnectPlaidItem } from "./disconnect";
 import { db } from "@/lib/db";
 import { mapAccountsFor, setAccountImportingFor, syncConnectionFor } from "./commands";
-import { resolveSignConventionFromAnswer } from "./sign-answer";
+import { changeSignConventionAnswer, resolveSignConventionFromAnswer } from "./sign-answer";
 
 export type PlaidActionState = {
   error?: string;
@@ -131,6 +131,42 @@ export async function answerSignCheckAction(
     parsed.data.answer,
   );
   if (result.outcome === "not_found") return { error: "That transaction is no longer waiting. Refresh and try again." };
+  if (result.outcome === "busy") return { error: BUSY_MESSAGE };
+
+  revalidateUserData();
+  return { ok: true };
+}
+
+const BUSY_MESSAGE = "This bank is syncing right now. Try again in a moment.";
+
+/**
+ * "Change answer" (design: 2026-10-01 card payments §5a): the user answers the question again for an account they
+ * resolved by answering; a different answer flips the account's transaction format and re-evaluates its rows.
+ * Ownership is enforced inside `changeSignConventionAnswer` against the session user, never client state.
+ */
+export async function changeSignAnswerAction(
+  _prev: PlaidActionState,
+  formData: FormData,
+): Promise<PlaidActionState> {
+  const parsed = answerSignCheckSchema.safeParse({
+    plaidAccountRowId: String(formData.get("plaidAccountRowId") ?? ""),
+    transactionId: String(formData.get("transactionId") ?? ""),
+    answer: String(formData.get("answer") ?? ""),
+  });
+  if (!parsed.success) return { error: "Something went wrong. Refresh and try again." };
+
+  const { user } = await withUser();
+  const result = await changeSignConventionAnswer(
+    db(),
+    user.id,
+    parsed.data.plaidAccountRowId,
+    parsed.data.transactionId,
+    parsed.data.answer,
+  );
+  if (result.outcome === "not_found" || result.outcome === "not_answered") {
+    return { error: "This account can't change its answer. Refresh and try again." };
+  }
+  if (result.outcome === "busy") return { error: BUSY_MESSAGE };
 
   revalidateUserData();
   return { ok: true };

@@ -1,11 +1,12 @@
 "use client";
 
-import { useActionState, useEffect, useState, useSyncExternalStore, useTransition } from "react";
+import { useActionState, useCallback, useEffect, useState, useSyncExternalStore, useTransition } from "react";
 import { Overlay } from "@/components/overlay";
 import { Icon } from "@/components/icon";
 import { Badge, Button, SectionHead } from "@/components/ui";
 import {
   answerSignCheckAction,
+  changeSignAnswerAction,
   clearAccountReview,
   disconnectBank,
   mapAccounts,
@@ -176,6 +177,7 @@ function BankCard({
                   </div>
                 </div>
                 {a.pendingSignCheckCount > 0 ? <SignCheckNotice account={a} /> : null}
+                {a.pendingSignCheckCount === 0 && a.signAnswer ? <SignAnswerLine account={a} /> : null}
                 {a.needsReview || a.excludedFromCalculations ? <AccountReviewNotice account={a} /> : null}
               </li>
             ))}
@@ -215,6 +217,7 @@ function BankCard({
                   <p className="text-sm leading-5 text-muted md:ml-[60px]">{notImportedHint(a)}</p>
                 ) : null}
                 {a.pendingSignCheckCount > 0 ? <SignCheckNotice account={a} /> : null}
+                {a.pendingSignCheckCount === 0 && a.signAnswer ? <SignAnswerLine account={a} /> : null}
                 {a.needsReview || a.excludedFromCalculations ? <AccountReviewNotice account={a} /> : null}
               </li>
             ))}
@@ -367,7 +370,6 @@ function ConnectToggle({ account, plaidItemId }: { account: ConnectedBankAccount
 function SignCheckNotice({ account }: { account: ConnectedBankAccount }) {
   const count = account.pendingSignCheckCount;
   const sample = account.signCheckSample;
-  const [state, formAction, pending] = useActionState<PlaidActionState, FormData>(answerSignCheckAction, {});
   return (
     <div className="px-band space-y-2 px-1.5 py-1.5 text-sm leading-5 text-ink md:ml-[60px] md:px-2 md:py-2 md:text-[15px] md:leading-6">
       <p className="flex items-start gap-2">
@@ -383,27 +385,93 @@ function SignCheckNotice({ account }: { account: ConnectedBankAccount }) {
       {sample ? (
         // The exit for an account whose format never settles (design: 2026-10-01 card payments §5): one plain
         // question about a held transaction resolves the account and releases every held row.
-        <form action={formAction} className="space-y-2">
-          <input type="hidden" name="plaidAccountRowId" value={account.rowId} />
-          <input type="hidden" name="transactionId" value={sample.transactionId} />
-          <p className="text-graphite">You can verify it now. Was this money going out or coming in?</p>
-          <p className="flex flex-wrap items-baseline justify-between gap-x-3">
-            <span className="min-w-0 truncate font-medium">{sample.description}</span>
-            <span className="tabular-nums">
-              {formatMoney(sample.amount, sample.currency)} ·{" "}
-              {new Date(sample.occurredAt).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}
-            </span>
-          </p>
-          {state.error ? <p className="text-neg">{state.error}</p> : null}
-          <div className="flex flex-wrap gap-2">
-            <Button type="submit" name="answer" value="out" variant="secondary" disabled={pending}>
-              Going out
-            </Button>
-            <Button type="submit" name="answer" value="in" variant="secondary" disabled={pending}>
-              Coming in
-            </Button>
-          </div>
-        </form>
+        <MoneyDirectionQuestion
+          account={account}
+          sample={sample}
+          action={answerSignCheckAction}
+          lead="You can verify it now. Was this money going out or coming in?"
+        />
+      ) : null}
+    </div>
+  );
+}
+
+/** The one plain question, about one transaction; the answer goes to `action` with the account and transaction. */
+function MoneyDirectionQuestion({
+  account,
+  sample,
+  action,
+  lead,
+  onDone,
+}: {
+  account: ConnectedBankAccount;
+  sample: NonNullable<ConnectedBankAccount["signCheckSample"]>;
+  action: (prev: PlaidActionState, formData: FormData) => Promise<PlaidActionState>;
+  lead: string;
+  onDone?: () => void;
+}) {
+  const [state, formAction, pending] = useActionState<PlaidActionState, FormData>(action, {});
+  useEffect(() => {
+    if (state.ok) onDone?.();
+  }, [state.ok, onDone]);
+  return (
+    <form action={formAction} className="space-y-2">
+      <input type="hidden" name="plaidAccountRowId" value={account.rowId} />
+      <input type="hidden" name="transactionId" value={sample.transactionId} />
+      <p className="text-graphite">{lead}</p>
+      <p className="flex flex-wrap items-baseline justify-between gap-x-3">
+        <span className="min-w-0 truncate font-medium">{sample.description}</span>
+        <span className="tabular-nums">
+          {formatMoney(sample.amount, sample.currency)} ·{" "}
+          {new Date(sample.occurredAt).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}
+        </span>
+      </p>
+      {state.error ? <p className="text-neg">{state.error}</p> : null}
+      <div className="flex flex-wrap gap-2">
+        <Button type="submit" name="answer" value="out" variant="secondary" disabled={pending}>
+          Going out
+        </Button>
+        <Button type="submit" name="answer" value="in" variant="secondary" disabled={pending}>
+          Coming in
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+/**
+ * The quiet exit after answering (design: 2026-10-01 card payments §5a): a wrong answer must not leave the account
+ * resolved the wrong way for good. "Change answer" asks the same question again; a different answer flips the
+ * account's transaction format and corrects the rows that answer set.
+ */
+function SignAnswerLine({ account }: { account: ConnectedBankAccount }) {
+  const [asking, setAsking] = useState(false);
+  const sample = account.signAnswer?.sample ?? null;
+  const close = useCallback(() => setAsking(false), []);
+  if (!sample) return null;
+  return (
+    <div className="space-y-2 text-sm leading-5 text-muted md:ml-[60px]">
+      <p>
+        Money direction set.{" "}
+        <button
+          type="button"
+          className="font-medium text-ink underline underline-offset-2"
+          aria-expanded={asking}
+          onClick={() => setAsking((v) => !v)}
+        >
+          Change answer
+        </button>
+      </p>
+      {asking ? (
+        <div className="px-band px-1.5 py-1.5 text-ink md:px-2 md:py-2 md:text-[15px] md:leading-6">
+          <MoneyDirectionQuestion
+            account={account}
+            sample={sample}
+            action={changeSignAnswerAction}
+            lead="Was this money going out or coming in?"
+            onDone={close}
+          />
+        </div>
       ) : null}
     </div>
   );

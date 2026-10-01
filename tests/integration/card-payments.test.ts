@@ -18,7 +18,9 @@ import type { BudgetTxn } from "@/lib/budget/types";
 import { isEventRole } from "@/lib/plaid/event-role";
 import { createPlaidSyncStore } from "@/lib/plaid/sync-store";
 import { findTransferPairs } from "@/lib/plaid/transfer-pairing";
-import { resolveSignConventionFromAnswer } from "@/server/plaid/sign-answer";
+import { rollup } from "@/lib/budget/rollup";
+import { claimItemForSync, releaseSyncClaim } from "@/lib/plaid/item-store";
+import { changeSignConventionAnswer, resolveSignConventionFromAnswer } from "@/server/plaid/sign-answer";
 import { cleanupUser, client, createAccount, db, insertBankTxn, mainAccountId, seedUser } from "./_db";
 
 const store = createPlaidSyncStore(db);
@@ -55,7 +57,9 @@ afterAll(async () => {
 
 beforeEach(async () => {
   await client`update public.plaid_accounts set sign_convention = 'unknown', needs_review = false, review_reason = null where id = ${cardFeed}`;
+  await client`delete from public.plaid_sign_answers where user_id = ${userId}`;
   await client`delete from public.transactions where user_id = ${userId}`;
+  await client`update public.plaid_items set sync_claim_token = null, sync_claimed_at = null where user_id = ${userId}`;
 });
 
 async function row(id: string) {
@@ -256,6 +260,157 @@ describe("tools/card-payment-remediation.ts (dry run, apply, revert) on a synthe
 
   it("refuses --apply without the matching --confirm-ref", () => {
     expect(() => runTool("--apply")).toThrow();
+  });
+});
+
+describe("changeSignConventionAnswer (design: 2026-10-01 card payments §5a)", () => {
+  /** The user's September spend on the card, computed with the app's own rollup. */
+  async function cardSpend(): Promise<number> {
+    const rows = await client<
+      { amount: string; direction: "debit" | "credit"; occurred_at: Date; category_id: string | null; is_transfer: boolean;
+        event_role: string | null; status: "confirmed" | "pending_review"; duplicate_of_id: string | null; transfer_user_set: boolean }[]
+    >`select amount, direction, occurred_at, category_id, is_transfer, event_role, status, duplicate_of_id, transfer_user_set
+      from public.transactions where user_id = ${userId} and account_id = ${cardId} and removed_at is null`;
+    const cats = await client<{ id: string; kind: "expense" | "income" }[]>`select id, kind from public.categories where user_id = ${userId}`;
+    const txns: BudgetTxn[] = rows.map((r) => ({
+      amount: Number(r.amount),
+      direction: r.direction,
+      occurredAt: new Date(r.occurred_at),
+      categoryId: r.category_id,
+      isTransfer: r.is_transfer,
+      eventRole: r.event_role != null && isEventRole(r.event_role) ? r.event_role : null,
+      status: r.status,
+      duplicateOfId: r.duplicate_of_id,
+      transferUserSet: r.transfer_user_set,
+      accountExcluded: false,
+    }));
+    return rollup(txns, cats, "2026-09").spend;
+  }
+
+  const heldPurchase = () =>
+    insertBankTxn(userId, cardId, {
+      plaidAccountId: cardFeed,
+      status: "pending_review",
+      pendingReason: "sign_convention_unknown",
+      direction: "debit",
+      primary: "FOOD_AND_DRINK",
+      detailed: "FOOD_AND_DRINK_GROCERIES",
+      description: "Trader Joe's",
+      amount: 4000,
+      raw: { amount: 40 },
+      occurredAt: "2026-09-12T00:00:00.000Z",
+    });
+  const heldCardPayment = () =>
+    insertBankTxn(userId, cardId, {
+      plaidAccountId: cardFeed,
+      status: "pending_review",
+      pendingReason: "sign_convention_unknown",
+      direction: "credit",
+      primary: "LOAN_PAYMENTS",
+      detailed: "LOAN_PAYMENTS_OTHER_PAYMENT",
+      amount: 10000,
+      raw: { amount: -100 },
+      occurredAt: "2026-09-14T00:00:00.000Z",
+    });
+
+  it("a wrong answer, then the right one: rows and totals are corrected, an own edit is kept, both writes audited", async () => {
+    const purchase = await heldPurchase();
+    const payment = await heldCardPayment();
+    // Wrong: the user says the grocery run was money coming in, so the card resolves inverted.
+    expect(await resolveSignConventionFromAnswer(db, userId, cardFeed, purchase, "in")).toEqual({ outcome: "resolved", convention: "inverted" });
+    expect(await row(purchase)).toMatchObject({ direction: "credit", event_role: "REFUND" });
+    expect(await row(payment)).toMatchObject({ direction: "debit", event_role: null });
+    expect(await cardSpend()).toBe(-4000 + 10000); // the purchase reads as a refund and the payment as new spend
+
+    // A row synced later under the wrong convention, and one edited by hand (its direction disagrees with it).
+    const later = await insertBankTxn(userId, cardId, {
+      plaidAccountId: cardFeed, direction: "credit", primary: "FOOD_AND_DRINK", eventRole: "REFUND", amount: 1000,
+      raw: { amount: 10 }, occurredAt: "2026-09-20T00:00:00.000Z",
+    });
+    const edited = await insertBankTxn(userId, cardId, {
+      plaidAccountId: cardFeed, direction: "debit", primary: "FOOD_AND_DRINK", eventRole: "PURCHASE", amount: 500,
+      raw: { amount: 5 }, occurredAt: "2026-09-21T00:00:00.000Z",
+    });
+
+    expect(await changeSignConventionAnswer(db, userId, cardFeed, purchase, "out")).toEqual({
+      outcome: "changed",
+      convention: "standard",
+      changedRows: 3,
+    });
+    expect(await row(purchase)).toMatchObject({ direction: "debit", event_role: "PURCHASE", status: "confirmed" });
+    expect(await row(payment)).toMatchObject({ direction: "credit", event_role: "CARD_PAYMENT" });
+    expect(await row(later)).toMatchObject({ direction: "debit", event_role: "PURCHASE" });
+    expect(await row(edited)).toMatchObject({ direction: "debit", event_role: "PURCHASE" }); // untouched
+    expect(await cardSpend()).toBe(4000 + 1000 + 500); // purchases only; the card payment is not spending
+
+    const audit = await client<{ kind: string; from_convention: string; to_convention: string; changed_rows: { id: string; direction: string }[] }[]>`
+      select kind, from_convention, to_convention, changed_rows from public.plaid_sign_answers
+      where plaid_account_id = ${cardFeed} order by created_at`;
+    expect(audit.map((a) => [a.kind, a.from_convention, a.to_convention])).toEqual([
+      ["answer", "unknown", "inverted"],
+      ["change", "inverted", "standard"],
+    ]);
+    const old = new Map(audit[1].changed_rows.map((r) => [r.id, r.direction]));
+    expect(old.get(purchase)).toBe("credit");
+    expect(old.get(later)).toBe("credit");
+    expect(old.has(edited)).toBe(false);
+
+    // Idempotent: the same answer again changes nothing and records nothing.
+    expect(await changeSignConventionAnswer(db, userId, cardFeed, purchase, "out")).toEqual({ outcome: "unchanged" });
+    const [{ n }] = await client<{ n: number }[]>`select count(*)::int n from public.plaid_sign_answers where plaid_account_id = ${cardFeed}`;
+    expect(n).toBe(2);
+  });
+
+  it("refuses another user's account, and an account that was never answered", async () => {
+    const purchase = await heldPurchase();
+    await resolveSignConventionFromAnswer(db, userId, cardFeed, purchase, "out");
+    expect(await changeSignConventionAnswer(db, otherUserId, cardFeed, purchase, "in")).toEqual({ outcome: "not_found" });
+    expect((await row(purchase)).direction).toBe("debit");
+
+    const other = await insertBankTxn(userId, checkingId, { plaidAccountId: checkingFeed, raw: { amount: 5 } });
+    expect(await changeSignConventionAnswer(db, userId, checkingFeed, other, "in")).toEqual({ outcome: "not_answered" });
+  });
+
+  it("is refused while a sync holds the bank, and of two racing changes exactly one applies", async () => {
+    const purchase = await heldPurchase();
+    await resolveSignConventionFromAnswer(db, userId, cardFeed, purchase, "in"); // inverted
+
+    const [item] = await client<{ item_id: string }[]>`
+      select pi.item_id from public.plaid_items pi join public.plaid_accounts pa on pa.plaid_item_id = pi.id where pa.id = ${cardFeed}`;
+    const claim = await claimItemForSync(db, item.item_id, { kind: "requested" });
+    expect(claim).not.toBeNull();
+    expect(await changeSignConventionAnswer(db, userId, cardFeed, purchase, "out")).toEqual({ outcome: "busy" });
+    expect((await row(purchase)).direction).toBe("credit");
+    await releaseSyncClaim(db, item.item_id, claim!.token, false);
+
+    const results = await Promise.all([
+      changeSignConventionAnswer(db, userId, cardFeed, purchase, "out"),
+      changeSignConventionAnswer(db, userId, cardFeed, purchase, "out"),
+    ]);
+    expect(results.filter((r) => r.outcome === "changed")).toHaveLength(1);
+    expect(results.every((r) => ["changed", "busy", "unchanged"].includes(r.outcome))).toBe(true);
+    expect((await row(purchase)).direction).toBe("debit"); // flipped exactly once
+    const [pa] = await client<{ sign_convention: string }[]>`select sign_convention from public.plaid_accounts where id = ${cardFeed}`;
+    expect(pa.sign_convention).toBe("standard");
+  });
+
+  it("unlinks a transfer pair whose leg it re-evaluates", async () => {
+    const purchase = await heldPurchase();
+    await resolveSignConventionFromAnswer(db, userId, cardFeed, purchase, "in"); // inverted
+    const leg = await insertBankTxn(userId, cardId, {
+      plaidAccountId: cardFeed, direction: "credit", primary: "TRANSFER_IN", isTransfer: true, eventRole: "TRANSFER",
+      raw: { amount: 25 }, amount: 2500,
+    });
+    const partner = await insertBankTxn(userId, checkingId, {
+      plaidAccountId: checkingFeed, direction: "debit", primary: "TRANSFER_OUT", isTransfer: true, eventRole: "TRANSFER",
+      raw: { amount: 25 }, amount: 2500,
+    });
+    await client`update public.transactions set transfer_pair_id = ${partner} where id = ${leg}`;
+    await client`update public.transactions set transfer_pair_id = ${leg} where id = ${partner}`;
+
+    await changeSignConventionAnswer(db, userId, cardFeed, purchase, "out");
+    expect(await row(leg)).toMatchObject({ direction: "debit", transfer_pair_id: null, event_role: "TRANSFER" });
+    expect(await row(partner)).toMatchObject({ direction: "debit", transfer_pair_id: null });
   });
 });
 

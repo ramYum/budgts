@@ -10,6 +10,7 @@ const clearAccountReview = vi.fn();
 const setAccountCalculationExclusionAction = vi.fn();
 const setAccountImportingAction = vi.fn();
 const answerSignCheckAction = vi.fn();
+const changeSignAnswerAction = vi.fn();
 const refresh = vi.fn();
 
 vi.mock("next/navigation", () => ({
@@ -24,6 +25,7 @@ vi.mock("@/server/plaid/actions", () => ({
   setAccountCalculationExclusionAction: (...args: unknown[]) => setAccountCalculationExclusionAction(...args),
   setAccountImportingAction: (...args: unknown[]) => setAccountImportingAction(...args),
   answerSignCheckAction: (...args: unknown[]) => answerSignCheckAction(...args),
+  changeSignAnswerAction: (...args: unknown[]) => changeSignAnswerAction(...args),
 }));
 
 vi.mock("./reconnect-button", () => ({
@@ -53,6 +55,7 @@ function bank(over: Partial<ConnectedBank> = {}): ConnectedBank {
         excludedFromCalculations: false,
         pendingSignCheckCount: 0,
         signCheckSample: null,
+        signAnswer: null,
       },
       {
         rowId: "row-saving",
@@ -69,6 +72,7 @@ function bank(over: Partial<ConnectedBank> = {}): ConnectedBank {
         excludedFromCalculations: false,
         pendingSignCheckCount: 0,
         signCheckSample: null,
+        signAnswer: null,
       },
     ],
     unmappedAccounts: [],
@@ -165,6 +169,7 @@ describe("ConnectedBanks", () => {
           excludedFromCalculations: false,
           pendingSignCheckCount: 0,
           signCheckSample: null,
+          signAnswer: null,
         },
       ],
     });
@@ -198,6 +203,7 @@ describe("ConnectedBanks", () => {
           excludedFromCalculations: false,
           pendingSignCheckCount: 0,
           signCheckSample: null,
+          signAnswer: null,
         },
       ],
     });
@@ -230,6 +236,7 @@ describe("ConnectedBanks", () => {
           excludedFromCalculations: true,
           pendingSignCheckCount: 0,
           signCheckSample: null,
+          signAnswer: null,
         },
       ],
     });
@@ -267,6 +274,7 @@ describe("ConnectedBanks", () => {
           excludedFromCalculations: false,
           pendingSignCheckCount: 0,
           signCheckSample: null,
+          signAnswer: null,
         },
       ],
     });
@@ -305,6 +313,7 @@ describe("ConnectedBanks — sign-convention 'checking this account' notice", ()
           excludedFromCalculations: false,
           pendingSignCheckCount: 3,
           signCheckSample: null,
+          signAnswer: null,
         },
       ],
     });
@@ -343,6 +352,7 @@ describe("ConnectedBanks — sign-convention 'checking this account' notice", ()
           excludedFromCalculations: false,
           pendingSignCheckCount: 5,
           signCheckSample: null,
+          signAnswer: null,
         },
       ],
     });
@@ -394,6 +404,7 @@ describe("ConnectedBanks — import on/off switch (already-mapped accounts)", ()
           excludedFromCalculations: false,
           pendingSignCheckCount: 0,
           signCheckSample: null,
+          signAnswer: null,
         },
       ],
     });
@@ -445,6 +456,7 @@ describe("ConnectedBanks — connect switch (never-mapped accounts)", () => {
           excludedFromCalculations: false,
           pendingSignCheckCount: 0,
           signCheckSample: null,
+          signAnswer: null,
         },
       ],
     });
@@ -521,6 +533,7 @@ describe("ConnectedBanks — the held-transaction question", () => {
             amount: 4210,
             currency: "USD",
           },
+          signAnswer: null,
           ...over,
         },
       ],
@@ -588,6 +601,7 @@ describe("ConnectedBanks — a card that isn't imported", () => {
           excludedFromCalculations: false,
           pendingSignCheckCount: 0,
           signCheckSample: null,
+          signAnswer: null,
         },
       ],
     });
@@ -598,6 +612,78 @@ describe("ConnectedBanks — a card that isn't imported", () => {
   it("says nothing under a savings account that isn't imported", () => {
     render(<ConnectedBanks banks={[bank()]} budgtsAccounts={[{ id: "acc-1", name: "Checking" }]} />);
     expect(screen.queryByText(/card purchases/i)).not.toBeInTheDocument();
+  });
+});
+
+// Design: 2026-10-01 card payments §5a. A wrong answer has a reachable exit.
+describe("ConnectedBanks — Change answer", () => {
+  const sample = {
+    transactionId: "11111111-1111-4111-8111-111111111111",
+    description: "Trader Joe's",
+    occurredAt: "2026-09-16T00:00:00.000Z",
+    amount: 4210,
+    currency: "USD",
+  };
+  const answered = (over: Partial<ConnectedBank["accounts"][number]> = {}) =>
+    bank({
+      accounts: [
+        {
+          rowId: "row-checking",
+          plaidAccountId: "plaid-acc-checking",
+          name: "Plaid Checking",
+          ...checkingDefaults,
+          mask: "0000",
+          linkState: "mapped",
+          mappedAccountName: "Checking",
+          needsReview: false,
+          reviewReason: null,
+          excludedFromCalculations: false,
+          pendingSignCheckCount: 0,
+          signCheckSample: null,
+          signAnswer: { answeredAt: "2026-10-01T10:00:00Z", sample },
+          ...over,
+        },
+      ],
+    });
+
+  it("shows a quiet line, re-asks on Change answer, and sends the new answer", async () => {
+    changeSignAnswerAction.mockResolvedValue({ ok: true });
+    const user = userEvent.setup();
+    render(<ConnectedBanks banks={[answered()]} budgtsAccounts={[{ id: "acc-1", name: "Checking" }]} />);
+
+    expect(screen.getByText(wholeText("Money direction set. Change answer"))).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Going out" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Change answer" }));
+    expect(screen.getByText("Was this money going out or coming in?")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Coming in" }));
+
+    expect(changeSignAnswerAction).toHaveBeenCalledTimes(1);
+    const fd = changeSignAnswerAction.mock.calls[0][1] as FormData;
+    expect(fd.get("plaidAccountRowId")).toBe("row-checking");
+    expect(fd.get("transactionId")).toBe(sample.transactionId);
+    expect(fd.get("answer")).toBe("in");
+    expect(answerSignCheckAction).not.toHaveBeenCalled();
+    // closes once saved
+    expect(await screen.findByRole("button", { name: "Change answer" })).toHaveAttribute("aria-expanded", "false");
+    expect(document.body.textContent).not.toContain("—");
+  });
+
+  it("keeps the question open with the error when the change can't be made", async () => {
+    changeSignAnswerAction.mockResolvedValue({ error: "This bank is syncing right now. Try again in a moment." });
+    const user = userEvent.setup();
+    render(<ConnectedBanks banks={[answered()]} budgtsAccounts={[{ id: "acc-1", name: "Checking" }]} />);
+    await user.click(screen.getByRole("button", { name: "Change answer" }));
+    await user.click(screen.getByRole("button", { name: "Going out" }));
+    expect(await screen.findByText("This bank is syncing right now. Try again in a moment.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Going out" })).toBeInTheDocument();
+  });
+
+  it("offers nothing for an account resolved without an answer, or while rows are still held", () => {
+    const { rerender } = render(<ConnectedBanks banks={[answered({ signAnswer: null })]} budgtsAccounts={[]} />);
+    expect(screen.queryByText(/Money direction set/)).not.toBeInTheDocument();
+    rerender(<ConnectedBanks banks={[answered({ pendingSignCheckCount: 2, signCheckSample: sample })]} budgtsAccounts={[]} />);
+    expect(screen.queryByText(/Money direction set/)).not.toBeInTheDocument();
   });
 });
 

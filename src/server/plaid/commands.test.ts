@@ -85,7 +85,7 @@ function fakeSupabase(answer: (table: string, calls: unknown[][]) => { data?: un
             }
             return (...args: unknown[]) => {
               calls.push([String(prop), ...args]);
-              if (prop === "insert" || prop === "update") writes.push({ table, op: String(prop), value: args[0], filters: calls });
+              if (prop === "insert" || prop === "update" || prop === "delete") writes.push({ table, op: String(prop), value: args[0], filters: calls });
               return q;
             };
           },
@@ -164,7 +164,10 @@ describe("mapAccountsFor", () => {
     fakeSupabase((t, calls) => {
       if (t === "plaid_items") return { data: { item_id: ITEM_ID } };
       if (t === "accounts") return over.createAccountError ? { error: { message: "boom" } } : { data: { id: "new-account-1" } };
-      if (t === "plaid_accounts") return over.linkError ? { error: { message: "boom" } } : {};
+      if (t === "plaid_accounts") {
+        if (calls[0]?.[0] === "select") return { data: [{ plaid_account_id: "pa0", account_id: null }, { plaid_account_id: "pa1", account_id: null }] };
+        return over.linkError ? { error: { message: "boom" } } : { data: [{ id: PA_ROW }] };
+      }
       throw new Error(`unexpected ${t} ${JSON.stringify(calls)}`);
     });
 
@@ -265,6 +268,117 @@ describe("mapAccountsFor", () => {
     fakeRunner();
     const r = await mapAccountsFor(withItem({ linkError: true }).supabase, USER, ITEM_ROW, [{ plaidAccountId: "pa1", mode: "ignore" }]);
     expect(r).toEqual({ ok: false, error: "failed", message: "Could not save the account mapping. Try again." });
+  });
+});
+
+describe("mapAccountsFor is idempotent and never splits an account's history", () => {
+  const NEW = { plaidAccountId: "pa1", mode: "new" as const, name: "Checking", type: "checking" as const };
+
+  /** plaid_accounts answers by operation: the pre-read sees `link`; a guarded update matches `updated` rows. */
+  function world(opts: { link: { account_id: string | null } | null; open?: Record<string, boolean>; updated?: number }) {
+    return fakeSupabase((t, calls) => {
+      const op = calls[0]?.[0];
+      if (t === "plaid_items") return { data: { item_id: ITEM_ID } };
+      if (t === "plaid_accounts") {
+        if (op === "select") return { data: opts.link ? [{ plaid_account_id: "pa1", ...opts.link }] : [] };
+        return { data: Array.from({ length: opts.updated ?? 1 }, () => ({ id: PA_ROW })) };
+      }
+      if (t === "accounts") {
+        if (op === "insert") return { data: { id: "new-account-1" } };
+        if (op === "delete") return {};
+        const id = calls.find((c) => c[0] === "eq" && c[1] === "id")?.[2] as string;
+        const open = opts.open?.[id];
+        return { data: open === undefined ? null : { id, name: "Everyday", source: "plaid", is_archived: !open } };
+      }
+      throw new Error(`unexpected ${t}`);
+    });
+  }
+
+  it("a repeated 'new' for an account already imported creates nothing, repoints nothing and doesn't sync again", async () => {
+    const calls = fakeRunner();
+    const { supabase, writes } = world({ link: { account_id: "acct-1" }, open: { "acct-1": true } });
+    expect(await mapAccountsFor(supabase, USER, ITEM_ROW, [NEW])).toEqual({ ok: true });
+    expect(writes).toEqual([]);
+    expect(calls.claim).toHaveLength(0);
+  });
+
+  it("a repeated 'existing' to the same account is a no-op", async () => {
+    fakeRunner();
+    const { supabase, writes } = world({ link: { account_id: "acct-1" }, open: { "acct-1": true } });
+    expect(await mapAccountsFor(supabase, USER, ITEM_ROW, [{ plaidAccountId: "pa1", mode: "existing", existingAccountId: "acct-1" }])).toEqual({ ok: true });
+    expect(writes).toEqual([]);
+  });
+
+  it.each([
+    ["point it at a different account", { plaidAccountId: "pa1", mode: "existing" as const, existingAccountId: "acct-2" }],
+    ["unmap it", { plaidAccountId: "pa1", mode: "ignore" as const }],
+  ])("refuses to %s while it imports into an open account, writing nothing", async (_n, entry) => {
+    fakeRunner();
+    const { supabase, writes } = world({ link: { account_id: "acct-1" }, open: { "acct-1": true, "acct-2": true } });
+    expect(await mapAccountsFor(supabase, USER, ITEM_ROW, [entry])).toEqual({
+      ok: false,
+      error: "invalid",
+      message: "That account is already imported. Refresh to see where it goes.",
+    });
+    expect(writes).toEqual([]);
+  });
+
+  it("links an unmapped account only while it is still unmapped (the write is guarded on account_id is null)", async () => {
+    fakeRunner();
+    const { supabase, writes } = world({ link: { account_id: null } });
+    expect(await mapAccountsFor(supabase, USER, ITEM_ROW, [NEW])).toEqual({ ok: true });
+    const link = writes.find((w) => w.table === "plaid_accounts")!;
+    expect(link.value).toEqual({ account_id: "new-account-1", link_state: "mapped" });
+    expect(link.filters).toEqual(expect.arrayContaining([["is", "account_id", null]]));
+  });
+
+  it("a concurrent duplicate that loses the race removes the account it just created and succeeds with the winner's mapping", async () => {
+    fakeRunner();
+    const { supabase, writes } = world({ link: { account_id: null }, updated: 0 });
+    expect(await mapAccountsFor(supabase, USER, ITEM_ROW, [NEW])).toEqual({ ok: true });
+    const del = writes.find((w) => w.table === "accounts" && w.op === "delete");
+    expect(del?.filters).toEqual(expect.arrayContaining([["eq", "id", "new-account-1"]]));
+  });
+
+  it("the same account twice in one request is imported once", async () => {
+    fakeRunner();
+    let linked = false;
+    const { supabase, writes } = fakeSupabase((t, calls) => {
+      const op = calls[0]?.[0];
+      if (t === "plaid_items") return { data: { item_id: ITEM_ID } };
+      if (t === "plaid_accounts") {
+        if (op === "select") return { data: [{ plaid_account_id: "pa1", account_id: null }] };
+        const won = !linked;
+        linked = true;
+        return { data: won ? [{ id: PA_ROW }] : [] };
+      }
+      if (t === "accounts") return op === "insert" ? { data: { id: `new-${writes.length}` } } : {};
+      throw new Error(`unexpected ${t}`);
+    });
+    expect(await mapAccountsFor(supabase, USER, ITEM_ROW, [NEW, NEW])).toEqual({ ok: true });
+    const inserts = writes.filter((w) => w.table === "accounts" && w.op === "insert").length;
+    const deletes = writes.filter((w) => w.table === "accounts" && w.op === "delete").length;
+    expect(inserts - deletes).toBe(1);
+  });
+
+  it("a paused account whose Budgts account was archived can be imported again (the connect switch), guarded on its old account", async () => {
+    fakeRunner();
+    const { supabase, writes } = world({ link: { account_id: "acct-old" }, open: { "acct-old": false } });
+    expect(await mapAccountsFor(supabase, USER, ITEM_ROW, [NEW])).toEqual({ ok: true });
+    const link = writes.find((w) => w.table === "plaid_accounts")!;
+    expect(link.value).toEqual({ account_id: "new-account-1", link_state: "mapped" });
+    expect(link.filters).toEqual(expect.arrayContaining([["eq", "account_id", "acct-old"]]));
+  });
+
+  it("says not found when the Plaid account isn't on this bank", async () => {
+    fakeRunner();
+    const { supabase, writes } = world({ link: null });
+    expect(await mapAccountsFor(supabase, USER, ITEM_ROW, [NEW])).toEqual({
+      ok: false,
+      error: "not_found",
+      message: "That bank account no longer exists. Try connecting again.",
+    });
+    expect(writes).toEqual([]);
   });
 });
 

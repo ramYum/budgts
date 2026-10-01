@@ -1,6 +1,7 @@
 import { act } from "react-test-renderer";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { byTestId, render, textContent } from "../../test/render";
+import { invalidate } from "../../lib/api/invalidate";
 import { HomeAddSheets } from "./add-sheets";
 
 vi.mock("@react-native-community/datetimepicker", () => ({ default: () => null, DateTimePickerAndroid: { open: () => {} } }));
@@ -23,12 +24,18 @@ vi.mock("../../lib/auth/api", () => ({
   },
 }));
 
+const mounted: ReturnType<typeof render>[] = [];
+afterEach(() => {
+  for (const r of mounted.splice(0)) act(() => r.unmount());
+});
+
 async function open(sheet: "income" | "add") {
   const onClose = vi.fn();
   let r!: ReturnType<typeof render>;
   await act(async () => {
     r = render(<HomeAddSheets sheet={sheet} defaultDate="2026-09-19" onClose={onClose} />);
   });
+  mounted.push(r);
   await act(async () => {});
   return { r, onClose };
 }
@@ -44,5 +51,19 @@ describe("Home's add sheets (review 🔴1: they opened a deleted route)", () => 
   it("'Add one by hand' opens Add transaction", async () => {
     const { r } = await open("add");
     expect(textContent(byTestId(r, "sheet-title"))).toBe("Add transaction");
+  });
+
+  it("re-reads its accounts and categories in place when they change elsewhere (tabs stay mounted)", async () => {
+    const { r } = await open("add");
+    const count = (p: string) => asked.filter((a) => a === p).length;
+    const cats = count("/api/mobile/categories");
+    const accts = count("/api/mobile/accounts");
+    await act(async () => invalidate("transactions"));
+    await act(async () => invalidate("accounts"));
+    await act(async () => {});
+    expect(count("/api/mobile/categories")).toBe(cats + 1);
+    expect(count("/api/mobile/accounts")).toBe(accts + 1);
+    expect(r.root.findAll((n) => typeof n.type === "string" && n.props.testID === "txn-form-loading")).toHaveLength(0);
+    expect(byTestId(r, "txn-form")).toBeTruthy();
   });
 });

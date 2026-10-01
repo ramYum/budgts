@@ -21,7 +21,11 @@ export function HomeAddSheets({ sheet, defaultDate, onClose }: { sheet: HomeShee
   const accounts = useResource("home-sheet-accounts", (s) => loadResource(() => authFetch("/api/mobile/accounts", s), parseAccounts), {
     version: accountsVersion,
   });
-  const categories = useResource("home-sheet-categories", (s) => loadResource(() => authFetch("/api/mobile/categories", s), parseCategories));
+  // versioned, so a category added, renamed or archived elsewhere shows here (every category write invalidates transactions)
+  const categoriesVersion = useVersion("transactions");
+  const categories = useResource("home-sheet-categories", (s) => loadResource(() => authFetch("/api/mobile/categories", s), parseCategories), {
+    version: categoriesVersion,
+  });
   const commands = useTransactionCommands();
   const data: TransactionFormData = {
     accounts: accounts.state,

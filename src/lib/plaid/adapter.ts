@@ -80,7 +80,7 @@ export function normalizePlaidTxn(input: PlaidTxnInput, ctx: NormalizeCtx): Norm
     }
   }
 
-  const eventRole = resolveEventRole({ primary, detailed, isTransfer, direction });
+  const eventRole = resolveEventRole({ primary, detailed, isTransfer, direction, accountType: acct.accountType });
 
   // Currency: Plaid amounts are already in the account's currency. If that
   // account's currency isn't the user's, the row is real but its amount can't

@@ -44,7 +44,7 @@ function fakeDeps(opts: {
   let t = 0;
   return {
     claim: vi.fn(async (itemId: string, mode: ClaimMode): Promise<SyncClaim | null> =>
-      opts.claimable && !opts.claimable(itemId, mode) ? null : { item: item(itemId), token: `tok-${itemId}` },
+      opts.claimable && !opts.claimable(itemId, mode) ? null : { item: item(itemId), token: `tok-${itemId}`, priorNeedsSync: false },
     ),
     release: vi.fn(async (_itemId: string, _token: string, resync: boolean) => resync || (opts.pendingAfter?.[p++] ?? false)),
     sync: vi.fn(async (i: PlaidItemRecord) => (typeof results === "function" ? results(i.itemId) : results[r++])),

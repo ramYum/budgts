@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findTransferPairs, type PairingCandidate } from "./transfer-pairing";
+import { findTransferPairs, undoTierBClassification, type PairingCandidate } from "./transfer-pairing";
 
 const DAY = "2026-09-10T12:00:00.000Z";
 
@@ -82,12 +82,34 @@ describe("findTransferPairs — Tier B (corrective classify + link)", () => {
     expect(ambiguous).toHaveLength(1);
   });
 
-  it("does not widen beyond next-day for the corrective tier (2 days apart -> no match)", () => {
+  // Widened 1 -> 3 days (design: 2026-10-01 card payments §3): a card payment posts on the card one to three days
+  // after it leaves checking.
+  it("accepts the corrective tier up to 3 days apart (a card payment posting late on the card)", () => {
+    const shaped = c({ id: "card", accountId: "card", direction: "credit", eventRole: "CARD_PAYMENT", occurredAt: "2026-09-13T00:00:00.000Z" });
+    const unresolved = c({ id: "checking", accountId: "checking", direction: "debit", eventRole: null, occurredAt: "2026-09-10T00:00:00.000Z" });
+    const { accepted, ambiguous } = findTransferPairs([shaped, unresolved]);
+    expect(ambiguous).toEqual([]);
+    expect(accepted).toEqual([{ tier: "B", legA: "checking", legB: "card", classifyLegId: "checking" }]);
+  });
+
+  it("does not widen the corrective tier beyond 3 days (4 days apart -> no match)", () => {
     const shaped = c({ id: "shaped", accountId: "checking", direction: "debit", isTransfer: true, occurredAt: "2026-09-10T00:00:00.000Z" });
-    const unresolved = c({ id: "unresolved", accountId: "ext", direction: "credit", eventRole: null, occurredAt: "2026-09-12T00:00:00.000Z" });
+    const unresolved = c({ id: "unresolved", accountId: "ext", direction: "credit", eventRole: null, occurredAt: "2026-09-14T00:00:00.000Z" });
     const { accepted, ambiguous } = findTransferPairs([shaped, unresolved]);
     expect(accepted).toEqual([]);
     expect(ambiguous).toEqual([]);
+  });
+
+  it("never pairs a mismatched amount (the Sandbox shape: $2,078.50 on the card vs $25.00 from savings)", () => {
+    const card = c({ id: "card", accountId: "card", amount: 207850, direction: "credit", eventRole: "CARD_PAYMENT" });
+    const checking = c({ id: "checking", accountId: "savings", amount: 2500, direction: "debit", eventRole: "CARD_PAYMENT" });
+    expect(findTransferPairs([card, checking])).toEqual({ accepted: [], ambiguous: [] });
+  });
+
+  it("never pairs two legs with the same effective direction", () => {
+    const card = c({ id: "card", accountId: "card", direction: "debit", eventRole: null });
+    const checking = c({ id: "checking", accountId: "checking", direction: "debit", eventRole: "CARD_PAYMENT" });
+    expect(findTransferPairs([card, checking])).toEqual({ accepted: [], ambiguous: [] });
   });
 });
 
@@ -189,5 +211,32 @@ describe("findTransferPairs — determinism under repeated identical amounts", (
     expect(new Set(used).size).toBe(6);
     // Re-running against the same snapshot gives the identical result.
     expect(findTransferPairs(legs)).toEqual({ accepted, ambiguous });
+  });
+});
+
+describe("findTransferPairs — the window option (remediation preview only)", () => {
+  it("with the old 1-day Tier B window, a 3-day card payment does not pair; with the default it does", () => {
+    const card = c({ id: "card", accountId: "card", direction: "credit", eventRole: "CARD_PAYMENT", occurredAt: "2026-09-13T00:00:00.000Z" });
+    const chk = c({ id: "chk", accountId: "checking", direction: "debit", eventRole: null, occurredAt: "2026-09-10T00:00:00.000Z" });
+    expect(findTransferPairs([card, chk], { tierBWindowDays: 1 }).accepted).toEqual([]);
+    expect(findTransferPairs([card, chk]).accepted).toHaveLength(1);
+  });
+});
+
+describe("undoTierBClassification", () => {
+  const base = { isTransfer: true, eventRole: "TRANSFER", primary: "LOAN_PAYMENTS", detailed: "LOAN_PAYMENTS_OTHER_PAYMENT", transferUserSet: false, direction: "debit" as const };
+
+  it("returns a Tier-B-classified leg to its own signal", () => {
+    expect(undoTierBClassification(base, "depository")).toEqual({ isTransfer: false, eventRole: null });
+    expect(undoTierBClassification({ ...base, primary: "FOOD_AND_DRINK", detailed: null }, "depository")).toEqual({
+      isTransfer: false,
+      eventRole: "PURCHASE",
+    });
+  });
+
+  it("leaves a Plaid-labelled transfer, a user's own decision, and a non-transfer alone", () => {
+    expect(undoTierBClassification({ ...base, primary: "TRANSFER_OUT" }, null)).toBeNull();
+    expect(undoTierBClassification({ ...base, transferUserSet: true }, null)).toBeNull();
+    expect(undoTierBClassification({ ...base, isTransfer: false, eventRole: "CARD_PAYMENT" }, null)).toBeNull();
   });
 });

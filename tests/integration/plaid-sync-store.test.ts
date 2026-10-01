@@ -288,7 +288,7 @@ describe("PlaidSyncStore transfer_user_set travels through the real loading path
       accountMap: new Map([
         [
           TRANSFER_USER_SET_PA_EXTERNAL_ID,
-          { plaidAccountRowId: transferAccountId, budgtsAccountId: accountId, ignored: false, signConvention: "standard" },
+          { plaidAccountRowId: transferAccountId, budgtsAccountId: accountId, ignored: false, signConvention: "standard", accountType: "depository" },
         ],
       ]),
       currency: "USD",
@@ -506,6 +506,8 @@ describe("PlaidSyncStore.finalizeSignConvention recomputes event_role, not just 
       raw: { transaction_id: "itest-inv-2", amount: -2500 },
     });
 
+    // finalize only resolves a still-unknown account (design: 2026-10-01 card payments §5); the case above resolved it.
+    await client`update public.plaid_accounts set sign_convention = 'unknown' where id = ${invertedAccountRowId}`;
     await store.finalizeSignConvention(invertedAccountRowId, "inverted");
 
     const [row] = await client<{ direction: string; event_role: string | null }[]>`

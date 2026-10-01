@@ -1,7 +1,7 @@
 import { AccountSubtype, AccountType } from "plaid";
 import { describe, expect, it } from "vitest";
 import { ACCOUNT_TYPES } from "./account-types";
-import { accountLabel, accountHint, suggestAccount, type AccountSuggestion } from "./account-suggestion";
+import { accountLabel, accountHint, notImportedHint, suggestAccount, type AccountSuggestion } from "./account-suggestion";
 
 const IMPORT_CHECKING: AccountSuggestion = { mode: "new", type: "checking" };
 const IMPORT_SAVINGS: AccountSuggestion = { mode: "new", type: "savings" };
@@ -121,3 +121,19 @@ describe("accountHint", () => {
     expect(accountHint({ type: "depository", subtype: "hsa" })).not.toMatch(/—/);
   });
 });
+
+describe("notImportedHint", () => {
+  it("tells the user a card left out means its purchases aren't tracked", () => {
+    expect(notImportedHint({ type: "credit", subtype: "credit card" })).toBe(
+      "Card purchases aren't tracked unless this card is imported.",
+    );
+    expect(notImportedHint({ type: "Credit", subtype: null })).not.toBeNull();
+  });
+
+  it("is null for every other account type", () => {
+    expect(notImportedHint({ type: "depository", subtype: "savings" })).toBeNull();
+    expect(notImportedHint({ type: "loan", subtype: "mortgage" })).toBeNull();
+    expect(notImportedHint({ type: null, subtype: null })).toBeNull();
+  });
+});
+

@@ -27,6 +27,27 @@ export type ConnectedBankAccount = {
    *  is 0. Drives the "We're checking this account's transaction format"
    *  notice; must never be silently omitted. */
   pendingSignCheckCount: number;
+  /** One held transaction to ask the user about while `pendingSignCheckCount > 0` (design: 2026-10-01 card payments
+   *  §5): "Was this money going out or coming in?" The answer resolves the account. The most recent held row, so
+   *  the user is likely to remember it; amount in minor units, unsigned (the sign is what is being asked). */
+  signCheckSample: SignCheckSample | null;
+  /** Set when the user resolved this account by answering the question (design: 2026-10-01 card payments §5a), so
+   *  Connected banks can offer "Change answer". `sample` is the transaction to ask about again: the one answered
+   *  about, or the account's most recent one if that is gone; null when the account has none. */
+  signAnswer: { answeredAt: string; sample: SignCheckSample | null } | null;
+  /** Set for an imported account the sync resolved from evidence, with no answer (design: 2026-10-01 card payments
+   *  §5b): Connected banks offers "Amounts on this account look reversed?", which asks the same question about
+   *  `sample` (the account's most recent transaction) and changes the account if the answer disagrees. */
+  directionReview: { sample: SignCheckSample } | null;
+};
+
+export type SignCheckSample = {
+  transactionId: string;
+  description: string;
+  occurredAt: string;
+  amount: number;
+  /** The account's currency (Plaid's `iso_currency_code`), for showing the amount. */
+  currency: string;
 };
 
 export type MappableAccount = {
@@ -80,7 +101,17 @@ type PlaidAccountRow = {
   needs_review: boolean;
   review_reason: string | null;
   excluded_from_calculations: boolean;
+  sign_convention: "unknown" | "standard" | "inverted";
 };
+
+type SampleRow = { id: string; description: string; occurred_at: string; amount: number };
+
+const toSample = (row: SampleRow): Omit<SignCheckSample, "currency"> => ({
+  transactionId: row.id,
+  description: row.description,
+  occurredAt: row.occurred_at,
+  amount: Number(row.amount),
+});
 
 export async function loadConnectedBanks(supabase: SupabaseClient): Promise<ConnectedBanksData | null> {
   const { data: itemsData, error: itemsErr } = await supabase
@@ -91,11 +122,11 @@ export async function loadConnectedBanks(supabase: SupabaseClient): Promise<Conn
 
   const items = (itemsData ?? []) as PlaidItemRow[];
 
-  const [{ data: acctData }, { data: budgtsAcctData }, pendingSignRows] = await Promise.all([
+  const [{ data: acctData }, { data: budgtsAcctData }, pendingSignRows, { data: answerData }] = await Promise.all([
     supabase
       .from("plaid_accounts")
       .select(
-        "id, plaid_item_id, plaid_account_id, name, official_name, mask, type, subtype, current_balance, iso_currency_code, link_state, account_id, needs_review, review_reason, excluded_from_calculations",
+        "id, plaid_item_id, plaid_account_id, name, official_name, mask, type, subtype, current_balance, iso_currency_code, link_state, account_id, needs_review, review_reason, excluded_from_calculations, sign_convention",
       ),
     supabase.from("accounts").select("id, name").eq("is_archived", false).order("name"),
     // Design: 2026-09-12 North Star §2 — while unresolved, the UI must say so
@@ -117,6 +148,10 @@ export async function loadConnectedBanks(supabase: SupabaseClient): Promise<Conn
         .order("id")
         .range(from, to),
     ),
+    // The user's answers (migration 0025; absent on an older deployment, which reads as "none"). Newest first.
+    supabase.from("plaid_sign_answers").select("plaid_account_id, sample_transaction_id, created_at").order("created_at", {
+      ascending: false,
+    }),
   ]);
 
   const plaidAccounts = (acctData ?? []) as PlaidAccountRow[];
@@ -126,6 +161,72 @@ export async function loadConnectedBanks(supabase: SupabaseClient): Promise<Conn
   for (const r of pendingSignRows) {
     pendingSignCheckCounts.set(r.plaid_account_id, (pendingSignCheckCounts.get(r.plaid_account_id) ?? 0) + 1);
   }
+
+  // One bounded read per account still being checked (a handful at most): the question's sample transaction.
+  const heldAccountIds = [...pendingSignCheckCounts.keys()];
+  const samples = await Promise.all(
+    heldAccountIds.map((id) =>
+      supabase
+        .from("transactions")
+        .select("id, description, occurred_at, amount")
+        .eq("plaid_account_id", id)
+        .eq("status", "pending_review")
+        .eq("pending_reason", "sign_convention_unknown")
+        .order("occurred_at", { ascending: false })
+        .order("id")
+        .limit(1),
+    ),
+  );
+  const sampleByAccount = new Map<string, Omit<SignCheckSample, "currency">>();
+  heldAccountIds.forEach((id, i) => {
+    const row = (samples[i].data ?? [])[0] as SampleRow | undefined;
+    if (row?.id) sampleByAccount.set(id, toSample(row));
+  });
+
+  // "Change answer": the latest answer per account the user resolved by answering, and its transaction to re-ask.
+  const resolved = new Set(plaidAccounts.filter((a) => a.sign_convention !== "unknown").map((a) => a.id));
+  const latestAnswer = new Map<string, { sampleId: string | null; at: string }>();
+  for (const r of (answerData ?? []) as { plaid_account_id: string; sample_transaction_id: string | null; created_at: string }[]) {
+    if (resolved.has(r.plaid_account_id) && !latestAnswer.has(r.plaid_account_id)) {
+      latestAnswer.set(r.plaid_account_id, { sampleId: r.sample_transaction_id, at: r.created_at });
+    }
+  }
+  const answeredIds = [...latestAnswer.keys()];
+  // Evidence-resolved imported accounts with no answer: their transaction to ask about is their most recent one.
+  const reviewIds = plaidAccounts
+    .filter((a) => resolved.has(a.id) && a.link_state === "mapped" && !latestAnswer.has(a.id))
+    .map((a) => a.id);
+  const recentIds = [...answeredIds, ...reviewIds];
+  const answeredSampleIds = answeredIds.map((id) => latestAnswer.get(id)!.sampleId).filter((x): x is string => x != null);
+  const [answeredSamples, ...recentSamples] = await Promise.all([
+    answeredSampleIds.length > 0
+      ? supabase.from("transactions").select("id, description, occurred_at, amount, plaid_account_id").in("id", answeredSampleIds).is("removed_at", null)
+      : Promise.resolve({ data: [] as unknown[] }),
+    ...recentIds.map((id) =>
+      supabase
+        .from("transactions")
+        .select("id, description, occurred_at, amount")
+        .eq("plaid_account_id", id)
+        .is("removed_at", null)
+        .order("occurred_at", { ascending: false })
+        .order("id")
+        .limit(1),
+    ),
+  ]);
+  const answeredSampleById = new Map(((answeredSamples.data ?? []) as SampleRow[]).filter((r) => r?.id).map((r) => [r.id, r]));
+  const answerByAccount = new Map<string, { answeredAt: string; sample: Omit<SignCheckSample, "currency"> | null }>();
+  answeredIds.forEach((id, i) => {
+    const { sampleId, at } = latestAnswer.get(id)!;
+    const answeredRow = sampleId ? answeredSampleById.get(sampleId) : undefined;
+    const recent = ((recentSamples[i]?.data ?? []) as SampleRow[])[0];
+    const row = answeredRow ?? (recent?.id ? recent : undefined);
+    answerByAccount.set(id, { answeredAt: at, sample: row ? toSample(row) : null });
+  });
+  const reviewSampleByAccount = new Map<string, Omit<SignCheckSample, "currency">>();
+  reviewIds.forEach((id, i) => {
+    const recent = ((recentSamples[answeredIds.length + i]?.data ?? []) as SampleRow[])[0];
+    if (recent?.id) reviewSampleByAccount.set(id, toSample(recent));
+  });
 
   const banks: ConnectedBank[] = items.map((item) => {
     const rows = plaidAccounts.filter((a) => a.plaid_item_id === item.id);
@@ -143,6 +244,22 @@ export async function loadConnectedBanks(supabase: SupabaseClient): Promise<Conn
       reviewReason: a.review_reason,
       excludedFromCalculations: a.excluded_from_calculations,
       pendingSignCheckCount: pendingSignCheckCounts.get(a.id) ?? 0,
+      signCheckSample: (() => {
+        const sample = sampleByAccount.get(a.id);
+        return sample ? { ...sample, currency: a.iso_currency_code ?? "USD" } : null;
+      })(),
+      signAnswer: (() => {
+        const ans = answerByAccount.get(a.id);
+        if (!ans) return null;
+        return {
+          answeredAt: ans.answeredAt,
+          sample: ans.sample ? { ...ans.sample, currency: a.iso_currency_code ?? "USD" } : null,
+        };
+      })(),
+      directionReview: (() => {
+        const sample = reviewSampleByAccount.get(a.id);
+        return sample ? { sample: { ...sample, currency: a.iso_currency_code ?? "USD" } } : null;
+      })(),
     }));
     const unmappedAccounts: MappableAccount[] = rows
       .filter((a) => a.link_state === "unmapped")

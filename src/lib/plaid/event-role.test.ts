@@ -162,4 +162,92 @@ describe("resolveEventRole", () => {
     ]);
     expect(SPEND_SHAPED_PRIMARIES).toEqual(expected);
   });
+
+  // Card payments seen from the card's own feed (design: 2026-10-01 card payments §2). Plaid labels the card-side leg
+  // of a payment inconsistently (production: LOAN_PAYMENTS_OTHER_PAYMENT, and rows with no role at all), so on a
+  // credit-type account money coming IN under LOAN_PAYMENTS is a payment to the card, whatever the detailed subtype.
+  describe("card-side payments on a credit account", () => {
+    it.each([
+      "LOAN_PAYMENTS_CREDIT_CARD_PAYMENT",
+      "LOAN_PAYMENTS_OTHER_PAYMENT",
+      "LOAN_PAYMENTS_PERSONAL_LOAN_PAYMENT",
+      null,
+    ])("credit-direction LOAN_PAYMENTS (%s) on a credit account → CARD_PAYMENT", (detailed) => {
+      expect(
+        resolveEventRole({ primary: "LOAN_PAYMENTS", detailed, isTransfer: false, direction: "credit", accountType: "credit" }),
+      ).toBe("CARD_PAYMENT");
+    });
+
+    it("is case-insensitive about Plaid's account type", () => {
+      expect(
+        resolveEventRole({
+          primary: "LOAN_PAYMENTS",
+          detailed: "LOAN_PAYMENTS_OTHER_PAYMENT",
+          isTransfer: false,
+          direction: "credit",
+          accountType: "Credit",
+        }),
+      ).toBe("CARD_PAYMENT");
+    });
+
+    it("a debit-direction LOAN_PAYMENTS_OTHER_PAYMENT on a credit account stays unresolved (a charge, e.g. a loan paid by card)", () => {
+      expect(
+        resolveEventRole({
+          primary: "LOAN_PAYMENTS",
+          detailed: "LOAN_PAYMENTS_OTHER_PAYMENT",
+          isTransfer: false,
+          direction: "debit",
+          accountType: "credit",
+        }),
+      ).toBeNull();
+    });
+
+    it("the same credit-direction LOAN_PAYMENTS_OTHER_PAYMENT on a depository account stays unresolved", () => {
+      expect(
+        resolveEventRole({
+          primary: "LOAN_PAYMENTS",
+          detailed: "LOAN_PAYMENTS_OTHER_PAYMENT",
+          isTransfer: false,
+          direction: "credit",
+          accountType: "depository",
+        }),
+      ).toBeNull();
+    });
+
+    it("without an account type the rule does not apply", () => {
+      expect(
+        resolveEventRole({ primary: "LOAN_PAYMENTS", detailed: "LOAN_PAYMENTS_OTHER_PAYMENT", isTransfer: false, direction: "credit" }),
+      ).toBeNull();
+    });
+
+    it("an uncategorized (no PFC) credit on a card stays unresolved: it may be a refund, never guess", () => {
+      expect(
+        resolveEventRole({ primary: null, detailed: null, isTransfer: false, direction: "credit", accountType: "credit" }),
+      ).toBeNull();
+    });
+
+    it("a refund on a card is still a REFUND", () => {
+      expect(
+        resolveEventRole({
+          primary: "GENERAL_MERCHANDISE",
+          detailed: "GENERAL_MERCHANDISE_SUPERSTORES",
+          isTransfer: false,
+          direction: "credit",
+          accountType: "credit",
+        }),
+      ).toBe("REFUND");
+    });
+
+    it("an explicit LOAN_PAYMENTS_CREDIT_CARD_PAYMENT is CARD_PAYMENT on any account and direction (checking leg)", () => {
+      expect(
+        resolveEventRole({
+          primary: "LOAN_PAYMENTS",
+          detailed: "LOAN_PAYMENTS_CREDIT_CARD_PAYMENT",
+          isTransfer: false,
+          direction: "debit",
+          accountType: "depository",
+        }),
+      ).toBe("CARD_PAYMENT");
+    });
+  });
 });

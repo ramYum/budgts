@@ -198,6 +198,9 @@ adding an account-type gate would risk excluding a legitimate
 - **Fee vs. interest:** `BANK_FEES` doesn't cleanly separate the two in the
   legacy taxonomy beyond the one dedicated `BANK_FEES_INTEREST_CHARGE` value;
   everything else under `BANK_FEES` defaults to `FEE` (conservative).
+- **Amended 2026-10-01** (`2026-10-01-card-payments-design.md`): the assumption below was wrong. Production and
+  Sandbox send the card's incoming leg as `LOAN_PAYMENTS_OTHER_PAYMENT`, so a credit-direction `LOAN_PAYMENTS` row on a
+  credit-type account now resolves to `CARD_PAYMENT` (row 1b), and the account type is threaded through.
 - **Card payment leg asymmetry:** the credit-card account's incoming leg is
   expected to reliably carry `LOAN_PAYMENTS_CREDIT_CARD_PAYMENT` (Plaid knows
   the destination account type). The paying (checking) account's outgoing

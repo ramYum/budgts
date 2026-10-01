@@ -1,12 +1,45 @@
 import { useEffect } from "react";
 import { AppState } from "react-native";
 import { useAuth } from "../auth/auth-context";
-import { invalidate } from "../api/invalidate";
+import { invalidate, type Topic } from "../api/invalidate";
 import { supabase } from "../supabase/client";
 import { createCoalescer } from "./coalescer";
 import { topicsFor, type RealtimeTable } from "./topics";
 
 type Watch = { count: number; close: () => void };
+
+/**
+ * One refresh for every open watch: a row event adds its table's topics to `pending`, and one trailing flush after
+ * the quiet period invalidates each pending topic once. A burst across two tables that share topics (Goals' two
+ * tables both refresh `goals` and `home`) is one bump per topic, not one per table. Opened with the first watch,
+ * closed with the last.
+ */
+type Refresher = { change: (table: RealtimeTable) => void; close: () => void };
+let refresher: Refresher | null = null;
+
+function openRefresher(): Refresher {
+  const pending = new Set<Topic>();
+  const coalescer = createCoalescer(
+    () => {
+      const topics = [...pending];
+      pending.clear();
+      if (topics.length) invalidate(...topics);
+    },
+    { active: AppState.currentState === "active" },
+  );
+  const app = AppState.addEventListener("change", (s) => coalescer.setActive(s === "active"));
+  return {
+    change(table) {
+      for (const t of topicsFor([table])) pending.add(t);
+      coalescer.change();
+    },
+    close() {
+      app.remove();
+      coalescer.dispose();
+      pending.clear();
+    },
+  };
+}
 
 /** The open watches, one per table and user, shared by every mounted screen that watches that table. */
 const watches = new Map<string, Watch>();
@@ -23,17 +56,14 @@ export function watchTable(table: RealtimeTable, userId: string): () => void {
   const id = `${table}:${userId}`;
   let watch = watches.get(id);
   if (!watch) {
-    const coalescer = createCoalescer(() => invalidate(...topicsFor([table])), { active: AppState.currentState === "active" });
+    const shared = (refresher ??= openRefresher());
     const channel = supabase
       .channel(`refresh:${id}:${++channelSeq}`)
-      .on("postgres_changes", { event: "*", schema: "public", table, filter: `user_id=eq.${userId}` }, () => coalescer.change());
+      .on("postgres_changes", { event: "*", schema: "public", table, filter: `user_id=eq.${userId}` }, () => shared.change(table));
     channel.subscribe();
-    const app = AppState.addEventListener("change", (s) => coalescer.setActive(s === "active"));
     watch = {
       count: 0,
       close: () => {
-        app.remove();
-        coalescer.dispose();
         void supabase.removeChannel(channel);
       },
     };
@@ -49,6 +79,10 @@ export function watchTable(table: RealtimeTable, userId: string): () => void {
     if (mine.count > 0) return;
     watches.delete(id);
     mine.close();
+    if (watches.size === 0) {
+      refresher?.close();
+      refresher = null;
+    }
   };
 }
 
@@ -59,8 +93,8 @@ export function watchTable(table: RealtimeTable, userId: string): () => void {
  * Budgets add `budgets`, Goals adds the two goal tables (lib/realtime/topics.ts).
  * One Supabase Realtime channel per table on the user's own rows (RLS-scoped,
  * filtered by user), shared by every screen watching it (`watchTable`); events
- * coalesced into one trailing refresh, deferred while the app is in the
- * background; the refresh invalidates the topics that show those rows, so each
+ * from every table coalesced into one trailing refresh, deferred while the app
+ * is in the background; it invalidates each topic that shows those rows once, so each
  * screen reloads in place through its version. No polling.
  */
 export function useRealtimeRefresh(tables: readonly RealtimeTable[]): void {

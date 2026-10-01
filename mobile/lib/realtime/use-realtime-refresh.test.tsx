@@ -100,4 +100,17 @@ describe("useRealtimeRefresh: screens watching the same table", () => {
     expect(live("savings_goals")).toHaveLength(1);
     expect(live("savings_contributions")).toHaveLength(1);
   });
+
+  it("a burst on a two-table watch (Goals) bumps each topic once, after one quiet period", () => {
+    const goals = render(<Watcher tables={["savings_goals", "savings_contributions"]} />);
+    const [g, h] = [getVersion("goals"), getVersion("home")];
+    fire("savings_goals");
+    fire("savings_contributions");
+    fire("savings_goals");
+    act(() => void vi.advanceTimersByTime(REFRESH_DEBOUNCE_MS - 1));
+    expect([getVersion("goals"), getVersion("home")]).toEqual([g, h]);
+    act(() => void vi.advanceTimersByTime(1));
+    expect([getVersion("goals"), getVersion("home")]).toEqual([g + 1, h + 1]);
+    act(() => goals.unmount());
+  });
 });

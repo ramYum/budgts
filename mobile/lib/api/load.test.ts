@@ -35,6 +35,9 @@ describe("mutate", () => {
   it("is ok, carrying the id a create returns", async () => {
     expect(await mutate(async () => json(201, { id: "new-1" }))).toEqual({ status: "ok", id: "new-1" });
     expect(await mutate(async () => json(200, { ok: true }))).toEqual({ status: "ok" });
+    // a create retried with a used request id: the row that landed first, flagged so the app can say nothing new was saved
+    expect(await mutate(async () => json(201, { id: "first-1", replayed: true }))).toEqual({ status: "ok", id: "first-1", replayed: true });
+    expect(await mutate(async () => json(201, { id: "new-2", replayed: false }))).toEqual({ status: "ok", id: "new-2" });
   });
 
   it("maps validation, conflict, missing and nothing_to_copy to their own outcomes", async () => {

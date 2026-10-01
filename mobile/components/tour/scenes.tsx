@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Text as RNText, View, type LayoutChangeEvent, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 import Animated, { steps } from "react-native-reanimated";
 import Svg, { Path } from "react-native-svg";
@@ -42,7 +42,6 @@ import {
   dust,
   feed,
   slot,
-  tabsTour,
 } from "./guide-keyframes";
 import { useKeyframes, type AnimationOptions, type Keyframes } from "../motion/keyframes";
 import { SCENE_HEIGHT } from "./tour-card";
@@ -174,7 +173,7 @@ function PathDot({ light }: { light: { kf: Keyframes; o: AnimationOptions } }) {
   );
 }
 
-/** The scene stage's measured width (the sparkles, confetti and tab pip are placed by it). */
+/** The scene stage's measured width (the sparkles and confetti are placed by it). */
 function useWidth(): [number | null, (e: LayoutChangeEvent) => void] {
   const [width, setWidth] = useState<number | null>(null);
   return [width, (e) => setWidth(e.nativeEvent.layout.width)];
@@ -554,7 +553,6 @@ const CONFETTI = Array.from({ length: 20 }, (_, i) => {
 
 function DoneScene() {
   const [width, measure] = useWidth();
-  const pipTour = useMemo(() => (width ? tabsTour(width / 4) : null), [width]);
   return (
     <View testID="scene-done" onLayout={measure} style={{ flex: 1 }}>
       {/* confetti bursts from 50% / 42% of the stage (a burst only exists mid-motion) */}
@@ -589,21 +587,22 @@ function DoneScene() {
         </View>
       </View>
       <View style={{ borderTopWidth: 1, borderTopColor: ROLE.hairline, backgroundColor: ROLE.surface }}>
-        {pipTour ? (
-          <Anim kf={pipTour} o={TOUR} style={{ position: "absolute", left: 0, top: 0, width: "25%", alignItems: "center" }}>
-            <View style={{ width: 24, height: 3, backgroundColor: COLOR.signal }} />
-          </Anim>
-        ) : (
-          <View style={{ position: "absolute", left: 0, top: 0, width: "25%", alignItems: "center" }}>
-            <View style={{ width: 24, height: 3, backgroundColor: COLOR.signal }} />
-          </View>
-        )}
         <View style={{ flexDirection: "row" }}>
           {TABS.map((t, k) => (
             <View key={t.name} style={{ flex: 1, alignItems: "center", gap: 4, paddingVertical: 10 }}>
+              {/* the web's .navPip steps a quarter along at each quarter of the loop (tabs 6s steps(1, end)): the same
+                  frames as a pip per tab lit for its own quarter, on the lit icon's clock from the same mount */}
+              <Anim
+                testID={`done-pip-${k}`}
+                kf={SLOTS[k]!}
+                o={TOUR}
+                style={{ position: "absolute", left: 0, right: 0, top: 0, alignItems: "center", opacity: k === 0 ? 1 : 0 }}
+              >
+                <View style={{ width: 24, height: 3, backgroundColor: COLOR.signal }} />
+              </Anim>
               <View style={{ width: 24, height: 24 }}>
                 <Icon name={t.glyph} color={ROLE.muted} />
-                <Anim kf={SLOTS[k]!} o={TOUR} style={{ position: "absolute", left: 0, top: 0, opacity: k === 0 ? 1 : 0 }}>
+                <Anim testID={`done-lit-${k}`} kf={SLOTS[k]!} o={TOUR} style={{ position: "absolute", left: 0, top: 0, opacity: k === 0 ? 1 : 0 }}>
                   <Icon name={t.glyph} color={COLOR.signal} />
                 </Anim>
               </View>

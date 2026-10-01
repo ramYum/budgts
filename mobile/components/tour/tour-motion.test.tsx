@@ -115,6 +115,20 @@ describe("the scenes act out their features", () => {
     expect(flat(box.props.style)).toMatchObject({ marginTop: 8 - 4, marginBottom: -4 });
   });
 
+  it("the done card's red pip tours the tabs on the lit icons' own clock, from mount, before any layout", () => {
+    const r = render(<GuideScene id="done" currency="USD" />); // no onLayout: nothing waits on a measurement
+    for (let k = 0; k < 4; k++) {
+      const pip = flat(byTestId(r, `done-pip-${k}`).props.style);
+      const lit = flat(byTestId(r, `done-lit-${k}`).props.style);
+      for (const prop of ["animationName", "animationDuration", "animationDelay", "animationTimingFunction", "animationIterationCount", "animationFillMode"]) {
+        expect(pip[prop]).toEqual(lit[prop]);
+      }
+      expect(pip.animationName).toBeDefined();
+      // resting frame (motion off): the pip under the first tab, like the lit icon
+      expect(pip.opacity).toBe(k === 0 ? 1 : 0);
+    }
+  });
+
   it("the done card lights each tab for its own quarter of the loop, in order", () => {
     // at each quarter's start, exactly tab k is lit
     for (let k = 0; k < 4; k++) {

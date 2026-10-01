@@ -96,14 +96,16 @@ export function savingsRateDelta(current: number | null, previous: number | null
 }
 
 /**
- * The Budgets hero's progress: the share of the month's budget already spent (a percentage, uncapped) and the bar's tone
- * ("over" once spending passes the budget, "near" from 85% spent). Moved from `src/components/budgets-view.tsx`.
+ * The Budgets hero's progress: the share of the month's budget already spent in budgeted categories (a percentage,
+ * uncapped) and the bar's tone ("over" once that spending passes the budget, "near" from 85% spent). It reads
+ * `budgetedSpent`, not total `spent`, so the bar agrees with "$X spent of $Y budgeted" and "Remaining"
+ * (2026-10-01, the Budgets hero adds up). Moved from `src/components/budgets-view.tsx`.
  */
-export function budgetProgress(tiles: { spent: number; budgeted: number; leftToSpend: number }): {
+export function budgetProgress(tiles: { budgetedSpent: number; budgeted: number; leftToSpend: number }): {
   spentPct: number;
   tone: "over" | "near" | "under";
 } {
-  const spentPct = tiles.budgeted > 0 ? (tiles.spent / tiles.budgeted) * 100 : 0;
+  const spentPct = tiles.budgeted > 0 ? (tiles.budgetedSpent / tiles.budgeted) * 100 : 0;
   const tone = tiles.leftToSpend < 0 ? "over" : spentPct >= 85 ? "near" : "under";
   return { spentPct, tone };
 }

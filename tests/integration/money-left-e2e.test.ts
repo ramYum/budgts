@@ -124,7 +124,7 @@ describe("Money Left — a user's transfer decision survives a subsequent machin
 
     const income = await toBudgetTxn(incomeId);
     const marked = await toBudgetTxn(id);
-    const beforeSync = rollup([income, marked], [], [], "2026-09");
+    const beforeSync = rollup([income, marked], [], "2026-09");
     expect(beforeSync.spend).toBe(0); // the $200 is excluded -- a transfer, not spend
     expect(beforeSync.income).toBe(1000_00);
     expect(beforeSync.net).toBe(1000_00); // Money Left = income only
@@ -153,7 +153,7 @@ describe("Money Left — a user's transfer decision survives a subsequent machin
     expect(markedAfterSync.isTransfer).toBe(true); // is_transfer survived (Task 2's protection)
     expect(markedAfterSync.transferUserSet).toBe(true);
 
-    const afterSync = rollup([income, markedAfterSync], [], [], "2026-09");
+    const afterSync = rollup([income, markedAfterSync], [], "2026-09");
     // Money Left is durably unaffected by the sync, despite the fresh
     // machine role (PURCHASE) that would otherwise count as spend.
     expect(afterSync.spend).toBe(0);
@@ -188,7 +188,7 @@ describe("Money Left — a card payment has zero effect on its own month's total
     // contributes nothing to THAT month's totals, which is the actual
     // claim (CARD_PAYMENT -> NONE, excluded) regardless of which month.
     const currentMonth = purchaseTxn.occurredAt.toISOString().slice(0, 7);
-    const r = rollup([purchaseTxn, paymentTxn], [], [], currentMonth);
+    const r = rollup([purchaseTxn, paymentTxn], [], currentMonth);
 
     expect(r.spend).toBe(50000); // only the original purchase
     expect(r.income).toBe(0);
@@ -196,7 +196,7 @@ describe("Money Left — a card payment has zero effect on its own month's total
     // Doubling the payment amount and re-computing proves the payment
     // itself never enters the sum -- not just that the numbers happen to
     // match by coincidence.
-    const withoutPayment = rollup([purchaseTxn], [], [], currentMonth);
+    const withoutPayment = rollup([purchaseTxn], [], currentMonth);
     expect(r.net).toBe(withoutPayment.net);
   });
 });

@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { ACCOUNT_TYPES, type AccountType } from "@/lib/accounts/account-types";
+import { accountHint, accountLabel, suggestAccount } from "@/lib/accounts/account-suggestion";
 import { mapAccounts, type PlaidActionState } from "@/server/plaid/actions";
 import { buttonClass, fieldClass as field, labelClass } from "@/components/ui";
 
@@ -13,26 +14,11 @@ type BudgtsAccount = { id: string; name: string };
 type Mode = "new" | "existing" | "ignore";
 type Row = { mode: Mode; name: string; type: AccountType; existingAccountId: string };
 
-
-/** Shared with ConnectToggle (connected-banks.tsx) — the minimal shape both
- * the bulk mapping form and the per-account quick-connect switch need to
- * guess a sensible default name/type for a brand-new Budgts account. */
-export type GuessableAccount = Pick<MappableAccount, "name" | "officialName" | "mask" | "type" | "subtype">;
-
-export function guessType(a: GuessableAccount): AccountType {
-  if (a.subtype === "savings") return "savings";
-  if (a.type === "credit") return "credit";
-  return "checking";
-}
-
-export function accountLabel(a: GuessableAccount): string {
-  const base = a.name?.trim() || a.officialName?.trim() || "Account";
-  return a.mask ? `${base} ••${a.mask}` : base;
-}
-
 /**
  * Account-mapping screen (design §11). One row per linked Plaid account: create
- * a new Budgts account (default), point at an existing one, or skip it. On
+ * a new Budgts account, point at an existing one, or skip it. Each row starts
+ * from `suggestAccount` (a new account of a guessed type, or "Don't import" for
+ * an HSA, investment or loan) and the user can change any of them. On
  * submit the mapping is saved and the first sync runs.
  */
 export function AccountMapping({
@@ -48,12 +34,15 @@ export function AccountMapping({
 }) {
   const [state, formAction, pending] = useActionState<PlaidActionState, FormData>(mapAccounts, {});
   const [rows, setRows] = useState<Row[]>(() =>
-    plaidAccounts.map((a) => ({
-      mode: "new" as Mode,
-      name: accountLabel(a),
-      type: guessType(a),
-      existingAccountId: budgtsAccounts[0]?.id ?? "",
-    })),
+    plaidAccounts.map((a) => {
+      const { mode, type } = suggestAccount(a);
+      return {
+        mode,
+        name: accountLabel(a),
+        type,
+        existingAccountId: budgtsAccounts[0]?.id ?? "",
+      };
+    }),
   );
 
   useEffect(() => {
@@ -105,12 +94,14 @@ export function AccountMapping({
       <ul className="space-y-3">
         {plaidAccounts.map((a, i) => {
           const r = rows[i];
+          const hint = accountHint(a);
           return (
             <li key={a.plaidAccountId} className="px-card space-y-3 p-3" data-testid={`account-mapping-row-${i}`}>
               <div className="flex items-baseline justify-between gap-2">
                 <span className="truncate text-[15px] font-medium leading-6 text-ink">{accountLabel(a)}</span>
                 <span className="shrink-0 text-sm text-muted">{a.subtype ?? a.type ?? "account"}</span>
               </div>
+              {hint ? <p className="text-sm text-muted">{hint}</p> : null}
 
               <label className={labelClass}>
                 Import as

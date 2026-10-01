@@ -39,8 +39,10 @@ export type MobileHome = MobileSpendingCards & {
   /** Income minus spending for the month (`tiles.netSavings`). */
   moneyLeft: number;
   income: number;
+  /** All of the month's spending (`tiles.spent`); Money Left is `income − spent`. */
   spent: number;
   budgeted: number;
+  /** "Where it went"'s "left of your budget": `budgeted` minus spending in budgeted categories (`tiles.leftToSpend`). */
   leftToSpend: number;
   /** A fraction (0.3 = 30%); `null` when there is no income — never a bare 0. */
   savingsRate: number | null;

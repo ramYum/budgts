@@ -71,8 +71,6 @@ export interface MonthRollup {
   income: number;
   spend: number;
   net: number; // income - spend
-  totalBudgeted: number;
-  totalRemaining: number;
 }
 
 /** The uncategorized bucket key used by monthlyActuals(). */

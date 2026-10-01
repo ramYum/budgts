@@ -82,7 +82,13 @@ export type MobileBudgets = {
   month: string;
   currency: string;
   budgeted: number;
+  /** All of the month's spending (`tiles.spent`). */
   spent: number;
+  /** Spending in the categories that have a budget: the hero's "spent of budgeted" (added 2026-10-01). */
+  budgetedSpent: number;
+  /** `spent − budgetedSpent`: the hero's "spent outside your budgets" line, shown when above zero (added 2026-10-01). */
+  spentOutsideBudgets: number;
+  /** `budgeted − budgetedSpent`; negative when over ("Over by"). */
   leftToSpend: number;
   /** The hero bar: the share of the budget spent (uncapped) and its tone, from the web card's own rule. */
   spentPct: number;
@@ -117,6 +123,8 @@ export function buildMobileBudgets(
     currency: data.currency,
     budgeted: tiles.budgeted,
     spent: tiles.spent,
+    budgetedSpent: tiles.budgetedSpent,
+    spentOutsideBudgets: tiles.spentOutsideBudgets,
     leftToSpend: tiles.leftToSpend,
     spentPct,
     tone,

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useMemo } from "react";
+import type { Session } from "@supabase/supabase-js";
 import { useRouter } from "expo-router";
 import { ConnectedBanksView } from "../../../../components/banks/connected-banks-view";
 import { LoadFailure } from "../../../../components/feedback/states";
@@ -20,27 +21,23 @@ import { createPlaidLinkClient } from "../../../../lib/plaid/plaid-link-native";
  * `GET /api/mobile/plaid/banks` and, for the mapping sheet's choices, `GET /api/mobile/accounts`.
  * Every Plaid action invalidates "accounts", which reloads this screen in place (the web's revalidation).
  */
+async function loadBanksScreen(s: Session | null) {
+  const [banks, accounts] = await Promise.all([
+    loadResource(() => authFetch("/api/mobile/plaid/banks", s), parseBanks),
+    loadResource(() => authFetch("/api/mobile/accounts", s), parseAccounts),
+  ]);
+  if (banks.status === "error") return banks;
+  if (accounts.status === "error") return accounts;
+  return { status: "ready" as const, data: { ...banks.data, choices: mappingChoices(accounts.data) } };
+}
+
 export default function ConnectedBanksScreen() {
   const router = useRouter();
   const { session, signOut } = useAuth();
-  const { state, notice, refresh, refreshing, reload } = useResource("connected-banks", async (s) => {
-    const [banks, accounts] = await Promise.all([
-      loadResource(() => authFetch("/api/mobile/plaid/banks", s), parseBanks),
-      loadResource(() => authFetch("/api/mobile/accounts", s), parseAccounts),
-    ]);
-    if (banks.status === "error") return banks;
-    if (accounts.status === "error") return accounts;
-    return { status: "ready" as const, data: { ...banks.data, choices: mappingChoices(accounts.data) } };
-  });
-
-  // A change anywhere in the app's accounts (a save here, a bank connected from the welcome guide) reloads in place.
+  // A change to the user's accounts anywhere (a save here, a bank connected from the welcome guide, realtime) reloads
+  // in place and silently; `refreshing` is only the user's own pull.
   const version = useVersion("accounts");
-  const seen = useRef(version);
-  useEffect(() => {
-    if (seen.current === version) return;
-    seen.current = version;
-    void refresh();
-  }, [version, refresh]);
+  const { state, notice, refresh, refreshing, reload } = useResource("connected-banks", loadBanksScreen, { version });
 
   const link = useMemo(() => createPlaidLinkClient(), []);
   const commands = useMemo(() => bankCommands(session), [session]);

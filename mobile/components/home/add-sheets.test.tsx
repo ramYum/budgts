@@ -7,10 +7,12 @@ import { HomeAddSheets } from "./add-sheets";
 vi.mock("@react-native-community/datetimepicker", () => ({ default: () => null, DateTimePickerAndroid: { open: () => {} } }));
 vi.mock("../../lib/auth/auth-context", () => ({ useAuth: () => ({ session: { access_token: "t" } }) }));
 const asked = vi.hoisted(() => [] as string[]);
+const down = vi.hoisted(() => ({ accounts: false }));
 vi.mock("../../lib/auth/api", () => ({
   NotAuthenticatedError: class extends Error {},
   authFetch: async (path: string) => {
     asked.push(path);
+    if (down.accounts && path.startsWith("/api/mobile/accounts")) throw new TypeError("Network request failed");
     const body = path.startsWith("/api/mobile/accounts")
       ? { version: 1, accounts: [{ id: "a1", name: "Everyday checking", type: "checking", source: "manual", archived: false, selectable: true }], accountTypes: ["checking"] }
       : {
@@ -64,6 +66,20 @@ describe("Home's add sheets (review 🔴1: they opened a deleted route)", () => 
     expect(count("/api/mobile/categories")).toBe(cats + 1);
     expect(count("/api/mobile/accounts")).toBe(accts + 1);
     expect(r.root.findAll((n) => typeof n.type === "string" && n.props.testID === "txn-form-loading")).toHaveLength(0);
+    expect(byTestId(r, "txn-form")).toBeTruthy();
+  });
+
+  it("says when a re-read failed and kept the older accounts, and Retry re-reads them in place", async () => {
+    const { r } = await open("add");
+    down.accounts = true;
+    await act(async () => invalidate("accounts"));
+    await act(async () => {});
+    down.accounts = false;
+    expect(textContent(byTestId(r, "txn-form-notice"))).toContain("These accounts and categories may be out of date. Couldn't reach Budgts.");
+    expect(byTestId(r, "txn-form")).toBeTruthy();
+    await act(async () => byTestId(r, "txn-form-notice").findAll((n) => typeof n.type === "string" && n.props.accessibilityLabel === "Retry")[0]!.props.onPress());
+    await act(async () => {});
+    expect(r.root.findAll((n) => typeof n.type === "string" && n.props.testID === "txn-form-notice")).toHaveLength(0);
     expect(byTestId(r, "txn-form")).toBeTruthy();
   });
 });

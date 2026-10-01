@@ -84,6 +84,11 @@ export default function ActivityScreen() {
       void accounts.reload();
       void categories.reload();
     },
+    notice: accounts.notice ?? categories.notice,
+    onRefresh: () => {
+      void accounts.refresh();
+      void categories.refresh();
+    },
   };
 
   const sheets =

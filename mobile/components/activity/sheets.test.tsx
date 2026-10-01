@@ -299,7 +299,13 @@ describe("the Transaction sheet (web list detail)", () => {
   });
 });
 
-const ready = { accounts: { status: "ready" as const, data: { accounts, accountTypes: ["checking"] } }, categories: { status: "ready" as const, data: categories }, onRetry: vi.fn() };
+const ready = {
+  accounts: { status: "ready" as const, data: { accounts, accountTypes: ["checking"] } },
+  categories: { status: "ready" as const, data: categories },
+  onRetry: vi.fn(),
+  notice: null,
+  onRefresh: vi.fn(),
+};
 const commands = () => ({
   create: vi.fn(async (): Promise<MutationOutcome> => ({ status: "ok", id: "new" })),
   update: vi.fn(async (): Promise<MutationOutcome> => ({ status: "ok" })),
@@ -332,6 +338,28 @@ describe("Add and Edit sheets", () => {
     expect(texts(find(r, "txn-form-save"))).toContain("Add"); // web add-transaction.tsx: submitLabel "Add"
     expect(texts(find(r, "txn-form-save"))).not.toContain("Add transaction");
     expect(find(r, "txn-form-date").props.accessibilityLabel).toBe("Date, 09/15/2026");
+  });
+
+  it("says when its lists are stale (a reload failed and kept the older ones), with Retry that keeps the form", () => {
+    const onRefresh = vi.fn();
+    const onRetry = vi.fn();
+    const stale = { ...ready, notice: "Couldn't reach Budgts. Check your connection and try again.", onRefresh, onRetry };
+    for (const sheet of [
+      <AddTransactionSheet key="add" data={stale} defaultDate="2026-09-15" commands={commands()} onClose={vi.fn()} />,
+      <AddIncomeSheet key="income" data={stale} defaultDate="2026-09-15" commands={commands()} onClose={vi.fn()} />,
+      <EditTransactionSheet key="edit" transaction={txn()} data={stale} commands={commands()} onClose={vi.fn()} />,
+    ]) {
+      const r = render(sheet);
+      expect(textContent(find(r, "txn-form-notice"))).toContain(
+        "These accounts and categories may be out of date. Couldn't reach Budgts. Check your connection and try again.",
+      );
+      // the form stays, with what the user typed
+      expect(find(r, "txn-form-save")).toBeTruthy();
+      act(() => find(r, "txn-form-notice").findAll((n) => typeof n.type === "string" && n.props.accessibilityLabel === "Retry")[0]!.props.onPress());
+    }
+    expect(onRefresh).toHaveBeenCalledTimes(3);
+    expect(onRetry).not.toHaveBeenCalled();
+    expect(render(<AddTransactionSheet data={ready} defaultDate="2026-09-15" commands={commands()} onClose={vi.fn()} />).root.findAll((n) => n.props.testID === "txn-form-notice")).toHaveLength(0);
   });
 
   it("Edit deletes only after the confirm, then closes", async () => {

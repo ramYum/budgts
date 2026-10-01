@@ -9,7 +9,9 @@ import { describe, expect, it } from "vitest";
  * The shells draw it in one place (`<Screen notice onRetry name>`, `<StandaloneShell …>`), so the rule is static:
  * every route under app/ that calls `useResource`, or a hook built on it, itself or in a view it imports from
  * components/, passes `notice` to every shell it renders. A `useResource` call that can never set `notice` (no
- * options argument and no `refresh` taken: the first load and Try again only) needs none. Nothing is allow-listed.
+ * options argument and no `refresh` taken: the first load and Try again only) needs none. A view's own reads (a
+ * sheet's lists) must read their `notice` too, and a hook built on `useResource` must hand it on. Nothing is
+ * allow-listed.
  * Read with the TypeScript parser, so formatting can't fool it.
  */
 const ROOT = join(__dirname, "..");
@@ -90,21 +92,23 @@ function readsRefresh(file: ts.SourceFile, variable: string): boolean {
  * The calls in a file that can ever set `notice`. Every hook built on `useResource` can. A direct `useResource` call
  * can when it passes options (a `version`: silent reloads) or its result's `refresh` is taken (a pull).
  */
+function canNotice(file: ts.SourceFile, call: ts.CallExpression, hooks: Set<string>): boolean {
+  const name = calleeName(call)!;
+  if (!hooks.has(name)) return false;
+  if (name !== "useResource") return true;
+  if (call.arguments.length > 2) return true;
+  const decl = call.parent;
+  if (!ts.isVariableDeclaration(decl)) return true; // used some other way: assume it can
+  if (ts.isObjectBindingPattern(decl.name)) {
+    return decl.name.elements.some((e) => ((e.propertyName ?? e.name) as ts.Identifier).text === "refresh" || !!e.dotDotDotToken);
+  }
+  return ts.isIdentifier(decl.name) ? readsRefresh(file, decl.name.text) : true;
+}
+
 function callsThatCanNotice(path: string, hooks: Set<string>): string[] {
   const file = parse(path);
   return hookCalls(file)
-    .filter((call) => {
-      const name = calleeName(call)!;
-      if (!hooks.has(name)) return false;
-      if (name !== "useResource") return true;
-      if (call.arguments.length > 2) return true;
-      const decl = call.parent;
-      if (!ts.isVariableDeclaration(decl)) return true; // used some other way: assume it can
-      if (ts.isObjectBindingPattern(decl.name)) {
-        return decl.name.elements.some((e) => ((e.propertyName ?? e.name) as ts.Identifier).text === "refresh" || !!e.dotDotDotToken);
-      }
-      return ts.isIdentifier(decl.name) ? readsRefresh(file, decl.name.text) : true;
-    })
+    .filter((call) => canNotice(file, call, hooks))
     .map((call) => `${calleeName(call)} in ${rel(path)}`);
 }
 
@@ -158,6 +162,32 @@ describe("every useResource screen shows its stale-data notice, from its shell",
     expect(problems).toEqual([]);
     // Home, Activity, Budgets, Goals, Insights, Accounts, Connected banks, Categories, Delete account, More, Settings
     expect(checked).toBeGreaterThanOrEqual(11);
+  });
+
+  it("a screen or view reads the `notice` of every useResource it calls that can set one (a sheet's lists too)", () => {
+    const unread = all
+      .filter((f) => rel(f).startsWith("app/") || rel(f).startsWith("components/"))
+      .flatMap((f) => {
+        const file = parse(f);
+        return hookCalls(file)
+          .filter((call) => calleeName(call) === "useResource" && canNotice(file, call, hooks))
+          .filter((call) => {
+            const decl = call.parent;
+            if (!ts.isVariableDeclaration(decl)) return true;
+            if (ts.isObjectBindingPattern(decl.name)) {
+              return !decl.name.elements.some((e) => ((e.propertyName ?? e.name) as ts.Identifier).text === "notice" || !!e.dotDotDotToken);
+            }
+            if (!ts.isIdentifier(decl.name)) return true;
+            const name = decl.name.text;
+            let reads = false;
+            walk(file, (n) => {
+              if (ts.isPropertyAccessExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === name && n.name.text === "notice") reads = true;
+            });
+            return !reads;
+          })
+          .map((call) => `${rel(f)}:${file.getLineAndCharacterOfPosition(call.getStart()).line + 1}`);
+      });
+    expect(unread).toEqual([]);
   });
 
   it("a hook built on useResource hands `notice` on", () => {

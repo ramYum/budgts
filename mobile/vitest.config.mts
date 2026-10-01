@@ -11,6 +11,9 @@ export default defineConfig({
     include: ["lib/**/*.test.ts", "lib/**/*.test.tsx", "components/**/*.test.tsx", "test/**/*.test.ts"],
     globals: true,
     setupFiles: ["./test/native-mocks.setup.ts"],
+    // Screen tests render whole sheets through the host stand-ins; under a loaded machine (a Gradle build alongside, the
+    // full suite in parallel) they ran past the 5s default at random though each passes alone. One budget, set here.
+    testTimeout: 15_000,
     // expo-linking ships untranspiled ESM; callback-url.test.ts runs its real
     // createURL against faked expo-constants to pin the redirect-URL shape.
     server: { deps: { inline: [/expo-linking/] } },

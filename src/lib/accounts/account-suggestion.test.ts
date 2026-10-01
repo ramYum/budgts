@@ -1,7 +1,7 @@
 import { AccountSubtype, AccountType } from "plaid";
 import { describe, expect, it } from "vitest";
 import { ACCOUNT_TYPES } from "./account-types";
-import { accountLabel, suggestAccount, type AccountSuggestion } from "./account-suggestion";
+import { accountLabel, accountHint, suggestAccount, type AccountSuggestion } from "./account-suggestion";
 
 const IMPORT_CHECKING: AccountSuggestion = { mode: "new", type: "checking" };
 const IMPORT_SAVINGS: AccountSuggestion = { mode: "new", type: "savings" };
@@ -105,5 +105,19 @@ describe("accountLabel", () => {
     expect(accountLabel({ name: "Checking", officialName: "Platypus Checking", mask: "1234" })).toBe("Checking ••1234");
     expect(accountLabel({ name: "  ", officialName: "Platypus Checking", mask: "1234" })).toBe("Platypus Checking ••1234");
     expect(accountLabel({ name: null, officialName: null, mask: null })).toBe("Account");
+  });
+});
+
+describe("accountHint", () => {
+  it("tells the user an HSA can be imported, for an HSA only", () => {
+    expect(accountHint({ type: "depository", subtype: "hsa" })).toBe("Import it if you pay for care from it.");
+    expect(accountHint({ type: "investment", subtype: "HSA" })).toBe("Import it if you pay for care from it.");
+    for (const subtype of [...(Object.values(AccountSubtype) as string[]), null].filter((s) => s !== "hsa")) {
+      expect(accountHint({ type: "depository", subtype }), String(subtype)).toBeNull();
+    }
+  });
+
+  it("uses no em-dash", () => {
+    expect(accountHint({ type: "depository", subtype: "hsa" })).not.toMatch(/—/);
   });
 });

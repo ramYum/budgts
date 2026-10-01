@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useMemo, useState } from "react";
 import { ACCOUNT_TYPES, type AccountType } from "@/lib/accounts/account-types";
-import { accountLabel, suggestAccount } from "@/lib/accounts/account-suggestion";
+import { accountHint, accountLabel, suggestAccount } from "@/lib/accounts/account-suggestion";
 import { mapAccounts, type PlaidActionState } from "@/server/plaid/actions";
 import { buttonClass, fieldClass as field, labelClass } from "@/components/ui";
 
@@ -93,12 +93,14 @@ export function AccountMapping({
       <ul className="space-y-3">
         {plaidAccounts.map((a, i) => {
           const r = rows[i];
+          const hint = accountHint(a);
           return (
             <li key={a.plaidAccountId} className="px-card space-y-3 p-3">
               <div className="flex items-baseline justify-between gap-2">
                 <span className="truncate text-[15px] font-medium leading-6 text-ink">{accountLabel(a)}</span>
                 <span className="shrink-0 text-sm text-muted">{a.subtype ?? a.type ?? "account"}</span>
               </div>
+              {hint ? <p className="text-sm text-muted">{hint}</p> : null}
 
               <label className={labelClass}>
                 Import as

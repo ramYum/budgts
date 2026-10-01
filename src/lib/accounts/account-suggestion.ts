@@ -41,6 +41,14 @@ export function suggestAccount(a: SuggestableAccount): AccountSuggestion {
   return { mode: "new", type: "checking" };
 }
 
+/**
+ * The small hint under a mapping row, or `null`. Only an HSA has one (owner-approved 2026-10-01): it defaults to
+ * "Don't import", but people who pay for care from it may want that spending in their budget.
+ */
+export function accountHint(a: SuggestableAccount): string | null {
+  return norm(a.subtype) === "hsa" ? "Import it if you pay for care from it." : null;
+}
+
 /** The default name for a new Budgts account: Plaid's name, else its official name, else "Account", with the mask. */
 export function accountLabel(a: { name: string | null; officialName: string | null; mask: string | null }): string {
   const base = a.name?.trim() || a.officialName?.trim() || "Account";

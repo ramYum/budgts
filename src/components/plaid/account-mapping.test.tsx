@@ -140,6 +140,36 @@ describe("AccountMapping", () => {
     ]);
   });
 
+  it("hints under an HSA row only that it can be imported, and the hint stays whatever the row's choice", async () => {
+    const user = userEvent.setup({ delay: null });
+    const acct = (id: string, name: string, type: string, subtype: string): MappableAccount => ({
+      plaidAccountId: id,
+      name,
+      officialName: null,
+      mask: null,
+      type,
+      subtype,
+      currentBalance: 0,
+      isoCurrencyCode: "USD",
+    });
+    render(
+      <AccountMapping
+        plaidItemId="99999999-9999-9999-9999-999999999999"
+        plaidAccounts={[acct("chk", "Checking", "depository", "checking"), acct("hsa", "HSA", "depository", "hsa"), acct("inv", "401k", "investment", "401k")]}
+        budgtsAccounts={budgtsAccounts}
+        onDone={vi.fn()}
+      />,
+    );
+
+    const hints = screen.getAllByText("Import it if you pay for care from it.");
+    expect(hints).toHaveLength(1);
+    expect(hints[0]).toHaveClass("text-sm", "text-muted");
+    expect(hints[0].closest("li")).toHaveTextContent("HSA");
+
+    await user.selectOptions(screen.getAllByRole("combobox", { name: "Import as" })[1], "new");
+    expect(screen.getByText("Import it if you pay for care from it.")).toBeInTheDocument();
+  });
+
   it("surfaces a partial-success warning instead of closing", async () => {
     mapAccounts.mockResolvedValue({ ok: true, warning: "Accounts saved. The first sync didn't finish." });
     const onDone = vi.fn();

@@ -10,3 +10,12 @@ export const KEYBOARD_MARGIN = 16;
 export function scrollTargetAboveKeyboard(formBottom: number, visibleHeight: number, margin = KEYBOARD_MARGIN): number {
   return formBottom + margin - visibleHeight;
 }
+
+/**
+ * Where to scroll so a field ending at `fieldBottom` shows `margin` above the bottom of what is visible, or null when
+ * it already does at the current offset `scrollY` (a browser's scroll-into-view: a field in view never moves).
+ */
+export function revealScrollTarget(fieldBottom: number, scrollY: number, visibleHeight: number, margin = KEYBOARD_MARGIN): number | null {
+  const target = scrollTargetAboveKeyboard(fieldBottom, visibleHeight, margin);
+  return target > scrollY ? target : null;
+}

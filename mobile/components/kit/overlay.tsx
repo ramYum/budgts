@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ROLE } from "../../lib/brand/shared";
 import { EASE_OUT } from "../../lib/motion/css";
 import { useMotionTiming } from "../../lib/motion/parity-clock";
-import { scrollTargetAboveKeyboard } from "../../lib/keyboard";
+import { revealScrollTarget } from "../../lib/keyboard";
 import { Icon } from "../brand/icon";
 import { PixelFrame } from "../brand/pixel-frame";
 import { Text } from "../brand/text";
@@ -67,13 +67,15 @@ export function Overlay({
   const scroll = useRef<ScrollView>(null);
   const content = useRef<View>(null);
   const viewport = useRef(0);
+  const offset = useRef(0);
 
   const reveal = useCallback<Reveal>((input) => {
     const box = content.current;
     if (!input || !box || !scroll.current) return;
     (input as View).measureLayout(box, (_x, y, _w, h) => {
-      const target = scrollTargetAboveKeyboard(y + h, viewport.current);
-      if (target > 0) scroll.current?.scrollTo({ y: target, animated: !reduced });
+      // only a field below what shows moves: one already in view stays put (a picker deep in a long list)
+      const target = revealScrollTarget(y + h, offset.current, viewport.current);
+      if (target !== null) scroll.current?.scrollTo({ y: target, animated: !reduced });
     });
   }, [reduced]);
   const revealFocused = useCallback(() => reveal(TextInput.State.currentlyFocusedInput() as TextInputType | null), [reveal]);
@@ -116,6 +118,10 @@ export function Overlay({
                 ref={scroll}
                 keyboardShouldPersistTaps="handled"
                 onLayout={(e) => onViewportLayout(e.nativeEvent.layout.height)}
+                onScroll={(e) => {
+                  offset.current = e.nativeEvent.contentOffset.y;
+                }}
+                scrollEventThrottle={16}
                 contentContainerStyle={{ paddingHorizontal: 12, paddingTop: 12, paddingBottom: Math.max(16, insets.bottom) }}
               >
                 <View ref={content} collapsable={false}>

@@ -44,6 +44,7 @@ const valid = {
     { month: "2026-09", spend: 174854 },
   ],
   trendChange: { total: 174854, delta: 24854, previousMonth: "2026-08" },
+  expenseCategories: [{ id: "c1", name: "Food / Groceries" }],
 };
 
 describe("parseMobileHome", () => {
@@ -96,6 +97,8 @@ describe("parseMobileHome", () => {
     ["trend not an array", { ...valid, trend: null }],
     ["fractional breakdown share", { ...valid, breakdown: [{ name: "x", amount: 1, share: 1.5 }] }],
     ["missing trendChange", { ...valid, trendChange: undefined }],
+    ["missing expenseCategories", { ...valid, expenseCategories: undefined }],
+    ["expense category without a name", { ...valid, expenseCategories: [{ id: "c1" }] }],
     ["bankConnected not a boolean", { ...valid, bankConnected: "yes" }],
     ["unknown suggestion kind", { ...valid, suggestion: { ...valid.suggestion, kind: "other" } }],
     ["fractional suggestion amount", { ...valid, suggestion: { ...valid.suggestion, amount: 1.5 } }],

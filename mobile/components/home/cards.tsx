@@ -1,8 +1,9 @@
+import type { Href } from "expo-router";
+import { budgetsLink } from "../../lib/budgets/params";
 import { Pressable, View } from "react-native";
 import { COLOR, ROLE } from "../../lib/brand/shared";
 import type { HomeSuggestion, MobileHome } from "../../lib/home/contract";
-import { formatMoney } from "../../lib/shared";
-import { savingsBarPct, savingsPct } from "../../../src/lib/figures/savings-pct";
+import { formatMoney, savingsBarPct, savingsPct } from "../../lib/shared";
 import { IconTile } from "../brand/controls";
 import { Icon } from "../brand/icon";
 import { PixelFrame } from "../brand/pixel-frame";
@@ -14,8 +15,8 @@ import { Badge, CategoryIcon, Chevron } from "../kit/tiles";
 import { RollingAmount } from "../motion/rolling-amount";
 import { CardRows } from "./card-rows";
 import { Lamp } from "../motion/rise";
+import { TNUM } from "./type";
 
-const TNUM = { fontVariant: ["tabular-nums" as const] };
 
 /**
  * "What can I change?" (web dashboard-view.tsx `change`): the one suggestion
@@ -23,11 +24,9 @@ const TNUM = { fontVariant: ["tabular-nums" as const] };
  * An unbudgeted category opens its budget; a category that grew opens its
  * transactions.
  */
-export function ChangeCard({ suggestion, month, currency, go }: { suggestion: HomeSuggestion; month: string; currency: string; go: (path: string) => void }) {
+export function ChangeCard({ suggestion, month, currency, go }: { suggestion: HomeSuggestion; month: string; currency: string; go: (href: Href) => void }) {
   const href =
-    suggestion.kind === "unbudgeted"
-      ? `/budgets?m=${month}&edit=${suggestion.categoryId}`
-      : `/activity?m=${month}&category=${suggestion.categoryId}`;
+    suggestion.kind === "unbudgeted" ? budgetsLink.edit(month, suggestion.categoryId) : budgetsLink.activity(month, suggestion.categoryId);
   const title = suggestion.kind === "unbudgeted" ? `Give ${suggestion.name} a budget` : suggestion.name;
   const amount = formatMoney(suggestion.amount, currency);
   const detail =
@@ -70,13 +69,13 @@ export function ChangeCard({ suggestion, month, currency, go }: { suggestion: Ho
 }
 
 /** "Savings" (web `savingsCard`): what the active goals hold, rolling in, and their progress toward the targets. */
-export function SavingsCard({ savings, currency, go }: { savings: NonNullable<MobileHome["savings"]>; currency: string; go: (path: string) => void }) {
+export function SavingsCard({ savings, currency, go }: { savings: NonNullable<MobileHome["savings"]>; currency: string; go: (href: Href) => void }) {
   // the web card's own figures (src/lib/figures/savings-pct.ts): the badge shows only with a target
   const badge = savings.totalTarget > 0 ? `${savingsPct(savings.totalSaved, savings.totalTarget)}%` : null;
   const pct = savingsBarPct(savings.totalSaved, savings.totalTarget);
   return (
     <View testID="home-savings" style={{ gap: 12 }}>
-      <SectionHead title="Savings" action="Goals" onAction={() => go("/goals")} />
+      <SectionHead title="Savings" action="Goals" onAction={() => go({ pathname: "/goals" })} />
       <PixelFrame frame="px-card" style={{ padding: 8 }}>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
           <RollingAmount value={savings.totalSaved} currency={currency} variant="tNumLg" />
@@ -105,13 +104,13 @@ export function RecentActivity({
   onAddTransaction,
 }: {
   home: MobileHome;
-  go: (path: string) => void;
+  go: (href: Href) => void;
   onAddTransaction: () => void;
 }) {
   const { recent, currency } = home;
   return (
     <View testID="home-recent" style={{ gap: 12 }}>
-      <SectionHead title="Recent activity" action="See all" onAction={() => go("/activity")} />
+      <SectionHead title="Recent activity" action="See all" onAction={() => go({ pathname: "/activity" })} />
       {recent.length === 0 ? (
         <PixelFrame testID="home-recent-empty" frame="px-card" style={{ padding: 8 }}>
           <View style={{ alignSelf: "flex-start" }}>

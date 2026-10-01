@@ -8,7 +8,11 @@
  * the way the app obtains them (magic-link verification), not hand-built.
  */
 import { createClient } from "@supabase/supabase-js";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+
+// GET /api/mobile/home schedules the web Home's refresh nudge with next/server `after`, which needs a live request scope that
+// a direct route call here doesn't have; the nudge itself is covered by src/app/api/mobile/home/route.test.ts.
+vi.mock("next/server", async (orig) => ({ ...(await orig<typeof import("next/server")>()), after: () => {} }));
 import { GET as getHome } from "@/app/api/mobile/home/route";
 import { GET as getBudgets } from "@/app/api/mobile/budgets/route";
 import { GET as getTransactions, POST as postTransaction } from "@/app/api/mobile/transactions/route";

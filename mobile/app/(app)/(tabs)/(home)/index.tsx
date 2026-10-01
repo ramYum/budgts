@@ -3,16 +3,12 @@ import { AppState } from "react-native";
 import { useIsFocused, useRouter, type Href } from "expo-router";
 import { LoadFailure } from "../../../../components/feedback/states";
 import { ScreenSkeleton } from "../../../../components/feedback/skeleton";
+import { HomeAddSheets, type HomeSheet } from "../../../../components/home/add-sheets";
 import { HomeView } from "../../../../components/home/home-view";
 import { Screen } from "../../../../components/shell/screen";
-import { authFetch } from "../../../../lib/auth/api";
 import { useAuth } from "../../../../lib/auth/auth-context";
-import { loadResource } from "../../../../lib/api/load";
-import { useResource } from "../../../../lib/api/use-resource";
-import { parseCategories } from "../../../../lib/categories/categories-api";
 import { useHome } from "../../../../lib/home/use-home";
 import { displayName } from "../../../../lib/shared";
-import { emptyDraft } from "../../../../lib/transactions/form";
 import { useRealtimeRefresh } from "../../../../lib/realtime/use-realtime-refresh";
 
 /**
@@ -27,8 +23,6 @@ export default function HomeScreen() {
   const { session, signOut } = useAuth();
   const [month, setMonth] = useState<string | null>(null);
   const { state, notice, pulling, pull, reload } = useHome(month);
-  // the chips of a month with no spending: the user's categories (not a figure)
-  const categories = useResource("home-categories", (s) => loadResource(() => authFetch("/api/mobile/categories", s), parseCategories));
   useRealtimeRefresh(["budgets"]);
   // Crystal walks only while Home is in front and the app is active (the web pauses her with the tab hidden)
   const focused = useIsFocused();
@@ -38,7 +32,11 @@ export default function HomeScreen() {
     return () => sub.remove();
   }, []);
 
-  const go = (path: string) => router.push(path as Href);
+  // Home's links are the web's navigations: into another tab they switch to it and apply the params (a Budgets or Activity
+  // link never stacks a second copy of that screen, with its own load and realtime channel)
+  const go = (href: Href) => router.navigate(href);
+  // the add sheets open over Home, as Activity's do (web AddIncome / AddTransaction overlays)
+  const [sheet, setSheet] = useState<HomeSheet | null>(null);
 
   return (
     <Screen refreshing={pulling} onRefresh={() => void pull()}>
@@ -49,24 +47,18 @@ export default function HomeScreen() {
       ) : (
         <HomeView
           home={state.data}
-          categories={categories.state.status === "ready" ? categories.state.data : null}
           name={displayName(session?.user.email)}
           hour={new Date().getHours()}
           go={go}
           onMonth={setMonth}
-          // The add sheets arrive with Lane D (D2); until then both open the transaction form, income set to money in.
-          onAddIncome={() =>
-            router.push({
-              pathname: "/transaction",
-              params: { draft: JSON.stringify({ ...emptyDraft(state.data.today, null), direction: "credit" }) },
-            })
-          }
-          onAddTransaction={() => router.push("/transaction")}
+          onAddIncome={() => setSheet("income")}
+          onAddTransaction={() => setSheet("add")}
           notice={notice}
           onRefresh={() => void pull()}
           awake={focused && appActive}
         />
       )}
+      {sheet && state.status === "ready" ? <HomeAddSheets sheet={sheet} defaultDate={state.data.today} onClose={() => setSheet(null)} /> : null}
     </Screen>
   );
 }

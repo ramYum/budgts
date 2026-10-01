@@ -39,6 +39,10 @@ const home = (over: Partial<MobileHome> = {}): MobileHome => ({
     { month: "2026-09", spend: 174854 },
   ],
   trendChange: { total: 174854, delta: 24854, previousMonth: "2026-08" },
+  expenseCategories: [
+    { id: "a", name: "Groceries" },
+    { id: "c", name: "Dining" },
+  ],
   ...over,
 });
 

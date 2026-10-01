@@ -1,6 +1,6 @@
+import type { Href } from "expo-router";
 import type { ReactNode } from "react";
 import { View } from "react-native";
-import type { MobileCategory } from "../../lib/categories/categories-api";
 import type { MobileHome } from "../../lib/home/contract";
 import { homeBlocks, showsOverAlert, subtitle } from "../../lib/home/view";
 import { Reveal } from "../motion/reveal";
@@ -26,7 +26,6 @@ import { WhereItWent } from "./where-it-went";
  */
 export function HomeView({
   home,
-  categories,
   name,
   hour,
   go,
@@ -43,11 +42,9 @@ export function HomeView({
   onRefresh?: () => void;
   /** Home is the screen in front and the app is active */
   awake?: boolean;
-  /** the user's categories, for the chips of a month with no spending; null while they load */
-  categories: MobileCategory[] | null;
   name: string;
   hour: number;
-  go: (path: string) => void;
+  go: (href: Href) => void;
   onMonth: (month: string) => void;
   onAddIncome: () => void;
   onAddTransaction: () => void;
@@ -59,8 +56,8 @@ export function HomeView({
   // phone reading order: the web's `order-*` classes
   const column: { key: string; i: number; node: ReactNode }[] = [];
   if (i.setup !== null)
-    column.push({ key: "setup", i: i.setup, node: <GetSetUp home={home} categories={categories} go={go} onAddIncome={onAddIncome} /> });
-  column.push({ key: "where", i: i.where, node: <WhereItWent home={home} categories={categories} go={go} /> });
+    column.push({ key: "setup", i: i.setup, node: <GetSetUp home={home} go={go} onAddIncome={onAddIncome} /> });
+  column.push({ key: "where", i: i.where, node: <WhereItWent home={home} go={go} /> });
   if (home.suggestion && i.change !== null)
     column.push({
       key: "change",
@@ -114,13 +111,19 @@ export function HomeView({
             budgeted={home.budgeted}
             income={home.income}
             currency={home.currency}
-            onReview={() => go("/budgets")}
+            onReview={() => go({ pathname: "/budgets" })}
           />
         </Reveal>
       ) : null}
 
       <Reveal i={i.hero} style={{ marginTop: alert ? 48 : 28 }}>
-        <MoneyLeftCard home={home} name={name} awake={awake} onAddIncome={onAddIncome} />
+        <MoneyLeftCard
+          home={home}
+          name={name}
+          awake={awake}
+          layoutKey={`${alert ? "alert" : ""}:${notice ? "notice" : ""}`}
+          onAddIncome={onAddIncome}
+        />
       </Reveal>
 
       <View style={{ marginTop: 32, gap: 32 }}>

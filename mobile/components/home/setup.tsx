@@ -1,7 +1,7 @@
+import type { Href } from "expo-router";
 import type { ReactNode } from "react";
 import { View } from "react-native";
 import { ROLE, type IconName } from "../../lib/brand/shared";
-import type { MobileCategory } from "../../lib/categories/categories-api";
 import type { MobileHome } from "../../lib/home/contract";
 import { setupCount, setupDone } from "../../lib/home/view";
 import { Button, IconTile } from "../brand/controls";
@@ -51,19 +51,16 @@ function SetupStep({
  */
 export function GetSetUp({
   home,
-  categories,
   go,
   onAddIncome,
 }: {
   home: MobileHome;
-  /** the user's categories, for the "N categories are ready to plan" count; null while they load */
-  categories: MobileCategory[] | null;
-  go: (path: string) => void;
+  go: (href: Href) => void;
   onAddIncome: () => void;
 }) {
   const n = setupCount(home);
   const done = setupDone(home);
-  const expense = categories ? categories.filter((c) => c.kind === "expense").length : null;
+  const expense = home.expenseCategories.length;
   const steps: { key: string; node: ReactNode }[] = [];
 
   if (home.bankConnected !== null)
@@ -77,7 +74,7 @@ export function GetSetUp({
           body="Purchases import on their own."
           done={home.bankConnected}
           action={
-            <Button testID="home-setup-connect" onPress={() => go("/connected-banks")}>
+            <Button testID="home-setup-connect" onPress={() => go({ pathname: "/connected-banks" })}>
               Connect
             </Button>
           }
@@ -109,11 +106,10 @@ export function GetSetUp({
         testID="home-setup-budget"
         icon="budgets"
         title="Give categories a budget"
-        // while the categories load, the line keeps its height without a wrong count
-        body={expense === null ? " " : `${expense} ${expense === 1 ? "category is" : "categories are"} ready to plan.`}
+        body={`${expense} ${expense === 1 ? "category is" : "categories are"} ready to plan.`}
         done={home.budgeted > 0}
         action={
-          <Button testID="home-setup-set-budget" variant="secondary" onPress={() => go(`/budgets?m=${home.month}`)}>
+          <Button testID="home-setup-set-budget" variant="secondary" onPress={() => go({ pathname: "/budgets", params: { m: home.month } })}>
             Set
           </Button>
         }

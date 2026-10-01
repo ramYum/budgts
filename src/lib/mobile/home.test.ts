@@ -15,6 +15,7 @@ describe("buildMobileHome", () => {
         "budgeted",
         "categories",
         "currency",
+        "expenseCategories",
         "income",
         "leftToSpend",
         "moneyLeft",
@@ -70,6 +71,13 @@ describe("buildMobileHome", () => {
     expect(home.savings).toEqual({ activeCount: 1, totalSaved: 25000, totalTarget: 100000 });
     const none = buildMobileHome(testHome({ savings: { totalTarget: 0, totalSaved: 0, activeCount: 0, completeCount: 0 } }));
     expect(none.savings).toBeNull();
+  });
+
+  it("lists the active expense categories the web Home's chips and set-up count read, in its order, id and name only", () => {
+    const expected = data.categories.filter((c) => c.kind === "expense").map((c) => ({ id: c.id, name: c.name }));
+    expect(expected.length).toBeGreaterThan(0);
+    expect(home.expenseCategories).toEqual(expected);
+    expect(data.categories.some((c) => c.kind === "income")).toBe(true);
   });
 
   it("exposes recent activity without any raw row fields", () => {

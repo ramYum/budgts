@@ -1,6 +1,6 @@
 import type { ReactElement } from "react";
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { COLOR, ROLE } from "../../lib/brand/shared";
 import { textStyle } from "../../lib/brand/type";
 import { reducedMotion } from "../../test/native-hosts";
@@ -149,6 +149,7 @@ describe("Reveal (web reveal.tsx)", () => {
           listeners.add(l);
           return () => void listeners.delete(l);
         },
+        scrollTo: vi.fn(),
       };
       let r!: ReactTestRenderer;
       const node: ReactElement = (

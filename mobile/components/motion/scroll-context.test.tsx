@@ -12,8 +12,8 @@ describe("ScrollWatch.scrollTo (a web #anchor link: Activity's focus=needs-categ
     render(<Probe />);
     const scrollTo = vi.fn();
     source.scrollRef.current = { scrollTo } as never;
-    source.watch.scrollTo!(616, true);
-    source.watch.scrollTo!(-24, false);
+    source.watch.scrollTo(616, true);
+    source.watch.scrollTo(-24, false);
     expect(scrollTo.mock.calls).toEqual([[{ y: 616, animated: true }], [{ y: 0, animated: false }]]);
   });
 
@@ -24,6 +24,6 @@ describe("ScrollWatch.scrollTo (a web #anchor link: Activity's focus=needs-categ
       return null;
     }
     render(<Probe />);
-    expect(() => source.watch.scrollTo!(100, true)).not.toThrow();
+    expect(() => source.watch.scrollTo(100, true)).not.toThrow();
   });
 });

@@ -130,7 +130,7 @@ function useNeedsCategoryFocus(p: ActivityViewProps) {
     ref.current.measureLayout(content, (_x, y) => {
       if (done.current) return;
       done.current = true;
-      watch.scrollTo?.(y - (insets.top + HEADER_HEIGHT) - FOCUS_GAP, !reduced);
+      watch.scrollTo(y - (insets.top + HEADER_HEIGHT) - FOCUS_GAP, !reduced);
       onFocused.current();
     });
   }, [wanted, watch, reduced, insets.top]);

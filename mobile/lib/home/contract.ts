@@ -19,6 +19,7 @@ export type HomeCategory = {
   budget: number;
   actual: number;
   remaining: number;
+  /** Share of the budget spent, a percentage the server sends unrounded ((actual / budget) × 100, e.g. 62.5); only the bar's lit cells use it. */
   pctUsed: number;
   state: BudgetState;
 };
@@ -86,6 +87,11 @@ function int(o: Record<string, unknown>, key: string): number {
   const v = o[key];
   return isInt(v) ? v : fail(`${key} is not an integer`);
 }
+/** A ratio or percentage: any finite number (never money, which is `int`). */
+function num(o: Record<string, unknown>, key: string): number {
+  const v = o[key];
+  return typeof v === "number" && Number.isFinite(v) ? v : fail(`${key} is not a number`);
+}
 function str(o: Record<string, unknown>, key: string): string {
   const v = o[key];
   return isStr(v) ? v : fail(`${key} is not a string`);
@@ -102,7 +108,7 @@ function parseCategory(v: unknown): HomeCategory {
     budget: int(v, "budget"),
     actual: int(v, "actual"),
     remaining: int(v, "remaining"),
-    pctUsed: int(v, "pctUsed"),
+    pctUsed: num(v, "pctUsed"),
     state,
   };
 }

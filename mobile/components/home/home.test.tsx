@@ -2,7 +2,7 @@ import type { Href } from "expo-router";
 import { act } from "react-test-renderer";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { byTestId, flat, hosts, render, textContent, texts } from "../../test/render";
-import type { HomeCategory, MobileHome } from "../../lib/home/contract";
+import { parseMobileHome, type HomeCategory, type MobileHome } from "../../lib/home/contract";
 import { HomeView } from "./home-view";
 import { resetOverAlertDismissals } from "./over-alert";
 import { TITLE_WORD_GAP } from "./greeting";
@@ -173,6 +173,19 @@ describe("Where it went", () => {
       "Fun$25.00No budget, all unplannedSet budget",
       "Groceries$185.55$34.45 leftof $220.00",
     ]);
+  });
+
+  it("a real budget's unrounded share parses and lights the web's cells: $250 of $400 is 62.5%", () => {
+    // the wire payload, exactly as the server sends it (pctUsed = actual / budget × 100, unrounded)
+    const wire = JSON.parse(JSON.stringify(full({ categories: [cat({ budget: 40000, actual: 25000, remaining: 15000, pctUsed: 62.5, state: "under" })] })));
+    const { r } = view(parseMobileHome(wire));
+    expect(textContent(byTestId(r, "home-where-row"))).toBe("Groceries$250.00$150.00 leftof $400.00");
+    const bar = byTestId(r, "home-where-row").find((n) => n.props.testID === "progress-bar" && typeof n.props.onLayout === "function");
+    act(() => bar.props.onLayout({ nativeEvent: { layout: { width: 342, height: 8, x: 0, y: 0 } } }));
+    const paths = hosts(bar, "Path");
+    const [track, lit] = paths.map((p) => (String(p.props.d).match(/M/g) ?? []).length);
+    // 34 cells fit 342px; the web lights round(0.625 × 34) = 21
+    expect([track, lit]).toEqual([34, 21]);
   });
 
   it("says how far over the plan the month is", () => {

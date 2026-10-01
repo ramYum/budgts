@@ -21,6 +21,7 @@ import { currentMonthKey } from "@/lib/budget/month";
 import { loadHome } from "@/lib/home/load-home";
 import { buildMobileHome } from "@/lib/mobile/home";
 import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
+import { parseMobileHome } from "../../mobile/lib/home/contract";
 import { adminSupabase, categoryIdByName, cleanupUser, client, mainAccountId } from "./_db";
 
 const admin = adminSupabase();
@@ -82,7 +83,8 @@ const bearer = (token: string | null, path: string, init: RequestInit = {}) =>
 beforeAll(async () => {
   a = await mintActor("ALICE-ITEST", "Pacific/Kiritimati");
   b = await mintActor("BOB-ITEST", "America/Los_Angeles");
-  // Distinct amounts so any cross-user leak changes a number, not just a label.
+  // Distinct amounts so any cross-user leak changes a number, not just a label. A's net grocery spend, $50.00 of a $400.00
+  // budget, is a non-whole 12.5% used: the share real budgets usually have, which the app must accept as sent.
   await seedRows(a, 123_400, 5_600, 600);
   await seedRows(b, 777_700, 88_800, 800);
 }, 90_000);
@@ -125,6 +127,13 @@ describe("GET /api/mobile/home (real staging)", () => {
     expect(web.degraded).toEqual([]);
     expect(api).toEqual(JSON.parse(JSON.stringify(buildMobileHome(web))));
     expect(api.moneyLeft).toBe(web.view.tiles.netSavings);
+  });
+
+  it("sends a real budget's share unrounded (12.5%), and the app's Home contract accepts the body as sent", async () => {
+    const body = await (await getHome(bearer(a.token, "/api/mobile/home"))).json();
+    const food = body.categories.find((c: { name: string }) => c.name === "Food / Groceries");
+    expect(food).toMatchObject({ budget: 40_000, actual: 5_000, remaining: 35_000, pctUsed: 12.5 });
+    expect(parseMobileHome(body).categories.find((c) => c.name === "Food / Groceries")?.pctUsed).toBe(12.5);
   });
 
   it("a client-supplied user id cannot redirect the read (B asking for A still gets B)", async () => {

@@ -47,6 +47,7 @@ const accountRow = (over: Record<string, unknown> = {}) => ({
   needs_review: false,
   review_reason: null,
   excluded_from_calculations: false,
+  sign_convention: "standard",
   ...over,
 });
 
@@ -93,6 +94,9 @@ describe("loadConnectedBanks", () => {
           reviewReason: null,
           excludedFromCalculations: false,
           pendingSignCheckCount: 0,
+          signCheckSample: null,
+          signAnswer: null,
+          directionReview: null,
         },
       ],
       unmappedAccounts: [],
@@ -129,6 +133,91 @@ describe("loadConnectedBanks", () => {
         ["eq", "pending_reason", "sign_convention_unknown"],
       ]),
     );
+  });
+
+  it("gives an account still being checked its most recent held transaction to ask about (design: 2026-10-01 card payments §5)", async () => {
+    const held = { plaid_account_id: "pa-row-1", id: "t-1", description: "Trader Joe's", occurred_at: "2026-09-16T00:00:00Z", amount: 4210 };
+    const { supabase, calls } = fakeSupabase({
+      plaid_items: { data: [{ id: "item-1", item_id: "plaid-item-1", institution_name: null, status: "active", last_synced_at: null }] },
+      plaid_accounts: { data: [accountRow({ iso_currency_code: "CAD" })] },
+      accounts: { data: [{ id: "acct-1", name: "Everyday Checking" }] },
+      transactions: { data: [held], count: 1 },
+    });
+
+    const data = await loadConnectedBanks(supabase);
+    expect(data?.banks[0]!.accounts[0]!.signCheckSample).toEqual({
+      transactionId: "t-1",
+      description: "Trader Joe's",
+      occurredAt: "2026-09-16T00:00:00Z",
+      amount: 4210,
+      currency: "CAD",
+    });
+    expect(calls.transactions).toEqual(
+      expect.arrayContaining([
+        ["eq", "plaid_account_id", "pa-row-1"],
+        ["order", "occurred_at", { ascending: false }],
+        ["limit", 1],
+      ]),
+    );
+  });
+
+  it("offers Change answer for an account the user resolved by answering, re-asking about the answered transaction (design: 2026-10-01 card payments §5a)", async () => {
+    const answered = { id: "t-9", description: "Trader Joe's", occurred_at: "2026-09-16T00:00:00Z", amount: 4210, plaid_account_id: "pa-row-1" };
+    const { supabase } = fakeSupabase({
+      plaid_items: { data: [{ id: "item-1", item_id: "plaid-item-1", institution_name: null, status: "active", last_synced_at: null }] },
+      plaid_accounts: { data: [accountRow({ sign_convention: "inverted" }), accountRow({ id: "pa-row-2", plaid_account_id: "pa2", sign_convention: "unknown" })] },
+      accounts: { data: [] },
+      plaid_sign_answers: {
+        data: [
+          { plaid_account_id: "pa-row-1", sample_transaction_id: "t-9", created_at: "2026-10-01T10:00:00Z" },
+          { plaid_account_id: "pa-row-1", sample_transaction_id: "t-1", created_at: "2026-09-30T10:00:00Z" },
+          // an unknown account (e.g. re-linked) never offers a change
+          { plaid_account_id: "pa-row-2", sample_transaction_id: "t-2", created_at: "2026-10-01T10:00:00Z" },
+        ],
+      },
+      transactions: { data: [answered], count: 0 },
+    });
+
+    const data = await loadConnectedBanks(supabase);
+    expect(data?.banks[0]!.accounts[0]!.signAnswer).toEqual({
+      answeredAt: "2026-10-01T10:00:00Z",
+      sample: { transactionId: "t-9", description: "Trader Joe's", occurredAt: "2026-09-16T00:00:00Z", amount: 4210, currency: "USD" },
+    });
+    expect(data?.banks[0]!.accounts[1]!.signAnswer).toBeNull();
+  });
+
+  it("offers the reversed-amounts check on an imported account resolved from evidence (design: 2026-10-01 card payments §5b)", async () => {
+    const recent = { id: "t-5", description: "Shell", occurred_at: "2026-09-28T00:00:00Z", amount: 5150 };
+    const { supabase } = fakeSupabase({
+      plaid_items: { data: [{ id: "item-1", item_id: "plaid-item-1", institution_name: null, status: "active", last_synced_at: null }] },
+      plaid_accounts: {
+        data: [
+          accountRow({ sign_convention: "standard" }),
+          accountRow({ id: "pa-row-2", plaid_account_id: "pa2", sign_convention: "standard", link_state: "ignored", account_id: null }),
+          accountRow({ id: "pa-row-3", plaid_account_id: "pa3", sign_convention: "unknown" }),
+        ],
+      },
+      accounts: { data: [] },
+      plaid_sign_answers: { data: [] },
+      transactions: { data: [recent], count: 0 },
+    });
+    const accounts = (await loadConnectedBanks(supabase))!.banks[0]!.accounts;
+    expect(accounts[0]!.directionReview).toEqual({
+      sample: { transactionId: "t-5", description: "Shell", occurredAt: "2026-09-28T00:00:00Z", amount: 5150, currency: "USD" },
+    });
+    expect(accounts[1]!.directionReview).toBeNull(); // not imported
+    expect(accounts[2]!.directionReview).toBeNull(); // still being checked
+  });
+
+  it("reads no answers on a deployment without migration 0025", async () => {
+    const { supabase } = fakeSupabase({
+      plaid_items: { data: [{ id: "item-1", item_id: "plaid-item-1", institution_name: null, status: "active", last_synced_at: null }] },
+      plaid_accounts: { data: [accountRow()] },
+      accounts: { data: [] },
+      plaid_sign_answers: { data: null, error: { message: "relation does not exist" } },
+      transactions: { data: [], count: 0 },
+    });
+    expect((await loadConnectedBanks(supabase))?.banks[0]!.accounts[0]!.signAnswer).toBeNull();
   });
 
   it("returns null (not an empty list that looks final) when the Plaid tables aren't present on this deployment", async () => {

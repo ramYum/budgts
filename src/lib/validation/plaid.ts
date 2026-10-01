@@ -89,5 +89,14 @@ export const setAccountImportingSchema = z.object({
   importing: z.boolean(),
 });
 
+/** The user's answer to the held-transaction question on Connected banks (design: 2026-10-01 card payments §5). */
+export const answerSignCheckSchema = z.object({
+  /** `plaid_accounts.id` (row uuid). */
+  plaidAccountRowId: z.string().uuid(),
+  /** The held sample transaction the question showed. */
+  transactionId: z.string().uuid(),
+  answer: z.enum(["out", "in"]),
+});
+
 export type AccountMapEntryInput = z.infer<typeof accountMapEntrySchema>;
 export type MapAccountsInput = z.infer<typeof mapAccountsSchema>;

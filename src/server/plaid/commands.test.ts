@@ -48,7 +48,7 @@ function fakeRunner(opts: { claimed?: boolean; outcome?: SyncOutcome; pendingAft
   runner = {
     claim: async (itemId, mode) => {
       calls.claim.push([itemId, mode]);
-      return claimed ? { item: { itemId, userId: USER } as never, token: "lease-1" } : null;
+      return claimed ? { item: { itemId, userId: USER } as never, token: "lease-1", priorNeedsSync: false } : null;
     },
     release: async (itemId, token, resync) => {
       calls.release.push([itemId, token, resync]);

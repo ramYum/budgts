@@ -15,6 +15,7 @@
  *    already has a resolved role.
  *  - Tier C (ambiguous) writes nothing.
  */
+import { resolveEventRole } from "./event-role";
 import type { EventRole } from "./types";
 
 export type PairingDirection = "debit" | "credit";
@@ -59,7 +60,10 @@ export interface PairingResult {
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** Product rule, not a derived fact — see the design doc §Tier A/B. */
 const TIER_A_WINDOW_DAYS = 3;
-const TIER_B_WINDOW_DAYS = 1; // same calendar day, or the immediate next day
+// Widened from 1 (same or next day) to 3, matching Tier A (owner-approved 2026-10-01, design: 2026-10-01 card
+// payments §3): a card payment posts on the card one to three days after it leaves checking. Exact amount and
+// opposite direction still gate every match.
+export const TIER_B_WINDOW_DAYS = 3;
 
 const TRANSFER_SHAPED_ROLES = new Set<EventRole>(["TRANSFER", "CARD_PAYMENT"]);
 
@@ -86,7 +90,7 @@ interface Verdict {
  * regardless of which of the two is processed first, and an accept
  * decision must not depend on that arbitrary ordering.
  */
-function classify(candidate: PairingCandidate, all: readonly PairingCandidate[]): Verdict {
+function classify(candidate: PairingCandidate, all: readonly PairingCandidate[], tierBWindowDays: number): Verdict {
   const candidateShaped = isTransferShaped(candidate);
   const pool = all.filter(
     (other) =>
@@ -99,7 +103,7 @@ function classify(candidate: PairingCandidate, all: readonly PairingCandidate[])
 
   const tierA = candidateShaped ? pool.filter((other) => isTransferShaped(other)) : [];
 
-  const withinB = pool.filter((other) => daysBetween(candidate.occurredAt, other.occurredAt) <= TIER_B_WINDOW_DAYS);
+  const withinB = pool.filter((other) => daysBetween(candidate.occurredAt, other.occurredAt) <= tierBWindowDays);
   const tierB: PairingCandidate[] = [];
   const roleConflict: PairingCandidate[] = [];
   for (const other of withinB) {
@@ -124,7 +128,13 @@ function classify(candidate: PairingCandidate, all: readonly PairingCandidate[])
  * the store layer's per-pair row locking, not from anything here (see
  * sync-store.ts's applyAcceptedPair).
  */
-export function findTransferPairs(candidates: readonly PairingCandidate[]): PairingResult {
+export function findTransferPairs(
+  candidates: readonly PairingCandidate[],
+  /** Only the remediation preview passes a different window (the pre-2026-10-01 value, 1), to tell which pairs the
+   * widening adds. The sync always uses the default. */
+  options: { tierBWindowDays?: number } = {},
+): PairingResult {
+  const tierBWindowDays = options.tierBWindowDays ?? TIER_B_WINDOW_DAYS;
   const sorted = [...candidates].sort((x, y) => {
     const t = new Date(x.occurredAt).getTime() - new Date(y.occurredAt).getTime();
     return t !== 0 ? t : x.id.localeCompare(y.id);
@@ -138,14 +148,14 @@ export function findTransferPairs(candidates: readonly PairingCandidate[]): Pair
   for (const candidate of sorted) {
     if (claimed.has(candidate.id) || flaggedAmbiguous.has(candidate.id)) continue;
 
-    const verdict = classify(candidate, sorted);
+    const verdict = classify(candidate, sorted, tierBWindowDays);
     const signalCount = verdict.tierA.length + verdict.tierB.length + verdict.roleConflict.length;
     if (signalCount === 0) continue; // no transfer signal anywhere -> Reject, not ambiguous
 
     if (verdict.tierA.length === 1 && verdict.tierB.length === 0 && verdict.roleConflict.length === 0) {
       const other = verdict.tierA[0];
       if (claimed.has(other.id)) continue; // already claimed by an earlier, unrelated accept
-      const otherVerdict = classify(other, sorted);
+      const otherVerdict = classify(other, sorted, tierBWindowDays);
       if (otherVerdict.tierA.length !== 1 || otherVerdict.tierA[0].id !== candidate.id) {
         ambiguous.push({ candidateIds: [candidate.id, other.id], reason: "multiple-candidates" });
         flaggedAmbiguous.add(candidate.id);
@@ -161,7 +171,7 @@ export function findTransferPairs(candidates: readonly PairingCandidate[]): Pair
     if (verdict.tierB.length === 1 && verdict.tierA.length === 0 && verdict.roleConflict.length === 0) {
       const other = verdict.tierB[0];
       if (claimed.has(other.id)) continue;
-      const otherVerdict = classify(other, sorted);
+      const otherVerdict = classify(other, sorted, tierBWindowDays);
       if (otherVerdict.tierB.length !== 1 || otherVerdict.tierB[0].id !== candidate.id) {
         ambiguous.push({ candidateIds: [candidate.id, other.id], reason: "multiple-candidates" });
         flaggedAmbiguous.add(candidate.id);
@@ -191,4 +201,39 @@ export function findTransferPairs(candidates: readonly PairingCandidate[]): Pair
   }
 
   return { accepted, ambiguous };
+}
+
+/** A row's fields that decide whether Tier B classified it. */
+export interface TierBStateRow {
+  isTransfer: boolean;
+  eventRole: string | null;
+  primary: string | null;
+  detailed: string | null;
+  transferUserSet: boolean;
+  direction: "debit" | "credit";
+}
+
+/**
+ * When a pair is dissolved (design: 2026-10-01 card payments §5a), a leg that only became a transfer because Tier B
+ * classified it (is_transfer + TRANSFER written by `applyTierBClassification`, while Plaid never called it a
+ * transfer) goes back to what its own signal says: not a transfer, its role re-resolved from its direction and
+ * account type. Null for any other row: a Plaid-labelled transfer, a user's own transfer decision, or a row that was
+ * never a transfer stays exactly as it is.
+ */
+export function undoTierBClassification(
+  row: TierBStateRow,
+  accountType: string | null,
+): { isTransfer: false; eventRole: EventRole | null } | null {
+  if (row.transferUserSet || !row.isTransfer || row.eventRole !== "TRANSFER") return null;
+  if (row.primary === "TRANSFER_IN" || row.primary === "TRANSFER_OUT") return null;
+  return {
+    isTransfer: false,
+    eventRole: resolveEventRole({
+      primary: row.primary,
+      detailed: row.detailed,
+      isTransfer: false,
+      direction: row.direction,
+      accountType,
+    }),
+  };
 }

@@ -109,6 +109,9 @@ export interface AccountMapEntry {
    * sign at ingestion; `"unknown"` routes the row to pending_review instead
    * of guessing. */
   signConvention: SignConvention;
+  /** Plaid's account `type` (`plaid_accounts.type`, e.g. "credit", "depository"); null when Plaid sent none. Read by
+   * the event-role resolver's card-side payment rule (design: 2026-10-01 card payments §2). */
+  accountType: string | null;
 }
 
 export interface NormalizeCtx {

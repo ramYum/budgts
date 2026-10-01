@@ -89,6 +89,10 @@ export type ClaimMode = { kind: "requested" } | { kind: "due"; staleBefore?: Dat
 export interface SyncClaim {
   item: PlaidItemRecord;
   token: string;
+  /** `needs_sync` as it was just before this claim set it, read under the same row lock in the same statement: a
+   * holder that does no syncing of its own (a sign answer) releases with it, so a sync already requested stays
+   * requested (design: 2026-10-01 card payments §5). */
+  priorNeedsSync: boolean;
 }
 
 const leaseFree = () =>
@@ -132,21 +136,33 @@ function dueConds(staleBefore?: Date) {
  * as soon as the lease expires.
  */
 export async function claimItemForSync(db: PlaidDb, itemId: string, mode: ClaimMode): Promise<SyncClaim | null> {
+  // The CTE locks the row (FOR UPDATE) and reads its needs_sync before the UPDATE in the same statement, so the value
+  // returned is exactly the one this claim overwrote: a webhook either committed first (and is read here) or waits
+  // on the lock and lands after the claim (and the release keeps it via last_webhook_at).
+  const prior = db.$with("prior").as(
+    db
+      .select({ id: plaidItems.id, priorNeedsSync: sql<boolean>`${plaidItems.needsSync}`.as("prior_needs_sync") })
+      .from(plaidItems)
+      .where(eq(plaidItems.itemId, itemId))
+      .for("update"),
+  );
   const [row] = await db
+    .with(prior)
     .update(plaidItems)
     .set({ needsSync: true, syncClaimToken: sql`gen_random_uuid()`, syncClaimedAt: sql`now()` })
+    .from(prior)
     .where(
       and(
-        eq(plaidItems.itemId, itemId),
+        eq(plaidItems.id, prior.id),
         leaseFree(),
         not(hasUnmappedAccount()),
         mode.kind === "due" ? dueConds(mode.staleBefore) : undefined,
       ),
     )
-    .returning({ ...COLS, token: plaidItems.syncClaimToken });
+    .returning({ ...COLS, token: plaidItems.syncClaimToken, priorNeedsSync: prior.priorNeedsSync });
   if (!row) return null;
-  const { token, ...item } = row;
-  return { item: item as PlaidItemRecord, token: token as string };
+  const { token, priorNeedsSync, ...item } = row;
+  return { item: item as PlaidItemRecord, token: token as string, priorNeedsSync: priorNeedsSync === true };
 }
 
 /**

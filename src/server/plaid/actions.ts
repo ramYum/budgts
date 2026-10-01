@@ -16,6 +16,7 @@ import { revalidateUserData } from "@/server/revalidate";
 import { redirect } from "next/navigation";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import {
+  answerSignCheckSchema,
   clearAccountReviewSchema,
   disconnectBankSchema,
   mapAccountsSchema,
@@ -24,6 +25,7 @@ import {
 } from "@/lib/validation/plaid";
 import { setAccountCalculationExclusion } from "./account-exclusion";
 import { disconnectPlaidItem } from "./disconnect";
+import { db } from "@/lib/db";
 import {
   categorizeBankTransactionFor,
   clearAccountReviewFor,
@@ -32,6 +34,7 @@ import {
   setAccountImportingFor,
   syncConnectionFor,
 } from "./commands";
+import { changeSignConventionAnswer, resolveSignConventionFromAnswer } from "./sign-answer";
 
 export type PlaidActionState = {
   error?: string;
@@ -99,6 +102,76 @@ export async function clearAccountReview(
   const { supabase } = await withUser();
   const result = await clearAccountReviewFor(supabase, parsed.data.plaidAccountRowId);
   if (!result.ok) return { error: result.message };
+
+  revalidateUserData();
+  return { ok: true };
+}
+
+/**
+ * The user's answer to "Was this money going out or coming in?" about one held transaction (design: 2026-10-01 card
+ * payments §5): resolves the account's transaction format and releases its held rows. Ownership is enforced inside
+ * `resolveSignConventionFromAnswer` against the session user, never client state.
+ */
+export async function answerSignCheckAction(
+  _prev: PlaidActionState,
+  formData: FormData,
+): Promise<PlaidActionState> {
+  const parsed = answerSignCheckSchema.safeParse({
+    plaidAccountRowId: String(formData.get("plaidAccountRowId") ?? ""),
+    transactionId: String(formData.get("transactionId") ?? ""),
+    answer: String(formData.get("answer") ?? ""),
+  });
+  if (!parsed.success) return { error: "Something went wrong. Refresh and try again." };
+
+  const { user } = await withUser();
+  const result = await resolveSignConventionFromAnswer(
+    db(),
+    user.id,
+    parsed.data.plaidAccountRowId,
+    parsed.data.transactionId,
+    parsed.data.answer,
+  );
+  if (result.outcome === "not_found") return { error: "That transaction is no longer waiting. Refresh and try again." };
+  if (result.outcome === "busy") return { error: BUSY_MESSAGE };
+  if (result.outcome === "setting_up") return { error: SETTING_UP_MESSAGE };
+
+  revalidateUserData();
+  return { ok: true };
+}
+
+const BUSY_MESSAGE = "This bank is syncing right now. Try again in a moment.";
+const SETTING_UP_MESSAGE = "Finish choosing which accounts to import from this bank first.";
+
+/**
+ * "Change answer" (design: 2026-10-01 card payments §5a), and "Amounts on this account look reversed?" for an account
+ * resolved from evidence (§5b): the user answers the question for a resolved account; a different answer flips the
+ * account's transaction format and re-evaluates its rows.
+ * Ownership is enforced inside `changeSignConventionAnswer` against the session user, never client state.
+ */
+export async function changeSignAnswerAction(
+  _prev: PlaidActionState,
+  formData: FormData,
+): Promise<PlaidActionState> {
+  const parsed = answerSignCheckSchema.safeParse({
+    plaidAccountRowId: String(formData.get("plaidAccountRowId") ?? ""),
+    transactionId: String(formData.get("transactionId") ?? ""),
+    answer: String(formData.get("answer") ?? ""),
+  });
+  if (!parsed.success) return { error: "Something went wrong. Refresh and try again." };
+
+  const { user } = await withUser();
+  const result = await changeSignConventionAnswer(
+    db(),
+    user.id,
+    parsed.data.plaidAccountRowId,
+    parsed.data.transactionId,
+    parsed.data.answer,
+  );
+  if (result.outcome === "not_found" || result.outcome === "not_answered") {
+    return { error: "This account can't change its answer. Refresh and try again." };
+  }
+  if (result.outcome === "busy") return { error: BUSY_MESSAGE };
+  if (result.outcome === "setting_up") return { error: SETTING_UP_MESSAGE };
 
   revalidateUserData();
   return { ok: true };

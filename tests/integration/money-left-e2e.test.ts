@@ -49,7 +49,7 @@ afterAll(async () => {
 function ctxFor(): NormalizeCtx {
   return {
     accountMap: new Map([
-      [PLAID_ACCOUNT_EXTERNAL_ID, { plaidAccountRowId, budgtsAccountId: accountId, ignored: false, signConvention: "standard" }],
+      [PLAID_ACCOUNT_EXTERNAL_ID, { plaidAccountRowId, budgtsAccountId: accountId, ignored: false, signConvention: "standard", accountType: "depository" }],
     ]),
     currency: "USD",
     resolveCategory: () => null,

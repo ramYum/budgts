@@ -444,6 +444,38 @@ export const plaidAccounts = pgTable(
   ],
 );
 
+/**
+ * The user's answers to "Was this money going out or coming in?" for a Plaid account whose transaction format never
+ * settled (design: 2026-10-01 card payments §5): the first answer resolves the account; a later "Change answer"
+ * flips it. One row per write, never updated: the audit trail (`changed_rows` keeps every changed row's old values).
+ * The account's latest row is also what lets Connected banks offer "Change answer". Server-only writes (sign-answer.ts);
+ * the owner can read their own rows (RLS, migration 0025).
+ */
+export const plaidSignAnswers = pgTable(
+  "plaid_sign_answers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull(),
+    plaidAccountId: uuid("plaid_account_id")
+      .notNull()
+      .references(() => plaidAccounts.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    answer: text("answer").notNull(),
+    sampleTransactionId: uuid("sample_transaction_id").references(() => transactions.id, { onDelete: "set null" }),
+    fromConvention: plaidSignConvention("from_convention").notNull(),
+    toConvention: plaidSignConvention("to_convention").notNull(),
+    changedRows: jsonb("changed_rows").notNull().default(sql`'[]'::jsonb`),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("plaid_sign_answers_account_idx").on(t.plaidAccountId, t.createdAt),
+    index("plaid_sign_answers_user_idx").on(t.userId),
+    check("plaid_sign_answers_kind_valid", sql`${t.kind} in ('answer','change')`),
+    check("plaid_sign_answers_answer_valid", sql`${t.answer} in ('out','in')`),
+    check("plaid_sign_answers_resolves", sql`${t.toConvention} <> 'unknown' and ${t.fromConvention} <> ${t.toConvention}`),
+  ],
+);
+
 // Raw webhook log / dead-letter. Written only by the service-role client in the
 // webhook handler; not readable through the app (RLS deny-all for authenticated,
 // hand-appended). No user_id: rows are logged before the owning user is

@@ -52,6 +52,31 @@ Light theme only. Category identity is carried by icon + name, never by hue.
 The frame generator's palette mirrors these tokens;
 `tests/unit/pixel-frames.test.ts` fails if they drift.
 
+### The sunset backdrop (option B, owner-approved 2026-10-02)
+
+Every screen of the signed-in app (the four tabs and everything inside them)
+sits on Crystal's sunset forest instead of the paper canvas: a pastel sky in
+ten bands, a low sun, clouds and birds, lilac mountains and a forest edge on
+the far shore, a lake, and the meadow with flowers, a toadstool and pines at
+both edges, anchored just above the tab bar (`BACKDROP_LAND_GAP`). Cards float
+on it; it never scrolls. Sign-in, onboarding, the welcome guide and the
+standalone pages keep the paper canvas.
+
+- **One source:** `src/lib/brand/scene-art.ts` (`drawBackdrop`) draws it cell
+  for cell at the viewport's size, 2 px / dp a cell (Crystal's grain). The web
+  paints it on a canvas (`src/components/backdrop.tsx`), the apps as SVG paths
+  (`mobile/components/shell/backdrop.tsx`). At 390×844 it is the approved
+  mock-up pixel for pixel (`scene-art.test.ts` pins it). The same module holds
+  the scene pieces the app icon and the Facebook cover are drawn from.
+- **Header:** the top band (`BACKDROP_SKY[0]`) at 90% with its blur, so it
+  disappears into the sky at rest. On the apps the status bar is that band
+  too, and the scene starts below it, as the web's viewport does.
+- **Text straight on the sky:** ink, or `BACKDROP_MUTED` `#4B4660` for
+  secondary text (4.5:1 on every band; the gray muted is not). Every surface
+  (cards, sheets, fields, chips, every stepped frame) keeps the gray muted:
+  `.on-backdrop` in `globals.css` (kept complete by
+  `tests/unit/backdrop-surfaces.test.ts`) and `PixelFrame` on the apps.
+
 ## Typography
 
 - **Dogica** (Roberto Mocci, SIL OFL 1.1, `src/app/fonts/dogica/`) sets only

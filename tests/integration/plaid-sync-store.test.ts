@@ -49,7 +49,7 @@ function txn(over: Partial<PlaidNormalizedTxn> = {}): PlaidNormalizedTxn {
     ...over,
   };
 }
-const plan = (over: Partial<SyncPlan> = {}): SyncPlan => ({ inserts: [], updates: [], softDeletes: [], ...over });
+const plan = (over: Partial<SyncPlan> = {}): SyncPlan => ({ inserts: [], updates: [], softDeletes: [], rekeys: [], ...over });
 const meta = (cursor: string) => ({ itemId: ITEM_ID, cursor });
 
 async function txnRow(sourceRef: string) {

@@ -288,6 +288,62 @@ export function createPlaidSyncStore(db: PlaidDb): PlaidSyncStore {
       }));
     },
 
+    async findReconnectContext(userId, accountIds, plaidAccountRowIds, fromDate) {
+      if (accountIds.length === 0) return { detached: [], connectedAtMs: new Map() };
+      // `occurred_at` can carry a post DATETIME a day either side of Plaid's `date`; widen by a few days, then the
+      // planner matches on the raw `date` itself. Bounded: kept rows only, on the accounts this sync touches.
+      const since = new Date(Date.parse(`${fromDate}T00:00:00Z`) - 3 * 86_400_000);
+      const [detachedRows, connected] = await Promise.all([
+        Promise.all(
+          chunk(accountIds, BATCH_SIZE).map((batch) =>
+            db
+              .select({
+                id: transactions.id,
+                accountId: transactions.accountId,
+                pending: transactions.pending,
+                rawDate: sql<string | null>`${transactions.raw}->>'date'`,
+                rawAmount: sql<string | null>`${transactions.raw}->>'amount'`,
+                rawName: sql<string | null>`${transactions.raw}->>'name'`,
+                createdAt: transactions.createdAt,
+              })
+              .from(transactions)
+              .where(
+                and(
+                  eq(transactions.userId, userId),
+                  eq(transactions.source, "bank"),
+                  isNull(transactions.plaidAccountId),
+                  isNull(transactions.removedAt),
+                  isNull(transactions.duplicateOfId),
+                  isNotNull(transactions.raw),
+                  inArray(transactions.accountId, batch),
+                  sql`${transactions.occurredAt} >= ${since.toISOString()}`,
+                ),
+              ),
+          ),
+        ),
+        Promise.all(
+          chunk(plaidAccountRowIds, BATCH_SIZE).map((batch) =>
+            db
+              .select({ id: plaidAccounts.id, createdAt: plaidAccounts.createdAt })
+              .from(plaidAccounts)
+              .where(and(eq(plaidAccounts.userId, userId), inArray(plaidAccounts.id, batch))),
+          ),
+        ),
+      ]);
+      return {
+        detached: detachedRows.flat().map((r) => ({
+          id: r.id,
+          accountId: r.accountId,
+          pending: r.pending,
+          rawDate: r.rawDate,
+          rawAmount: r.rawAmount === null || r.rawAmount === "" ? null : Number(r.rawAmount),
+          rawName: r.rawName,
+          importedAtMs: new Date(r.createdAt).getTime(),
+        })),
+        connectedAtMs: new Map(connected.flat().map((r) => [r.id, new Date(r.createdAt).getTime()])),
+      };
+    },
+
     async applyPlan(userId: string, plan: SyncPlan, meta: { itemId: string; cursor: string }) {
       return db.transaction(async (tx) => {
         // ON CONFLICT DO NOTHING (not try/catch): a failed statement aborts the
@@ -299,6 +355,36 @@ export function createPlaidSyncStore(db: PlaidDb): PlaidSyncStore {
           const landed = await tx
             .insert(transactions)
             .values(batch.map((n) => plaidToInsert(userId, n)))
+            .onConflictDoNothing()
+            .returning({ id: transactions.id });
+          inserts += landed.length;
+        }
+
+        // Reconnect adoption: the kept row takes the new identity and nothing else. Conditional on it still being
+        // detached, so two syncs can never both claim it; a row someone else claimed first lands as a normal insert,
+        // so the new transaction is never lost.
+        let rekeyed = 0;
+        for (const r of plan.rekeys) {
+          const claimed = await tx
+            .update(transactions)
+            .set({ sourceRef: r.txn.sourceRef, plaidAccountId: r.txn.plaidAccountRowId })
+            .where(
+              and(
+                eq(transactions.id, r.id),
+                eq(transactions.userId, userId),
+                eq(transactions.source, "bank"),
+                isNull(transactions.plaidAccountId),
+                isNull(transactions.removedAt),
+              ),
+            )
+            .returning({ id: transactions.id });
+          if (claimed.length > 0) {
+            rekeyed++;
+            continue;
+          }
+          const landed = await tx
+            .insert(transactions)
+            .values(plaidToInsert(userId, r.txn))
             .onConflictDoNothing()
             .returning({ id: transactions.id });
           inserts += landed.length;
@@ -338,7 +424,7 @@ export function createPlaidSyncStore(db: PlaidDb): PlaidSyncStore {
           })
           .where(and(eq(plaidItems.userId, userId), eq(plaidItems.itemId, meta.itemId)));
 
-        return { inserts, updates: plan.updates.length, softDeletes: plan.softDeletes.length };
+        return { inserts, updates: plan.updates.length + rekeyed, softDeletes: plan.softDeletes.length };
       });
     },
 

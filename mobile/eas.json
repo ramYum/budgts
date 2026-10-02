@@ -28,6 +28,14 @@
       "android": {
         "buildType": "app-bundle"
       }
+    },
+    "production": {
+      "environment": "production",
+      "distribution": "store",
+      "autoIncrement": true,
+      "android": {
+        "buildType": "app-bundle"
+      }
     }
   }
 }

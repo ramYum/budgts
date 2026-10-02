@@ -1493,3 +1493,19 @@ implementation goes to `budgts-architect`.
   `after()`). Throttle: `claimItemsDueForRefresh` (`src/lib/plaid/bank-refresh.ts`), the same
   `last_refresh_requested_at` claim, now once per 24 hours per Item (was 25 min). Phase 4: gate the route on the
   bank-sync entitlement (`requirePremium`). Needs a production deploy (server) and a new EAS build (app).
+- **2026-10-02 — Plaid banks removed after a lapse; reconnecting no longer doubles history** (`phase-m/plaid-lapse`,
+  merged `3fea74d`, owner decision). Plaid bills Transactions monthly per Item while its access token exists.
+  `src/lib/billing/lapse.ts`: a user with an entitlements row, no Premium, and access ended `LAPSE_GRACE_DAYS` (7) or
+  more days ago has every Item removed through the shared disconnect (strict; the ledger is kept), from the billing
+  reconcile cron (`/api/billing/reconcile/due`), and only when RevenueCat is configured, so it is inert while billing is
+  off. No entitlements row is never touched (pre-launch and owner accounts, until the Phase 4 grandfather grant).
+  Migration `0026` (`entitlements.bank_connections_removed_at`; staging only, production before billing goes on) lets
+  Connected banks (web and native) say why, with Connect a bank as the exit. Found while building it: disconnect then
+  reconnect re-imported the kept history under new Plaid ids, doubling spend; `src/lib/plaid/reconnect-adoption.ts`
+  re-attaches each re-sent transaction to its kept detached row (same Budgts account, bank date, signed amount and
+  pending state, one to one) and soft-deletes kept pending rows the new feed supersedes. **Phase 4, before billing goes
+  on:** gate link-token, exchange and the refresh route with `requirePremium` (otherwise a lapsed user reconnects free
+  and the sweep removes the bank again, a Plaid charge each time), pause sync in the grace window, the grandfather
+  grant. **Open:** mapping a reconnected bank to a NEW Budgts account still doubles the overlap (the mapping screen
+  should suggest the old account); production may already hold duplicates from past reconnects (count before any
+  remediation).

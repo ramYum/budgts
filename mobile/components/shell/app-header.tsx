@@ -2,6 +2,7 @@ import { Pressable, View } from "react-native";
 import Animated, { steps } from "react-native-reanimated";
 import { useReducedMotion } from "../motion/reduced-motion";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { BACKDROP_SKY } from "../../lib/brand/backdrop";
 import { COLOR, ROLE } from "../../lib/brand/shared";
 import { PIP_IN, PIP_MS } from "../../lib/motion/css";
 import { useMotionTiming } from "../../lib/motion/parity-clock";
@@ -14,8 +15,11 @@ import { pressStyle } from "../kit/press";
 
 export const HEADER_HEIGHT = 56;
 
-/** The web header's `bg-bg/90`: the page colour at 90%, so content scrolling under it shows faintly through. */
-export const HEADER_TRANSLUCENT_BG = `rgba(${[1, 3, 5].map((i) => parseInt(ROLE.bg.slice(i, i + 2), 16)).join(", ")}, 0.9)`;
+/**
+ * The web header's tint: the sunset backdrop's top band at 90%, so at rest it is invisible against the sky and content
+ * scrolling under it shows faintly through the blur.
+ */
+export const HEADER_TRANSLUCENT_BG = `rgba(${[1, 3, 5].map((i) => parseInt(BACKDROP_SKY[0]!.slice(i, i + 2), 16)).join(", ")}, 0.9)`;
 
 /** The bell's count (web `px-badge-accent pip`): it snaps in like the tab marker, `pip-in 220ms steps(3, end)`. */
 function BellBadge({ badge }: { badge: string }) {

@@ -5,11 +5,12 @@ import { useReducedMotion } from "../motion/reduced-motion";
 import { useRouter } from "expo-router";
 import { BlurTargetView, BlurView } from "expo-blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { COLOR, MOTION, ROLE } from "../../lib/brand/shared";
+import { COLOR, MOTION } from "../../lib/brand/shared";
 import { EASE_OUT, PAGE_ENTER } from "../../lib/motion/css";
 import { useMotionTiming } from "../../lib/motion/parity-clock";
 import { NEEDS_CATEGORY_LINK } from "../../lib/status/status-api";
 import { useStatus } from "../../lib/status/status-context";
+import { OnBackdrop } from "../brand/on-backdrop";
 import { StaleNotice, type StaleNoticeProps } from "../feedback/refresh-notice";
 import { ScrollWatchProvider, useScrollWatchSource } from "../motion/scroll-context";
 import { AppHeader, HEADER_HEIGHT } from "./app-header";
@@ -18,17 +19,20 @@ import { StatusBanners } from "./status-banners";
 
 /**
  * The web header's `backdrop-blur-xl` (24px): expo-blur's strongest Android radius (intensity 100 ÷ the default
- * reduction 4 = 25) on Android 12+, the system material on iOS; under it the header's own `bg/90`.
+ * reduction 4 = 25) on Android 12+, the system material on iOS; over it the header's own tint (the sky's top band at 90%).
  */
 export const HEADER_BLUR = { intensity: 100, blurMethod: "dimezisBlurViewSdk31Plus" } as const;
 
 /**
- * One signed-in screen, the web dashboard layout: the sticky header (lockup and bell, `bg-bg/90` over a
- * backdrop blur of what scrolls under it), then the column: content
+ * One signed-in screen, the web dashboard layout: the sticky header (lockup and bell, the sky's top band at 90% over
+ * a backdrop blur of what scrolls under it), then the column: content
  * then the status banners 12px down, then the page, inset 24px with 8px on
  * top, rising in on arrival (`page-enter`), ending where the web's column
  * does above the tab bar. Blocks inside can wait below the fold (<Reveal>).
  * Pull to refresh is the native addition that doesn't change the look.
+ * The screen paints no canvas of its own: the page scrolls over the tab
+ * shell's sunset backdrop (components/shell/backdrop.tsx), and what sits
+ * straight on it takes the backdrop's muted colour (OnBackdrop).
  *
  * A screen that loads through `useResource` passes its `notice` (the pull
  * contract: a reload that failed kept the figures on screen) with `onRetry`
@@ -60,7 +64,7 @@ export function Screen({
   const blurTarget = useRef<View>(null);
 
   return (
-    <View style={{ flex: 1, backgroundColor: ROLE.bg }}>
+    <View style={{ flex: 1 }}>
       {/* The header first, so a screen reader meets it before the page (as on the web); zIndex keeps it drawn over the content. */}
       <View style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 1 }}>
         <BlurView
@@ -79,7 +83,7 @@ export function Screen({
       <ScrollView
         ref={scrollRef}
         testID={testID}
-        style={{ flex: 1, backgroundColor: ROLE.bg }}
+        style={{ flex: 1 }}
         contentContainerStyle={{ paddingBottom: contentBottomPad(insets.bottom) }}
         scrollIndicatorInsets={{ top: HEADER_HEIGHT }}
         keyboardShouldPersistTaps="handled"
@@ -101,6 +105,7 @@ export function Screen({
         {/* The header clearance sits inside the view blocks measure against, so a measured y is the scroll content's y,
             the same space as the viewport's offset and height (<Reveal>'s fold, Show more, Crystal's on-screen check). */}
         <View ref={watch.contentRef} collapsable={false} style={{ paddingTop: headerBottom }}>
+          <OnBackdrop.Provider value>
           <ScrollWatchProvider watch={watch}>
             <View style={{ paddingHorizontal: 24 }}>
               <StatusBanners
@@ -128,6 +133,7 @@ export function Screen({
               {children}
             </Animated.View>
           </ScrollWatchProvider>
+          </OnBackdrop.Provider>
         </View>
       </ScrollView>
       </BlurTargetView>

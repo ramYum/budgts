@@ -4,6 +4,7 @@ import Svg, { Path } from "react-native-svg";
 import { frameBorder, framePaths, frameSpec, type FrameName } from "../../lib/brand/frame-geometry";
 import { RAISE } from "../../lib/brand/shared";
 import { SHADOWS } from "../../lib/brand/type";
+import { OnBackdrop } from "./on-backdrop";
 
 /** The lead card and a card carry the web's shadows (`.px-card-raised`, `.px-card` in globals.css). */
 const SHADOW_OF: Partial<Record<FrameName, keyof typeof SHADOWS>> = {
@@ -28,6 +29,8 @@ export type PixelFrameProps = Omit<ViewProps, "style" | "children"> & {
  * border-image stretches them. Like the web, the frame is a transparent border
  * of k cells, so padding inside it means the same on both. Every cell edge
  * lands on a whole device pixel, as the web's crispEdges does (snap.ts).
+ * Every frame paints its own fill, so what it holds is off the sunset
+ * backdrop: the muted role is the gray again (./on-backdrop.ts).
  */
 export function PixelFrame({ frame, state = "", raise = false, style, children, onLayout, ...rest }: PixelFrameProps) {
   const spec = frameSpec(frame, state);
@@ -66,7 +69,7 @@ export function PixelFrame({ frame, state = "", raise = false, style, children, 
           </Svg>
         </View>
       ) : null}
-      {children}
+      <OnBackdrop.Provider value={false}>{children}</OnBackdrop.Provider>
     </View>
   );
 }

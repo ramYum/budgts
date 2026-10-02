@@ -2,6 +2,11 @@ import type { ReactTestInstance } from "react-test-renderer";
 import { describe, expect, it, vi } from "vitest";
 import { Text } from "react-native";
 import { byTestId, flat, hosts, render, textContent } from "../../test/render";
+import { BACKDROP_MUTED } from "../../lib/brand/backdrop";
+import { ROLE } from "../../lib/brand/shared";
+import { Icon } from "../brand/icon";
+import { PixelFrame } from "../brand/pixel-frame";
+import { Text as BrandText } from "../brand/text";
 import { HEADER_BLUR, Screen } from "./screen";
 
 vi.mock("expo-router", () => ({ useRouter: () => ({ push: () => {}, navigate: () => {} }) }));
@@ -65,5 +70,51 @@ describe("Screen's stale-data notice (the pull contract's `notice`, one place fo
       </Screen>,
     );
     expect(r.root.findAll((n) => n.props.testID === "budgets-refresh-notice")).toHaveLength(0);
+  });
+});
+
+describe("Screen over the sunset backdrop (option B)", () => {
+  it("paints no canvas of its own, so the shell's backdrop shows behind the page", () => {
+    const r = render(
+      <Screen>
+        <></>
+      </Screen>,
+    );
+    const root = r.root.findAll((n) => (n.type as unknown) === "View")[0]!;
+    expect(flat(root.props.style).backgroundColor).toBeUndefined();
+    expect(flat(hosts(r, "ScrollView")[0]!.props.style).backgroundColor).toBeUndefined();
+  });
+
+  it("draws muted text and icons straight on the sky in BACKDROP_MUTED, and the gray again on a surface (the web's .on-backdrop)", () => {
+    const r = render(
+      <>
+        <Screen>
+          <BrandText testID="on-sky" variant="body" color={ROLE.muted}>
+            of your budget
+          </BrandText>
+          <Icon testID="on-sky-icon" name="chevron-right" color={ROLE.muted} />
+          <BrandText testID="on-sky-ink" variant="body" color={ROLE.ink}>
+            Where it went
+          </BrandText>
+          <PixelFrame frame="px-card">
+            <BrandText testID="in-card" variant="body" color={ROLE.muted}>
+              Money left
+            </BrandText>
+            <Icon testID="in-card-icon" name="chevron-right" color={ROLE.muted} />
+          </PixelFrame>
+        </Screen>
+        <BrandText testID="off-shell" variant="body" color={ROLE.muted}>
+          Sign in
+        </BrandText>
+      </>,
+    );
+    const colorOf = (id: string) => flat(byTestId(r, id).props.style).color;
+    const fillOf = (id: string) => hosts(byTestId(r, id), "Path").map((p) => p.props.fill);
+    expect(colorOf("on-sky")).toBe(BACKDROP_MUTED);
+    expect(new Set(fillOf("on-sky-icon"))).toEqual(new Set([BACKDROP_MUTED]));
+    expect(colorOf("on-sky-ink")).toBe(ROLE.ink);
+    expect(colorOf("in-card")).toBe(ROLE.muted);
+    expect(new Set(fillOf("in-card-icon"))).toEqual(new Set([ROLE.muted]));
+    expect(colorOf("off-shell")).toBe(ROLE.muted);
   });
 });

@@ -1,4 +1,4 @@
-import { Pressable, View } from "react-native";
+import { Pressable, View, type LayoutChangeEvent } from "react-native";
 import Animated, { steps } from "react-native-reanimated";
 import { useReducedMotion } from "../motion/reduced-motion";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -24,6 +24,9 @@ export const TAB_BAR_HEIGHT = 2 + 12 + 24 + 4 + 16 + 8;
 
 /** The web's `pb-[max(0.25rem,env(safe-area-inset-bottom))]`. */
 export const tabBarBottomPad = (insetBottom: number) => Math.max(4, insetBottom);
+
+/** The bar's whole height from the screen's bottom edge, safe area included (at the default text size; it reports its laid-out height). */
+export const tabBarHeight = (insetBottom: number) => TAB_BAR_HEIGHT + tabBarBottomPad(insetBottom);
 
 /**
  * The web's content column ends 112px (`pb-28`) above the screen's bottom edge,
@@ -61,12 +64,22 @@ function Pip() {
  * four equal columns. The current tab is the one red element: a red icon, an
  * ink semibold label, and the pip on the bar's top edge.
  */
-export function BottomTabs({ active, onSelect }: { active: TabRoute; onSelect: (route: TabRoute) => void }) {
+export function BottomTabs({
+  active,
+  onSelect,
+  onLayout,
+}: {
+  active: TabRoute;
+  onSelect: (route: TabRoute) => void;
+  /** its laid-out size: the backdrop's meadow sits on the bar's real height */
+  onLayout?: (event: LayoutChangeEvent) => void;
+}) {
   const insets = useSafeAreaInsets();
   return (
     <View
       testID="bottom-nav"
       accessibilityRole="tablist"
+      onLayout={onLayout}
       style={{
         flexDirection: "row",
         backgroundColor: ROLE.surface,

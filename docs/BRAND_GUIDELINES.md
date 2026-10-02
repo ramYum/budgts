@@ -59,8 +59,12 @@ sits on Crystal's sunset forest instead of the paper canvas: a pastel sky in
 ten bands, a low sun, clouds and birds, lilac mountains and a forest edge on
 the far shore, a lake, and the meadow with flowers, a toadstool and pines at
 both edges, anchored just above the tab bar (`BACKDROP_LAND_GAP`). Cards float
-on it; it never scrolls. Sign-in, onboarding, the welcome guide and the
-standalone pages keep the paper canvas.
+on it; it never scrolls. The company homepage (budgts.com signed out) sits on
+it too, drawn down the whole page instead of the window: the bands run with
+the scroll and the lake, meadow and pines are the page's last screen, under
+the footer, so no text ever crosses the scene's ground. Sign-in,
+onboarding, the welcome guide, the legal pages and the standalone pages keep
+the paper canvas.
 
 - **One source:** `src/lib/brand/scene-art.ts` (`drawBackdrop`) draws it cell
   for cell at the viewport's size, 2 px / dp a cell (Crystal's grain). The web

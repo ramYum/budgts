@@ -14,4 +14,11 @@ if (typeof window !== "undefined") {
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
   }));
+  // jsdom has no ResizeObserver either; the sunset backdrop (components/backdrop.tsx) watches its box with one. A
+  // no-op stands in: jsdom lays nothing out, so there is never a resize to report.
+  window.ResizeObserver ??= class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
 }

@@ -15,11 +15,9 @@ import { ReviewBanner } from "@/components/plaid/review-banner";
 import { DeletionBanner } from "@/components/account/deletion-banner";
 import { TimeZoneSync } from "@/components/time-zone-sync";
 import { Backdrop } from "@/components/backdrop";
-import { BACKDROP_MUTED, BACKDROP_SKY } from "@/lib/brand/scene-art";
+import { ON_BACKDROP } from "@/components/backdrop-scope";
+import { BACKDROP_SKY } from "@/lib/brand/scene-art";
 
-/** Secondary text straight on the sunset takes BACKDROP_MUTED (4.5:1 on every
- * band); white surfaces restore the gray (globals.css `.on-backdrop`). */
-const ON_BACKDROP = { "--muted": BACKDROP_MUTED } as CSSProperties;
 /** The phone header is the sky's top band at 90%: invisible against it at
  * rest, and content scrolling under it blurs into the same tint. */
 const HEADER_TINT: CSSProperties = { backgroundColor: `color-mix(in srgb, ${BACKDROP_SKY[0]} 90%, transparent)` };
@@ -58,9 +56,9 @@ export default async function DashboardLayout({ children }: LayoutProps<"/">) {
   );
 
   return (
-    <div className="on-backdrop flex min-h-dvh w-full flex-col md:pl-[248px]" style={ON_BACKDROP}>
+    <div className={`${ON_BACKDROP.className} flex min-h-dvh w-full flex-col md:pl-[248px]`} style={ON_BACKDROP.style}>
       {/* Crystal's sunset forest, fixed behind every screen of the app (option B, 2026-10-02). */}
-      <Backdrop />
+      <Backdrop shell />
       {/* Keeps the bell count fresh after a sync lands, on every dashboard route. */}
       {plaidOn ? <RealtimeRefresh tables={["transactions"]} /> : null}
       {/* "Today" and "this month" follow the device's time zone. */}

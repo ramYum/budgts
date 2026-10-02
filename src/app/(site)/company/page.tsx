@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
+import { Backdrop } from "@/components/backdrop";
+import { ON_BACKDROP } from "@/components/backdrop-scope";
 import type { IconName } from "@/components/icon";
 import { LegalFooter } from "@/components/legal/legal-doc";
 import { Logo } from "@/components/logo";
@@ -107,7 +109,11 @@ export default function HomePage() {
   const facts = legalFacts();
 
   return (
-    <div className="flex min-h-dvh w-full flex-col">
+    // On Crystal's sunset forest, like the app (option B), drawn down the whole page: the sky's bands run with the
+    // scroll and the scene's ground is the page's last screen. The bottom padding keeps the footer above the lake,
+    // meadow and pines.
+    <div className={`${ON_BACKDROP.className} relative flex min-h-dvh w-full flex-col pb-28`} style={ON_BACKDROP.style}>
+      <Backdrop />
       <header className="mx-auto flex w-full max-w-[1136px] items-center justify-between px-6 py-4 md:px-12 md:py-7">
         <Link href="/" aria-label="Budgts home" className="press inline-flex">
           <Logo size={22} />

@@ -33,8 +33,12 @@ const FIRST_PAINT: CSSProperties = {
  * covers its positioned parent, the whole page, so the sky's bands run down
  * the page as it scrolls and the lake, meadow and pines are its last screen,
  * never under the text above it.
+ *
+ * `clouds={false}` leaves out the scene's painted clouds, where a page drifts
+ * its own over the sky (the homepage's <DriftingClouds>): a still cloud beside
+ * moving ones reads as stuck.
  */
-export function Backdrop({ shell = false }: { shell?: boolean }) {
+export function Backdrop({ shell = false, clouds = true }: { shell?: boolean; clouds?: boolean }) {
   const box = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
 
@@ -57,7 +61,7 @@ export function Backdrop({ shell = false }: { shell?: boolean }) {
       cv.style.width = `${cols * BACKDROP_CELL}px`;
       cv.style.height = `${rows * BACKDROP_CELL}px`;
       const image = ctx.createImageData(cols, rows);
-      image.data.set(sceneRgba(drawBackdrop(cols, rows, land)));
+      image.data.set(sceneRgba(drawBackdrop(cols, rows, land, { clouds })));
       ctx.putImageData(image, 0, 0);
     };
     paint();
@@ -65,7 +69,7 @@ export function Backdrop({ shell = false }: { shell?: boolean }) {
     resize.observe(el);
     if (bar) resize.observe(bar);
     return () => resize.disconnect();
-  }, [shell]);
+  }, [shell, clouds]);
 
   return (
     <div

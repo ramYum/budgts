@@ -380,8 +380,10 @@ export function backdropSize(width: number, height: number, bottomInset: number)
 /** The whole-screen sunset: banded pastel sky with clouds, birds and a low
  * sun; lilac mountains and a forest edge on the far shore; a lake; the meadow
  * from row `land` down, with flowers, a toadstool and fireflies; pines at both
- * edges. Content scrolls over it; only its edges and gaps show. */
-export function drawBackdrop(cols: number, rows: number, land: number): Grid {
+ * edges. Content scrolls over it; only its edges and gaps show. `clouds:
+ * false` leaves out its three painted clouds (clear sky there, everything else
+ * identical), for a page that drifts clouds of its own over it. */
+export function drawBackdrop(cols: number, rows: number, land: number, { clouds = true }: { clouds?: boolean } = {}): Grid {
   const W = cols, g = new Grid(W, rows);
   const shore = land - LAKE_ROWS; // the far shore: water between it and the meadow
   const step = (shore + 2) / BACKDROP_SKY.length;
@@ -389,8 +391,10 @@ export function drawBackdrop(cols: number, rows: number, land: number): Grid {
   const SUN = { x: Math.round(W * 0.66), y: shore - 1, r: 9 };
   sun(g, SUN.x, SUN.y, SUN.r, P.sun);
   const r = rng(1);
-  for (const [x, y] of [[W * 0.42, Math.round(shore * 0.18)], [W * 0.82, Math.round(shore * 0.42)], [W * 0.12, Math.round(shore * 0.55)]] as const)
-    cloud(g, Math.round(x), y, [[0, 1.5], [4, 2.3 + r() * 0.6], [8, 1.6]], P.cloud);
+  for (const [x, y] of [[W * 0.42, Math.round(shore * 0.18)], [W * 0.82, Math.round(shore * 0.42)], [W * 0.12, Math.round(shore * 0.55)]] as const) {
+    const puff = 2.3 + r() * 0.6; // drawn or not, the stream advances, so the rest of the scene never changes
+    if (clouds) cloud(g, Math.round(x), y, [[0, 1.5], [4, puff], [8, 1.6]], P.cloud);
+  }
   bird(g, Math.round(W * 0.72), Math.round(shore * 0.3));
   bird(g, Math.round(W * 0.76), Math.round(shore * 0.26));
   mountains(g, [[W * 0.1, shore - 17, 0.7], [W * 0.42, shore - 9, 0.6], [W * 0.86, shore - 15, 0.65], [W * 1.05, shore - 22, 0.7]], shore, MTN, SUN.x);

@@ -114,7 +114,7 @@ export default function HomePage() {
     // scroll and the scene's ground is the page's last screen. The bottom padding keeps the footer above the lake,
     // meadow and pines.
     <div className={`${ON_BACKDROP.className} relative flex min-h-dvh w-full flex-col pb-28`} style={ON_BACKDROP.style}>
-      <Backdrop />
+      <Backdrop clouds={false} />
       <DriftingClouds />
       <header className="mx-auto flex w-full max-w-[1136px] items-center justify-between px-6 py-4 md:px-12 md:py-7">
         <Link href="/" aria-label="Budgts home" className="press inline-flex">

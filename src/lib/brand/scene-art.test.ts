@@ -68,6 +68,19 @@ describe("drawBackdrop", () => {
     expect(fingerprint(drawBackdrop(195, 422, 376))).toBe("2e03c12e");
   });
 
+  it("without its painted clouds is the same scene, only clear sky where they were (the homepage drifts its own)", () => {
+    const withClouds = drawBackdrop(206, 458, 399);
+    const clear = drawBackdrop(206, 458, 399, { clouds: false });
+    const cloudShades = new Set<string>(Object.values(P.cloud));
+    expect(clear.px.some((c) => cloudShades.has(c!))).toBe(false);
+    let changed = 0;
+    for (let i = 0; i < withClouds.px.length; i++) {
+      if (cloudShades.has(withClouds.px[i]!)) changed += 1;
+      else expect(clear.px[i]).toBe(withClouds.px[i]);
+    }
+    expect(changed).toBeGreaterThan(0);
+  });
+
   it("is the same scene every time", () => {
     expect(fingerprint(drawBackdrop(206, 458, 399))).toBe(fingerprint(drawBackdrop(206, 458, 399)));
   });

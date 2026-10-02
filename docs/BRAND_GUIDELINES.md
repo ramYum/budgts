@@ -235,6 +235,7 @@ enforces this.
 | Idea lamp (`lamp`) | "What can I change?" switches on: the bulb catches, stutters, holds |
 | Sign-in stage (`stage-*`, `saving`, `wm-*`, `ticker-*`) | The brand's one big moment, on an 8s beat: the robin hops within ±8px of center (4px sprite steps), turns and chirps; a "+$" saving rises from each chirp; the wordmark steps in, then ripples when the robin lands; five savings lines type and erase in turn |
 | Welcome guide (`src/components/tour/guide.module.css`) | Teaching by showing: each card enters from the direction of travel and its heading rises word by word; its scene acts out the feature (Crystal drops in and says hi, purchases land, a "?" flips to its category, Money Left counts up, a saving lands on a goal, confetti and a tour of the four tabs at the end). Every scene's resting state is its finished state |
+| Drifting clouds (`drifting-clouds.tsx`, homepage hero) | The sky is alive: six of the backdrop's own clouds (`cloudSprite`, 2px grain) drift right to left behind the hero, linear and endless, 100-160s a crossing with the small far ones slowest, already part-way across at load. Motion off: they hold still where they are |
 | `press` (scale 0.98) / `lift` | A tap was felt / a card is interactive |
 | `pip` | The active-tab marker snaps in |
 | `.skeleton` sweep | Content is loading, shaped like what's coming |

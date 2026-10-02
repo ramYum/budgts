@@ -420,6 +420,32 @@ export function drawBackdrop(cols: number, rows: number, land: number): Grid {
   return g;
 }
 
+/** One of the scene's clouds (`cloud`, P.cloud: top edge, body, sun-lit
+ * underside) on a transparent grid cropped to it, for clouds that drift over
+ * the sky on their own (the homepage's hero). `puffs` are [dx, radius] in
+ * cells, as `cloud` takes them. */
+export function cloudSprite(puffs: [number, number][]): Grid {
+  const maxR = Math.max(...puffs.map(([, r]) => r));
+  const span = Math.max(...puffs.map(([dx]) => dx));
+  const pad = Math.ceil(maxR) + 2;
+  const W = span + 2 * pad, H = 2 * pad;
+  const g = new Grid(W, H);
+  g.px.fill(null);
+  cloud(g, pad, H - 2, puffs, P.cloud);
+  let x0 = W, x1 = -1, y0 = H, y1 = -1;
+  for (let y = 0; y < H; y++)
+    for (let x = 0; x < W; x++)
+      if (g.px[y * W + x] !== null) {
+        x0 = Math.min(x0, x);
+        x1 = Math.max(x1, x);
+        y0 = Math.min(y0, y);
+        y1 = Math.max(y1, y);
+      }
+  const out = new Grid(x1 - x0 + 1, y1 - y0 + 1);
+  for (let y = 0; y < out.h; y++) for (let x = 0; x < out.w; x++) out.px[y * out.w + x] = g.px[(y + y0) * W + x + x0] ?? null;
+  return out;
+}
+
 // ---------- renderers' input ----------
 /** A solid block of cells: x, y, width, height (cells, from the grid's corner). */
 export type CellRect = [x: number, y: number, w: number, h: number];

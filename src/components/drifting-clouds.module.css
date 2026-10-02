@@ -1,0 +1,39 @@
+/* The homepage hero's drifting clouds (components/drifting-clouds.tsx): a band
+ * of sky above the backdrop and behind the page, clipped so a cloud off either
+ * edge never widens the page. */
+.sky {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: 520px;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: -10;
+}
+
+/* Each cloud waits just past the right edge and drifts left until it has fully
+ * left the screen, then comes round again: linear, endless, transform only.
+ * Its inline delay is negative, so it is already part-way across at load. */
+.cloud {
+  position: absolute;
+  left: 100%;
+  animation-name: cloud-drift;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+@keyframes cloud-drift {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(calc(-100vw - 100%));
+  }
+}
+
+/* Motion off: the clouds stay where their delay put them, spread across the sky. */
+@media (prefers-reduced-motion: reduce) {
+  .cloud {
+    animation-play-state: paused;
+  }
+}

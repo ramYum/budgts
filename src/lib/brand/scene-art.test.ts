@@ -4,6 +4,7 @@ import {
   BACKDROP_SKY,
   P,
   backdropSize,
+  cloudSprite,
   drawBackdrop,
   rectsPath,
   rgb,
@@ -147,5 +148,40 @@ describe("text on the backdrop", () => {
 
   it("ink holds 7:1 on every band", () => {
     for (const band of BACKDROP_SKY) expect(contrast("#111111", band)).toBeGreaterThanOrEqual(7);
+  });
+});
+
+describe("cloudSprite", () => {
+  const puffs: [number, number][] = [
+    [0, 2.2],
+    [5, 3.5],
+    [10, 2.6],
+    [14, 1.8],
+  ];
+
+  it("is the scene's cloud on a transparent grid cropped to it: no empty row or column at any edge", () => {
+    const g = cloudSprite(puffs);
+    const filled = (x: number, y: number) => g.px[y * g.w + x] !== null;
+    const rowFilled = (y: number) => Array.from({ length: g.w }, (_, x) => filled(x, y)).some(Boolean);
+    const colFilled = (x: number) => Array.from({ length: g.h }, (_, y) => filled(x, y)).some(Boolean);
+    expect(rowFilled(0) && rowFilled(g.h - 1) && colFilled(0) && colFilled(g.w - 1)).toBe(true);
+    expect(g.px.some((c) => c === null)).toBe(true); // the corners around the puffs stay see-through
+  });
+
+  it("paints only the cloud's three shades: the top edge, the body, the sun-lit underside", () => {
+    const colours = new Set(cloudSprite(puffs).px.filter((c): c is string => c !== null));
+    expect([...colours].sort()).toEqual([P.cloud.body, P.cloud.lit, P.cloud.top].sort());
+  });
+
+  it("grows with its puffs and is the same every time", () => {
+    const small = cloudSprite([
+      [0, 1.5],
+      [3, 2.2],
+      [7, 1.4],
+    ]);
+    const big = cloudSprite(puffs);
+    expect(big.w).toBeGreaterThan(small.w);
+    expect(big.h).toBeGreaterThan(small.h);
+    expect(cloudSprite(puffs).px).toEqual(big.px);
   });
 });

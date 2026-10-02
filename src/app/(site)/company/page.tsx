@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 import { Backdrop } from "@/components/backdrop";
 import { ON_BACKDROP } from "@/components/backdrop-scope";
+import { DriftingClouds } from "@/components/drifting-clouds";
 import type { IconName } from "@/components/icon";
 import { LegalFooter } from "@/components/legal/legal-doc";
 import { Logo } from "@/components/logo";
@@ -114,6 +115,7 @@ export default function HomePage() {
     // meadow and pines.
     <div className={`${ON_BACKDROP.className} relative flex min-h-dvh w-full flex-col pb-28`} style={ON_BACKDROP.style}>
       <Backdrop />
+      <DriftingClouds />
       <header className="mx-auto flex w-full max-w-[1136px] items-center justify-between px-6 py-4 md:px-12 md:py-7">
         <Link href="/" aria-label="Budgts home" className="press inline-flex">
           <Logo size={22} />

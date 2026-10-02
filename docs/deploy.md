@@ -311,6 +311,54 @@ guessed here).
   `EXPO_PUBLIC_APPLE_SIGN_IN=on` in the iOS EAS environment
   (`mobile/README.md`, "Sign in with Apple").
 
+### Android: Play internal-testing release (first run 2026-10-02)
+
+The verified order; each step names who does it.
+
+1. **Server first (owner pushes).** A store build calls `https://budgts.com`,
+   so production must already serve every `/api/mobile/*` route the build
+   uses. Release the branch the build comes from with
+   `git push origin <sha>:refs/heads/main`. The auto-mode classifier refuses
+   that push from a Claude session even when the owner has authorized it, so
+   the owner runs it.
+2. **EAS production environment** (`eas env:list --environment production`):
+   `EXPO_PUBLIC_API_BASE_URL=https://budgts.com` and the production Supabase
+   URL and publishable key, all plain text (public values). No RevenueCat key
+   while billing is off.
+3. **Build** from `mobile/`:
+   `npx eas-cli@latest build -p android --profile production --non-interactive`.
+   The `production` profile builds an app bundle, and the version code
+   auto-increments on EAS's remote counter. The repository-root `.easignore`
+   keeps the upload to source only (about 14 MB). Check it before a build
+   from a new machine:
+   `npx eas-cli@latest build:inspect -p android --profile production --stage archive --output <dir>`
+   must show no `.env*` files and an empty `mobile/android`. Without the
+   file, EAS uploaded a local dev build's native folder (1013 MB), and it
+   would have skipped prebuild.
+4. **Crash check** (Claude): turn the bundle into a universal APK
+   (`java -jar bundletool.jar build-apks --mode=universal`). Install it on an
+   emulator that doesn't hold the dev build, since the signing keys differ,
+   and cold-launch it 50 times (`am start -W`). Scan the crash buffer and
+   logcat for FATAL and ANR lines.
+5. **Upload** (Play Console → Test and release → Internal testing → Create
+   new release): upload the `.aab`, add release notes, then Save → Review →
+   Start rollout. Testers: the "Budgts Internal Testers" list. They join
+   through the track's opt-in link (Testers tab → "Join on the web").
+6. **App links:** set Vercel production `ANDROID_PACKAGE_NAME=com.budgts.app`
+   and `ANDROID_CERT_SHA256`, which is Play's app-signing SHA-256 (Protected
+   with Play → App signing) plus the upload key's, comma-separated. They
+   reach `/.well-known/assetlinks.json` only with the next production
+   deploy, because Vercel binds env to a deployment when it's built.
+   `ANDROID_PACKAGE_NAME` also switches native Plaid Link to
+   `android_package_name`.
+7. **Plaid:** Dashboard → Developers → API → Allowed Android package names
+   must list `com.budgts.app` (it does).
+8. **Supabase:** production Redirect URLs need `budgts://auth/callback`. The
+   2026-10-02 probe (`/auth/v1/verify?token=x&type=magiclink&redirect_to=…`,
+   read-only) found `https://budgts.com/app/auth/callback` allowed and
+   `budgts://auth/callback` falling back to the Site URL. Until it is added,
+   Google sign-in from the app lands on budgts.com.
+
 ### Sign-in email at launch volume: custom SMTP (owner, before the private beta)
 
 Every magic link (web and app) is sent by Supabase's **built-in mail

@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/page-header";
 import { Icon } from "@/components/icon";
 import { IconTile } from "@/components/ui";
 import { ConnectedBanks } from "./connected-banks";
+import { LapseRemovalNotice } from "./lapse-removal-notice";
 
 /**
  * "Connected banks" section for `/settings` (design §8, §23, §24). Self-gates
@@ -20,12 +21,13 @@ export async function BankConnections() {
   // The reads live in loadConnectedBanks, shared with the native API.
   const data = await loadConnectedBanks(await createClient());
   if (!data) return null; // tables not present on this deployment
-  const { banks, budgtsAccounts } = data;
+  const { banks, budgtsAccounts, connectionsRemovedForLapse } = data;
 
   return (
     <>
       <PageHeader title="Connected banks" back="/more" backOnDesktop={false} />
       <div className="space-y-6 md:max-w-[720px]">
+        {connectionsRemovedForLapse ? <LapseRemovalNotice /> : null}
         {banks.length === 0 ? (
           <div className="px-card-raised flex flex-col items-start gap-4 p-2 md:p-6" data-testid="connected-banks-empty">
             <IconTile name="bank" />

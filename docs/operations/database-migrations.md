@@ -14,6 +14,15 @@
 > (owner-approved, 2026-09-28 11:53Z) and now has `0000`–`0024`; its ledger
 > carries old line-ending and ordering history, see "Production ledger: known
 > pre-existing drift" below.
+>
+> **2026-10-02:** `0026` (`entitlements.bank_connections_removed_at`, the
+> billing lapse sweep) is applied to **staging only** (`phase-m/plaid-lapse`);
+> production waits for the owner. Staging also already has `0025`. Run from a
+> fresh git worktree, `db:verify-history` on staging flags the same seven
+> CRLF-hash files listed under "Production ledger" below (`0003`, `0004`,
+> `0006`, `0008`, `0013`, `0015`, `0016`): the worktree checks them out with LF,
+> while staging's ledger holds the hashes of the main checkout's CRLF copies,
+> byte for byte. That is line endings only, not drift.
 
 Why this file exists: `budgts-staging`'s migration ledger (`drizzle.__drizzle_migrations`)
 drifted from the repository's actual migration files — several migrations'

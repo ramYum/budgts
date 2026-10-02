@@ -232,6 +232,25 @@ describe("loadConnectedBanks", () => {
       accounts: { data: [{ id: "acct-1", name: "Wallet" }] },
       transactions: { data: [], count: 0 },
     });
-    expect(await loadConnectedBanks(supabase)).toEqual({ banks: [], budgtsAccounts: [{ id: "acct-1", name: "Wallet" }] });
+    expect(await loadConnectedBanks(supabase)).toEqual({ banks: [], budgtsAccounts: [{ id: "acct-1", name: "Wallet" }], connectionsRemovedForLapse: false });
+  });
+
+  it("reports a lapse removal from the caller's own entitlement, and nothing when there is no row", async () => {
+    const base = { plaid_items: { data: [] }, plaid_accounts: { data: [] }, accounts: { data: [] }, transactions: { data: [], count: 0 } };
+    const removed = fakeSupabase({
+      ...base,
+      entitlements: { data: { state: "expired", access_until: "2026-01-01T00:00:00Z", bank_connections_removed_at: "2026-01-09T00:00:00Z" } },
+    });
+    expect((await loadConnectedBanks(removed.supabase))?.connectionsRemovedForLapse).toBe(true);
+    expect(removed.calls.entitlements).toContainEqual(["select", "state, access_until, bank_connections_removed_at"]);
+
+    const none = fakeSupabase(base);
+    expect((await loadConnectedBanks(none.supabase))?.connectionsRemovedForLapse).toBe(false);
+
+    const resubscribed = fakeSupabase({
+      ...base,
+      entitlements: { data: { state: "active", access_until: "2999-01-01T00:00:00Z", bank_connections_removed_at: "2026-01-09T00:00:00Z" } },
+    });
+    expect((await loadConnectedBanks(resubscribed.supabase))?.connectionsRemovedForLapse).toBe(false);
   });
 });

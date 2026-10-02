@@ -21,7 +21,7 @@ beforeEach(() => {
 
 describe("GET /api/mobile/plaid/banks", () => {
   it("lists the caller's connected banks and mapping choices through their own client", async () => {
-    loadConnectedBanks.mockResolvedValue({ banks: [{ id: "item-1" }], budgtsAccounts: [{ id: "a1", name: "Wallet" }] });
+    loadConnectedBanks.mockResolvedValue({ banks: [{ id: "item-1" }], budgtsAccounts: [{ id: "a1", name: "Wallet" }], connectionsRemovedForLapse: false });
     const res = await GET(req());
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
@@ -29,8 +29,14 @@ describe("GET /api/mobile/plaid/banks", () => {
       enabled: true,
       banks: [{ id: "item-1" }],
       budgtsAccounts: [{ id: "a1", name: "Wallet" }],
+      connectionsRemovedForLapse: false,
     });
     expect(loadConnectedBanks).toHaveBeenCalledWith(supabase);
+  });
+
+  it("says when the caller's banks were removed because their subscription ended", async () => {
+    loadConnectedBanks.mockResolvedValue({ banks: [], budgtsAccounts: [], connectionsRemovedForLapse: true });
+    expect(await (await GET(req())).json()).toMatchObject({ enabled: true, banks: [], connectionsRemovedForLapse: true });
   });
 
   it("says bank connections are unavailable (not an empty list that looks final) when Plaid is off or absent", async () => {

@@ -54,3 +54,12 @@ export function loadBillingConfig(env: Record<string, string | undefined> = proc
 export function billingLive(config: BillingConfig = loadBillingConfig()): boolean {
   return config.environment === "production" && config.webhookSigningSecret !== null && config.secretApiKey !== null;
 }
+
+/**
+ * Whether billing is switched ON for this deployment in either store environment: it can verify webhooks and ask
+ * RevenueCat directly. Until then no entitlement can be real, so jobs that act on entitlements (the lapse sweep,
+ * src/lib/billing/lapse.ts) must do nothing. Unlike `billingLive`, true on a sandbox (staging) deployment too.
+ */
+export function billingProviderConfigured(config: BillingConfig): boolean {
+  return config.webhookSigningSecret !== null && config.secretApiKey !== null;
+}

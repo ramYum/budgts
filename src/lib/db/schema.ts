@@ -1054,6 +1054,9 @@ export const entitlements = pgTable(
     // what renewal will cost, minor units + ISO 4217, when the provider reported it (null = unknown; never invented)
     renewalPriceAmount: integer("renewal_price_amount"),
     renewalPriceCurrency: text("renewal_price_currency"),
+    // when the lapse sweep last removed one of this user's Plaid Items because their subscription or trial ended
+    // unpaid (src/lib/billing/lapse.ts). Drives the "Your bank connections were removed" notice; null = never.
+    bankConnectionsRemovedAt: timestamp("bank_connections_removed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

@@ -211,4 +211,38 @@ describe("cron endpoints", () => {
     expect(r.status).toBe(200);
     expect(await json(r)).toHaveProperty("checked");
   });
+
+  describe("the lapse sweep rides on the billing schedule", () => {
+    const LATER = new Date(NOW.getTime() + 30 * DAY);
+    const noProvider = (async () => new Response(JSON.stringify({ subscriber: { subscriptions: {} } }))) as unknown as typeof fetch;
+    async function lapsedUserWithBank() {
+      const u = await createAuthUser(pg);
+      await pg.query(`insert into entitlements (user_id, state, access_until) values ($1, 'expired', $2)`, [u, new Date(LATER.getTime() - 10 * DAY)]);
+      const itemId = `item-${u}`;
+      await pg.query(`insert into plaid_items (user_id, item_id, access_token_enc) values ($1, $2, 'enc')`, [u, itemId]);
+      return { u, itemId };
+    }
+
+    it("removes a lapsed user's Items through the injected shared disconnect when billing is configured", async () => {
+      const { u, itemId } = await lapsedUserWithBank();
+      const removeItem = vi.fn(async () => ({ ok: true as const }));
+      const r = await handleReconcileCron(req("Bearer cron-secret-value"), { ...deps({ fetchImpl: noProvider, removeItem }), now: () => LATER });
+      expect(r.status).toBe(200);
+      expect(removeItem).toHaveBeenCalledWith(u, itemId);
+      expect((await json(r)).lapse).toMatchObject({ removed: 1, failed: 0 });
+      await pg.query(`delete from plaid_items where item_id = $1`, [itemId]);
+    });
+
+    it("does nothing while billing is switched off (no webhook secret or no RevenueCat key)", async () => {
+      const { itemId } = await lapsedUserWithBank();
+      for (const off of [{ webhookSigningSecret: null }, { secretApiKey: null }]) {
+        const removeItem = vi.fn(async () => ({ ok: true as const }));
+        const r = await handleReconcileCron(req("Bearer cron-secret-value"), { ...deps({ fetchImpl: noProvider, removeItem }, off), now: () => LATER });
+        expect(r.status).toBe(200);
+        expect(removeItem).not.toHaveBeenCalled();
+        expect((await json(r)).lapse).toBeNull();
+      }
+      await pg.query(`delete from plaid_items where item_id = $1`, [itemId]);
+    });
+  });
 });

@@ -61,6 +61,13 @@ export interface SyncInput {
    * referenced by an `added` row (for carry-over).
    */
   existing: ReadonlyMap<string, ExistingPlaidRow>;
+  /**
+   * Reconnect adoption (reconnect-adoption.ts): new `source_ref` -> the id of a kept, detached row from an earlier
+   * connection to the same bank account. Such a transaction is not inserted again; the kept row takes its identity.
+   */
+  adoptions?: ReadonlyMap<string, string>;
+  /** Kept pending rows the reconnected feed supersedes (reconnect-adoption.ts); soft-deleted. */
+  supersededPending?: readonly string[];
 }
 
 export interface SyncPlan {
@@ -68,6 +75,13 @@ export interface SyncPlan {
   updates: Array<{ id: string; patch: TxnPatch }>;
   /** row ids to stamp `removed_at`. */
   softDeletes: string[];
+  /**
+   * Kept detached rows that take a reconnected Item's identity (`source_ref`, `plaid_account_id`) and nothing else:
+   * their amount, direction, category, note and transfer flags stay as they were (the new Plaid account's sign
+   * convention is not resolved yet, so its derived direction must not overwrite a confirmed row). `txn` is the new
+   * transaction, landed as an insert instead if the kept row was claimed by someone else first.
+   */
+  rekeys: Array<{ id: string; txn: PlaidNormalizedTxn }>;
 }
 
 function patchFrom(n: PlaidNormalizedTxn, ex: ExistingPlaidRow | undefined): TxnPatch {
@@ -113,8 +127,14 @@ function patchFrom(n: PlaidNormalizedTxn, ex: ExistingPlaidRow | undefined): Txn
 }
 
 export function applyPlaidSync(input: SyncInput): SyncPlan {
-  const { added, modified, removed, existing } = input;
-  const plan: SyncPlan = { inserts: [], updates: [], softDeletes: [] };
+  const { added, modified, removed, existing, adoptions, supersededPending = [] } = input;
+  const plan: SyncPlan = { inserts: [], updates: [], softDeletes: [], rekeys: [] };
+  const adopted = (n: PlaidNormalizedTxn): boolean => {
+    const id = adoptions?.get(n.sourceRef);
+    if (!id) return false;
+    plan.rekeys.push({ id, txn: n });
+    return true;
+  };
 
   const upsertExisting = (n: PlaidNormalizedTxn, ex: ExistingPlaidRow) => {
     if (ex.removedAt) return; // never resurrect a soft-deleted row
@@ -128,6 +148,7 @@ export function applyPlaidSync(input: SyncInput): SyncPlan {
       upsertExisting(a, ex);
       continue;
     }
+    if (adopted(a)) continue;
     // Pending → posted carry-over: a user-set category on the pending row moves
     // to the posted replacement so the correction isn't lost.
     let toInsert = a;
@@ -148,8 +169,8 @@ export function applyPlaidSync(input: SyncInput): SyncPlan {
   for (const m of modified) {
     const ex = existing.get(m.sourceRef);
     if (!ex) {
-      // Plaid reports a change to a row we don't have — recover it as an insert.
-      plan.inserts.push(m);
+      // Plaid reports a change to a row we don't have — recover it as an insert (or a kept row's adoption).
+      if (!adopted(m)) plan.inserts.push(m);
       continue;
     }
     upsertExisting(m, ex);
@@ -159,6 +180,7 @@ export function applyPlaidSync(input: SyncInput): SyncPlan {
     const ex = existing.get(r.transaction_id);
     if (ex && !ex.removedAt) plan.softDeletes.push(ex.id);
   }
+  for (const id of supersededPending) if (!plan.softDeletes.includes(id)) plan.softDeletes.push(id);
 
   return plan;
 }

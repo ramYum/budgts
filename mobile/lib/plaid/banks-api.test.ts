@@ -15,11 +15,16 @@ const bank = (over: Record<string, unknown> = {}) => ({
 describe("parseBanks", () => {
   it("accepts the server contract, tolerating fields it does not know", () => {
     const data = parseBanks({ version: 1, enabled: true, banks: [{ ...bank(), newField: true }], budgtsAccounts: [{ id: "a1", name: "Everyday", extra: 1 }], extra: 1 });
-    expect(data).toEqual({ enabled: true, banks: [bank()] });
+    expect(data).toEqual({ enabled: true, banks: [bank()], connectionsRemovedForLapse: false });
   });
 
   it("reads bank connections switched off on the deployment", () => {
-    expect(parseBanks({ version: 1, enabled: false, banks: [], budgtsAccounts: [] })).toEqual({ enabled: false, banks: [] });
+    expect(parseBanks({ version: 1, enabled: false, banks: [], budgtsAccounts: [] })).toEqual({ enabled: false, banks: [], connectionsRemovedForLapse: false });
+  });
+
+  it("reads the lapse removal flag, and refuses a malformed one", () => {
+    expect(parseBanks({ version: 1, enabled: true, banks: [], budgtsAccounts: [], connectionsRemovedForLapse: true }).connectionsRemovedForLapse).toBe(true);
+    expect(() => parseBanks({ version: 1, enabled: true, banks: [], budgtsAccounts: [], connectionsRemovedForLapse: "yes" })).toThrow();
   });
 
   it("keeps account rows and unmapped accounts with their own fields", () => {

@@ -303,4 +303,33 @@ describe("applyPlaidSync", () => {
     expect(plan.inserts[0].categoryId).toBe("cat-user");
     expect(plan.softDeletes).toEqual(["rp"]);
   });
+
+  describe("reconnect adoption", () => {
+    it("an adopted new transaction re-keys the kept row instead of inserting a second copy", () => {
+      const n = norm({ sourceRef: "new-txn", plaidAccountRowId: "pa-new" });
+      const plan = applyPlaidSync(input({ added: [n], adoptions: new Map([["new-txn", "kept-row"]]) }));
+      expect(plan.inserts).toEqual([]);
+      expect(plan.updates).toEqual([]);
+      expect(plan.rekeys).toEqual([{ id: "kept-row", txn: n }]);
+    });
+
+    it("a modified transaction we do not hold is adopted too, rather than recovered as an insert", () => {
+      const n = norm({ sourceRef: "new-txn" });
+      const plan = applyPlaidSync(input({ modified: [n], adoptions: new Map([["new-txn", "kept-row"]]) }));
+      expect(plan.inserts).toEqual([]);
+      expect(plan.rekeys).toEqual([{ id: "kept-row", txn: n }]);
+    });
+
+    it("a source_ref the ledger already holds is a normal update, never an adoption", () => {
+      const plan = applyPlaidSync(input({ added: [norm()], existing: new Map([["txn-1", existingRow()]]), adoptions: new Map([["txn-1", "kept-row"]]) }));
+      expect(plan.rekeys).toEqual([]);
+      expect(plan.updates).toHaveLength(1);
+    });
+
+    it("superseded kept pending rows are soft-deleted once", () => {
+      const plan = applyPlaidSync(input({ added: [norm()], supersededPending: ["stale-1", "stale-1"] }));
+      expect(plan.softDeletes).toEqual(["stale-1"]);
+      expect(plan.inserts).toHaveLength(1);
+    });
+  });
 });

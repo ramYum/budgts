@@ -115,6 +115,9 @@ function fakeStore(
       calls.findRefs.push(refs);
       return existing.filter((r) => refs.includes(r.source_ref));
     },
+    async findReconnectContext() {
+      return { detached: [], connectedAtMs: new Map<string, number>() };
+    },
     async applyPlan(_u, plan, meta) {
       calls.plans.push({ plan, meta });
       for (const n of plan.inserts) {
@@ -885,6 +888,60 @@ describe("runSync — auto-resolve gate", () => {
     });
 
     expect(calls.finalizedSignConventions).toEqual([]);
+  });
+});
+
+describe("runSync: reconnecting a bank does not import its kept history twice", () => {
+  it("re-keys the kept rows the new Item re-sends, imports only what is new, and supersedes a stale kept pending row", async () => {
+    const { store, calls } = fakeStore();
+    const budgtsAccount = accountMap.get(ACCT)!.budgtsAccountId;
+    const plaidRow = accountMap.get(ACCT)!.plaidAccountRowId;
+    const asked: unknown[] = [];
+    store.findReconnectContext = async (...args) => {
+      asked.push(args);
+      return {
+        detached: [
+          { id: "kept-coffee", accountId: budgtsAccount, pending: false, rawDate: "2026-09-08", rawAmount: 10, rawName: "Store", importedAtMs: 1_000 },
+          { id: "kept-pending", accountId: budgtsAccount, pending: true, rawDate: "2026-09-09", rawAmount: 40, rawName: "Gas", importedAtMs: 1_000 },
+        ],
+        connectedAtMs: new Map([[plaidRow, 5_000]]),
+      };
+    };
+    const out = await runSync(
+      deps({
+        store,
+        transactionsSync: async () =>
+          page({
+            added: [
+              pTxn({ transaction_id: "new-coffee" }), // the same purchase the old connection imported
+              pTxn({ transaction_id: "new-gas-posted", date: "2026-09-09", amount: 42, name: "Gas" }), // the pending one, posted
+              pTxn({ transaction_id: "new-lunch", date: "2026-09-10", amount: 15, name: "Lunch" }), // genuinely new
+            ],
+          }),
+      }),
+    );
+    const plan = calls.plans[0].plan;
+    expect(plan.rekeys.map((r) => [r.id, r.txn.sourceRef])).toEqual([["kept-coffee", "new-coffee"]]);
+    expect(plan.inserts.map((t) => t.sourceRef).sort()).toEqual(["new-gas-posted", "new-lunch"]);
+    expect(plan.softDeletes).toEqual(["kept-pending"]);
+    expect(asked).toEqual([["u1", [budgtsAccount], [plaidRow], "2026-09-08"]]);
+    // one coffee, one gas, one lunch: nothing counted twice
+    expect(out.applied.inserts + plan.rekeys.length).toBe(3);
+  });
+
+  it("never asks for kept rows when every transaction is already held", async () => {
+    const existingRow = {
+      id: "row-1", source_ref: "t1", user_categorized: false, category_id: null, note: null, is_transfer: false,
+      removed_at: null, status: "confirmed" as const, pending_reason: null, transfer_user_set: false,
+    };
+    const { store } = fakeStore([existingRow]);
+    let asked = 0;
+    store.findReconnectContext = async () => {
+      asked++;
+      return { detached: [], connectedAtMs: new Map() };
+    };
+    await runSync(deps({ store, transactionsSync: async () => page({ modified: [pTxn()] }) }));
+    expect(asked).toBe(0);
   });
 });
 

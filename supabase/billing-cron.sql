@@ -9,7 +9,12 @@
 --
 -- One job:
 --   billing-reconcile   hourly: re-check live subscriptions against the billing provider so a missed webhook cannot
---                       leave a user's access wrong for long.
+--                       leave a user's access wrong for long. The same run then removes the Plaid bank connections of
+--                       users whose subscription or trial ended unpaid LAPSE_GRACE_DAYS (7) or more ago
+--                       (src/lib/billing/lapse.ts; Plaid bills monthly while an Item exists). Users with no
+--                       entitlements row are never touched, and the route skips the lapse step entirely unless
+--                       RevenueCat is configured on the deployment (REVENUECAT_WEBHOOK_SIGNING_SECRET and
+--                       REVENUECAT_SECRET_API_KEY).
 --
 -- Budgts does not send its own trial-end reminder (owner decision 2026-09-22, superseding the earlier plan): the
 -- `billing-reminders` job this file used to schedule is intentionally gone. If a deployment already has it

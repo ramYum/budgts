@@ -1,0 +1,14 @@
+ALTER TABLE "entitlements" ADD COLUMN "bank_connections_removed_at" timestamp with time zone;--> statement-breakpoint
+-- ===========================================================================
+-- Hand-authored note (the statement above is drizzle-kit's). When the billing lapse sweep (src/lib/billing/lapse.ts)
+-- last removed one of the user's Plaid Items because their subscription or free trial ended unpaid more than
+-- LAPSE_GRACE_DAYS ago. Connected banks reads it to explain the removal ("Your bank connections were removed when your
+-- subscription ended...").
+--
+-- RLS: unchanged and sufficient. entitlements already has RLS enabled with ONE policy, "own read entitlements"
+-- (SELECT, owner only, 0024), and no authenticated INSERT/UPDATE/DELETE policy: only the server (the DB owner) writes
+-- this column, and a user can read only their own row.
+--
+-- Rollback (manual, reversible; the column is derived operational state, losing it only hides the notice):
+--   ALTER TABLE "entitlements" DROP COLUMN "bank_connections_removed_at";
+-- ===========================================================================

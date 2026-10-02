@@ -5,6 +5,8 @@
  * tables aren't present on this deployment (pre-migration-0004 environments), the self-gating `BankConnections` relies on.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { EntitlementState } from "@/lib/billing/entitlement";
+import { showsLapseRemovalNotice } from "@/lib/billing/lapse";
 import { fetchAllRows } from "@/lib/supabase/fetch-all-rows";
 
 export type ConnectedBankAccount = {
@@ -75,6 +77,9 @@ export type ConnectedBanksData = {
   banks: ConnectedBank[];
   /** The user's active Budgts accounts (id, name): the mapping choices. */
   budgtsAccounts: { id: string; name: string }[];
+  /** The user's banks were removed because their subscription or trial ended unpaid (src/lib/billing/lapse.ts), and
+   *  they have not subscribed again: Connected banks says so, with Connect a bank as the way back. */
+  connectionsRemovedForLapse: boolean;
 };
 
 type PlaidItemRow = {
@@ -122,7 +127,7 @@ export async function loadConnectedBanks(supabase: SupabaseClient): Promise<Conn
 
   const items = (itemsData ?? []) as PlaidItemRow[];
 
-  const [{ data: acctData }, { data: budgtsAcctData }, pendingSignRows, { data: answerData }] = await Promise.all([
+  const [{ data: acctData }, { data: budgtsAcctData }, pendingSignRows, { data: answerData }, { data: entitlementData }] = await Promise.all([
     supabase
       .from("plaid_accounts")
       .select(
@@ -152,7 +157,21 @@ export async function loadConnectedBanks(supabase: SupabaseClient): Promise<Conn
     supabase.from("plaid_sign_answers").select("plaid_account_id, sample_transaction_id, created_at").order("created_at", {
       ascending: false,
     }),
+    // The caller's own entitlement (RLS: owner read). No row, or a deployment without migration 0026, reads as "no
+    // removal on record", which is true: the lapse sweep cannot have run there.
+    supabase.from("entitlements").select("state, access_until, bank_connections_removed_at").maybeSingle(),
   ]);
+  const ent = entitlementData as { state: EntitlementState; access_until: string | null; bank_connections_removed_at: string | null } | null;
+  const connectionsRemovedForLapse = showsLapseRemovalNotice(
+    ent
+      ? {
+          state: ent.state,
+          accessUntil: ent.access_until ? new Date(ent.access_until) : null,
+          bankConnectionsRemovedAt: ent.bank_connections_removed_at ? new Date(ent.bank_connections_removed_at) : null,
+        }
+      : null,
+    new Date(),
+  );
 
   const plaidAccounts = (acctData ?? []) as PlaidAccountRow[];
   const budgtsAccounts = (budgtsAcctData ?? []) as { id: string; name: string }[];
@@ -284,5 +303,5 @@ export async function loadConnectedBanks(supabase: SupabaseClient): Promise<Conn
     };
   });
 
-  return { banks, budgtsAccounts };
+  return { banks, budgtsAccounts, connectionsRemovedForLapse };
 }

@@ -11,6 +11,7 @@
 import { normalizePlaidTxn } from "./adapter";
 import { applyPlaidSync, type ExistingPlaidRow, type SyncPlan } from "./apply-sync";
 import { computeContentFingerprint } from "./content-fingerprint";
+import { planReconnectAdoption, type DetachedBankRow, type ReconnectCandidate } from "./reconnect-adoption";
 import {
   ADVANCIAL_INSTITUTION_ID,
   ANOMALY_DUPLICATE_REASON_MARKER,
@@ -129,6 +130,16 @@ export interface PlaidTxnRow {
 export interface PlaidSyncStore {
   /** Existing `source='bank'` rows for the given transaction_ids. */
   findBySourceRefs(userId: string, refs: string[]): Promise<PlaidTxnRow[]>;
+  /**
+   * Reconnect adoption's inputs (reconnect-adoption.ts): this user's kept, detached bank rows on the given Budgts
+   * accounts dated from `fromDate` (`YYYY-MM-DD`, inclusive) on, and when each given Plaid account was connected.
+   */
+  findReconnectContext(
+    userId: string,
+    accountIds: string[],
+    plaidAccountRowIds: string[],
+    fromDate: string,
+  ): Promise<{ detached: DetachedBankRow[]; connectedAtMs: Map<string, number> }>;
   /** Apply the plan and advance the cursor in one transaction. */
   applyPlan(
     userId: string,
@@ -413,7 +424,44 @@ export async function runSync(deps: SyncDeps): Promise<SyncOutcome> {
     ]),
   );
 
-  const plan = applyPlaidSync({ added, modified, removed, existing });
+  // ---- reconnect adoption: a new Item for a bank the user connected before re-sends history the ledger kept (detached)
+  //      when the old connection was removed. Those rows take the new identity instead of landing twice.
+  const unheld = [...added, ...modified].filter((t) => !existing.has(t.sourceRef));
+  let adoption: { adopt: Map<string, string>; supersededPending: string[] } = { adopt: new Map(), supersededPending: [] };
+  if (unheld.length > 0) {
+    const rawOf = (t: PlaidNormalizedTxn) => t.raw as Partial<PlaidTxnInput> | null;
+    const dates = unheld.map((t) => rawOf(t)?.date).filter((d): d is string => typeof d === "string");
+    if (dates.length > 0) {
+      const fromDate = dates.reduce((a, b) => (b < a ? b : a));
+      const ctx = await store.findReconnectContext(
+        userId,
+        [...new Set(unheld.map((t) => t.accountId))],
+        [...new Set(unheld.map((t) => t.plaidAccountRowId))],
+        fromDate,
+      );
+      if (ctx.detached.length > 0) {
+        const candidates: ReconnectCandidate[] = unheld.map((t) => ({
+          sourceRef: t.sourceRef,
+          accountId: t.accountId,
+          pending: t.pending,
+          rawDate: rawOf(t)?.date ?? null,
+          rawAmount: typeof rawOf(t)?.amount === "number" ? (rawOf(t)!.amount as number) : null,
+          rawName: rawOf(t)?.name ?? null,
+          connectedAtMs: ctx.connectedAtMs.get(t.plaidAccountRowId) ?? Number.NEGATIVE_INFINITY,
+        }));
+        adoption = planReconnectAdoption(candidates, ctx.detached);
+      }
+    }
+  }
+
+  const plan = applyPlaidSync({
+    added,
+    modified,
+    removed,
+    existing,
+    adoptions: adoption.adopt,
+    supersededPending: adoption.supersededPending,
+  });
 
   // Always persist: even a no-change incremental sync advances the cursor.
   const finalCursor = cursor ?? initialCursor ?? "";

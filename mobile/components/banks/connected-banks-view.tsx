@@ -1,6 +1,7 @@
 import { View } from "react-native";
 import { COLOR, ROLE } from "../../lib/brand/shared";
 import type { ConnectedBank } from "../../lib/plaid/banks-api";
+import { WarnLine } from "../activity/limited-history-banner";
 import { IconTile } from "../brand/controls";
 import { Icon } from "../brand/icon";
 import { PixelFrame } from "../brand/pixel-frame";
@@ -17,15 +18,22 @@ import { ConnectBank } from "./connect-bank";
  * them, in one fixed place so its mapping sheet survives the reload after a
  * save. When bank connections are off on the deployment, the web's note.
  */
+/** Web `LAPSE_REMOVAL_MESSAGE` (src/components/plaid/lapse-removal-notice.tsx), word for word. */
+export const LAPSE_REMOVAL_MESSAGE =
+  "Your bank connections were removed when your subscription ended. Your past transactions are still here. Subscribe again to reconnect.";
+
 export function ConnectedBanksView({
   enabled,
   banks,
+  connectionsRemovedForLapse = false,
   actions,
   now,
   onBack,
 }: {
   enabled: boolean;
   banks: ConnectedBank[];
+  /** The server removed the banks when the subscription ended: say so above the list, Connect a bank is the way back. */
+  connectionsRemovedForLapse?: boolean;
   actions: BankActions;
   now: number;
   onBack: () => void;
@@ -45,6 +53,7 @@ export function ConnectedBanksView({
     <View testID="connected-banks-view">
       <PageHeader title="Connected banks" onBack={onBack} />
       <View style={{ gap: 24 }}>
+        {connectionsRemovedForLapse ? <WarnLine testID="lapse-removal-notice">{LAPSE_REMOVAL_MESSAGE}</WarnLine> : null}
         {banks.length === 0 ? (
           <PixelFrame testID="connected-banks-empty" frame="px-card-raised" style={{ padding: 8, alignItems: "flex-start", gap: 16 }}>
             <IconTile name="bank" />

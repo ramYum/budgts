@@ -92,6 +92,9 @@ export type BanksData = {
   /** false when bank connections are off on this deployment (the web shows "not available yet" instead) */
   enabled: boolean;
   banks: ConnectedBank[];
+  /** The banks were removed because the subscription or trial ended unpaid (server: src/lib/billing/lapse.ts).
+   *  Absent from an older server, which never removes them: read as false. */
+  connectionsRemovedForLapse: boolean;
 };
 
 export function parseBanks(body: unknown): BanksData {
@@ -108,7 +111,11 @@ export function parseBanks(body: unknown): BanksData {
       unmappedAccounts: list(item.unmappedAccounts, "unmappedAccounts", parseUnmapped),
     };
   });
-  return { enabled: bool(b.enabled, "enabled"), banks };
+  return {
+    enabled: bool(b.enabled, "enabled"),
+    banks,
+    connectionsRemovedForLapse: b.connectionsRemovedForLapse === undefined ? false : bool(b.connectionsRemovedForLapse, "connectionsRemovedForLapse"),
+  };
 }
 
 /** A status the UI must surface, not hide — no silent failure states. */

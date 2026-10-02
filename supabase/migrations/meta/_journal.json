@@ -183,6 +183,13 @@
       "when": 1790873706618,
       "tag": "0025_plaid_sign_answers",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1790972965505,
+      "tag": "0026_entitlements_bank_connections_removed",
+      "breakpoints": true
     }
   ]
 }

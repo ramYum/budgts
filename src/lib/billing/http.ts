@@ -16,11 +16,12 @@ import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getRequestUser } from "@/lib/auth/get-request-user";
 import { describePlaidError } from "@/lib/plaid/error-policy";
-import type { BillingConfig } from "./config";
+import { billingProviderConfigured, type BillingConfig } from "./config";
 import type { Db } from "./db";
 import { processRevenueCatEvent } from "./processor";
 import { mapRevenueCatEvent } from "./revenuecat/map";
 import { SIGNATURE_HEADER, verifyRevenueCatWebhook } from "./revenuecat/verify";
+import { removeLapsedBankConnections, type RemoveItem } from "./lapse";
 import { getEntitlementView, reconcileStale, refreshEntitlement } from "./service";
 
 export interface HttpDeps {
@@ -28,6 +29,8 @@ export interface HttpDeps {
   config: BillingConfig;
   now?: () => Date;
   fetchImpl?: typeof fetch;
+  /** Removes one Plaid Item for the lapse sweep. Default: the shared disconnect, strict (`./lapse-remove`). */
+  removeItem?: RemoveItem;
 }
 
 const NO_STORE = { "Cache-Control": "no-store" };
@@ -128,5 +131,13 @@ function cronAuthorized(request: Request, config: BillingConfig): boolean {
 export async function handleReconcileCron(request: Request, deps: HttpDeps): Promise<Response> {
   if (!cronAuthorized(request, deps.config)) return json({ error: "unauthorized" }, 401);
   const result = await reconcileStale({ db: deps.db, config: deps.config, now: deps.now, fetchImpl: deps.fetchImpl });
-  return json(result);
+  // After the reconcile, so the lapse decision sees entitlements the provider has just confirmed. Only while billing
+  // is switched on for this deployment: until then no entitlement row is real and nothing may be removed.
+  const lapse = billingProviderConfigured(deps.config)
+    ? await removeLapsedBankConnections({ db: deps.db, now: deps.now, removeItem: deps.removeItem ?? removeItemLazily })
+    : null;
+  return json({ ...result, lapse });
 }
+
+/** Loads the server-only disconnect wiring only when an Item actually has to go. */
+const removeItemLazily: RemoveItem = async (userId, itemId) => (await import("./lapse-remove")).removeItemViaSharedDisconnect(userId, itemId);

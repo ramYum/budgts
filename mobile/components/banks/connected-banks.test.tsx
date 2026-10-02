@@ -75,6 +75,15 @@ describe("Connected banks (web /connected-banks)", () => {
     expect(byTestId(r, "connect-bank").props.accessibilityLabel).toBe("Connect a bank");
   });
 
+  it("after a lapse removed the banks: the web's notice, the empty card, and Connect a bank as the way back", () => {
+    const r = render(<ConnectedBanksView enabled banks={[]} connectionsRemovedForLapse actions={actions()} now={NOW} onBack={() => {}} />);
+    expect(textContent(byTestId(r, "lapse-removal-notice"))).toBe(
+      "Your bank connections were removed when your subscription ended. Your past transactions are still here. Subscribe again to reconnect.",
+    );
+    expect(byTestId(r, "connect-bank").props.accessibilityLabel).toBe("Connect a bank");
+    expect(view([]).root.findAll((n) => n.props.testID === "lapse-removal-notice")).toHaveLength(0);
+  });
+
   it("with bank connections off on the deployment: the web's note, no connect", () => {
     const r = view([], actions(), false);
     expect(texts(r)).toContain(

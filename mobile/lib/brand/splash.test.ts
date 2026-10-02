@@ -8,8 +8,9 @@ import { COLOR, EGG_FRAMES } from "./shared";
  * The native splash is the loading screen's first frame: the same resting
  * egg, the same size, on the same paper (app.json → expo-splash-screen; the
  * images come from tools/generate-app-icons.mjs). And the launcher icon is
- * the sign-in badge on an ink tile (src/lib/brand/app-icon-art.ts), as one
- * opaque square for iOS and as layers for Android's adaptive icon.
+ * the approved sunset-forest icon (src/lib/brand/app-icon.png), as one opaque
+ * square for iOS and as two layers for Android's adaptive icon; its pixels are
+ * checked against the master by tests/unit/app-icons.test.ts.
  */
 
 const appRoot = join(__dirname, "..", "..");
@@ -54,17 +55,19 @@ describe("native splash", () => {
 });
 
 describe("launcher icons", () => {
-  it("are the badge icon: one opaque 1024 square, and Android's background, foreground and themed layers", () => {
+  it("are the forest icon: one opaque 1024 square, and Android's background and foreground layers", () => {
     expect(pngSize(expo.icon)).toEqual({ width: 1024, height: 1024 });
     // an opaque PNG: colour type 2 (RGB) or 3 (palette) with no transparency chunk
     const icon = readFileSync(join(appRoot, expo.icon));
     expect([2, 3]).toContain(icon[25]);
     expect(icon.includes(Buffer.from("tRNS"))).toBe(false);
     const adaptive = expo.android.adaptiveIcon;
-    expect(adaptive.backgroundColor.toLowerCase()).toBe(COLOR.charcoal); // the ink the background layer bleeds
-    for (const file of [adaptive.backgroundImage, adaptive.foregroundImage, adaptive.monochromeImage]) {
+    // the background layer is the scene itself, edge to edge: no colour, no themed layer
+    expect(Object.keys(adaptive).sort()).toEqual(["backgroundImage", "foregroundImage"]);
+    for (const file of [adaptive.backgroundImage, adaptive.foregroundImage]) {
       expect(existsSync(join(appRoot, file)), file).toBe(true);
-      expect(pngSize(file), file).toEqual({ width: 1024, height: 1024 });
+      const { width, height } = pngSize(file);
+      expect(width, file).toBe(height); // square layers, 77 cells at 14 px (tools/generate-app-icons.mjs)
     }
   });
 });

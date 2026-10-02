@@ -126,7 +126,7 @@ What carries over is the **spirit**:
 | PWA | web app manifest + service worker (app-shell caching); retired with the browser app at launch, when a service-worker update clears the caches (launch spec §13a) |
 | Company website | budgts.com homepage + privacy/terms/support/account-deletion pages, Next.js in this project (Phase 1b); the only public web surface after launch |
 | Data / auth / storage / realtime | Supabase (Postgres, Auth, Storage, Realtime) |
-| DB access | `supabase-js` with the user's session for all user-facing reads/writes; Drizzle for migrations **and** the server-only Plaid pipeline (`src/server/plaid/*`, webhook / cron routes, the page-view refresh nudge), which connects as the DB owner — bypassing RLS — so every such query must scope by `user_id`/`item_id` explicitly |
+| DB access | `supabase-js` with the user's session for all user-facing reads/writes; Drizzle for migrations **and** the server-only Plaid pipeline (`src/server/plaid/*`, webhook / cron routes, the native pull's bank refresh), which connects as the DB owner — bypassing RLS — so every such query must scope by `user_id`/`item_id` explicitly |
 | Security | Row-Level Security on **every** table, scoped to `auth.uid()` — the enforcement, not a backstop |
 | Validation | Zod schemas shared client + server |
 | Forms | Native `<form action>` + server actions (`useActionState`), Zod-validated on the server |

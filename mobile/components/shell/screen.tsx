@@ -8,6 +8,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { COLOR, MOTION } from "../../lib/brand/shared";
 import { EASE_OUT, PAGE_ENTER } from "../../lib/motion/css";
 import { useMotionTiming } from "../../lib/motion/parity-clock";
+import { useAuth } from "../../lib/auth/auth-context";
+import { pullWithBankRefresh } from "../../lib/plaid/bank-refresh";
 import { NEEDS_CATEGORY_LINK } from "../../lib/status/status-api";
 import { useStatus } from "../../lib/status/status-context";
 import { OnBackdrop } from "../brand/on-backdrop";
@@ -29,7 +31,10 @@ export const HEADER_BLUR = { intensity: 100, blurMethod: "dimezisBlurViewSdk31Pl
  * then the status banners 12px down, then the page, inset 24px with 8px on
  * top, rising in on arrival (`page-enter`), ending where the web's column
  * does above the tab bar. Blocks inside can wait below the fold (<Reveal>).
- * Pull to refresh is the native addition that doesn't change the look.
+ * Pull to refresh is the native addition that doesn't change the look. A
+ * pull re-reads the screen (`onRefresh`) and, alongside, asks the server for
+ * a bank refresh (`pullWithBankRefresh`): the only trigger for Plaid's billed
+ * Transactions Refresh, throttled on the server to once a day per bank.
  * The screen paints no canvas of its own: the page scrolls over the tab
  * shell's sunset backdrop (components/shell/backdrop.tsx), and what sits
  * straight on it takes the backdrop's muted colour (OnBackdrop).
@@ -55,6 +60,7 @@ export function Screen({
 } & StaleNoticeProps) {
   const router = useRouter();
   const status = useStatus();
+  const { session } = useAuth();
   const insets = useSafeAreaInsets();
   const reduced = useReducedMotion();
   const { watch, scrollRef, onScrollY, onViewportHeight } = useScrollWatchSource();
@@ -94,7 +100,7 @@ export function Screen({
           onRefresh ? (
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={onRefresh}
+              onRefresh={() => pullWithBankRefresh(session, onRefresh)}
               progressViewOffset={headerBottom}
               tintColor={COLOR.signal}
               colors={[COLOR.signal]}

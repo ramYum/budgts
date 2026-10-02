@@ -11,6 +11,10 @@ import { HEADER_BLUR, Screen } from "./screen";
 
 vi.mock("expo-router", () => ({ useRouter: () => ({ push: () => {}, navigate: () => {} }) }));
 vi.mock("../../lib/status/status-context", () => ({ useStatus: () => ({ needsCategoryCount: 2, review: { advisory: null, excluded: null }, deletionInProgress: false }) }));
+const session = vi.hoisted(() => ({ access_token: "t" }));
+vi.mock("../../lib/auth/auth-context", () => ({ useAuth: () => ({ session }) }));
+const pullWithBankRefresh = vi.hoisted(() => vi.fn());
+vi.mock("../../lib/plaid/bank-refresh", () => ({ pullWithBankRefresh: (...a: unknown[]) => pullWithBankRefresh(...a) }));
 
 describe("Screen's sticky header (web bg-bg/90 backdrop-blur-xl)", () => {
   it("draws the header over a backdrop blur of the content, which scrolls under it", () => {
@@ -116,5 +120,29 @@ describe("Screen over the sunset backdrop (option B)", () => {
     expect(colorOf("in-card")).toBe(ROLE.muted);
     expect(new Set(fillOf("in-card-icon"))).toEqual(new Set([ROLE.muted]));
     expect(colorOf("off-shell")).toBe(ROLE.muted);
+  });
+});
+
+describe("Screen's pull to refresh", () => {
+  it("a pull re-reads the screen and asks for the bank refresh with the session, through one call", () => {
+    pullWithBankRefresh.mockImplementation((_s: unknown, refetch: () => void) => refetch());
+    const onRefresh = vi.fn();
+    const r = render(
+      <Screen onRefresh={onRefresh}>
+        <></>
+      </Screen>,
+    );
+    hosts(r, "ScrollView")[0]!.props.refreshControl.props.onRefresh();
+    expect(pullWithBankRefresh).toHaveBeenCalledExactlyOnceWith(session, onRefresh);
+    expect(onRefresh).toHaveBeenCalledOnce();
+  });
+
+  it("a screen without onRefresh has no pull, so no bank refresh", () => {
+    const r = render(
+      <Screen>
+        <></>
+      </Screen>,
+    );
+    expect(hosts(r, "ScrollView")[0]!.props.refreshControl).toBeUndefined();
   });
 });

@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
-import { after } from "next/server";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import { requireTimeZone } from "@/lib/current-profile";
 import { currentMonthKey, todayDateKey } from "@/lib/budget/month";
@@ -20,7 +19,6 @@ import { NeedsCategory, type NeedsCategoryItem } from "@/components/plaid/needs-
 import { LimitedHistoryBanner } from "@/components/plaid/limited-history-banner";
 import { fetchAllRows } from "@/lib/supabase/fetch-all-rows";
 import { selectableAccounts, type SelectableAccountRow } from "@/lib/accounts/selectable-accounts";
-import { nudgeRefresh } from "@/server/plaid/service";
 
 export const metadata: Metadata = { title: "Transactions" };
 
@@ -51,10 +49,6 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
   const supabase = await createClient();
 
   const plaidOn = plaidUiEnabled();
-
-  // Nudge Plaid to check for new data now that the user is looking, without
-  // holding up the response — see nudgeRefresh's docstring for the throttle.
-  if (plaidOn) after(() => nudgeRefresh(user.id));
 
   // fetchAllRows, not a bare await: an unbounded `.select()` silently caps
   // at PostgREST's default 1000 rows, which a heavy Plaid feed can exceed

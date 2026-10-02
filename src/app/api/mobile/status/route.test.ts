@@ -25,9 +25,6 @@ vi.mock("@/lib/accounts/load-accounts-overview", () => ({
   loadAccountsOverview: (...a: unknown[]) => loadAccountsOverview(...a),
 }));
 vi.mock("@/lib/mobile/time-zone", () => ({ profileTimeZone: (...a: unknown[]) => profileTimeZone(...a) }));
-// GET /api/mobile/activity schedules the refresh nudge after answering (its own route.test.ts covers it); here, no request scope
-vi.mock("@/server/plaid/service", () => ({ nudgeRefresh: vi.fn() }));
-vi.mock("next/server", async (orig) => ({ ...(await orig<typeof import("next/server")>()), after: () => {} }));
 
 import { GET as STATUS } from "./route";
 import { GET as ACTIVITY } from "../activity/route";

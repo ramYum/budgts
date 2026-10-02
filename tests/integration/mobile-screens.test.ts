@@ -12,8 +12,8 @@
 import { createClient } from "@supabase/supabase-js";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
-// GET /api/mobile/activity schedules the web's refresh nudge with next/server `after`, which needs a live request scope that a
-// direct route call here doesn't have; the nudge itself is covered by src/app/api/mobile/activity/route.test.ts.
+// The Plaid account-mapping route's first sync can schedule its leftover pages with next/server `after`, which needs a live
+// request scope that a direct route call here doesn't have.
 vi.mock("next/server", async (orig) => ({ ...(await orig<typeof import("next/server")>()), after: () => {} }));
 import { GET as getGoals, POST as postGoal } from "@/app/api/mobile/goals/route";
 import { PATCH as patchGoal } from "@/app/api/mobile/goals/[id]/route";

@@ -1,6 +1,6 @@
 /**
  * Server-only wiring for the Plaid route handlers: webhook-key fetch, the
- * user's-own-item access token (reconnect), the refresh nudge, and the one-item
+ * user's-own-item access token (reconnect), the native pull's bank refresh, and the one-item
  * sync runner with the real singletons. The pipeline's DB handle is `db()` from
  * `@/lib/db`. `import "server-only"` keeps this out of any client bundle and out
  * of the Vitest unit layer (these paths are covered by the Plaid-integration /
@@ -8,9 +8,8 @@
  */
 import "server-only";
 import type { JWK } from "jose";
-import { and, eq, isNull, lt, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
-import { plaidItems } from "@/lib/db/schema";
+import { claimItemsDueForRefresh } from "@/lib/plaid/bank-refresh";
 import { plaidClient } from "@/lib/plaid/client";
 import { loadPlaidConfig } from "@/lib/plaid/config";
 import { decryptToken } from "@/lib/plaid/crypto";
@@ -18,42 +17,16 @@ import { describePlaidError } from "@/lib/plaid/error-policy";
 import { findUserItem } from "@/lib/plaid/item-store";
 import { drainItem, plaidSyncRunnerDeps, type SyncRunnerDeps } from "@/lib/plaid/sync-runner";
 
-/** Throttle for {@link nudgeRefresh} — see its docstring. */
-export const REFRESH_THROTTLE_MS = 25 * 60 * 1000;
-
 /**
- * Ask Plaid to check each of the user's active Items right now
- * (`/transactions/refresh`), throttled to once per `REFRESH_THROTTLE_MS` per
- * Item. Called from page loads via `after()` so it never blocks rendering —
- * it's a nudge, not a wait: if Plaid finds anything new it arrives via the
- * existing webhook -> claimed sync path (sync-runner.ts), same as any other update.
- *
- * The throttle matters for two reasons, not just Plaid's own rate limits: some
- * institutions (Item Debugger calls this "Classic" integration) refresh via a
- * simulated login rather than a live API, so calling this too often risks
- * tripping the bank's own fraud detection on the user's real account.
- *
- * The UPDATE...RETURNING is the throttle gate itself: it atomically claims
- * only the Items actually due, so concurrent page loads (multiple tabs, or
- * the dashboard and transactions pages both loading) can't double-fire.
- * Never throws — it's best-effort by nature, so any failure (a refresh call,
- * the claim query, missing config) is logged and otherwise ignored.
+ * The native pull's bank refresh (POST /api/mobile/plaid/refresh, scheduled with `after()` so the pull never waits on
+ * Plaid): asks Plaid to check each of the user's due Items now (`/transactions/refresh`). Only Items the 24-hour claim
+ * hands back are called (`claimItemsDueForRefresh`, src/lib/plaid/bank-refresh.ts). Anything new arrives through the
+ * usual webhook -> claimed sync path (sync-runner.ts). Never throws: a failed claim or Plaid call is logged (codes only,
+ * `describePlaidError`) and otherwise ignored, since the pull has already re-read the user's data.
  */
-export async function nudgeRefresh(userId: string): Promise<void> {
+export async function refreshBankItems(userId: string): Promise<void> {
   try {
-    const cutoff = new Date(Date.now() - REFRESH_THROTTLE_MS);
-    const due = await db()
-      .update(plaidItems)
-      .set({ lastRefreshRequestedAt: sql`now()` })
-      .where(
-        and(
-          eq(plaidItems.userId, userId),
-          eq(plaidItems.status, "active"),
-          or(isNull(plaidItems.lastRefreshRequestedAt), lt(plaidItems.lastRefreshRequestedAt, cutoff)),
-        ),
-      )
-      .returning({ accessTokenEnc: plaidItems.accessTokenEnc, itemId: plaidItems.itemId });
-
+    const due = await claimItemsDueForRefresh(db(), userId);
     if (due.length === 0) return;
 
     const tokenEncKey = loadPlaidConfig().tokenEncKey;
@@ -63,11 +36,11 @@ export async function nudgeRefresh(userId: string): Promise<void> {
     );
     results.forEach((r, i) => {
       if (r.status === "rejected") {
-        console.error("[plaid] refresh nudge failed", { itemId: due[i].itemId, ...describePlaidError(r.reason) });
+        console.error("[plaid] bank refresh failed", { itemId: due[i].itemId, ...describePlaidError(r.reason) });
       }
     });
   } catch (e) {
-    console.error("[plaid] refresh nudge failed", { userId, ...describePlaidError(e) });
+    console.error("[plaid] bank refresh failed", { userId, ...describePlaidError(e) });
   }
 }
 

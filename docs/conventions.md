@@ -37,8 +37,8 @@ started. Reordering is how RLS gaps and float-money bugs get in.
      is the guard, not a backstop. Still set `user_id` explicitly on inserts
      (the RLS `WITH CHECK` requires it to match `auth.uid()`).
    - Drizzle is for migrations and the **server-only Plaid pipeline**
-     (`src/server/plaid/*`, webhook/cron routes, the page-view refresh
-     nudge). It connects as the DB owner and bypasses RLS, so every Drizzle
+     (`src/server/plaid/*`, webhook/cron routes, the native pull's bank
+     refresh). It connects as the DB owner and bypasses RLS, so every Drizzle
      query scopes by `user_id`/`item_id` explicitly. Never use it for
      ordinary user-facing reads/writes.
    - Call the domain function; return typed data. No raw 500 to the client.
@@ -352,10 +352,13 @@ failure there names the rule it protects.
    Supabase browser client is imported lazily inside the realtime listener's
    effect, so it isn't in any page's first bundle. The robin draws one
    `<path>` per colour per layer (`mascot.tsx`), not a `<rect>` per run.
-9. **Page-view background work is throttled and non-blocking.** `after()` +
-   `nudgeRefresh` costs one conditional `UPDATE … RETURNING` per Home /
-   Transactions view and calls Plaid at most once per 25 min per Item.
-   Anything new in `after()` must be equally cheap or throttled.
+9. **Page views never call Plaid.** Plaid bills `/transactions/refresh` per
+   successful call and already checks each bank 1-4 times a day on its own
+   (webhooks), so the only refresh is the native pull to refresh:
+   `POST /api/mobile/plaid/refresh` answers at once and runs
+   `refreshBankItems` in `after()`, at most once per 24 hours per Item
+   (`claimItemsDueForRefresh`, `src/lib/plaid/bank-refresh.ts`; owner decision
+   2026-10-02). Anything new in `after()` must be cheap or throttled.
 10. **Service worker caches only content-hashed assets cache-first**
     (`/_next/static/`); un-hashed files (`/brand/*`, icons) are
     stale-while-revalidate. Bump `CACHE` in `public/sw.js` when its strategy

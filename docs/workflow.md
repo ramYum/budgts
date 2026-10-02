@@ -1485,3 +1485,11 @@ implementation goes to `budgts-architect`.
   "Synced."; (3) recovery: `resetItemCursor` / `tools/plaid-resync-item.mjs` (staging only) clears the cursor
   so the next sync re-pulls history, idempotent on the Plaid transaction id. Proven by
   `tests/plaid-integration/sync-cursor-loss.test.ts` (3 of 7 fail on `21004a4`, 7/7 after).
+- **2026-10-02 — Plaid Transactions Refresh only on the native pull** (`phase-m/phase3`, owner decision). Plaid bills
+  `/transactions/refresh` per successful call and already checks each bank 1-4 times a day with webhooks, so the four
+  page-load nudges (web Home, web Transactions, `GET /api/mobile/home`, `GET /api/mobile/activity`) are gone. The only
+  trigger is the native pull to refresh: `<Screen>` calls `pullWithBankRefresh` (`mobile/lib/plaid/bank-refresh.ts`),
+  which re-reads the screen and, side by side, `POST /api/mobile/plaid/refresh` (202 at once; `refreshBankItems` runs in
+  `after()`). Throttle: `claimItemsDueForRefresh` (`src/lib/plaid/bank-refresh.ts`), the same
+  `last_refresh_requested_at` claim, now once per 24 hours per Item (was 25 min). Phase 4: gate the route on the
+  bank-sync entitlement (`requirePremium`). Needs a production deploy (server) and a new EAS build (app).

@@ -371,8 +371,9 @@ export const plaidItems = pgTable(
     syncClaimedAt: timestamp("sync_claimed_at", { withTimezone: true }),
     lastWebhookAt: timestamp("last_webhook_at", { withTimezone: true }),
     lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
-    // last time Budgts asked Plaid to check the institution now (design: page-open
-    // refresh nudge); throttles how often /transactions/refresh gets called
+    // last time Budgts asked Plaid to check the institution now (the native
+    // pull's bank refresh); the once-per-24h-per-Item throttle on the billed
+    // /transactions/refresh (src/lib/plaid/bank-refresh.ts)
     lastRefreshRequestedAt: timestamp("last_refresh_requested_at", { withTimezone: true }),
     // consecutive failures; drives backoff + the `error` status
     syncFailures: integer("sync_failures").notNull().default(0),

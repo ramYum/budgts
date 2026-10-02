@@ -353,11 +353,11 @@ The verified order; each step names who does it.
    `android_package_name`.
 7. **Plaid:** Dashboard → Developers → API → Allowed Android package names
    must list `com.budgts.app` (it does).
-8. **Supabase:** production Redirect URLs need `budgts://auth/callback`. The
-   2026-10-02 probe (`/auth/v1/verify?token=x&type=magiclink&redirect_to=…`,
-   read-only) found `https://budgts.com/app/auth/callback` allowed and
-   `budgts://auth/callback` falling back to the Site URL. Until it is added,
-   Google sign-in from the app lands on budgts.com.
+8. **Supabase:** production Redirect URLs need `budgts://auth/callback`
+   (added 2026-10-02). Verify with the read-only probe
+   `/auth/v1/verify?token=x&type=magiclink&redirect_to=…`: an allowed address
+   comes back as the 303 target, anything else falls back to the Site URL.
+   Without it, Google sign-in from the app lands on budgts.com.
 
 ### Sign-in email at launch volume: custom SMTP (owner, before the private beta)
 

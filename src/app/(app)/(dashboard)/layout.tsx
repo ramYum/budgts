@@ -1,4 +1,4 @@
-import { Suspense, cache } from "react";
+import { Suspense, cache, type CSSProperties } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
@@ -14,6 +14,15 @@ import { RealtimeRefresh } from "@/components/realtime-refresh";
 import { ReviewBanner } from "@/components/plaid/review-banner";
 import { DeletionBanner } from "@/components/account/deletion-banner";
 import { TimeZoneSync } from "@/components/time-zone-sync";
+import { Backdrop } from "@/components/backdrop";
+import { BACKDROP_MUTED, BACKDROP_SKY } from "@/lib/brand/scene-art";
+
+/** Secondary text straight on the sunset takes BACKDROP_MUTED (4.5:1 on every
+ * band); white surfaces restore the gray (globals.css `.on-backdrop`). */
+const ON_BACKDROP = { "--muted": BACKDROP_MUTED } as CSSProperties;
+/** The phone header is the sky's top band at 90%: invisible against it at
+ * rest, and content scrolling under it blurs into the same tint. */
+const HEADER_TINT: CSSProperties = { backgroundColor: `color-mix(in srgb, ${BACKDROP_SKY[0]} 90%, transparent)` };
 
 /** Bank rows awaiting a category. Cached so the mobile header and the desktop
  * bar (both render the bell) share one query per request. The count is
@@ -49,7 +58,9 @@ export default async function DashboardLayout({ children }: LayoutProps<"/">) {
   );
 
   return (
-    <div className="flex min-h-dvh w-full flex-col md:pl-[248px]">
+    <div className="on-backdrop flex min-h-dvh w-full flex-col md:pl-[248px]" style={ON_BACKDROP}>
+      {/* Crystal's sunset forest, fixed behind every screen of the app (option B, 2026-10-02). */}
+      <Backdrop />
       {/* Keeps the bell count fresh after a sync lands, on every dashboard route. */}
       {plaidOn ? <RealtimeRefresh tables={["transactions"]} /> : null}
       {/* "Today" and "this month" follow the device's time zone. */}
@@ -58,7 +69,7 @@ export default async function DashboardLayout({ children }: LayoutProps<"/">) {
       <DesktopSidebar email={user.email ?? ""} />
 
       {/* Phone: the brand and the bell; sign out lives in Settings. */}
-      <header data-testid="app-header" className="sticky top-0 z-10 flex h-14 items-center justify-between bg-bg/90 px-6 backdrop-blur-xl md:hidden">
+      <header data-testid="app-header" className="sticky top-0 z-10 flex h-14 items-center justify-between px-6 backdrop-blur-xl md:hidden" style={HEADER_TINT}>
         <Link href="/" aria-label="Budgts home" className="press" data-testid="app-logo">
           <Logo size={22} />
         </Link>

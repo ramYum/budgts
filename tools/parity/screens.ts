@@ -5,6 +5,7 @@
  * phase3-plan.md → "Parity tooling lane (P)". Change an id here and on both sides together.
  */
 import { ROLE } from "../../src/lib/brand/tokens";
+import { BACKDROP_SKY } from "../../src/lib/brand/scene-art";
 import type { ParityUserName } from "./data";
 
 /* ─── Devices ───────────────────────────────────────────────────────────── */
@@ -370,8 +371,14 @@ export { hubTestId, tabTestId } from "../../src/lib/brand/test-ids";
 
 /* ─── Screens ───────────────────────────────────────────────────────────── */
 
-/** A colour check: the pixel at (fx, fy) of the element's box (fractions, default centre) must be the token exactly. */
-export type ColorCheck = { id: string; role: keyof typeof ROLE; at?: [number, number] };
+/** A colour check: the pixel at (fx, fy) of the element's box (fractions, default centre) must be the token exactly.
+ * `sky` is the sunset backdrop's top band (scene-art.ts BACKDROP_SKY[0]), where the header rests. */
+export type ColorCheck = { id: string; role: keyof typeof ROLE | "sky"; at?: [number, number] };
+
+/** The exact colour a check expects. */
+export function expectedColor(c: ColorCheck): string {
+  return (c.role === "sky" ? BACKDROP_SKY[0]! : ROLE[c.role]).toLowerCase();
+}
 
 export type Screen = {
   id: string;
@@ -387,7 +394,8 @@ export type Screen = {
 
 /** Colours every signed-in tab screen shares. */
 const SHELL_COLORS: ColorCheck[] = [
-  { id: "app-header", role: "bg", at: [0.5, 0.5] },
+  // the header rests on the backdrop's top band (option B, 2026-10-02), tinted to match it
+  { id: "app-header", role: "sky", at: [0.5, 0.5] },
   { id: "bottom-nav", role: "surface", at: [0.5, 0.92] },
   { id: "tab-pip", role: "accent" },
 ];

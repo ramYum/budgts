@@ -146,6 +146,50 @@ body {
   color: var(--text);
 }
 
+/* The app's screens sit on the sunset backdrop (components/backdrop.tsx): the
+ * shell sets --muted to the deeper BACKDROP_MUTED for text straight on the
+ * sky, and every surface takes the gray muted back: the plain ones, form
+ * fields, and every stepped frame in pixel-frame.ts FRAMES (each paints a fill;
+ * tests/unit/backdrop-surfaces.test.ts keeps this list complete). */
+.on-backdrop
+  :is(
+    .card,
+    .bg-surface,
+    .bg-surface-2,
+    .bg-tint,
+    input,
+    textarea,
+    select,
+    .px-card,
+    .px-card-raised,
+    .px-card-quiet,
+    .px-wash,
+    .px-field,
+    .px-search,
+    .px-btn,
+    .px-btn-danger,
+    .px-btn-primary,
+    .px-step,
+    .px-tile,
+    .px-tile-wash,
+    .px-tile-accent,
+    .px-tile-ink,
+    .px-tile-growth,
+    .px-warn,
+    .px-band,
+    .px-nav,
+    .px-chip,
+    .px-badge,
+    .px-badge-growth,
+    .px-badge-wash,
+    .px-badge-ink,
+    .px-badge-accent,
+    .px-check,
+    .px-switch
+  ) {
+  --muted: var(--ash);
+}
+
 /* every currency amount lines up */
 .tnum {
   font-variant-numeric: tabular-nums;

@@ -14,8 +14,7 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { basename, join, relative, resolve } from "node:path";
 import { PNG } from "pngjs";
-import { ROLE } from "../../src/lib/brand/tokens";
-import { SCREENS, inContract } from "./screens";
+import { SCREENS, expectedColor, inContract } from "./screens";
 import type { CaptureMeta } from "./capture-web";
 import { compareGeometry, contractBoxes, cropRgba, pixelHex, relativeBoxes, sharedSize, toPixels, type GeometryRow } from "./compare-lib";
 
@@ -74,7 +73,7 @@ function colorChecks(screen: string, a: { meta: CaptureMeta; png: PNG }, b: { me
   };
   return checks.map((c) => {
     const at = c.at ?? [0.5, 0.5];
-    const expected = ROLE[c.role].toLowerCase();
+    const expected = expectedColor(c);
     const va = sample(a, c.id, at);
     const vb = sample(b, c.id, at);
     // An id absent on both sides (a screen state without that element) is not a colour failure; geometry reports absences.

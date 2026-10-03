@@ -477,6 +477,37 @@ export const plaidSignAnswers = pgTable(
   ],
 );
 
+/**
+ * Which bank accounts have fed a Budgts account (migration 0027, owner decision 2026-10-02): the Plaid identity
+ * (institution, last 4, type, subtype) of every Plaid account ever mapped onto it. Disconnecting a bank deletes its
+ * `plaid_accounts` rows, so this is what survives to recognise the same bank account when it is connected again: the
+ * mapping step then suggests the Budgts account its kept history lives in (src/lib/plaid/reconnect-match.ts), which is
+ * the only mapping reconnect adoption re-attaches that history to.
+ *
+ * Written only by the `record_account_bank_identity` trigger on `plaid_accounts` (every path that links an account),
+ * never by a client; the owner can read their own (RLS). `type`/`subtype` are stored trimmed and lower-cased, '' when
+ * Plaid sent none, so the unique key compares them. Goes with its account (CASCADE).
+ */
+export const accountBankIdentities = pgTable(
+  "account_bank_identities",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull(),
+    accountId: uuid("account_id")
+      .notNull()
+      .references(() => accounts.id, { onDelete: "cascade" }),
+    institutionId: text("institution_id").notNull(),
+    mask: text("mask").notNull(),
+    type: text("type").notNull(),
+    subtype: text("subtype").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("account_bank_identities_uq").on(t.accountId, t.institutionId, t.mask, t.type, t.subtype),
+    index("account_bank_identities_user_institution_idx").on(t.userId, t.institutionId),
+  ],
+);
+
 // Raw webhook log / dead-letter. Written only by the service-role client in the
 // webhook handler; not readable through the app (RLS deny-all for authenticated,
 // hand-appended). No user_id: rows are logged before the owning user is

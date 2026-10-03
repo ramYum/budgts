@@ -521,9 +521,18 @@ their own store notices).
   path. One transaction per webhook event: log + ledger + entitlement.
   Unconfigured deployments refuse: no signing secret -> 503
   `not_configured`; `BILLING_ENVIRONMENT` unset -> `sandbox`, so real-money
-  events are quarantined. `requirePremium` exists but gates nothing yet
-  (Phase 4 wires it to the Plaid routes the apps call; subscriptions are
-  app-only since 2026-09-29, §13a).
+  events are quarantined. Subscriptions are app-only since 2026-09-29
+  (§13a).
+- **Bank-sync gate (built 2026-10-02, `phase-m/bank-gate`, owner decision).**
+  Connecting a bank (link token and exchange), reconnecting (update-mode link
+  token) and the native pull's Transactions Refresh need Premium:
+  `requireBankSyncAccess` (`src/lib/billing/gate.ts`) answers 402
+  `premium_required` with the entitlement view. It is switched by the same
+  `billingProviderConfigured` as the lapse sweep, so it does nothing until
+  billing is configured. Existing syncs and webhooks are not gated. Web and
+  native say "Bank sync needs a Budgts subscription."; the native Connect a
+  bank / Reconnect hand on to `onSubscriptionRequired`, where the Phase 4
+  paywall opens; the native pull reads 402 as "not scheduled".
 - **Schema** (migrations `0023` ledger, `0024` entitlements + billing events).
   All ten ledger tables exist; only `subscriptions` and `payments` are ever
   written. Partner, voucher, redemption, allocation, adjustment and payout
@@ -552,7 +561,12 @@ their own store notices).
   after a grace period (Plaid bills every calendar month an Item exists):
   Phase 4.
 - The owner's existing accounts are grandfathered by a manual entitlement
-  grant, recorded as such: Phase 4.
+  grant, recorded as such. **Built 2026-10-02** (`phase-m/bank-gate`):
+  `state 'active'`, `provider 'manual'`, `access_until 9999-12-31` in the
+  0024 columns, which no webhook, reconcile or lapse sweep can change, with a
+  `billing_events` audit row; written by `npm run billing:grant`
+  (`docs/operations/billing-manual-grant.md`). **Owner action:** run it
+  against production for the owner's accounts (dry run, then `--apply`).
 
 **OPEN ENGINEERING DECISION (repeated from the monetization spec's own
 §6, not re-litigated here):** rounding mode, calendar-month clamp rule,

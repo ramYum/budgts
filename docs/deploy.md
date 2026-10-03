@@ -13,6 +13,14 @@ Steps you (the owner) do — Claude can't create the accounts or push to a remot
   AWS region (`us-east-2`) as the production Supabase database, so every
   server-side query stays in-region (Vercel's default is `iad1`). Hobby allows
   one region; move it if the database ever moves.
+- **Shipwright redirect (2026-10-03):** `budgts.com/shipwright` and every
+  path under it 308-redirect to `https://shipwright.budgts.com` (Shipwright,
+  another Budgts, LLC app, is its own Vercel project), keeping the query
+  string. The rules are `redirects` in `vercel.json`, which run before the
+  proxy's sign-in check. On Vercel, Next.js strips a trailing slash before
+  any deployment redirect (`vercel.json` or `next.config.ts`), so
+  `/shipwright/` first 308s to `/shipwright`, then to Shipwright. One hop
+  there would need Vercel's project-level redirects, a Pro plan feature.
 - **Domain DNS:** `budgts.com` is registered + DNS-hosted at Cloudflare.
   Two records, both **DNS-only (grey cloud)**:
   `CNAME @ → 20b64e226c444eb2.vercel-dns-017.com` and

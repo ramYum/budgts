@@ -1509,3 +1509,17 @@ implementation goes to `budgts-architect`.
   grant. **Open:** mapping a reconnected bank to a NEW Budgts account still doubles the overlap (the mapping screen
   should suggest the old account); production may already hold duplicates from past reconnects (count before any
   remediation).
+- **2026-10-02 — Reconnecting a bank suggests the account its history is in** (`phase-m/reconnect-mapping`, owner
+  decision). Closes the "Open" above for the default path: adoption only re-attaches history when the reconnected Plaid
+  account is mapped onto the SAME Budgts account. Migration `0027` adds `account_bank_identities` (institution, last 4,
+  type, subtype per Budgts account; RLS owner-read only, no client writes), written by the `plaid_accounts` trigger
+  `record_account_bank_identity` on every link, and backfilled from today's links, so it survives the disconnect that
+  deletes `plaid_accounts`. `src/lib/plaid/reconnect-match.ts`: exactly one of the user's open, unlinked accounts with
+  that identity is preselected, with "You connected this account before. Its history stays in <name>."; several are
+  listed first with none preselected; archived and still-linked accounts are never suggested. One read
+  (`src/lib/plaid/mapping-suggestions.ts`) behind the web sheet (`mappingSuggestionsAction`) and the native sheet
+  (`GET /api/mobile/plaid/accounts/suggestions`); both sheets wait for it before showing rows (Try again on failure).
+  Staging integration test `plaid-reconnect-mapping.test.ts`: disconnect, reconnect, accept, no duplicates. `0027` is
+  on staging only; production waits for the owner. Still open: a user who picks a different account still doubles the
+  overlap (their explicit choice); a revoked Item that is reconnected without being disconnected keeps its links, so
+  neither suggestion nor adoption applies.

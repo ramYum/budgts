@@ -20,12 +20,15 @@ import {
   clearAccountReviewSchema,
   disconnectBankSchema,
   mapAccountsSchema,
+  mappingSuggestionsSchema,
   setAccountCalculationExclusionSchema,
   setAccountImportingSchema,
 } from "@/lib/validation/plaid";
 import { setAccountCalculationExclusion } from "./account-exclusion";
 import { disconnectPlaidItem } from "./disconnect";
 import { db } from "@/lib/db";
+import type { MappingSuggestion } from "@/lib/accounts/account-suggestion";
+import { loadMappingSuggestions } from "@/lib/plaid/mapping-suggestions";
 import {
   categorizeBankTransactionFor,
   clearAccountReviewFor,
@@ -82,6 +85,24 @@ export async function mapAccounts(
   if (!result.ok) return { error: result.message };
   revalidateUserData();
   return result.warning ? { ok: true, warning: result.warning } : { ok: true };
+}
+
+/**
+ * The mapping step's reconnect suggestions (owner decision 2026-10-02): per unmapped Plaid account of this connection,
+ * the Budgts account the same bank account fed before. Read-only, through the caller's RLS client.
+ */
+export async function mappingSuggestionsAction(
+  plaidItemId: string,
+): Promise<{ ok: true; suggestions: Record<string, MappingSuggestion> } | { ok: false }> {
+  const parsed = mappingSuggestionsSchema.safeParse({ plaidItemId });
+  if (!parsed.success) return { ok: false };
+  const { user, supabase } = await withUser();
+  try {
+    const suggestions = await loadMappingSuggestions(supabase, user.id, parsed.data.plaidItemId);
+    return suggestions ? { ok: true, suggestions } : { ok: false };
+  } catch {
+    return { ok: false };
+  }
 }
 
 /**

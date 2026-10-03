@@ -1,7 +1,16 @@
 import { AccountSubtype, AccountType } from "plaid";
 import { describe, expect, it } from "vitest";
 import { ACCOUNT_TYPES } from "./account-types";
-import { accountLabel, accountHint, notImportedHint, suggestAccount, type AccountSuggestion } from "./account-suggestion";
+import {
+  accountLabel,
+  accountHint,
+  existingChoices,
+  mappingStart,
+  notImportedHint,
+  previousAccountNote,
+  suggestAccount,
+  type AccountSuggestion,
+} from "./account-suggestion";
 
 const IMPORT_CHECKING: AccountSuggestion = { mode: "new", type: "checking" };
 const IMPORT_SAVINGS: AccountSuggestion = { mode: "new", type: "savings" };
@@ -137,3 +146,31 @@ describe("notImportedHint", () => {
   });
 });
 
+
+describe("reconnect suggestions in the mapping sheet (owner decision 2026-10-02)", () => {
+  const accounts = [
+    { id: "a1", name: "Alpha" },
+    { id: "a2", name: "Beta" },
+    { id: "a3", name: "Gamma" },
+  ];
+
+  it("says where the history stays, in one short line", () => {
+    expect(previousAccountNote("Chase checking")).toBe("You connected this account before. Its history stays in Chase checking.");
+  });
+
+  it("a single previous account starts the row on it", () => {
+    expect(mappingStart({ kind: "previous", accountId: "a2", accountName: "Beta" }, accounts)).toEqual({ mode: "existing", existingAccountId: "a2" });
+  });
+
+  it("an ambiguous match, no match, or an account no longer offered starts nothing", () => {
+    expect(mappingStart({ kind: "ambiguous", accountIds: ["a1", "a3"] }, accounts)).toBeNull();
+    expect(mappingStart(undefined, accounts)).toBeNull();
+    expect(mappingStart({ kind: "previous", accountId: "gone", accountName: "Gone" }, accounts)).toBeNull();
+  });
+
+  it("lists the candidates first, in the server's order, then the rest as they were", () => {
+    expect(existingChoices(accounts, { kind: "ambiguous", accountIds: ["a3", "a2"] }).map((a) => a.id)).toEqual(["a3", "a2", "a1"]);
+    expect(existingChoices(accounts, { kind: "previous", accountId: "a3", accountName: "Gamma" }).map((a) => a.id)).toEqual(["a3", "a1", "a2"]);
+    expect(existingChoices(accounts, undefined)).toBe(accounts);
+  });
+});

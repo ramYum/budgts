@@ -3,11 +3,21 @@ import { TextInput, View } from "react-native";
 import { COLOR, PLACEHOLDER, ROLE } from "../../lib/brand/shared";
 import { textStyle } from "../../lib/brand/type";
 import { invalidate } from "../../lib/api/invalidate";
-import { accountHint, accountLabel } from "../../lib/shared";
+import { accountHint, accountLabel, existingChoices, mappingStart, previousAccountNote, type MappingSuggestion } from "../../lib/shared";
+import { authFetch } from "../../lib/auth/api";
+import { loadResource, type LoadState } from "../../lib/api/load";
 import { useAuth } from "../../lib/auth/auth-context";
 import type { UnmappedAccount } from "../../lib/plaid/banks-api";
 import { bankCommands, type CommandOutcome } from "../../lib/plaid/bank-commands";
-import { buildMapEntries, emptyMapRows, type MapEntry, type MapMode, type MapRow, type MappingChoices } from "../../lib/plaid/mapping";
+import {
+  buildMapEntries,
+  emptyMapRows,
+  parseMappingSuggestions,
+  type MapEntry,
+  type MapMode,
+  type MapRow,
+  type MappingChoices,
+} from "../../lib/plaid/mapping";
 import { Button, TextButton } from "../brand/controls";
 import { PixelFrame } from "../brand/pixel-frame";
 import { Text } from "../brand/text";
@@ -32,18 +42,21 @@ const FROM_START = { start: 0, end: 0 };
 export function AccountMapping({
   plaidAccounts,
   choices,
+  suggestions,
   onSave,
   onDone,
 }: {
   plaidAccounts: UnmappedAccount[];
   choices: MappingChoices;
+  /** the server's reconnect suggestions, per Plaid account id (`GET /api/mobile/plaid/accounts/suggestions`) */
+  suggestions: Record<string, MappingSuggestion>;
   onSave: (entries: MapEntry[]) => Promise<CommandOutcome>;
   onDone: () => void;
 }) {
   const { budgtsAccounts, accountTypes } = choices;
   // The accounts and their rows are fixed when the sheet opens, so a reload behind it can never misalign the two.
   const [accounts] = useState(plaidAccounts);
-  const [rows, setRows] = useState<MapRow[]>(() => emptyMapRows(accounts, budgtsAccounts[0]?.id ?? ""));
+  const [rows, setRows] = useState<MapRow[]>(() => emptyMapRows(accounts, budgtsAccounts, suggestions));
   const [pending, setPending] = useState(false);
   // The name field being edited, if any. Any other shows its name from the start, as a web input does (Android otherwise
   // leaves a long prefilled value scrolled to its end: "aid Money Market ••4444").
@@ -111,6 +124,8 @@ export function AccountMapping({
         {accounts.map((a, i) => {
           const r = rows[i] as MapRow;
           const hint = accountHint(a);
+          const suggestion = suggestions[a.plaidAccountId];
+          const previous = mappingStart(suggestion, budgtsAccounts) && suggestion?.kind === "previous" ? suggestion : null;
           return (
             <PixelFrame key={a.plaidAccountId} frame="px-card" testID={`account-mapping-row-${i}`} style={{ padding: 12, gap: 12 }}>
               <View style={{ flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
@@ -121,6 +136,12 @@ export function AccountMapping({
                   {a.subtype ?? a.type ?? "account"}
                 </Text>
               </View>
+              {/* web `text-sm text-muted`: the same bank account fed this Budgts account before (a reconnect) */}
+              {previous ? (
+                <Text testID={`account-mapping-previous-${i}`} variant="small" color={ROLE.muted}>
+                  {previousAccountNote(previous.accountName)}
+                </Text>
+              ) : null}
               {/* web `text-sm text-muted`: why a row left out by default may still be worth importing (an HSA) */}
               {hint ? (
                 <Text testID={`account-mapping-hint-${i}`} variant="small" color={ROLE.muted}>
@@ -179,7 +200,7 @@ export function AccountMapping({
                   hideLabel
                   testID={`account-mapping-existing-${i}`}
                   value={r.existingAccountId}
-                  options={budgtsAccounts.map((b) => ({ value: b.id, label: b.name }))}
+                  options={existingChoices(budgtsAccounts, suggestion).map((b) => ({ value: b.id, label: b.name }))}
                   onChange={(existingAccountId) => update(i, { existingAccountId })}
                 />
               ) : null}
@@ -224,9 +245,28 @@ export type AccountMappingSheetProps = {
  * accounts to import"), used by Connect a bank and by a bank card's "Choose
  * accounts to import". Mount it to open it; it saves through
  * `POST /api/mobile/plaid/accounts/map`.
+ *
+ * It first reads the server's reconnect suggestions, as the web sheet does: a bank
+ * account connected before starts on the Budgts account its history is in (owner
+ * decision 2026-10-02), so the rows only appear, and saving is only possible, once
+ * they are in. A failed read says so with Try again.
  */
 export function AccountMappingSheet({ plaidItemId, plaidAccounts, choices, onDone, onClose }: AccountMappingSheetProps) {
   const { session } = useAuth();
+  const [load, setLoad] = useState<LoadState<Record<string, MappingSuggestion>>>({ status: "loading" });
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    void loadResource(
+      () => authFetch(`/api/mobile/plaid/accounts/suggestions?plaidItemId=${encodeURIComponent(plaidItemId)}`, session),
+      parseMappingSuggestions,
+    ).then((out) => {
+      if (alive) setLoad(out);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [plaidItemId, session, attempt]);
   const onSave = async (entries: MapEntry[]) => {
     const out = await bankCommands(session).mapAccounts(plaidItemId, entries);
     // saved (a repeat the server already had counts too): new accounts and the first sync's transactions reach every
@@ -237,7 +277,28 @@ export function AccountMappingSheet({ plaidItemId, plaidAccounts, choices, onDon
   };
   return (
     <Overlay title={MAPPING_TITLE} onClose={onClose}>
-      <AccountMapping plaidAccounts={plaidAccounts} choices={choices} onSave={onSave} onDone={onDone} />
+      {load.status === "loading" ? (
+        <Text testID="account-mapping-loading" variant="small" color={ROLE.muted}>
+          Checking your accounts…
+        </Text>
+      ) : load.status === "error" ? (
+        <View style={{ gap: 12 }}>
+          <Text testID="account-mapping-load-error" variant="small" color={ROLE.neg} accessibilityRole="alert">
+            {load.message}
+          </Text>
+          <Button
+            testID="account-mapping-retry"
+            onPress={() => {
+              setLoad({ status: "loading" });
+              setAttempt((n) => n + 1);
+            }}
+          >
+            Try again
+          </Button>
+        </View>
+      ) : (
+        <AccountMapping plaidAccounts={plaidAccounts} choices={choices} suggestions={load.data} onSave={onSave} onDone={onDone} />
+      )}
     </Overlay>
   );
 }

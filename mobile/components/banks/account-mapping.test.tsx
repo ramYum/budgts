@@ -29,6 +29,11 @@ const savings = account({ plaidAccountId: "pa2", name: "Plaid Saving", mask: "11
 const card = account({ plaidAccountId: "pa3", name: "Plaid Credit Card", mask: "3333", type: "credit", subtype: "credit card" });
 const choices = { budgtsAccounts: [{ id: "acct-1", name: "Everyday checking" }, { id: "acct-2", name: "Travel card" }], accountTypes: ["checking", "credit", "cash", "savings"] };
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+const SUGGESTIONS = "/api/mobile/plaid/accounts/suggestions?plaidItemId=item-row";
+/** Every other path answers `res`; the sheet's suggestions read answers `suggestions` (none by default). */
+const routes = (res: () => Response, suggestions: unknown = { version: 1, suggestions: {} }) =>
+  api.authFetch.mockImplementation(async (path: string) => (path === SUGGESTIONS ? json(200, suggestions) : res()));
+const settle = () => act(async () => {});
 const press = async (r: ReturnType<typeof render>, id: string) => {
   await act(async () => {
     byTestId(r, id).props.onPress();
@@ -37,7 +42,7 @@ const press = async (r: ReturnType<typeof render>, id: string) => {
 
 describe("AccountMapping (web account-mapping.tsx)", () => {
   it("offers each account as a new Budgts account first, named and typed from Plaid's guess", () => {
-    const r = render(<AccountMapping plaidAccounts={[account(), savings, card]} choices={choices} onSave={vi.fn()} onDone={() => {}} />);
+    const r = render(<AccountMapping suggestions={{}} plaidAccounts={[account(), savings, card]} choices={choices} onSave={vi.fn()} onDone={() => {}} />);
     const words = texts(r);
     expect(words).toContain("Each account can become a new Budgts account, feed one you already have, or be left out.");
     expect(words).toEqual(expect.arrayContaining(["Plaid Checking ••0000", "checking", "Plaid Saving ••1111", "savings", "Plaid Credit Card ••3333", "credit card"]));
@@ -50,7 +55,7 @@ describe("AccountMapping (web account-mapping.tsx)", () => {
   });
 
   it("sizes the type picker like a select: the web's 112px at least, wide enough for its longest option, never truncated", () => {
-    const r = render(<AccountMapping plaidAccounts={[account()]} choices={choices} onSave={vi.fn()} onDone={() => {}} />);
+    const r = render(<AccountMapping suggestions={{}} plaidAccounts={[account()]} choices={choices} onSave={vi.fn()} onDone={() => {}} />);
     const field = byTestId(r, "account-mapping-type-0");
     let box = field.parent!;
     while (typeof box.type !== "string" || box.props.testID !== "account-mapping-type-0-box") box = box.parent!;
@@ -67,7 +72,7 @@ describe("AccountMapping (web account-mapping.tsx)", () => {
 
   it("caps the type picker at half the row, so a long type label can't squeeze the name field away", () => {
     const long = { ...choices, accountTypes: ["checking", "a very long account type from the server"] };
-    const r = render(<AccountMapping plaidAccounts={[account()]} choices={long} onSave={vi.fn()} onDone={() => {}} />);
+    const r = render(<AccountMapping suggestions={{}} plaidAccounts={[account()]} choices={long} onSave={vi.fn()} onDone={() => {}} />);
     expect(flat(byTestId(r, "account-mapping-type-0-box").props.style)).toMatchObject({ minWidth: 112, maxWidth: "50%" });
     // the name field keeps the rest of the row (at 360px: 280 of content, at least 140 for the name)
     expect(flat(byTestId(r, "account-mapping-name-0").parent!.props.style)).toMatchObject({ flex: 1 });
@@ -79,7 +84,7 @@ describe("AccountMapping (web account-mapping.tsx)", () => {
 
   it("shows a long name from its start when the field isn't being edited, as a web input does", () => {
     const long = account({ name: "Plaid Money Market", mask: "4444" });
-    const r = render(<AccountMapping plaidAccounts={[long]} choices={choices} onSave={vi.fn()} onDone={() => {}} />);
+    const r = render(<AccountMapping suggestions={{}} plaidAccounts={[long]} choices={choices} onSave={vi.fn()} onDone={() => {}} />);
     const name = () => byTestId(r, "account-mapping-name-0").props;
     expect(name().selection).toEqual({ start: 0, end: 0 });
     act(() => name().onFocus?.({}));
@@ -90,7 +95,7 @@ describe("AccountMapping (web account-mapping.tsx)", () => {
 
   it("starts an HSA as Don't import, with the web's hint under its name; no other row has one", () => {
     const hsa = account({ plaidAccountId: "pa-hsa", name: "Plaid HSA", mask: "5555", subtype: "hsa" });
-    const r = render(<AccountMapping plaidAccounts={[account(), hsa]} choices={choices} onSave={vi.fn()} onDone={() => {}} />);
+    const r = render(<AccountMapping suggestions={{}} plaidAccounts={[account(), hsa]} choices={choices} onSave={vi.fn()} onDone={() => {}} />);
     expect(byTestId(r, "account-mapping-mode-1").props.accessibilityLabel).toBe("Import as, Don't import this one");
     expect(texts(byTestId(r, "account-mapping-hint-1"))).toEqual(["Import it if you pay for care from it."]);
     expect(() => byTestId(r, "account-mapping-hint-0")).toThrow();
@@ -105,7 +110,7 @@ describe("AccountMapping (web account-mapping.tsx)", () => {
   it("saves the web's entries: new, existing and left out", async () => {
     const onSave = vi.fn(async () => ({ status: "ok" as const }));
     const onDone = vi.fn();
-    const r = render(<AccountMapping plaidAccounts={[account(), savings, card]} choices={choices} onSave={onSave} onDone={onDone} />);
+    const r = render(<AccountMapping suggestions={{}} plaidAccounts={[account(), savings, card]} choices={choices} onSave={onSave} onDone={onDone} />);
     await press(r, "account-mapping-mode-1");
     await press(r, "account-mapping-mode-1-option-existing");
     await press(r, "account-mapping-existing-1");
@@ -123,7 +128,7 @@ describe("AccountMapping (web account-mapping.tsx)", () => {
   });
 
   it("can't point at an existing account when there is none", async () => {
-    const r = render(<AccountMapping plaidAccounts={[account()]} choices={{ ...choices, budgtsAccounts: [] }} onSave={vi.fn()} onDone={() => {}} />);
+    const r = render(<AccountMapping suggestions={{}} plaidAccounts={[account()]} choices={{ ...choices, budgtsAccounts: [] }} onSave={vi.fn()} onDone={() => {}} />);
     await press(r, "account-mapping-mode-0");
     expect(byTestId(r, "account-mapping-mode-0-option-existing").props.disabled).toBe(true);
   });
@@ -134,7 +139,7 @@ describe("AccountMapping (web account-mapping.tsx)", () => {
       .mockResolvedValueOnce({ status: "error", message: "Could not save the account mapping. Try again." })
       .mockResolvedValueOnce({ status: "ok", warning: "Connected, but the first sync didn't finish. It'll retry shortly." });
     const onDone = vi.fn();
-    const r = render(<AccountMapping plaidAccounts={[account()]} choices={choices} onSave={onSave} onDone={onDone} />);
+    const r = render(<AccountMapping suggestions={{}} plaidAccounts={[account()]} choices={choices} onSave={onSave} onDone={onDone} />);
     await press(r, "account-mapping-save");
     expect(texts(r)).toContain("Could not save the account mapping. Try again.");
     await press(r, "account-mapping-save");
@@ -153,7 +158,7 @@ describe("AccountMapping refusals over stale data", () => {
   it("shows the server's refusal with a Refresh that closes onto the current list", async () => {
     const onDone = vi.fn();
     const onSave = vi.fn(async () => ({ status: "error" as const, message: "That account is already imported. Refresh to see where it goes.", stale: true as const }));
-    const r = render(<AccountMapping plaidAccounts={[account()]} choices={choices} onSave={onSave} onDone={onDone} />);
+    const r = render(<AccountMapping suggestions={{}} plaidAccounts={[account()]} choices={choices} onSave={onSave} onDone={onDone} />);
     await press(r, "account-mapping-save");
     expect(texts(byTestId(r, "account-mapping-error"))).toEqual(["That account is already imported. Refresh to see where it goes."]);
     await press(r, "account-mapping-refresh");
@@ -162,43 +167,46 @@ describe("AccountMapping refusals over stale data", () => {
 
   it("offers no Refresh for a failure that isn't about stale data", async () => {
     const onSave = vi.fn(async () => ({ status: "error" as const, message: "Could not save the account mapping. Try again." }));
-    const r = render(<AccountMapping plaidAccounts={[account()]} choices={choices} onSave={onSave} onDone={() => {}} />);
+    const r = render(<AccountMapping suggestions={{}} plaidAccounts={[account()]} choices={choices} onSave={onSave} onDone={() => {}} />);
     await press(r, "account-mapping-save");
     expect(() => byTestId(r, "account-mapping-refresh")).toThrow();
   });
 
   it("moves a row off an existing account that is no longer offered when the choices reload", async () => {
     const onSave = vi.fn(async () => ({ status: "ok" as const }));
-    const r = render(<AccountMapping plaidAccounts={[account()]} choices={choices} onSave={onSave} onDone={() => {}} />);
+    const r = render(<AccountMapping suggestions={{}} plaidAccounts={[account()]} choices={choices} onSave={onSave} onDone={() => {}} />);
     await press(r, "account-mapping-mode-0");
     await press(r, "account-mapping-mode-0-option-existing");
     await press(r, "account-mapping-existing-0");
     await press(r, "account-mapping-existing-0-option-acct-2");
-    act(() => r.update(<AccountMapping plaidAccounts={[account()]} choices={{ ...choices, budgtsAccounts: [{ id: "acct-1", name: "Everyday checking" }] }} onSave={onSave} onDone={() => {}} />));
+    act(() => r.update(<AccountMapping suggestions={{}} plaidAccounts={[account()]} choices={{ ...choices, budgtsAccounts: [{ id: "acct-1", name: "Everyday checking" }] }} onSave={onSave} onDone={() => {}} />));
     await press(r, "account-mapping-save");
     expect(onSave).toHaveBeenLastCalledWith([{ plaidAccountId: "pa1", mode: "existing", existingAccountId: "acct-1" }]);
-    act(() => r.update(<AccountMapping plaidAccounts={[account()]} choices={{ ...choices, budgtsAccounts: [] }} onSave={onSave} onDone={() => {}} />));
+    act(() => r.update(<AccountMapping suggestions={{}} plaidAccounts={[account()]} choices={{ ...choices, budgtsAccounts: [] }} onSave={onSave} onDone={() => {}} />));
     await press(r, "account-mapping-save");
     expect(onSave).toHaveBeenLastCalledWith([{ plaidAccountId: "pa1", mode: "new", name: "Plaid Checking ••0000", type: "checking" }]);
   });
 
   it("a refused save reloads the accounts behind the sheet; a no-op repeat counts as saved", async () => {
-    api.authFetch.mockResolvedValue(json(422, { error: "refused", message: "That account is already imported. Refresh to see where it goes." }));
+    routes(() => json(422, { error: "refused", message: "That account is already imported. Refresh to see where it goes." }));
     const before = getVersion("accounts");
     const r = render(<AccountMappingSheet plaidItemId="item-row" plaidAccounts={[account()]} choices={choices} onDone={() => {}} onClose={() => {}} />);
+    await settle();
     await press(r, "account-mapping-save");
     expect(getVersion("accounts")).toBe(before + 1);
-    api.authFetch.mockResolvedValue(json(200, { ok: true }));
+    routes(() => json(200, { ok: true }));
     const onDone = vi.fn();
     const again = render(<AccountMappingSheet plaidItemId="item-row" plaidAccounts={[account()]} choices={choices} onDone={onDone} onClose={() => {}} />);
+    await settle();
     await press(again, "account-mapping-save");
     expect(onDone).toHaveBeenCalledTimes(1);
   });
 
   it("an input-validation refusal keeps the sheet and its choices as they are: no reload behind it", async () => {
-    api.authFetch.mockResolvedValue(json(422, { error: "invalid", fieldErrors: { form: "Choose which Budgts account to import into first." } }));
+    routes(() => json(422, { error: "invalid", fieldErrors: { form: "Choose which Budgts account to import into first." } }));
     const before = getVersion("accounts");
     const r = render(<AccountMappingSheet plaidItemId="item-row" plaidAccounts={[account()]} choices={choices} onDone={() => {}} onClose={() => {}} />);
+    await settle();
     await press(r, "account-mapping-save");
     expect(getVersion("accounts")).toBe(before);
     expect(byTestId(r, "account-mapping-save")).toBeTruthy();
@@ -211,18 +219,92 @@ describe("AccountMappingSheet", () => {
   });
 
   it("is the web's sheet: its title, a close, and the saved mapping reaches every screen", async () => {
-    api.authFetch.mockResolvedValue(json(200, { ok: true }));
+    routes(() => json(200, { ok: true }));
     const onDone = vi.fn();
     const onClose = vi.fn();
     const before = getVersion("transactions");
     const r = render(<AccountMappingSheet plaidItemId="item-row" plaidAccounts={[account()]} choices={choices} onDone={onDone} onClose={onClose} />);
+    await settle();
     expect(byTestId(r, "sheet").props.accessibilityLabel).toBe("Choose which accounts to import");
     await press(r, "sheet-close");
     expect(onClose).toHaveBeenCalledTimes(1);
     await press(r, "account-mapping-save");
-    expect(api.authFetch.mock.calls[0]![0]).toBe("/api/mobile/plaid/accounts/map");
+    expect(api.authFetch.mock.calls.map((c) => c[0])).toEqual([SUGGESTIONS, "/api/mobile/plaid/accounts/map"]);
     expect(getVersion("transactions")).toBe(before + 1);
     expect(onDone).toHaveBeenCalledTimes(1);
+  });
+
+  describe("a bank account connected before (owner decision 2026-10-02)", () => {
+    const three = {
+      ...choices,
+      budgtsAccounts: [
+        { id: "acct-1", name: "Everyday checking" },
+        { id: "acct-2", name: "Travel card" },
+        { id: "acct-3", name: "Old Chase" },
+      ],
+    };
+    const open = async (suggestions: unknown) => {
+      routes(() => json(200, { ok: true }), { version: 1, suggestions });
+      const r = render(<AccountMappingSheet plaidItemId="item-row" plaidAccounts={[account(), card]} choices={three} onDone={() => {}} onClose={() => {}} />);
+      await settle();
+      return r;
+    };
+    const savedEntries = () => {
+      const save = api.authFetch.mock.calls.find((c) => c[0] === "/api/mobile/plaid/accounts/map")!;
+      return JSON.parse(String((save[2] as RequestInit).body)).entries;
+    };
+
+    it("starts the row on the account its history is in, says so, and saves that by default", async () => {
+      const r = await open({ pa1: { kind: "previous", accountId: "acct-3", accountName: "Old Chase" } });
+      expect(byTestId(r, "account-mapping-mode-0").props.accessibilityLabel).toBe("Import as, An existing account");
+      expect(byTestId(r, "account-mapping-existing-0").props.accessibilityLabel).toBe("Existing account, Old Chase");
+      expect(texts(r)).toContain("You connected this account before. Its history stays in Old Chase.");
+      expect(() => byTestId(r, "account-mapping-previous-1")).toThrow();
+      expect(byTestId(r, "account-mapping-mode-1").props.accessibilityLabel).toBe("Import as, A new Budgts account");
+      await press(r, "account-mapping-save");
+      expect(savedEntries()[0]).toEqual({ plaidAccountId: "pa1", mode: "existing", existingAccountId: "acct-3" });
+    });
+
+    it("the user can still choose a new account instead", async () => {
+      const r = await open({ pa1: { kind: "previous", accountId: "acct-3", accountName: "Old Chase" } });
+      await press(r, "account-mapping-mode-0");
+      await press(r, "account-mapping-mode-0-option-new");
+      await press(r, "account-mapping-save");
+      expect(savedEntries()[0]).toMatchObject({ plaidAccountId: "pa1", mode: "new" });
+    });
+
+    it("ambiguous: lists the candidates first and preselects nothing", async () => {
+      const r = await open({ pa1: { kind: "ambiguous", accountIds: ["acct-3", "acct-2"] } });
+      expect(byTestId(r, "account-mapping-mode-0").props.accessibilityLabel).toBe("Import as, A new Budgts account");
+      expect(() => byTestId(r, "account-mapping-previous-0")).toThrow();
+      await press(r, "account-mapping-mode-0");
+      await press(r, "account-mapping-mode-0-option-existing");
+      expect(byTestId(r, "account-mapping-existing-0").props.accessibilityLabel).toBe("Existing account, Old Chase");
+      await press(r, "account-mapping-existing-0");
+      const prefix = "account-mapping-existing-0-option-";
+      const listed = r.root
+        .findAll((n) => typeof n.props.testID === "string" && n.props.testID.startsWith(prefix))
+        .map((n) => (n.props.testID as string).slice(prefix.length));
+      expect([...new Set(listed)]).toEqual(["acct-3", "acct-2", "acct-1"]);
+    });
+
+    it("shows no rows until the suggestions are in, and a failed read offers Try again", async () => {
+      let reads = 0;
+      api.authFetch.mockImplementation(async (path: string) => {
+        if (path !== SUGGESTIONS) return json(200, { ok: true });
+        reads++;
+        return reads === 1 ? json(503, { error: "unavailable" }) : json(200, { version: 1, suggestions: {} });
+      });
+      const r = render(<AccountMappingSheet plaidItemId="item-row" plaidAccounts={[account()]} choices={choices} onDone={() => {}} onClose={() => {}} />);
+      expect(byTestId(r, "account-mapping-loading")).toBeTruthy();
+      expect(() => byTestId(r, "account-mapping-save")).toThrow();
+      await settle();
+      expect(byTestId(r, "account-mapping-load-error")).toBeTruthy();
+      expect(() => byTestId(r, "account-mapping-save")).toThrow();
+      await press(r, "account-mapping-retry");
+      await settle();
+      expect(byTestId(r, "account-mapping-save")).toBeTruthy();
+    });
   });
 });
 
@@ -236,6 +318,7 @@ describe("ConnectBank (web connect-bank.tsx)", () => {
     api.authFetch.mockImplementation(async (path: string) => {
       if (path === "/api/plaid/link-token") return json(200, { link_token: "link-1" });
       if (path === "/api/plaid/exchange") return json(200, { plaidItemId: "item-row", accounts: [account()] });
+      if (path === SUGGESTIONS) return json(200, { version: 1, suggestions: {} });
       if (path === "/api/mobile/accounts")
         return json(200, {
           version: 1,

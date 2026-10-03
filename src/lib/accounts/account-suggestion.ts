@@ -63,3 +63,39 @@ export function accountLabel(a: { name: string | null; officialName: string | nu
   const base = a.name?.trim() || a.officialName?.trim() || "Account";
   return a.mask ? `${base} ••${a.mask}` : base;
 }
+
+/**
+ * What the server recognised about a newly linked Plaid account (src/lib/plaid/reconnect-match.ts, owner decision
+ * 2026-10-02): the same bank account fed one Budgts account before (`previous`), or several (`ambiguous`, ids in the
+ * order to list them). Reconnect adoption only re-attaches a reconnected bank's history to the account it was in, so
+ * the mapping sheet starts the row on that account; the user can still choose anything else.
+ */
+export type MappingSuggestion =
+  | { kind: "previous"; accountId: string; accountName: string }
+  | { kind: "ambiguous"; accountIds: string[] };
+
+/** The line under a mapping row the server recognised. */
+export function previousAccountNote(accountName: string): string {
+  return `You connected this account before. Its history stays in ${accountName}.`;
+}
+
+/**
+ * The row's starting choice from a suggestion: the previous account, when the sheet still offers it. Ambiguous or no
+ * match: null, and the row keeps `suggestAccount`'s default.
+ */
+export function mappingStart(
+  suggestion: MappingSuggestion | undefined,
+  offered: readonly { id: string }[],
+): { mode: "existing"; existingAccountId: string } | null {
+  if (suggestion?.kind !== "previous" || !offered.some((a) => a.id === suggestion.accountId)) return null;
+  return { mode: "existing", existingAccountId: suggestion.accountId };
+}
+
+/** The "existing account" choices for a row: the suggestion's accounts first, in its order, then the rest unchanged. */
+export function existingChoices<T extends { id: string }>(offered: T[], suggestion: MappingSuggestion | undefined): T[] {
+  if (!suggestion) return offered;
+  const first = suggestion.kind === "previous" ? [suggestion.accountId] : suggestion.accountIds;
+  const rank = new Map(first.map((id, i) => [id, i]));
+  const top = offered.filter((a) => rank.has(a.id)).sort((a, b) => rank.get(a.id)! - rank.get(b.id)!);
+  return [...top, ...offered.filter((a) => !rank.has(a.id))];
+}

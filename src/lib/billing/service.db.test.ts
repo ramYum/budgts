@@ -75,6 +75,18 @@ describe("refresh / restore from the provider", () => {
     expect(ev).toEqual([{ event_type: "RECONCILE_SNAPSHOT", status: "processed" }]);
   });
 
+  it("a snapshot that changes no state is still written (only stale snapshots and manual grants are skipped)", async () => {
+    const u = await createAuthUser(pg);
+    await processRevenueCatEvent({ db, environment: "production", now: () => new Date(T0 + 8 * DAY) }, conversionEvent(u, T0 + 7 * DAY, { original_transaction_id: `otx-${u}` }));
+    const before = await loadEntitlement(db, u);
+    expect(before?.state).toBe("active");
+    const r = await refreshEntitlement(depsAt(NOW, fakeFetch(() => ({ body: subscriber() })).impl), u);
+    expect(r.status).toBe("refreshed");
+    const after = await loadEntitlement(db, u);
+    expect(after).toMatchObject({ state: "active", lastReconciledAt: NOW });
+    expect(before?.lastReconciledAt?.getTime()).not.toBe(NOW.getTime());
+  });
+
   it("RESTORE on a new device: a user we hold no row for is rebuilt from the provider", async () => {
     const u = await createAuthUser(pg);
     expect(await loadEntitlement(db, u)).toBeNull();

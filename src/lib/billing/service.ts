@@ -57,9 +57,8 @@ async function applySnapshot(deps: RefreshDeps, userId: string, event: DomainEve
     const { userId: _u, ...fields } = current;
     void _u;
     const r = reduce({ ...emptyEntitlement(), ...fields }, event, now);
-    // Only an APPLIED snapshot is written: a stale one is older than what we hold, and a manual grant is never the
-    // provider's to change (reducer.ts), so neither may touch the entitlement or the ledger's subscription status.
-    if (r.applied) {
+    // Written unless stale (older than what we hold) or a manual grant (never the provider's to change, reducer.ts).
+    if (r.reason !== "stale" && r.reason !== "manual_grant") {
       await saveEntitlement(tx, userId, r.next);
       await syncSubscriptionStatus(tx, platformSubscriptionId, r.next.state);
     }

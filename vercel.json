@@ -1,4 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "regions": ["cle1"]
+  "regions": ["cle1"],
+  "redirects": [
+    { "source": "/shipwright", "destination": "https://shipwright.budgts.com/", "permanent": true },
+    { "source": "/shipwright/:path+", "destination": "https://shipwright.budgts.com/:path+", "permanent": true }
+  ]
 }

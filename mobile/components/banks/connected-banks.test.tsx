@@ -157,6 +157,19 @@ describe("Connected banks (web /connected-banks)", () => {
     expect(byTestId(r, "bank-item-row-reconnect").props.accessibilityState).toMatchObject({ disabled: false });
   });
 
+  it("Reconnect refused by the bank-sync gate says a subscription is needed, hands on to the paywall seam, opens no Link", async () => {
+    const a = actions();
+    a.ports.fetchLinkToken = vi.fn(async () => ({ status: "subscription_required" as const }));
+    a.onSubscriptionRequired = vi.fn();
+    const r = view([bank({ status: "login_required" })], a);
+    await press(r, "bank-item-row-reconnect");
+    expect(texts(byTestId(r, "bank-item-row-reconnect-error"))).toEqual(["Bank sync needs a Budgts subscription."]);
+    expect(a.onSubscriptionRequired).toHaveBeenCalledOnce();
+    expect(a.link.open).not.toHaveBeenCalled();
+    expect(a.ports.sync).not.toHaveBeenCalled();
+    expect(byTestId(r, "bank-item-row-reconnect").props.accessibilityState).toMatchObject({ disabled: false });
+  });
+
   it("a bank that needs its login again says so and reconnects through Link in update mode, then syncs", async () => {
     const link: PlaidLinkClient = { isAvailable: () => true, open: vi.fn(async () => ({ kind: "success" as const, publicToken: "p", institution: null })) };
     const a = actions({}, link);

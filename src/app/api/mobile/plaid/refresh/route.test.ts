@@ -8,6 +8,10 @@ const flag = vi.hoisted(() => ({ plaidOn: true }));
 vi.mock("@/lib/auth/bearer-context", () => ({ getBearerContext: (...a: unknown[]) => getBearerContext(...a) }));
 vi.mock("@/lib/plaid/ui-flag", () => ({ plaidUiEnabled: () => flag.plaidOn }));
 vi.mock("@/server/plaid/service", () => ({ refreshBankItems: (...a: unknown[]) => refreshBankItems(...a) }));
+const gate = vi.hoisted(() => ({ denied: null as Response | null, calls: [] as string[] }));
+vi.mock("@/lib/billing/gate", () => ({
+  requireBankSyncAccess: async (userId: string) => (gate.calls.push(userId), gate.denied),
+}));
 vi.mock("next/server", async (orig) => ({
   ...(await orig<typeof import("next/server")>()),
   after: (cb: () => unknown) => void scheduled.push(cb),
@@ -28,6 +32,8 @@ beforeEach(() => {
   refreshBankItems.mockReset();
   scheduled.length = 0;
   flag.plaidOn = true;
+  gate.denied = null;
+  gate.calls.length = 0;
   getBearerContext.mockResolvedValue({ user: { id: "user-a" }, supabase });
 });
 
@@ -50,6 +56,15 @@ describe("POST /api/mobile/plaid/refresh: the native pull's bank refresh", () =>
     const res = await POST(post());
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ scheduled: false });
+    expect(scheduled).toHaveLength(0);
+  });
+
+  it("without a subscription answers the gate's 402 and schedules no billed refresh", async () => {
+    gate.denied = Response.json({ error: "premium_required", entitlement: { hasPremium: false } }, { status: 402 });
+    const res = await POST(post());
+    expect(res.status).toBe(402);
+    expect(await res.json()).toMatchObject({ error: "premium_required" });
+    expect(gate.calls).toEqual(["user-a"]);
     expect(scheduled).toHaveLength(0);
   });
 

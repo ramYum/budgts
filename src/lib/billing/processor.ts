@@ -53,6 +53,13 @@ function identity(m: MappedRevenueCatEvent, userId: string | null): EventIdentit
   };
 }
 
+/** What a processed-but-not-applied event records about why. */
+function reasonNote(reason: string): string | null {
+  if (reason === "stale") return "stale: older than the last applied event";
+  if (reason === "manual_grant") return "manual grant: entitlement not changed";
+  return null;
+}
+
 export async function processRevenueCatEvent(deps: ProcessDeps, m: MappedRevenueCatEvent): Promise<ProcessOutcome> {
   const now = (deps.now ?? (() => new Date()))();
   try {
@@ -100,7 +107,7 @@ export async function processRevenueCatEvent(deps: ProcessDeps, m: MappedRevenue
         await saveEntitlement(tx, ownerId, result.next);
         await syncSubscriptionStatus(tx, m.platformSubscriptionId, result.next.state);
       }
-      await finishEvent(tx, rec.id, { status: "processed", internalType: m.domain.type, error: result.reason === "stale" ? "stale: older than the last applied event" : null });
+      await finishEvent(tx, rec.id, { status: "processed", internalType: m.domain.type, error: reasonNote(result.reason) });
       // An event about a user we know NOTHING about (state 'none') that changed nothing — typically a cancellation or
       // expiration delivered before the purchase it follows — carried information we could not use. The provider's own
       // view repairs it, so ask for that instead of leaving (for example) auto-renew wrong until the scheduled sweep.

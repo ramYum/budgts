@@ -27,6 +27,11 @@ describe("requestBankRefresh", () => {
     expect(authFetch).toHaveBeenCalledWith("/api/mobile/plaid/refresh", session, { method: "POST" });
   });
 
+  it("reads the bank-sync gate's 402 (no subscription) as not scheduled: an answer, not a failure", async () => {
+    authFetch.mockResolvedValue(json(402, { error: "premium_required", entitlement: { hasPremium: false } }));
+    expect(await requestBankRefresh(session)).toEqual({ ok: true, data: { scheduled: false } });
+  });
+
   it("maps a refusal to a failure, never a throw", async () => {
     authFetch.mockResolvedValue(json(503, { error: "unavailable" }));
     expect(await requestBankRefresh(session)).toMatchObject({ ok: false, kind: "unavailable", status: 503 });
@@ -53,6 +58,15 @@ describe("pullWithBankRefresh: the pull to refresh", () => {
     expect(refetch).toHaveBeenCalledOnce();
     await settle();
     expect(warn).toHaveBeenCalledWith("[budgts] bank refresh request failed", expect.objectContaining(logged));
+  });
+
+  it("without a subscription (402) still re-reads the data and logs no warning", async () => {
+    authFetch.mockResolvedValue(json(402, { error: "premium_required", entitlement: { hasPremium: false } }));
+    const refetch = vi.fn();
+    pullWithBankRefresh(session, refetch);
+    expect(refetch).toHaveBeenCalledOnce();
+    await settle();
+    expect(warn).not.toHaveBeenCalled();
   });
 
   it("logs nothing when the refresh was accepted", async () => {

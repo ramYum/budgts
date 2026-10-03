@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { effectiveStatus, emptyEntitlement, hasPremium, toEntitlementView, type EntitlementFields } from "./entitlement";
+import { MANUAL_GRANT_ACCESS_UNTIL, MANUAL_GRANT_PROVIDER, effectiveStatus, emptyEntitlement, hasPremium, isManualGrant, toEntitlementView, type EntitlementFields } from "./entitlement";
 import type { DomainEvent } from "./events";
 import { reduce } from "./reducer";
 
@@ -314,5 +314,37 @@ describe("a no-op event must not make older, informative events look stale", () 
     const t = new Date(T0.getTime() + DAY);
     expect(reduce(emptyEntitlement(), ev(t, { type: "expired" }), t).next.lastProviderEventAt).toBeNull();
     expect(reduce(emptyEntitlement(), trialStarted(t), t).next.lastProviderEventAt).toEqual(t);
+  });
+});
+
+describe("a permanent manual grant (provider 'manual')", () => {
+  const granted: EntitlementFields = {
+    ...emptyEntitlement(),
+    state: "active",
+    provider: MANUAL_GRANT_PROVIDER,
+    accessUntil: MANUAL_GRANT_ACCESS_UNTIL,
+  };
+  const LATER = D("2030-01-01T00:00:00Z");
+
+  it("is Premium with no end date", () => {
+    expect(hasPremium(granted, T0)).toBe(true);
+    expect(hasPremium(granted, D("9000-01-01T00:00:00Z"))).toBe(true);
+    expect(isManualGrant(granted)).toBe(true);
+  });
+
+  it.each<[string, DomainEvent]>([
+    ["trial_started", trialStarted(LATER)],
+    ["paid", paid(LATER, new Date(LATER.getTime() + 30 * DAY))],
+    ["auto_renew_changed", ev(LATER, { type: "auto_renew_changed", willRenew: true })],
+    ["billing_issue", ev(LATER, { type: "billing_issue", graceUntil: new Date(LATER.getTime() + DAY) })],
+    ["expired", ev(LATER, { type: "expired" })],
+    ["revoked", ev(LATER, { type: "revoked" })],
+    ["product_changed", ev(LATER, { type: "product_changed", productId: "budgts_annual" })],
+    ["a reconcile snapshot", ev(LATER, { type: "snapshot", state: "expired", willRenew: false, accessUntil: T0, trialStartedAt: null, trialEndsAt: null })],
+    ["a reconcile snapshot with no record", ev(LATER, { type: "snapshot", state: "none", willRenew: false, accessUntil: null, trialStartedAt: null, trialEndsAt: null })],
+  ])("a provider's %s event cannot overwrite, downgrade or end it", (_, event) => {
+    const r = reduce(granted, event, LATER);
+    expect(r).toEqual({ next: granted, applied: false, reason: "manual_grant" });
+    expect(hasPremium(r.next, LATER)).toBe(true);
   });
 });

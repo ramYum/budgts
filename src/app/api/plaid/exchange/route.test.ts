@@ -15,6 +15,10 @@ vi.mock("@/lib/plaid/config", () => ({ loadPlaidConfig: () => ({ tokenEncKey: Bu
 vi.mock("@/lib/plaid/crypto", () => ({ encryptToken: () => "enc" }));
 vi.mock("@/lib/auth/request-context", () => ({ getRequestContext: async () => ctx }));
 vi.mock("@/lib/account/deletion-store", () => ({ isAccountDeleting: async () => false }));
+const gate = vi.hoisted(() => ({ denied: null as Response | null, calls: [] as string[] }));
+vi.mock("@/lib/billing/gate", () => ({
+  requireBankSyncAccess: async (userId: string) => (gate.calls.push(userId), gate.denied),
+}));
 
 import { POST } from "./route";
 
@@ -62,6 +66,29 @@ beforeEach(() => {
   itemPublicTokenExchange.mockReset().mockResolvedValue({ data: { access_token: "access-1", item_id: "item-1" } });
   accountsGet.mockReset().mockResolvedValue({ data: { accounts: [{ account_id: "a1", name: "Checking", balances: {} }] } });
   itemRemove.mockReset().mockResolvedValue({ data: {} });
+  gate.denied = null;
+  gate.calls.length = 0;
+});
+
+describe("POST /api/plaid/exchange: the bank-sync gate", () => {
+  it("without a subscription answers the gate's 402 BEFORE the exchange: no Item is created at Plaid or locally", async () => {
+    const sb = fakeSupabase(() => ({}));
+    ctx = { user: { id: "u1" }, supabase: sb.client };
+    gate.denied = Response.json({ error: "premium_required", entitlement: { hasPremium: false } }, { status: 402 });
+    const res = await POST(request());
+    expect(res.status).toBe(402);
+    expect(await res.json()).toMatchObject({ error: "premium_required" });
+    expect(gate.calls).toEqual(["u1"]);
+    expect(itemPublicTokenExchange).not.toHaveBeenCalled();
+    expect(sb.ops).toEqual([]);
+  });
+
+  it("asks the gate for the verified caller and proceeds when it allows", async () => {
+    const sb = fakeSupabase((op) => (op.table === "plaid_items" && op.op === "insert" ? { data: { id: "row-1" } } : {}));
+    ctx = { user: { id: "u1" }, supabase: sb.client };
+    expect((await POST(request())).status).toBe(200);
+    expect(gate.calls).toEqual(["u1"]);
+  });
 });
 
 describe("POST /api/plaid/exchange", () => {

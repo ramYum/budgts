@@ -28,6 +28,23 @@ describe("connectBank", () => {
     expect(deps.exchange).not.toHaveBeenCalled();
   });
 
+  it("the bank-sync gate refusing the link token is subscription_required, and Link never opens", async () => {
+    const link = fakeLink({ kind: "success", publicToken: "x", institution: null });
+    const exchange = vi.fn();
+    expect(await connectBank({ link, fetchLinkToken: async () => ({ status: "subscription_required" }), exchange })).toEqual({ status: "subscription_required" });
+    expect(link.open).not.toHaveBeenCalled();
+    expect(exchange).not.toHaveBeenCalled();
+  });
+
+  it("the bank-sync gate refusing the exchange is subscription_required", async () => {
+    const deps: ConnectDeps = {
+      link: fakeLink({ kind: "success", publicToken: "x", institution: null }),
+      fetchLinkToken: async () => OK_TOKEN,
+      exchange: async () => ({ status: "subscription_required" }),
+    };
+    expect(await connectBank(deps)).toEqual({ status: "subscription_required" });
+  });
+
   it("passes the platform through to link-token minting so the server can add native Link params", async () => {
     const fetchLinkToken = vi.fn(async () => OK_TOKEN);
     await connectBank({ link: fakeLink({ kind: "exit" }), fetchLinkToken, exchange: vi.fn() }, "ios");
@@ -87,6 +104,14 @@ describe("connectBank", () => {
 });
 
 describe("reconnectBank", () => {
+  it("the bank-sync gate refusing the update-mode token is subscription_required: no Link, no sync", async () => {
+    const link = fakeLink({ kind: "success", publicToken: "x", institution: null });
+    const sync = vi.fn();
+    expect(await reconnectBank({ link, fetchLinkToken: async () => ({ status: "subscription_required" }), sync }, "item-1")).toEqual({ status: "subscription_required" });
+    expect(link.open).not.toHaveBeenCalled();
+    expect(sync).not.toHaveBeenCalled();
+  });
+
   const okSync = { status: "ok" as const };
 
   it("requests update-mode (itemId) link-token creation", async () => {

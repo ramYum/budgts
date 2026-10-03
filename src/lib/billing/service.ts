@@ -7,7 +7,7 @@
  */
 import { describePlaidError } from "@/lib/plaid/error-policy";
 import type { Db } from "./db";
-import { emptyEntitlement, toEntitlementView, type EntitlementView } from "./entitlement";
+import { MANUAL_GRANT_PROVIDER, emptyEntitlement, toEntitlementView, type EntitlementView } from "./entitlement";
 import type { DomainEvent } from "./events";
 import { reduce } from "./reducer";
 import { fetchSubscriber, subscriberToSnapshot } from "./revenuecat/reconcile";
@@ -57,11 +57,12 @@ async function applySnapshot(deps: RefreshDeps, userId: string, event: DomainEve
     const { userId: _u, ...fields } = current;
     void _u;
     const r = reduce({ ...emptyEntitlement(), ...fields }, event, now);
-    if (r.reason !== "stale") {
+    // Written unless stale (older than what we hold) or a manual grant (never the provider's to change, reducer.ts).
+    if (r.reason !== "stale" && r.reason !== "manual_grant") {
       await saveEntitlement(tx, userId, r.next);
       await syncSubscriptionStatus(tx, platformSubscriptionId, r.next.state);
     }
-    await finishEvent(tx, rec.id, { status: "processed", internalType: "snapshot", error: r.reason === "stale" ? "stale: newer state already applied" : null });
+    await finishEvent(tx, rec.id, { status: "processed", internalType: "snapshot", error: r.reason === "stale" ? "stale: newer state already applied" : r.reason === "manual_grant" ? "manual grant: entitlement not changed" : null });
   });
 }
 
@@ -111,13 +112,17 @@ export interface ReconcileSweepResult {
   problems: number;
 }
 
-/** Scheduled repair: re-check entitled users that have not been reconciled recently. Bounded per run. */
+/**
+ * Scheduled repair: re-check entitled users that have not been reconciled recently. Bounded per run. A manual grant has
+ * no provider record to reconcile against, so it is never selected.
+ */
 export async function reconcileStale(deps: RefreshDeps, opts: { limit?: number; staleAfterMs?: number } = {}): Promise<ReconcileSweepResult> {
   const now = (deps.now ?? (() => new Date()))();
   const staleBefore = new Date(now.getTime() - (opts.staleAfterMs ?? 6 * 3_600_000));
   const rows = await deps.db.query<{ user_id: string }>(
     `select user_id from entitlements
       where state in ('trialing','active','grace') and (last_reconciled_at is null or last_reconciled_at < $1)
+        and provider is distinct from '${MANUAL_GRANT_PROVIDER}'
       order by last_reconciled_at asc nulls first limit $2`,
     [staleBefore, opts.limit ?? 50],
   );

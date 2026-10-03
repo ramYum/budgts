@@ -7,8 +7,8 @@
  *
  * Who is lapsed, precisely: the user HAS an entitlements row, `hasPremium` is false, and access ended (`access_until`)
  * at least LAPSE_GRACE_DAYS ago. A user with NO row is never touched: that is every pre-launch account and the
- * owner's accounts awaiting the Phase 4 grandfather grant. A row that never had an access window (`access_until`
- * null) is never touched either.
+ * owner's accounts before their grant. A row that never had an access window (`access_until` null) is never touched
+ * either, and neither is a permanent manual grant (`provider = 'manual'`, entitlement.ts), whatever its dates say.
  *
  * How: each Item goes through the ONE shared disconnect (`src/server/plaid/disconnect.ts`) in strict mode, which keeps
  * the ledger (transactions are detached, never deleted) and keeps the local Item whenever Plaid does not confirm the
@@ -16,17 +16,18 @@
  * and only when this deployment's billing provider is configured.
  */
 import type { Db } from "./db";
-import { hasPremium, type EntitlementFields } from "./entitlement";
+import { MANUAL_GRANT_PROVIDER, hasPremium, isManualGrant, type EntitlementFields } from "./entitlement";
 
 /** Days after access ends before the user's bank connections are removed. */
 export const LAPSE_GRACE_DAYS = 7;
 const GRACE_MS = LAPSE_GRACE_DAYS * 86_400_000;
 
-type AccessFields = Pick<EntitlementFields, "state" | "accessUntil">;
+type AccessFields = Pick<EntitlementFields, "state" | "accessUntil"> & Partial<Pick<EntitlementFields, "provider">>;
 
 /** True when this entitlement lapsed unpaid at least LAPSE_GRACE_DAYS ago. No row (null) is never lapsed. */
 export function isLapsedPastGrace(e: AccessFields | null | undefined, now: Date): boolean {
   if (!e) return false;
+  if (isManualGrant({ provider: e.provider ?? null })) return false;
   if (hasPremium(e, now)) return false;
   if (!e.accessUntil) return false;
   return now.getTime() - e.accessUntil.getTime() >= GRACE_MS;
@@ -64,7 +65,7 @@ export interface LapseSweepResult {
   failed: number;
 }
 
-type CandidateRow = { user_id: string; item_id: string; state: EntitlementFields["state"]; access_until: Date | null };
+type CandidateRow = { user_id: string; item_id: string; state: EntitlementFields["state"]; provider: string | null; access_until: Date | null };
 
 /**
  * Removes the Plaid Items of every user lapsed past the grace window. Bounded per run (`limit` Items) and idempotent:
@@ -76,10 +77,11 @@ export async function removeLapsedBankConnections(deps: LapseSweepDeps, opts: { 
   // The server connection bypasses RLS: the join scopes every Item to its own user. A user whose account deletion has
   // started is left to the deletion, which removes their Items itself (strictly) before anything else.
   const rows = await deps.db.query<CandidateRow>(
-    `select e.user_id, pi.item_id, e.state, e.access_until
+    `select e.user_id, pi.item_id, e.state, e.provider, e.access_until
        from entitlements e
        join plaid_items pi on pi.user_id = e.user_id
       where e.access_until is not null and e.access_until <= $1
+        and e.provider is distinct from '${MANUAL_GRANT_PROVIDER}'
         and not exists (select 1 from account_deletions d where d.user_id = e.user_id)
       order by e.access_until asc, pi.item_id asc
       limit $2`,
@@ -89,7 +91,7 @@ export async function removeLapsedBankConnections(deps: LapseSweepDeps, opts: { 
   const byUser = new Map<string, string[]>();
   for (const r of rows) {
     // The query's date bound already implies this; the access decision itself stays in one place (`hasPremium`).
-    if (!isLapsedPastGrace({ state: r.state, accessUntil: r.access_until }, now)) continue;
+    if (!isLapsedPastGrace({ state: r.state, provider: r.provider, accessUntil: r.access_until }, now)) continue;
     byUser.set(r.user_id, [...(byUser.get(r.user_id) ?? []), r.item_id]);
   }
 
@@ -98,11 +100,11 @@ export async function removeLapsedBankConnections(deps: LapseSweepDeps, opts: { 
   let failed = 0;
   for (const [userId, itemIds] of byUser) {
     // Re-read right before acting: a purchase or restore that landed since the select keeps the user's banks.
-    const [fresh] = await deps.db.query<{ state: EntitlementFields["state"]; access_until: Date | null }>(
-      `select state, access_until from entitlements where user_id = $1`,
+    const [fresh] = await deps.db.query<{ state: EntitlementFields["state"]; provider: string | null; access_until: Date | null }>(
+      `select state, provider, access_until from entitlements where user_id = $1`,
       [userId],
     );
-    if (!fresh || !isLapsedPastGrace({ state: fresh.state, accessUntil: fresh.access_until }, now)) continue;
+    if (!fresh || !isLapsedPastGrace({ state: fresh.state, provider: fresh.provider, accessUntil: fresh.access_until }, now)) continue;
 
     for (const itemId of itemIds) {
       checked++;

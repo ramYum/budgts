@@ -106,6 +106,13 @@ describe("linkPorts", () => {
     expect(lastCall().body).toEqual({ public_token: "public-1", institution: { institution_id: "ins_1", name: "First Platypus Bank" } });
   });
 
+  it("tells the bank-sync gate's 402 apart from a failure, for the link token (new and reconnect) and the exchange", async () => {
+    api.authFetch.mockResolvedValue(json(402, { error: "premium_required", entitlement: { hasPremium: false } }));
+    expect(await ports.fetchLinkToken({ platform: "android" })).toEqual({ status: "subscription_required" });
+    expect(await ports.fetchLinkToken({ itemId: "x" })).toEqual({ status: "subscription_required" });
+    expect(await ports.exchange("public-1", null)).toEqual({ status: "subscription_required" });
+  });
+
   it("tells an already connected bank apart from a failure", async () => {
     api.authFetch.mockResolvedValue(json(409, { error: "already-linked", itemId: "p", plaidItemId: "r" }));
     expect(await ports.exchange("public-1", null)).toEqual({ status: "already_linked" });

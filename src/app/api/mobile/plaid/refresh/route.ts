@@ -8,15 +8,19 @@
  *   The app re-reads its data alongside; anything new Plaid finds lands later through the webhook -> sync path.
  * - Throttled on the server to once per 24 hours per Item (`claimItemsDueForRefresh`), however often the user pulls.
  *
- * Phase 4 follow-up: gate on the bank-sync entitlement (`requirePremium`) once billing is switched on.
+ * - Needs a subscription once billing is configured (`requireBankSyncAccess`): 402 `premium_required`, nothing
+ *   scheduled. The app treats that as "not scheduled" and still re-reads its data.
  */
 import { after } from "next/server";
 import { mobileJson, mobileRoute } from "@/lib/mobile/route";
+import { requireBankSyncAccess } from "@/lib/billing/gate";
 import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
 import { refreshBankItems } from "@/server/plaid/service";
 
 export const POST = mobileRoute(async ({ user }) => {
   if (!plaidUiEnabled()) return mobileJson({ scheduled: false });
+  const denied = await requireBankSyncAccess(user.id);
+  if (denied) return denied;
   after(() => refreshBankItems(user.id));
   return mobileJson({ scheduled: true }, 202);
 });

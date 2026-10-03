@@ -7,6 +7,7 @@ import { invalidate } from "../../lib/api/invalidate";
 import { statusNeedsAttention, type BankAccount, type ConnectedBank } from "../../lib/plaid/banks-api";
 import type { BankCommands, CommandOutcome } from "../../lib/plaid/bank-commands";
 import { accountName, bankName, notImportedNote, resumesExisting, signCheckWords, splitAccounts, syncedLabel } from "../../lib/plaid/bank-view";
+import { BANK_SYNC_SUBSCRIPTION_MESSAGE, type OnSubscriptionRequired } from "../../lib/plaid/bank-sync-access";
 import { reconnectBank, type ReconnectDeps } from "../../lib/plaid/link-flow";
 import { accountLabel, suggestAccount } from "../../lib/shared";
 import type { MappingChoices } from "../../lib/plaid/mapping";
@@ -29,6 +30,8 @@ export type BankActions = {
   ports: Pick<ReconnectDeps, "fetchLinkToken" | "sync">;
   link: PlaidLinkClient;
   choices: MappingChoices;
+  /** The bank-sync gate refused a reconnect (no subscription): the Phase 4 paywall opens here. */
+  onSubscriptionRequired?: OnSubscriptionRequired;
 };
 
 /**
@@ -251,7 +254,10 @@ function ReconnectButton({ itemId, actions, testID }: { itemId: string; actions:
         itemId,
         currentPlatform(),
       );
-      if (out.status === "unavailable") setError("Bank connections aren't available in this build yet.");
+      if (out.status === "subscription_required") {
+        setError(BANK_SYNC_SUBSCRIPTION_MESSAGE);
+        actions.onSubscriptionRequired?.();
+      } else if (out.status === "unavailable") setError("Bank connections aren't available in this build yet.");
       // the web shows only a failed start; a sync that didn't finish shows on the card as its status
       else if (out.status === "error" && !syncing) setError(out.message);
       if (out.status === "ok" || out.status === "error") {

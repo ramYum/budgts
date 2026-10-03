@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { syncConnection } from "@/server/plaid/actions";
 import { buttonClass } from "@/components/ui";
+import { BANK_SYNC_SUBSCRIPTION_MESSAGE, isBankSyncRefusal } from "@/lib/billing/bank-sync-access";
 import { LinkHandoff } from "./link-handoff";
 import { clearLinkContext, saveLinkContext } from "./oauth-storage";
 
@@ -28,6 +29,11 @@ export function ReconnectButton({ itemId, testId }: { itemId: string; testId?: s
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ itemId }),
       });
+      if (isBankSyncRefusal(res)) {
+        setPhase("idle");
+        setError(BANK_SYNC_SUBSCRIPTION_MESSAGE);
+        return;
+      }
       const body = (await res.json()) as { link_token?: string };
       if (!res.ok || !body.link_token) throw new Error();
       // Persisted BEFORE opening Link — an OAuth institution's reconnect

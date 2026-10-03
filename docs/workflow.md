@@ -1523,3 +1523,19 @@ implementation goes to `budgts-architect`.
   on staging only; production waits for the owner. Still open: a user who picks a different account still doubles the
   overlap (their explicit choice); a revoked Item that is reconnected without being disconnected keeps its links, so
   neither suggestion nor adoption applies.
+- **2026-10-02 — Bank connect and refresh need a subscription; the owner's accounts get a permanent grant**
+  (`phase-m/bank-gate`, owner decisions). (1) `requireBankSyncAccess` (`src/lib/billing/gate.ts`) gates
+  `POST /api/plaid/link-token` (new and update-mode reconnect), `POST /api/plaid/exchange` (before the token exchange,
+  so a refused caller creates no Item) and `POST /api/mobile/plaid/refresh`: 402 `premium_required` with the
+  entitlement view. Switched by `billingProviderConfigured`, like the lapse sweep: a no-op until billing is configured.
+  Syncs and webhooks are not gated (pausing sync in the grace window is still Phase 4). Web Connect a bank, Reconnect
+  and the OAuth return page, and native Connect a bank / Reconnect, say "Bank sync needs a Budgts subscription."; native
+  hands on to `onSubscriptionRequired` (the Phase 4 paywall seam); the native pull reads 402 as "not scheduled", no
+  warning, the re-read still runs. (2) The permanent manual grant: `state 'active'`, `provider 'manual'`,
+  `access_until 9999-12-31` in the 0024 columns (no migration). The reducer refuses every provider event on a manual
+  row, reconcile never selects it, the lapse sweep excludes it, deletion's billing check does not count it as a store
+  subscription. `npm run billing:grant` (`tools/billing/`; how to: `docs/operations/billing-manual-grant.md`) writes
+  it with a `billing_events` audit row: dry run by default, target ref confirmed as `predb:migrate` does, idempotent,
+  `--revoke`. Verified on staging (grant, `hasPremium` true, re-run `already_granted`, revoke, test user deleted).
+  Found on staging: a bare postgres-js client double-encodes the jsonb audit payload; the tool now opens the connection
+  through drizzle as the server does. **Owner action:** run the grant against production for the owner's accounts.

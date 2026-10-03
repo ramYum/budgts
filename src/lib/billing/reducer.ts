@@ -12,18 +12,22 @@
  *  - CANCELLATION IS NOT LOSS OF ACCESS. Turning auto-renew off keeps access until the period ends; only an
  *    expiration or a revocation (refund) ends it.
  *  - IDEMPOTENT. Re-applying the same event yields the same fields.
+ *  - A MANUAL GRANT IS NOT THE PROVIDER'S. A row the grant tool wrote (`provider = 'manual'`, entitlement.ts) is
+ *    refused every provider event, so no webhook or reconcile can overwrite, downgrade or end it. Only the grant tool
+ *    changes it.
  *
  * Money and ledger history are NOT decided here (a charge is a fact recorded by ledger.ts); this layer only decides
  * what access the user has.
  */
-import { ENTITLED_STATES, type EntitlementFields, type Price, type Store } from "./entitlement";
+import { ENTITLED_STATES, isManualGrant, type EntitlementFields, type Price, type Store } from "./entitlement";
 import type { DomainEvent } from "./events";
 
 export interface ReduceResult {
   next: EntitlementFields;
   /** false when the event changed nothing (stale, redundant, or not applicable to the current state). */
   applied: boolean;
-  reason: "applied" | "stale" | "noop";
+  /** `manual_grant`: the row is a permanent manual grant, which no provider event may change. */
+  reason: "applied" | "stale" | "noop" | "manual_grant";
 }
 
 const withEventClock = (e: EntitlementFields, at: Date): EntitlementFields => ({ ...e, lastProviderEventAt: at });
@@ -41,6 +45,7 @@ function priceFields(price: Price | null | undefined): Partial<EntitlementFields
 }
 
 export function reduce(current: EntitlementFields, ev: DomainEvent, now: Date): ReduceResult {
+  if (isManualGrant(current)) return { next: current, applied: false, reason: "manual_grant" };
   // ORDER: an event strictly older than the last applied one cannot move state backward.
   if (current.lastProviderEventAt && ev.occurredAt.getTime() < current.lastProviderEventAt.getTime()) {
     return { next: current, applied: false, reason: "stale" };

@@ -12,6 +12,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { usePlaidLink, type PlaidLinkOnSuccessMetadata } from "react-plaid-link";
+import { BANK_SYNC_SUBSCRIPTION_MESSAGE, isBankSyncRefusal } from "@/lib/billing/bank-sync-access";
 import { syncConnection } from "@/server/plaid/actions";
 import { clearLinkContext, loadLinkContext } from "@/components/plaid/oauth-storage";
 import { Icon } from "@/components/icon";
@@ -88,6 +89,10 @@ export default function PlaidOAuthPage() {
             : undefined,
         }),
       });
+      if (isBankSyncRefusal(res)) {
+        setError(BANK_SYNC_SUBSCRIPTION_MESSAGE);
+        return;
+      }
       if (!res.ok && res.status !== 409) throw new Error();
       // Only navigate away on success — an error the user can't read defeats
       // the point of showing one (found in review before this shipped).

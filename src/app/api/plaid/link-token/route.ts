@@ -6,6 +6,9 @@
  * "android" }` (native only) adds the native Link params, see
  * `native-link-params.ts`; omitted or `"web"` keeps the web params exactly as
  * before. Design §8, §23.
+ *
+ * Both a new connection and a reconnect need a subscription once billing is
+ * configured (`requireBankSyncAccess`): 402 `premium_required`.
  */
 import { NextResponse } from "next/server";
 import { loadPlaidConfig } from "@/lib/plaid/config";
@@ -13,6 +16,7 @@ import { plaidClient } from "@/lib/plaid/client";
 import { describePlaidError } from "@/lib/plaid/error-policy";
 import { getRequestContext } from "@/lib/auth/request-context";
 import { isAccountDeleting } from "@/lib/account/deletion-store";
+import { requireBankSyncAccess } from "@/lib/billing/gate";
 import { nativeLinkParams, type LinkPlatform } from "@/lib/plaid/native-link-params";
 import { accessTokenForUserItem } from "@/server/plaid/service";
 
@@ -28,6 +32,9 @@ export async function POST(request: Request) {
   if (await isAccountDeleting(user.id)) {
     return NextResponse.json({ error: "account_deletion_in_progress" }, { status: 409 });
   }
+
+  const denied = await requireBankSyncAccess(user.id);
+  if (denied) return denied;
 
   let body: { itemId?: string; platform?: string } = {};
   try {

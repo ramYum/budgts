@@ -7,10 +7,12 @@ import type { LinkPlatform, PlaidLinkClient, PlaidLinkOutcome } from "./plaid-li
  * without a device or the real SDK). Nothing here ever sees a Plaid access token: only the `public_token` Link hands
  * back, which the server exchanges (docs/specs/2026-09-17-mobile-app-launch-design.md §5).
  */
-export type LinkTokenResult = { status: "ok"; linkToken: string } | { status: "error"; message: string };
+/** `subscription_required`: the bank-sync gate refused (402); see bank-sync-access.ts. */
+export type LinkTokenResult = { status: "ok"; linkToken: string } | { status: "subscription_required" } | { status: "error"; message: string };
 export type ExchangeResult =
   | { status: "ok"; plaidItemId: string; accounts: UnmappedAccount[] }
   | { status: "already_linked" }
+  | { status: "subscription_required" }
   | { status: "error"; message: string };
 export type SyncResult = { status: "ok" } | { status: "error"; message: string };
 
@@ -19,6 +21,7 @@ export type ConnectOutcome =
   | { status: "cancelled" }
   | { status: "linked"; plaidItemId: string; accounts: UnmappedAccount[] }
   | { status: "already_linked" }
+  | { status: "subscription_required" }
   | { status: "error"; message: string };
 
 export interface ConnectDeps {
@@ -45,6 +48,7 @@ export async function connectBank(deps: ConnectDeps, platform?: LinkPlatform): P
   if (!deps.link.isAvailable()) return { status: "unavailable" };
 
   const token = await deps.fetchLinkToken(platform ? { platform } : {});
+  if (token.status === "subscription_required") return token;
   if (token.status === "error") return { status: "error", message: token.message };
 
   const outcome = await openLink(deps.link, token.linkToken);
@@ -54,10 +58,16 @@ export async function connectBank(deps: ConnectDeps, platform?: LinkPlatform): P
   const exchanged = await deps.exchange(outcome.publicToken, outcome.institution);
   if (exchanged.status === "ok") return { status: "linked", plaidItemId: exchanged.plaidItemId, accounts: exchanged.accounts };
   if (exchanged.status === "already_linked") return { status: "already_linked" };
+  if (exchanged.status === "subscription_required") return exchanged;
   return { status: "error", message: exchanged.message };
 }
 
-export type ReconnectOutcome = { status: "unavailable" } | { status: "cancelled" } | { status: "ok"; warning?: string } | { status: "error"; message: string };
+export type ReconnectOutcome =
+  | { status: "unavailable" }
+  | { status: "cancelled" }
+  | { status: "ok"; warning?: string }
+  | { status: "subscription_required" }
+  | { status: "error"; message: string };
 
 export interface ReconnectDeps {
   link: PlaidLinkClient;
@@ -71,6 +81,7 @@ export async function reconnectBank(deps: ReconnectDeps, itemId: string, platfor
   if (!deps.link.isAvailable()) return { status: "unavailable" };
 
   const token = await deps.fetchLinkToken({ itemId, ...(platform ? { platform } : {}) });
+  if (token.status === "subscription_required") return token;
   if (token.status === "error") return { status: "error", message: token.message };
 
   const outcome = await openLink(deps.link, token.linkToken);

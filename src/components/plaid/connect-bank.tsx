@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { PlaidLinkOnSuccessMetadata } from "react-plaid-link";
 import { Overlay } from "@/components/overlay";
 import { Button } from "@/components/ui";
+import { BANK_SYNC_SUBSCRIPTION_MESSAGE, isBankSyncRefusal } from "@/lib/billing/bank-sync-access";
 import { AccountMapping, type MappableAccount } from "./account-mapping";
 import { LinkHandoff } from "./link-handoff";
 import { clearLinkContext, saveLinkContext } from "./oauth-storage";
@@ -44,6 +45,11 @@ export function ConnectBank({
     setPhase("starting");
     try {
       const res = await fetch("/api/plaid/link-token", { method: "POST" });
+      if (isBankSyncRefusal(res)) {
+        setPhase("idle");
+        setError(BANK_SYNC_SUBSCRIPTION_MESSAGE);
+        return;
+      }
       const body = (await res.json()) as { link_token?: string };
       if (!res.ok || !body.link_token) throw new Error();
       // Persisted BEFORE opening Link: an OAuth institution navigates the
@@ -73,6 +79,12 @@ export function ConnectBank({
               : undefined,
           }),
         });
+        if (isBankSyncRefusal(res)) {
+          setPhase("idle");
+          setLinkToken(null);
+          setError(BANK_SYNC_SUBSCRIPTION_MESSAGE);
+          return;
+        }
         const body = (await res.json()) as {
           error?: string;
           plaidItemId?: string;

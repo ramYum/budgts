@@ -3,6 +3,7 @@ import { authFetch } from "../auth/api";
 import { LOCKED_MESSAGE } from "../api/load";
 import { apiRequest, jsonInit } from "../api/request";
 import { parseUnmapped } from "./banks-api";
+import { isBankSyncRefusal } from "./bank-sync-access";
 import type { ConnectDeps, ReconnectDeps } from "./link-flow";
 import type { MapEntry } from "./mapping";
 
@@ -112,9 +113,9 @@ export function linkPorts(session: Session | null): LinkPorts {
           return token;
         },
       );
-      return r.ok
-        ? { status: "ok", linkToken: r.data }
-        : { status: "error", message: body.itemId ? "Couldn't start the reconnect. Try again." : "Couldn't start the bank connection. Try again." };
+      if (r.ok) return { status: "ok", linkToken: r.data };
+      if (isBankSyncRefusal(r)) return { status: "subscription_required" };
+      return { status: "error", message: body.itemId ? "Couldn't start the reconnect. Try again." : "Couldn't start the bank connection. Try again." };
     },
     exchange: async (publicToken, institution) => {
       const r = await apiRequest(
@@ -135,6 +136,7 @@ export function linkPorts(session: Session | null): LinkPorts {
       );
       if (r.ok) return { status: "ok", ...r.data };
       if (r.status === 409 && r.code === "already-linked") return { status: "already_linked" };
+      if (isBankSyncRefusal(r)) return { status: "subscription_required" };
       return { status: "error", message: "Couldn't finish connecting the bank. Try again." };
     },
     sync: async (itemId) => {

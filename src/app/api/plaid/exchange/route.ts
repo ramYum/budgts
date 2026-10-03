@@ -4,6 +4,9 @@
  * step). The token never appears in the response. Design §9, §11.
  *
  * Body: `{ public_token: string, institution?: { institution_id?, name? } }`
+ *
+ * Needs a subscription once billing is configured (`requireBankSyncAccess`), checked BEFORE the exchange so a refused
+ * caller never creates a billed Item at Plaid: 402 `premium_required`.
  */
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -13,6 +16,7 @@ import { encryptToken } from "@/lib/plaid/crypto";
 import { describePlaidError } from "@/lib/plaid/error-policy";
 import { getRequestContext } from "@/lib/auth/request-context";
 import { isAccountDeleting } from "@/lib/account/deletion-store";
+import { requireBankSyncAccess } from "@/lib/billing/gate";
 
 const Body = z.object({
   public_token: z.string().min(1),
@@ -31,6 +35,9 @@ export async function POST(request: Request) {
   if (await isAccountDeleting(user.id)) {
     return NextResponse.json({ error: "account_deletion_in_progress" }, { status: 409 });
   }
+
+  const denied = await requireBankSyncAccess(user.id);
+  if (denied) return denied;
 
   const parsed = Body.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "invalid body" }, { status: 400 });

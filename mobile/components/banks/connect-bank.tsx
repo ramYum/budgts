@@ -8,6 +8,7 @@ import { authFetch } from "../../lib/auth/api";
 import { useAuth } from "../../lib/auth/auth-context";
 import type { UnmappedAccount } from "../../lib/plaid/banks-api";
 import { linkPorts } from "../../lib/plaid/bank-commands";
+import { BANK_SYNC_SUBSCRIPTION_MESSAGE, type OnSubscriptionRequired } from "../../lib/plaid/bank-sync-access";
 import { connectBank } from "../../lib/plaid/link-flow";
 import { mappingChoices, type MappingChoices } from "../../lib/plaid/mapping";
 import type { PlaidLinkClient } from "../../lib/plaid/plaid-link";
@@ -32,6 +33,7 @@ export function ConnectBank({
   fullWidth = false,
   link = createPlaidLinkClient(),
   testID = "connect-bank",
+  onSubscriptionRequired,
 }: {
   label?: string;
   tone?: "primary" | "outline";
@@ -40,6 +42,8 @@ export function ConnectBank({
   /** the Plaid Link port (tests pass a fake) */
   link?: PlaidLinkClient;
   testID?: string;
+  /** The bank-sync gate refused (no subscription): the Phase 4 paywall opens here. The message shows either way. */
+  onSubscriptionRequired?: OnSubscriptionRequired;
 }) {
   const { session } = useAuth();
   const [phase, setPhase] = useState<Phase>("idle");
@@ -103,6 +107,11 @@ export function ConnectBank({
         }
         return;
       }
+      if (outcome.status === "subscription_required") {
+        setError(BANK_SYNC_SUBSCRIPTION_MESSAGE);
+        onSubscriptionRequired?.();
+        return;
+      }
       if (outcome.status === "already_linked") setNotice("You've already connected this bank. Reconnect it from the list below if it needs attention.");
       else if (outcome.status === "unavailable") setError("Bank connections aren't available in this build yet.");
       else if (outcome.status === "error") setError(outcome.message);
@@ -116,7 +125,7 @@ export function ConnectBank({
     } finally {
       setPhase("idle");
     }
-  }, [session, link]);
+  }, [session, link, onSubscriptionRequired]);
 
   // One run at a time, decided synchronously: two taps in the same frame both land before the disabled button renders.
   const running = useRef(false);

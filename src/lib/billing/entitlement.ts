@@ -47,6 +47,27 @@ export interface Entitlement extends EntitlementFields {
   userId: string;
 }
 
+/**
+ * A PERMANENT MANUAL GRANT (launch spec §9: "The owner's existing accounts are grandfathered by a manual entitlement
+ * grant, recorded as such"). Expressed in the existing columns, no migration:
+ *
+ *   state = 'active', provider = 'manual', store / product / customer / price = null, will_renew = false,
+ *   access_until = MANUAL_GRANT_ACCESS_UNTIL (9999-12-31)
+ *
+ * so `hasPremium` is true with the ordinary rules and no special case. A finite far-future date, not Postgres
+ * 'infinity': the drivers hand 'infinity' back as text that `new Date()` turns into an Invalid Date, which would make
+ * every comparison false and deny access. `provider = 'manual'` is what protects the row: the reducer refuses every
+ * provider event on it (reducer.ts), reconcile never selects it (service.ts), and the lapse sweep excludes it
+ * (lapse.ts). Only the grant tool (tools/billing/grant.ts) writes or revokes it, each time with a billing_events row.
+ */
+export const MANUAL_GRANT_PROVIDER = "manual";
+export const MANUAL_GRANT_ACCESS_UNTIL = new Date("9999-12-31T00:00:00.000Z");
+
+/** True for a row the grant tool wrote: no billing provider may change it. */
+export function isManualGrant(e: Pick<EntitlementFields, "provider"> | null | undefined): boolean {
+  return e?.provider === MANUAL_GRANT_PROVIDER;
+}
+
 /** A user who has never had anything: the state every account starts in (no row is needed to mean this). */
 export function emptyEntitlement(): EntitlementFields {
   return {

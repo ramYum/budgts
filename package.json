@@ -21,6 +21,7 @@
     "predb:migrate": "tsx tools/db/preflight-migrate.ts",
     "db:migrate": "drizzle-kit migrate",
     "db:verify-history": "tsx tools/db/verify-migration-history.ts",
+    "billing:grant": "tsx tools/billing/grant.ts",
     "screenshot": "node tools/screenshot.mjs",
     "parity": "tsx tools/parity/run.ts",
     "parity:serve": "tsx tools/parity/serve.ts",

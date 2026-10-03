@@ -31,7 +31,7 @@ async function localSignals(db: Db, userId: string): Promise<{ everHadStoreSubsc
   try {
     const [row] = await db.query<{ ever: boolean; live: boolean }>(
       `select (product_id is not null or store is not null or trial_started_at is not null) as ever,
-              (state in ('trialing','active','grace') and access_until > now()) as live
+              (state in ('trialing','active','grace') and access_until > now() and provider is distinct from 'manual') as live
          from entitlements where user_id = $1`,
       [userId],
     );

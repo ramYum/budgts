@@ -35,6 +35,9 @@ export const mapAccountsSchema = z.object({
   entries: z.array(accountMapEntrySchema).min(1),
 });
 
+/** The mapping step's reconnect suggestions for one connection (`loadMappingSuggestions`). */
+export const mappingSuggestionsSchema = z.object({ plaidItemId: z.string().uuid() });
+
 /**
  * Categorize a bank transaction. The user picks EITHER one of their existing
  * categories (`categoryId`) OR a standard category they don't currently have

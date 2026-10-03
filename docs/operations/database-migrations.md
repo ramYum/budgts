@@ -23,6 +23,14 @@
 > `0006`, `0008`, `0013`, `0015`, `0016`): the worktree checks them out with LF,
 > while staging's ledger holds the hashes of the main checkout's CRLF copies,
 > byte for byte. That is line endings only, not drift.
+>
+> **2026-10-02:** `0027` (`account_bank_identities` + the
+> `record_account_bank_identity` trigger on `plaid_accounts`, backfilled from
+> every current link; reconnect mapping suggestion) is applied to **staging
+> only** (`phase-m/reconnect-mapping`); production waits for the owner. After
+> it, `db:verify-history` on staging matches 21 of 28 files with only the same
+> seven CRLF-hash files above; the backfill recorded 5 identities for staging's
+> 5 live links (none missing, none across users).
 
 Why this file exists: `budgts-staging`'s migration ledger (`drizzle.__drizzle_migrations`)
 drifted from the repository's actual migration files — several migrations'

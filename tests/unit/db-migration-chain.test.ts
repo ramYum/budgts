@@ -27,7 +27,7 @@ describe("migration chain from an empty database", () => {
     const [{ n }] = (await pg.query<{ n: number }>(`select count(*)::int n from drizzle.__drizzle_migrations`)).rows;
     expect(n).toBe(journal.length);
     journal.forEach((e, i) => expect(e.idx, e.tag).toBe(i));
-    expect(journal.at(-1)?.tag).toBe("0026_entitlements_bank_connections_removed");
+    expect(journal.at(-1)?.tag).toBe("0027_account_bank_identities");
     // main's 0017 (sync lease) and 0018 (time zone) stay where production has them; the ported work follows.
     expect(journal.slice(17).map((e) => e.tag)).toEqual([
       "0017_thin_goblin_queen",
@@ -40,6 +40,7 @@ describe("migration chain from an empty database", () => {
       "0024_entitlements_and_billing_events",
       "0025_plaid_sign_answers",
       "0026_entitlements_bank_connections_removed",
+      "0027_account_bank_identities",
     ]);
   });
 

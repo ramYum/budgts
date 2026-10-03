@@ -163,7 +163,7 @@ src/
   server/                 # server actions + server-only Plaid service
   proxy.ts                # session refresh + auth gate (Next 16's middleware)
 supabase/
-  migrations/             # 0000–0024 SQL migrations: tables, RLS policies, handle_new_user() seed trigger (0018 = per-user time zone; 0019–0022 account deletion; 0023 ledger; 0024 entitlements)
+  migrations/             # 0000–0027 SQL migrations: tables, RLS policies, handle_new_user() seed trigger (0018 = per-user time zone; 0019–0022 account deletion; 0023 ledger; 0024 entitlements; 0025 sign answers; 0026 lapse-removal marker; 0027 account bank identities)
   staging-plaid-cron.sql  # pg_cron → /api/plaid/sync-due wiring (not a migration)
 tests/
   unit/                   # Vitest specs that don't sit next to source (incl. performance guardrails)

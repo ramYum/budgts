@@ -2,7 +2,7 @@
  * Native read models — the explicit view-models behind `GET /api/mobile/{accounts,categories,transactions,budgets}`
  * (docs/specs/2026-09-17-mobile-app-launch-design.md §6). Same pattern as `home.ts`: server-side, RLS-scoped through the
  * caller's own Supabase client, a projection of authoritative data, never a raw row, money in integer minor units. Where a web
- * page already has a visibility rule (archived accounts, removed / duplicate bank rows, disconnected banks) it is applied here
+ * page already has a visibility rule (archived accounts, removed / duplicate bank rows) it is applied here
  * identically so the two surfaces can never disagree about what a ledger contains.
  *
  * A read that fails throws (the route answers a generic 503): a partial list would silently misstate the user's money.
@@ -238,10 +238,11 @@ export async function loadTransactionsPage(supabase: SupabaseClient, q: Transact
     .lt("occurred_at", end)
     // Same rules as the web ledger (`transactions/page.tsx`): archived accounts stay out of the default view...
     .eq("account.is_archived", false);
-  // ...and, where Plaid is on: soft-deleted bank rows, confirmed duplicates, and rows of a bank the owner deliberately
-  // disconnected are not transactions to show. (Those columns exist only where the Plaid migrations have run.)
+  // ...and, where Plaid is on: soft-deleted bank rows and confirmed duplicates are not transactions to show. (Those
+  // columns exist only where the Plaid migrations have run.) Rows a removed bank left behind stay listed: they count in
+  // every total, so the ledger must show them (owner decision 2026-10-05).
   if (q.plaidOn) {
-    query = query.is("removed_at", null).is("duplicate_of_id", null).or("source.neq.bank,plaid_account_id.not.is.null");
+    query = query.is("removed_at", null).is("duplicate_of_id", null);
   }
   if (q.categoryId) query = query.eq("category_id", q.categoryId);
   // The web ledger's order (`transactions/page.tsx`): occurred_at, then created_at, then id, newest first. Manual entries on

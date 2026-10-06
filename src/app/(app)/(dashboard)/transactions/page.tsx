@@ -79,15 +79,10 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
     // needsCategory below already applies. Guarded like removed_at: the
     // column only exists where 0007 has run.
     if (plaidOn) q = q.is("duplicate_of_id", null);
-    // An explicitly disconnected bank (design §24, disconnect.ts) never
-    // deletes its transactions — plaid_account_id just goes null (the FK's
-    // ON DELETE SET NULL) — but the ledger view shouldn't keep showing a
-    // connection the owner deliberately removed. Scoped to `source = bank`
-    // only: a manual entry's plaid_account_id is always null too, and must
-    // never be caught by this. Deliberately NOT triggered by a transient
-    // sync failure (login_required/error) — the item row, and so
-    // plaid_account_id, is untouched until an actual disconnect.
-    if (plaidOn) q = q.or("source.neq.bank,plaid_account_id.not.is.null");
+    // Rows a disconnected bank left behind (disconnect.ts keeps them; their
+    // plaid_account_id goes null) stay listed: they count in every total, so
+    // hiding them would leave figures nobody can trace or edit (owner
+    // decision 2026-10-05, superseding design §24's hidden ledger rows).
     return q
       .order("occurred_at", { ascending: false })
       .order("created_at", { ascending: false })

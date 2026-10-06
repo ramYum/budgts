@@ -175,7 +175,9 @@ describe("loadTransactionsPage", () => {
     expect(c).toContainEqual(["eq", "account.is_archived", false]); // archived accounts stay out of the ledger
     expect(c).toContainEqual(["is", "removed_at", null]); // soft-deleted bank rows
     expect(c).toContainEqual(["is", "duplicate_of_id", null]); // confirmed duplicates
-    expect(c).toContainEqual(["or", "source.neq.bank,plaid_account_id.not.is.null"]); // deliberately disconnected banks
+    // A removed bank's kept rows stay listed: they count in every total, so hiding them would leave figures nobody can
+    // trace or edit (owner decision 2026-10-05, superseding "disconnected banks are not shown").
+    expect(c.some((x) => x[0] === "or")).toBe(false);
     // the web ledger's order (transactions/page.tsx), in that sequence
     expect(c.filter((x) => x[0] === "order")).toEqual([
       ["order", "occurred_at", { ascending: false }],

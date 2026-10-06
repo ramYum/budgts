@@ -17,7 +17,7 @@ import type * as schema from "@/lib/db/schema";
 import { plaidAccounts, plaidItems, transactions } from "@/lib/db/schema";
 import type { SyncPlan, TxnPatch } from "./apply-sync";
 import { plaidToInsert } from "./land";
-import { planHeldRowRelease } from "./held-rows";
+import { planHeldRowRelease, type HeldRow } from "./held-rows";
 import type { SignEvidenceTxn } from "./sign-convention";
 import type { AutoResolveFacts, PlaidSyncStore, PlaidTxnRow } from "./sync-engine";
 
@@ -157,6 +157,47 @@ export interface RowBefore {
   eventRole: string | null;
 }
 
+/** The immutable Plaid payload amount (`raw.amount`) as a number, or null when absent or not a number. */
+export const rawAmountSql = sql<number | null>`case when jsonb_typeof(${transactions.raw}->'amount') = 'number'
+  then (${transactions.raw}->>'amount')::float8 end`;
+
+/** postgres-js may return float8 as a string; normalise. */
+export const withRawNumber = <T extends { rawAmount: number | string | null }>(r: T): T & { rawAmount: number | null } => ({
+  ...r,
+  rawAmount: r.rawAmount == null ? null : Number(r.rawAmount),
+});
+
+/**
+ * Reconnect adoption into an already-resolved account (design: card payments §5c, prevention). A kept row still held
+ * only because its OLD account's format was unknown would otherwise stay held under an account where no question is
+ * asked. Adoption matched it on the same raw date and amount from the same bank account, so the raw sign means the same
+ * thing: it is released with the adopting account's convention and Plaid type through `planHeldRowRelease`, from the
+ * kept row's OWN fields (its direction if the user edited it, its own transfer flag), never the new transaction's. If
+ * the new transaction is held for a currency mismatch, the row takes that hold instead (the UI explains it). Any other
+ * kept row, or an adopting account still unknown (§5 asks there), is left exactly as it was.
+ */
+async function releaseAdoptedHeldRow(
+  tx: PlaidTx,
+  userId: string,
+  kept: HeldRow & { status: "confirmed" | "pending_review"; pendingReason: string | null },
+  txn: { pendingReason: string | null },
+  account: { type: string | null; signConvention: "unknown" | "standard" | "inverted" } | undefined,
+): Promise<void> {
+  if (kept.status !== "pending_review" || kept.pendingReason !== "sign_convention_unknown") return;
+  if (!account || account.signConvention === "unknown") return;
+  const [rel] = planHeldRowRelease([kept], account.signConvention, account.type ?? null);
+  const currencyHeld = txn.pendingReason === "currency_mismatch";
+  await tx
+    .update(transactions)
+    .set({
+      direction: rel!.direction,
+      eventRole: rel!.eventRole,
+      status: currencyHeld ? "pending_review" : "confirmed",
+      pendingReason: currencyHeld ? "currency_mismatch" : null,
+    })
+    .where(and(eq(transactions.id, kept.id), eq(transactions.userId, userId)));
+}
+
 /** Writes direction + event_role per row in bulk (one UPDATE ... FROM (VALUES ...) per chunk); `confirm` also
  * releases held rows (status confirmed, no pending reason). */
 export async function writeDirectionAndRole(
@@ -221,6 +262,7 @@ export async function finalizeSignConventionIn(
       primary: transactions.plaidCategoryPrimary,
       detailed: transactions.plaidCategoryDetailed,
       isTransfer: transactions.isTransfer,
+      rawAmount: rawAmountSql,
     })
     .from(transactions)
     .where(
@@ -231,7 +273,7 @@ export async function finalizeSignConventionIn(
         eq(transactions.pendingReason, "sign_convention_unknown"),
       ),
     );
-  await writeDirectionAndRole(tx, planHeldRowRelease(pendingRows, convention, account.type ?? null), true);
+  await writeDirectionAndRole(tx, planHeldRowRelease(pendingRows.map(withRawNumber), convention, account.type ?? null), true);
   return {
     released: pendingRows.map((r) => ({
       id: r.id,
@@ -360,31 +402,26 @@ export function createPlaidSyncStore(db: PlaidDb): PlaidSyncStore {
           inserts += landed.length;
         }
 
-        // Reconnect adoption: the kept row takes the new identity and nothing else. Conditional on it still being
+        // Reconnect adoption: the kept row takes the new identity (and, if it is still held for the sign check under an
+        // already-resolved account, is released from its own fields: releaseAdoptedHeldRow). Conditional on it still being
         // detached, so two syncs can never both claim it; a row someone else claimed first lands as a normal insert,
         // so the new transaction is never lost.
         let rekeyed = 0;
+        // The adopting Plaid accounts' convention and type, for releasing a kept row still held for the sign check.
+        const rekeyAccountIds = [...new Set(plan.rekeys.map((r) => r.txn.plaidAccountRowId))];
+        const rekeyAccounts = new Map(
+          (rekeyAccountIds.length === 0
+            ? []
+            : await tx
+                .select({ id: plaidAccounts.id, type: plaidAccounts.type, signConvention: plaidAccounts.signConvention })
+                .from(plaidAccounts)
+                .where(and(eq(plaidAccounts.userId, userId), inArray(plaidAccounts.id, rekeyAccountIds)))
+          ).map((a) => [a.id, a]),
+        );
         for (const r of plan.rekeys) {
-          // A kept row still held only because its OLD account's format was unknown (design: card payments §5c) takes
-          // the new account's reading when that account is already resolved (the new transaction lands confirmed):
-          // adoption matched it on the same raw date and amount from the same bank account, so the raw sign means the
-          // same thing. Without this it would stay held under a resolved account, where no question is asked.
-          const release = r.txn.status === "confirmed" && r.txn.pendingReason === null;
-          const heldForSign = sql`(${transactions.status} = 'pending_review' and ${transactions.pendingReason} = 'sign_convention_unknown')`;
           const claimed = await tx
             .update(transactions)
-            .set({
-              sourceRef: r.txn.sourceRef,
-              plaidAccountId: r.txn.plaidAccountRowId,
-              ...(release
-                ? {
-                    status: sql`case when ${heldForSign} then 'confirmed'::txn_status else ${transactions.status} end`,
-                    pendingReason: sql`case when ${heldForSign} then null else ${transactions.pendingReason} end`,
-                    direction: sql`case when ${heldForSign} then ${r.txn.direction}::txn_direction else ${transactions.direction} end`,
-                    eventRole: sql`case when ${heldForSign} then ${r.txn.eventRole}::text else ${transactions.eventRole} end`,
-                  }
-                : {}),
-            })
+            .set({ sourceRef: r.txn.sourceRef, plaidAccountId: r.txn.plaidAccountRowId })
             .where(
               and(
                 eq(transactions.id, r.id),
@@ -394,9 +431,19 @@ export function createPlaidSyncStore(db: PlaidDb): PlaidSyncStore {
                 isNull(transactions.removedAt),
               ),
             )
-            .returning({ id: transactions.id });
+            .returning({
+              id: transactions.id,
+              direction: transactions.direction,
+              status: transactions.status,
+              pendingReason: transactions.pendingReason,
+              primary: transactions.plaidCategoryPrimary,
+              detailed: transactions.plaidCategoryDetailed,
+              isTransfer: transactions.isTransfer,
+              rawAmount: rawAmountSql,
+            });
           if (claimed.length > 0) {
             rekeyed++;
+            await releaseAdoptedHeldRow(tx, userId, withRawNumber(claimed[0]!), r.txn, rekeyAccounts.get(r.txn.plaidAccountRowId));
             continue;
           }
           const landed = await tx

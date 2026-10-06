@@ -200,3 +200,6 @@ export async function readTxn(id: string): Promise<{
     from public.transactions where id = ${id}`;
   return row;
 }
+
+/** A write-lock client for the answer functions (they ask `account_accepts_writes`): no deletion has started. */
+export const unlocked = { rpc: async () => ({ data: true, error: null }) } as never;

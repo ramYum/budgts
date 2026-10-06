@@ -13,6 +13,7 @@
  * native `/api/mobile/plaid/*` routes; these actions adapt them to forms.
  */
 import { revalidateUserData } from "@/server/revalidate";
+import { LOCKED_MESSAGE } from "@/lib/ownership";
 import { redirect } from "next/navigation";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import {
@@ -146,14 +147,16 @@ export async function answerSignCheckAction(
   });
   if (!parsed.success) return { error: "Something went wrong. Refresh and try again." };
 
-  const { user } = await withUser();
+  const { user, supabase } = await withUser();
   const result = await resolveSignConventionFromAnswer(
     db(),
+    supabase,
     user.id,
     parsed.data.plaidAccountRowId,
     parsed.data.transactionId,
     parsed.data.answer,
   );
+  if (result.outcome === "locked") return { error: LOCKED_MESSAGE };
   if (result.outcome === "not_found") return { error: "That transaction is no longer waiting. Refresh and try again." };
   if (result.outcome === "busy") return { error: BUSY_MESSAGE };
   if (result.outcome === "setting_up") return { error: SETTING_UP_MESSAGE };
@@ -182,14 +185,16 @@ export async function changeSignAnswerAction(
   });
   if (!parsed.success) return { error: "Something went wrong. Refresh and try again." };
 
-  const { user } = await withUser();
+  const { user, supabase } = await withUser();
   const result = await changeSignConventionAnswer(
     db(),
+    supabase,
     user.id,
     parsed.data.plaidAccountRowId,
     parsed.data.transactionId,
     parsed.data.answer,
   );
+  if (result.outcome === "locked") return { error: LOCKED_MESSAGE };
   if (result.outcome === "not_found" || result.outcome === "not_answered") {
     return { error: "This account can't change its answer. Refresh and try again." };
   }
@@ -211,8 +216,9 @@ export async function answerDetachedHeldAction(_prev: PlaidActionState, formData
     answer: String(formData.get("answer") ?? ""),
   });
   if (!parsed.success) return { error: "Something went wrong. Refresh and try again." };
-  const { user } = await withUser();
-  const result = await resolveDetachedHeldFromAnswer(db(), user.id, parsed.data.transactionId, parsed.data.answer);
+  const { user, supabase } = await withUser();
+  const result = await resolveDetachedHeldFromAnswer(db(), supabase, user.id, parsed.data.transactionId, parsed.data.answer);
+  if (result.outcome === "locked") return { error: LOCKED_MESSAGE };
   if (result.outcome === "not_found") return { error: "That transaction is no longer waiting. Refresh and try again." };
   revalidateUserData();
   return { ok: true };
@@ -224,8 +230,9 @@ export async function changeDetachedHeldAnswerAction(_prev: PlaidActionState, fo
     answer: String(formData.get("answer") ?? ""),
   });
   if (!parsed.success) return { error: "Something went wrong. Refresh and try again." };
-  const { user } = await withUser();
-  const result = await changeDetachedHeldAnswer(db(), user.id, parsed.data.transactionId, parsed.data.answer);
+  const { user, supabase } = await withUser();
+  const result = await changeDetachedHeldAnswer(db(), supabase, user.id, parsed.data.transactionId, parsed.data.answer);
+  if (result.outcome === "locked") return { error: LOCKED_MESSAGE };
   if (result.outcome === "not_found" || result.outcome === "not_answered") {
     return { error: "These transactions can't change their answer. Refresh and try again." };
   }

@@ -131,7 +131,8 @@ was replaced on 2026-09-15; the new link's ••5805 account was never imported
 something to ask) that asks §5's question under the Budgts account the rows live in. A group is one Budgts account
 **and** one original bank feed: Plaid's `account_id` in the immutable raw payload. Two feeds mapped into one Budgts
 account are never pooled, for the same reason conventions are keyed on the Plaid account (each bank may report signs
-its own way). The answer, compared with the asked-about row's raw sign (`conventionFromAnswer`), gives that feed's
+its own way). A row whose payload names no feed is its own group (ref `row:<transaction id>`; Plaid account ids contain
+no colon), never pooled and never dropped. The answer, compared with the asked-about row's raw sign (`conventionFromAnswer`), gives that feed's
 convention, and every held row of the group, removed copies included, is released by `planHeldRowRelease`, exactly as
 §5 does. "Change answer" (§5a) re-evaluates **only the rows the answer released** (never the account's other
 history, such as rows confirmed before conventions existed), through the same `reevaluateUnderConvention` as §5a;
@@ -141,7 +142,24 @@ the client. Writes for one group serialize on a transaction-scoped advisory lock
 reconnect adopting one of them (it claims only a still-detached row) and an answer cannot both write it. Every answer
 and change is recorded in `detached_sign_answers` (migration `0028`, owner read only, cascades with the account or the
 user) with the changed rows' old values; `plaid_sign_answers` cannot hold them (its Plaid account is gone). The event
-role resolver gets the Budgts account type, whose only use there is recognising a card (`credit`, spelled the same).
+role resolver gets the **Plaid** account type, as the live adapter does (row 1b depends on it, and a feed may be mapped
+into a Budgts account of another type). The Plaid account is gone, so the type comes from `account_bank_identities`
+(`0027`): the one type every identity recorded on that Budgts account has, otherwise null, which never resolves a card.
+
+**The question's transaction** (§5 and §5c, `pickQuestionSample`): the most recent held row, ties by id, among rows
+whose raw amount is a nonzero number, since an answer about any other row can't set a direction and is refused. If no
+row qualifies, the most recent one. That is unreachable from Plaid: the adapter skips zero amounts, Plaid always sends
+a numeric amount, and `transactions.amount > 0` is a CHECK.
+
+**A user's own edit survives every release** (§5, §5c, adoption; `planHeldRowRelease`). A held row's direction is
+re-derived from the raw sign only while it is still the landed reading (`directionFromRaw(raw, 'standard')`, how a held
+row lands). A direction the user changed, or a row without a usable raw amount, keeps its direction; only the event
+role is recomputed. The same guard `planConventionChange` (§5a) uses.
+
+**Refused during account deletion.** Every answer path (§5, §5a, §5b, §5c) writes through Drizzle as the DB owner,
+which the `0021` deletion guard doesn't see, so each first asks the guard's own function (`accountWritesLocked`, the
+user's client) and returns `locked` without writing; the web shows "Your account is being deleted, so changes are
+paused." (`LOCKED_MESSAGE`).
 
 **Not chosen: inferring the answer.** Releasing the rows from a resolved Plaid account now mapped into the same Budgts
 account would guess: nothing proves that account is the same bank feed (one Budgts account may take several banks).
@@ -149,14 +167,23 @@ The question is the only source of a direction here.
 
 **Prevention.** New orphans now land in the "From removed banks" card the moment the bank is disconnected, so none is
 left without an exit. Separately, reconnect adoption (`applyPlan`'s rekey) could attach a held kept row to an account
-that is already resolved, where no question is asked; it now takes the new account's reading for such a row (same raw
-date and amount from the same bank account, so the raw sign means the same thing), and leaves every other row as
-before.
+that is already resolved, where no question is asked. It now releases such a row (`releaseAdoptedHeldRow`,
+sync-store.ts) with that account's convention and Plaid type through `planHeldRowRelease`, from the kept row's **own**
+fields (its direction if the user edited it, its own transfer flag), never the new transaction's: same raw date and
+amount from the same bank account, so the raw sign means the same thing. If the new transaction is held for a currency
+mismatch, the kept row takes that hold instead (`pending_reason = 'currency_mismatch'`, which the UI explains). An
+adopting account still unknown leaves the row held, where §5 asks. Every other kept row is left as it was.
+
+**Follow-up (not built):** gate adoption, and this release, on a matching bank identity (institution and last 4)
+rather than Budgts account, date and signed amount alone.
 
 **Visibility.** Activity hides rows from a disconnected bank (§24). Released detached rows count, like the rest of that
 bank's kept history. `GET /api/mobile/plaid/banks` carries `removedBanksHeld: { groups, answered }` (version 1,
 additive): `groups[]` = `{ accountId, accountName, originRef, count, sample }`, `answered[]` = `{ accountId,
-accountName, originRef, answeredAt, sample }`. Native POST routes will take `{ transactionId, answer }`.
+accountName, originRef, answeredAt, sample }`. `removedBanksHeld: null` means it couldn't be loaded: the rest of the
+payload is good, and the app shows a short "couldn't load" line in the card's place. The web does the same ("Couldn't
+load transactions from removed banks. Try again later."), so a failed read never takes §5's exit down with it. Native
+POST routes take `{ transactionId, answer }`.
 
 ### Native API contract (`GET /api/mobile/plaid/banks`, version 1)
 

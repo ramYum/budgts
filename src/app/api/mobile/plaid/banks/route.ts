@@ -20,6 +20,7 @@ export const GET = mobileRoute(async ({ supabase }) => {
     budgtsAccounts: data?.budgtsAccounts ?? [],
     connectionsRemovedForLapse: data?.connectionsRemovedForLapse ?? false,
     // Held rows a disconnected bank left behind (card payments §5c): groups to ask about, and answered groups.
+    // null = couldn't load (the rest of the payload is still good; show a short "couldn't load" line in its place).
     removedBanksHeld,
   });
 });

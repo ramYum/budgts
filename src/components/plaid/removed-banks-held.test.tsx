@@ -28,13 +28,13 @@ const wholeText = (text: string) => (_: string, el: Element | null) =>
 
 describe("RemovedBanksHeld", () => {
   it("renders nothing when no removed bank left anything to check", () => {
-    const { container } = render(<RemovedBanksHeld groups={[]} answered={[]} />);
+    const { container } = render(<RemovedBanksHeld data={{ groups: [], answered: [] }} />);
     expect(container).toBeEmptyDOMElement();
   });
 
   it("says how many transactions wait, under the account they live in, and sends the answer with the transaction only", async () => {
     answerDetachedHeldAction.mockResolvedValue({ ok: true });
-    render(<RemovedBanksHeld groups={[group]} answered={[]} />);
+    render(<RemovedBanksHeld data={{ groups: [group], answered: [] }} />);
     expect(screen.getByTestId("removed-banks-held")).toHaveAttribute("id", "from-removed-banks");
     expect(screen.getByText("SoFi Checking ••5805")).toBeInTheDocument();
     expect(
@@ -50,9 +50,20 @@ describe("RemovedBanksHeld", () => {
     expect(fd.get("plaidAccountRowId")).toBeNull();
   });
 
+  it("keys each group by account and feed, so two feeds into one account stay distinct", () => {
+    render(<RemovedBanksHeld data={{ groups: [group, { ...group, originRef: "feed-2", sample: { ...sample, transactionId: "33333333-3333-3333-3333-333333333333" } }], answered: [] }} />);
+    expect(screen.getByTestId("removed-held-acct-1|feed-old")).toBeInTheDocument();
+    expect(screen.getByTestId("removed-held-acct-1|feed-2")).toBeInTheDocument();
+  });
+
+  it("says it couldn't load, in the card's place, when the read failed", () => {
+    render(<RemovedBanksHeld data={null} />);
+    expect(screen.getByTestId("removed-banks-held-error")).toHaveTextContent("Couldn't load transactions from removed banks. Try again later.");
+  });
+
   it("offers Change answer for an answered group", async () => {
     changeDetachedHeldAnswerAction.mockResolvedValue({ ok: true });
-    render(<RemovedBanksHeld groups={[]} answered={[{ accountId: "acct-1", accountName: "SoFi Checking ••5805", originRef: "feed-old", answeredAt: "2026-10-05T00:00:00Z", sample }]} />);
+    render(<RemovedBanksHeld data={{ groups: [], answered: [{ accountId: "acct-1", accountName: "SoFi Checking ••5805", originRef: "feed-old", answeredAt: "2026-10-05T00:00:00Z", sample }] }} />);
     await userEvent.click(screen.getByRole("button", { name: "Change answer" }));
     await userEvent.click(screen.getByRole("button", { name: "Coming in" }));
     await waitFor(() => expect(changeDetachedHeldAnswerAction).toHaveBeenCalled());

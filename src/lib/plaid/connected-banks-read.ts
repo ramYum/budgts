@@ -8,6 +8,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { EntitlementState } from "@/lib/billing/entitlement";
 import { showsLapseRemovalNotice } from "@/lib/billing/lapse";
 import { fetchAllRows } from "@/lib/supabase/fetch-all-rows";
+import { pickQuestionSample } from "./held-rows";
 
 export type ConnectedBankAccount = {
   rowId: string;
@@ -143,10 +144,11 @@ export async function loadConnectedBanks(supabase: SupabaseClient): Promise<Conn
     // `.select()` silently caps at PostgREST's default 1000, which would
     // undercount the very notice this query exists to make accurate (see
     // fetch-all-rows.ts for the confirmed real-world case that pattern fixed).
-    fetchAllRows<{ plaid_account_id: string }>((from, to, count) =>
+    // Also each row's date and raw sign, so the question's sample is chosen here (pickQuestionSample).
+    fetchAllRows<{ plaid_account_id: string; id: string; occurred_at: string; raw_amount: unknown }>((from, to, count) =>
       supabase
         .from("transactions")
-        .select("plaid_account_id", { count })
+        .select("plaid_account_id, id, occurred_at, raw_amount:raw->amount", { count })
         .eq("status", "pending_review")
         .eq("pending_reason", "sign_convention_unknown")
         .not("plaid_account_id", "is", null)
@@ -176,31 +178,32 @@ export async function loadConnectedBanks(supabase: SupabaseClient): Promise<Conn
   const plaidAccounts = (acctData ?? []) as PlaidAccountRow[];
   const budgtsAccounts = (budgtsAcctData ?? []) as { id: string; name: string }[];
   const accountName = new Map(budgtsAccounts.map((a) => [a.id, a.name]));
-  const pendingSignCheckCounts = new Map<string, number>();
+  const heldByAccount = new Map<string, { id: string; occurredAt: string; rawAmount: number | null }[]>();
   for (const r of pendingSignRows) {
-    pendingSignCheckCounts.set(r.plaid_account_id, (pendingSignCheckCounts.get(r.plaid_account_id) ?? 0) + 1);
+    const list = heldByAccount.get(r.plaid_account_id) ?? [];
+    list.push({ id: r.id, occurredAt: r.occurred_at, rawAmount: typeof r.raw_amount === "number" ? r.raw_amount : null });
+    heldByAccount.set(r.plaid_account_id, list);
   }
+  const pendingSignCheckCounts = new Map([...heldByAccount].map(([id, rows]) => [id, rows.length]));
 
-  // One bounded read per account still being checked (a handful at most): the question's sample transaction.
-  const heldAccountIds = [...pendingSignCheckCounts.keys()];
-  const samples = await Promise.all(
-    heldAccountIds.map((id) =>
-      supabase
-        .from("transactions")
-        .select("id, description, occurred_at, amount")
-        .eq("plaid_account_id", id)
-        .eq("status", "pending_review")
-        .eq("pending_reason", "sign_convention_unknown")
-        .order("occurred_at", { ascending: false })
-        .order("id")
-        .limit(1),
-    ),
-  );
+  // The question's sample per account still being checked (pickQuestionSample: never a row whose raw sign the answer
+  // can't be compared with), then one read for their details.
+  const sampleIdByAccount = new Map<string, string>();
+  for (const [id, rows] of heldByAccount) {
+    const pick = pickQuestionSample(rows);
+    if (pick) sampleIdByAccount.set(id, pick.id);
+  }
+  const sampleIds = [...sampleIdByAccount.values()];
+  const { data: sampleData } =
+    sampleIds.length > 0
+      ? await supabase.from("transactions").select("id, description, occurred_at, amount").in("id", sampleIds)
+      : { data: [] as unknown[] };
+  const sampleRowById = new Map(((sampleData ?? []) as SampleRow[]).filter((r) => r?.id).map((r) => [r.id, r]));
   const sampleByAccount = new Map<string, Omit<SignCheckSample, "currency">>();
-  heldAccountIds.forEach((id, i) => {
-    const row = (samples[i].data ?? [])[0] as SampleRow | undefined;
-    if (row?.id) sampleByAccount.set(id, toSample(row));
-  });
+  for (const [acct, txnId] of sampleIdByAccount) {
+    const row = sampleRowById.get(txnId);
+    if (row) sampleByAccount.set(acct, toSample(row));
+  }
 
   // "Change answer": the latest answer per account the user resolved by answering, and its transaction to re-ask.
   const resolved = new Set(plaidAccounts.filter((a) => a.sign_convention !== "unknown").map((a) => a.id));

@@ -76,10 +76,12 @@ export interface SyncPlan {
   /** row ids to stamp `removed_at`. */
   softDeletes: string[];
   /**
-   * Kept detached rows that take a reconnected Item's identity (`source_ref`, `plaid_account_id`) and nothing else:
-   * their amount, direction, category, note and transfer flags stay as they were (the new Plaid account's sign
-   * convention is not resolved yet, so its derived direction must not overwrite a confirmed row). `txn` is the new
-   * transaction, landed as an insert instead if the kept row was claimed by someone else first.
+   * Kept detached rows that take a reconnected Item's identity (`source_ref`, `plaid_account_id`). Their amount,
+   * category, note and transfer flags stay as they were, and the new transaction's derived fields never overwrite
+   * them. One exception (design: card payments §5c): a kept row still held for the sign check, adopted into an account
+   * whose convention is already resolved, is released by `applyPlan` from its OWN fields with that account's
+   * convention (`releaseAdoptedHeldRow`, sync-store.ts). `txn` is the new transaction, landed as an insert instead if
+   * the kept row was claimed by someone else first.
    */
   rekeys: Array<{ id: string; txn: PlaidNormalizedTxn }>;
 }

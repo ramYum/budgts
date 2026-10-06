@@ -1539,3 +1539,12 @@ implementation goes to `budgts-architect`.
   `--revoke`. Verified on staging (grant, `hasPremium` true, re-run `already_granted`, revoke, test user deleted).
   Found on staging: a bare postgres-js client double-encodes the jsonb audit payload; the tool now opens the connection
   through drizzle as the server does. **Owner action:** run the grant against production for the owner's accounts.
+- **2026-10-05 — Held rows from a removed bank get their exit** (`phase-m/held-rows-exit`, owner-approved bug fix).
+  Disconnect detaches rows (`plaid_account_id` SET NULL), and a row still held for the sign check had no exit: §5's
+  question is per Plaid account. Connected banks now has "From removed banks" (`#from-removed-banks`): the same
+  question per Budgts account and original bank feed (`raw.account_id`), releasing that group with
+  `planHeldRowRelease`; "Change answer" flips only the rows the answer released. Audited in `detached_sign_answers`
+  (migration `0028`, owner read only). Prevention: reconnect adoption releases a held kept row it attaches to an
+  already-resolved account. Spec: card payments §5c. `0028` is on staging only; production does not have `0027` yet
+  (read-only check 2026-10-05: `account_bank_identities` absent), so `0027` and `0028` go together. Then the owner
+  answers for SoFi Checking ••5805 (3 rows, Sep 2026): "Going out" adds $43.45 to September spend.

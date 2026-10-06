@@ -22,7 +22,7 @@ import { ReconnectButton } from "./reconnect-button";
 
 // The shapes are defined beside the shared read (connected-banks-read.ts), used by the web and the native API.
 export type { ConnectedBank, ConnectedBankAccount } from "@/lib/plaid/connected-banks-read";
-import type { ConnectedBank, ConnectedBankAccount } from "@/lib/plaid/connected-banks-read";
+import type { ConnectedBank, ConnectedBankAccount, SignCheckSample } from "@/lib/plaid/connected-banks-read";
 import { formatSyncedAgo } from "@/lib/display/dates";
 
 const NEEDS_ATTENTION: ConnectedBank["status"][] = ["login_required", "pending_expiration", "revoked", "error"];
@@ -383,14 +383,14 @@ function SignCheckNotice({ account }: { account: ConnectedBankAccount }) {
           <span className="font-semibold">
             {count} {count === 1 ? "transaction" : "transactions"}
           </span>{" "}
-          {count === 1 ? "appears" : "appear"} once it&apos;s verified.
+          {count === 1 ? "counts" : "count"} once it&apos;s verified.
         </span>
       </p>
       {sample ? (
         // The exit for an account whose format never settles (design: 2026-10-01 card payments §5): one plain
         // question about a held transaction resolves the account and releases every held row.
         <MoneyDirectionQuestion
-          account={account}
+          plaidAccountRowId={account.rowId}
           sample={sample}
           action={answerSignCheckAction}
           lead="You can verify it now. Was this money going out or coming in?"
@@ -400,16 +400,17 @@ function SignCheckNotice({ account }: { account: ConnectedBankAccount }) {
   );
 }
 
-/** The one plain question, about one transaction; the answer goes to `action` with the account and transaction. */
-function MoneyDirectionQuestion({
-  account,
+/** The one plain question, about one transaction; the answer goes to `action` with the transaction (and the Plaid
+ * account, when asked under one; held rows from a removed bank are identified by the transaction alone, §5c). */
+export function MoneyDirectionQuestion({
+  plaidAccountRowId,
   sample,
   action,
   lead,
   onDone,
 }: {
-  account: ConnectedBankAccount;
-  sample: NonNullable<ConnectedBankAccount["signCheckSample"]>;
+  plaidAccountRowId?: string;
+  sample: SignCheckSample;
   action: (prev: PlaidActionState, formData: FormData) => Promise<PlaidActionState>;
   lead: string;
   onDone?: () => void;
@@ -420,7 +421,7 @@ function MoneyDirectionQuestion({
   }, [state.ok, onDone]);
   return (
     <form action={formAction} className="space-y-2">
-      <input type="hidden" name="plaidAccountRowId" value={account.rowId} />
+      {plaidAccountRowId ? <input type="hidden" name="plaidAccountRowId" value={plaidAccountRowId} /> : null}
       <input type="hidden" name="transactionId" value={sample.transactionId} />
       <p className="text-graphite">{lead}</p>
       <p className="flex flex-wrap items-baseline justify-between gap-x-3">
@@ -469,7 +470,7 @@ function SignAnswerLine({ account }: { account: ConnectedBankAccount }) {
       {asking ? (
         <div className="px-band px-1.5 py-1.5 text-ink md:px-2 md:py-2 md:text-[15px] md:leading-6">
           <MoneyDirectionQuestion
-            account={account}
+            plaidAccountRowId={account.rowId}
             sample={sample}
             action={changeSignAnswerAction}
             lead="Was this money going out or coming in?"
@@ -510,7 +511,7 @@ function DirectionReviewLine({ account }: { account: ConnectedBankAccount }) {
             amount on it flips. You can change it back the same way.
           </p>
           <MoneyDirectionQuestion
-            account={account}
+            plaidAccountRowId={account.rowId}
             sample={sample}
             action={changeSignAnswerAction}
             lead="Was this money going out or coming in?"

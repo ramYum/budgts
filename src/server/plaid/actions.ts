@@ -16,6 +16,7 @@ import { revalidateUserData } from "@/server/revalidate";
 import { redirect } from "next/navigation";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import {
+  answerDetachedHeldSchema,
   answerSignCheckSchema,
   clearAccountReviewSchema,
   disconnectBankSchema,
@@ -38,6 +39,7 @@ import {
   syncConnectionFor,
 } from "./commands";
 import { changeSignConventionAnswer, resolveSignConventionFromAnswer } from "./sign-answer";
+import { changeDetachedHeldAnswer, resolveDetachedHeldFromAnswer } from "./detached-sign-answer";
 
 export type PlaidActionState = {
   error?: string;
@@ -194,6 +196,39 @@ export async function changeSignAnswerAction(
   if (result.outcome === "busy") return { error: BUSY_MESSAGE };
   if (result.outcome === "setting_up") return { error: SETTING_UP_MESSAGE };
 
+  revalidateUserData();
+  return { ok: true };
+}
+
+/**
+ * The question about held rows a removed bank left behind (design: 2026-10-01 card payments §5c), first answer and
+ * "Change answer". The group (Budgts account + original bank feed) comes from the transaction, checked against the
+ * session user inside `resolveDetachedHeldFromAnswer` / `changeDetachedHeldAnswer`, never from client state.
+ */
+export async function answerDetachedHeldAction(_prev: PlaidActionState, formData: FormData): Promise<PlaidActionState> {
+  const parsed = answerDetachedHeldSchema.safeParse({
+    transactionId: String(formData.get("transactionId") ?? ""),
+    answer: String(formData.get("answer") ?? ""),
+  });
+  if (!parsed.success) return { error: "Something went wrong. Refresh and try again." };
+  const { user } = await withUser();
+  const result = await resolveDetachedHeldFromAnswer(db(), user.id, parsed.data.transactionId, parsed.data.answer);
+  if (result.outcome === "not_found") return { error: "That transaction is no longer waiting. Refresh and try again." };
+  revalidateUserData();
+  return { ok: true };
+}
+
+export async function changeDetachedHeldAnswerAction(_prev: PlaidActionState, formData: FormData): Promise<PlaidActionState> {
+  const parsed = answerDetachedHeldSchema.safeParse({
+    transactionId: String(formData.get("transactionId") ?? ""),
+    answer: String(formData.get("answer") ?? ""),
+  });
+  if (!parsed.success) return { error: "Something went wrong. Refresh and try again." };
+  const { user } = await withUser();
+  const result = await changeDetachedHeldAnswer(db(), user.id, parsed.data.transactionId, parsed.data.answer);
+  if (result.outcome === "not_found" || result.outcome === "not_answered") {
+    return { error: "These transactions can't change their answer. Refresh and try again." };
+  }
   revalidateUserData();
   return { ok: true };
 }

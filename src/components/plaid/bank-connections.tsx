@@ -7,6 +7,8 @@ import { Icon } from "@/components/icon";
 import { IconTile } from "@/components/ui";
 import { ConnectedBanks } from "./connected-banks";
 import { LapseRemovalNotice } from "./lapse-removal-notice";
+import { loadDetachedHeld } from "@/lib/plaid/detached-held-read";
+import { RemovedBanksHeld } from "./removed-banks-held";
 
 /**
  * "Connected banks" section for `/settings` (design §8, §23, §24). Self-gates
@@ -19,7 +21,8 @@ export async function BankConnections() {
   const user = await getSessionUser();
   if (!user) return null;
   // The reads live in loadConnectedBanks, shared with the native API.
-  const data = await loadConnectedBanks(await createClient());
+  const supabase = await createClient();
+  const [data, detached] = await Promise.all([loadConnectedBanks(supabase), loadDetachedHeld(supabase)]);
   if (!data) return null; // tables not present on this deployment
   const { banks, budgtsAccounts, connectionsRemovedForLapse } = data;
 
@@ -28,6 +31,8 @@ export async function BankConnections() {
       <PageHeader title="Connected banks" back="/more" backOnDesktop={false} />
       <div className="space-y-6 md:max-w-[720px]">
         {connectionsRemovedForLapse ? <LapseRemovalNotice /> : null}
+        {/* Held rows a disconnected bank left behind: their only exit (card payments §5c). */}
+        <RemovedBanksHeld groups={detached.groups} answered={detached.answered} />
         {banks.length === 0 ? (
           <div className="px-card-raised flex flex-col items-start gap-4 p-2 md:p-6" data-testid="connected-banks-empty">
             <IconTile name="bank" />

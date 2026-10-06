@@ -365,9 +365,26 @@ export function createPlaidSyncStore(db: PlaidDb): PlaidSyncStore {
         // so the new transaction is never lost.
         let rekeyed = 0;
         for (const r of plan.rekeys) {
+          // A kept row still held only because its OLD account's format was unknown (design: card payments §5c) takes
+          // the new account's reading when that account is already resolved (the new transaction lands confirmed):
+          // adoption matched it on the same raw date and amount from the same bank account, so the raw sign means the
+          // same thing. Without this it would stay held under a resolved account, where no question is asked.
+          const release = r.txn.status === "confirmed" && r.txn.pendingReason === null;
+          const heldForSign = sql`(${transactions.status} = 'pending_review' and ${transactions.pendingReason} = 'sign_convention_unknown')`;
           const claimed = await tx
             .update(transactions)
-            .set({ sourceRef: r.txn.sourceRef, plaidAccountId: r.txn.plaidAccountRowId })
+            .set({
+              sourceRef: r.txn.sourceRef,
+              plaidAccountId: r.txn.plaidAccountRowId,
+              ...(release
+                ? {
+                    status: sql`case when ${heldForSign} then 'confirmed'::txn_status else ${transactions.status} end`,
+                    pendingReason: sql`case when ${heldForSign} then null else ${transactions.pendingReason} end`,
+                    direction: sql`case when ${heldForSign} then ${r.txn.direction}::txn_direction else ${transactions.direction} end`,
+                    eventRole: sql`case when ${heldForSign} then ${r.txn.eventRole}::text else ${transactions.eventRole} end`,
+                  }
+                : {}),
+            })
             .where(
               and(
                 eq(transactions.id, r.id),

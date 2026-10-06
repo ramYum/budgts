@@ -5,16 +5,21 @@
  */
 import { mobileJson, mobileRoute } from "@/lib/mobile/route";
 import { loadConnectedBanks } from "@/lib/plaid/connected-banks-read";
+import { loadDetachedHeld } from "@/lib/plaid/detached-held-read";
 import { plaidUiEnabled } from "@/lib/plaid/ui-flag";
 
 export const GET = mobileRoute(async ({ supabase }) => {
-  if (!plaidUiEnabled()) return mobileJson({ version: 1, enabled: false, banks: [], budgtsAccounts: [], connectionsRemovedForLapse: false });
-  const data = await loadConnectedBanks(supabase);
+  if (!plaidUiEnabled()) {
+    return mobileJson({ version: 1, enabled: false, banks: [], budgtsAccounts: [], connectionsRemovedForLapse: false, removedBanksHeld: { groups: [], answered: [] } });
+  }
+  const [data, removedBanksHeld] = await Promise.all([loadConnectedBanks(supabase), loadDetachedHeld(supabase)]);
   return mobileJson({
     version: 1,
     enabled: data !== null,
     banks: data?.banks ?? [],
     budgtsAccounts: data?.budgtsAccounts ?? [],
     connectionsRemovedForLapse: data?.connectionsRemovedForLapse ?? false,
+    // Held rows a disconnected bank left behind (card payments §5c): groups to ask about, and answered groups.
+    removedBanksHeld,
   });
 });

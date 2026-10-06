@@ -209,20 +209,7 @@ async function flipConvention(
   if (!acct) return -1;
 
   const rows = await tx
-    .select({
-      id: transactions.id,
-      direction: transactions.direction,
-      status: transactions.status,
-      pendingReason: transactions.pendingReason,
-      eventRole: transactions.eventRole,
-      primary: transactions.plaidCategoryPrimary,
-      detailed: transactions.plaidCategoryDetailed,
-      isTransfer: transactions.isTransfer,
-      transferPairId: transactions.transferPairId,
-      transferUserSet: transactions.transferUserSet,
-      rawAmount: sql<number | null>`case when jsonb_typeof(${transactions.raw}->'amount') = 'number'
-        then (${transactions.raw}->>'amount')::float8 end`,
-    })
+    .select(conventionChangeColumns)
     .from(transactions)
     .where(
       and(
@@ -232,11 +219,71 @@ async function flipConvention(
         isNull(transactions.removedAt),
       ),
     );
+  const { changed: changedRows, count } = await reevaluateUnderConvention(tx, userId, rows, from, to, acct.type ?? null);
+
+  await tx.insert(plaidSignAnswers).values({
+    userId,
+    plaidAccountId: plaidAccountRowId,
+    kind: "change",
+    answer,
+    sampleTransactionId: transactionId,
+    fromConvention: from,
+    toConvention: to,
+    changedRows,
+  });
+  return count;
+}
+
+/** The columns `reevaluateUnderConvention` needs, selected from `transactions`. */
+export const conventionChangeColumns = {
+  id: transactions.id,
+  direction: transactions.direction,
+  status: transactions.status,
+  pendingReason: transactions.pendingReason,
+  eventRole: transactions.eventRole,
+  primary: transactions.plaidCategoryPrimary,
+  detailed: transactions.plaidCategoryDetailed,
+  isTransfer: transactions.isTransfer,
+  transferPairId: transactions.transferPairId,
+  transferUserSet: transactions.transferUserSet,
+  rawAmount: sql<number | null>`case when jsonb_typeof(${transactions.raw}->'amount') = 'number'
+    then (${transactions.raw}->>'amount')::float8 end`,
+};
+
+type ConventionChangeRead = {
+  id: string;
+  direction: "debit" | "credit";
+  status: "confirmed" | "pending_review";
+  pendingReason: string | null;
+  eventRole: string | null;
+  primary: string | null;
+  detailed: string | null;
+  isTransfer: boolean;
+  transferPairId: string | null;
+  transferUserSet: boolean;
+  rawAmount: number | null;
+};
+
+/**
+ * Re-evaluates `rows` for a convention flip from `from` to `to` (§5a), inside the caller's transaction: corrected
+ * direction and event role for every row `planConventionChange` selects, and a transfer pair it re-evaluates is
+ * unlinked (a pairing-only transfer returns to its own signal). Returns the audit entries (every changed row's old
+ * values, each unlinked partner's old link) and the number of re-evaluated rows. Shared by the per-account change and
+ * the detached-rows change (detached-sign-answer.ts), so both flip the same way.
+ */
+export async function reevaluateUnderConvention(
+  tx: PlaidTx,
+  userId: string,
+  rows: readonly ConventionChangeRead[],
+  from: "standard" | "inverted",
+  to: "standard" | "inverted",
+  accountType: string | null,
+): Promise<{ changed: Record<string, unknown>[]; count: number }> {
   const planned = planConventionChange(
     rows.map((r) => ({ ...r, rawAmount: r.rawAmount == null ? null : Number(r.rawAmount) })),
     from,
     to,
-    acct.type ?? null,
+    accountType,
   );
   await writeDirectionAndRole(tx, planned, false);
 
@@ -267,7 +314,7 @@ async function flipConvention(
     const legs = [
       ...changed
         .filter((r) => r.transferPairId != null)
-        .map((r) => ({ ...r, direction: newById.get(r.id)!.direction, accountType: acct.type ?? null, partner: false })),
+        .map((r) => ({ ...r, direction: newById.get(r.id)!.direction, accountType, partner: false })),
       ...partners.map((p) => ({ ...p, partner: true })),
     ];
     for (const leg of legs) {
@@ -290,15 +337,8 @@ async function flipConvention(
     }
   }
 
-  await tx.insert(plaidSignAnswers).values({
-    userId,
-    plaidAccountId: plaidAccountRowId,
-    kind: "change",
-    answer,
-    sampleTransactionId: transactionId,
-    fromConvention: from,
-    toConvention: to,
-    changedRows: [
+  return {
+    changed: [
       ...changed.map((r) => ({
         id: r.id,
         direction: r.direction,
@@ -311,6 +351,6 @@ async function flipConvention(
       // pairing-only transfer was undone (their old is_transfer; old role and link are in their entry above).
       ...restored,
     ],
-  });
-  return planned.length;
+    count: planned.length,
+  };
 }

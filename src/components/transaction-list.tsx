@@ -1,6 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { memo, useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
+import { isHeld } from "@/lib/budget/held";
+import type { TxnStatus } from "@/lib/budget/types";
 import { formatMoney } from "@/lib/display/money";
 import { deleteTransaction, updateTransaction } from "@/server/transactions";
 import { Overlay } from "./overlay";
@@ -27,9 +30,36 @@ export type TxnListItem = {
   account_id: string;
   /** `bank` rows keep their account on edit (owner decision 2026-09-30). */
   source: "manual" | "bank" | "email" | "receipt";
+  /** `pending_review` = held: listed here, but counted in no total until it is released. */
+  status: TxnStatus;
+  /** Why a held row is held (`sign_convention_unknown` / `currency_mismatch`); null otherwise. */
+  pending_reason: string | null;
   category: { name: string; color: string } | null;
   account: { name: string } | null;
 };
+
+/** Why a held row isn't counted, and where to clear it, in the transaction sheet. */
+function HeldNotice({ reason }: { reason: string | null }) {
+  return (
+    <div className="px-band mt-4 flex items-start gap-2 px-2 py-2 text-sm leading-5 text-ink" data-testid="txn-held-notice">
+      <Icon name="pending" className="mt-0.5 text-warn" />
+      {reason === "currency_mismatch" ? (
+        <p>
+          <span className="font-semibold">Not counted yet.</span> It&apos;s in a different currency from yours, so it
+          isn&apos;t added to your totals.
+        </p>
+      ) : (
+        <p>
+          <span className="font-semibold">Not counted yet.</span> Budgts is still checking how this bank account
+          records money in and out.{" "}
+          <Link href="/connected-banks" className="font-medium underline underline-offset-2" data-testid="txn-held-link">
+            Check it in Connected banks
+          </Link>
+        </p>
+      )}
+    </div>
+  );
+}
 
 
 /** A day's net for its band: money in minus money out across that day's
@@ -108,6 +138,12 @@ const TxnDays = memo(function TxnDays({
                   >
                     {it.is_transfer ? "Transfer" : needsCategory ? "Needs a category" : it.category?.name}
                     {refund ? " · Refund" : ""}
+                    {isHeld(it.status) ? (
+                      <span className="text-warn" data-testid="txn-held">
+                        {" "}
+                        · Not counted yet
+                      </span>
+                    ) : null}
                   </span>
                 </span>
                 <span
@@ -339,6 +375,7 @@ export function TransactionList({
               </span>
             </Detail>
           </dl>
+          {isHeld(viewing.status) ? <HeldNotice reason={viewing.pending_reason} /> : null}
           {transferError ? <p className="mt-2 text-sm text-neg">{transferError}</p> : null}
           <div className="mt-4 flex flex-wrap gap-3">
             <Button

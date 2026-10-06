@@ -34,11 +34,56 @@ function item(over: Partial<TxnListItem> = {}): TxnListItem {
     category_id: null,
     account_id: "acc-1",
     source: "manual",
+    status: "confirmed",
+    pending_reason: null,
     category: null,
     account: { name: "Checking" },
     ...over,
   };
 }
+
+describe("TransactionList: held rows (2026-10-05)", () => {
+  const held = item({
+    description: "GOOGLE",
+    direction: "credit",
+    source: "bank",
+    category_id: "cat-oth",
+    category: { name: "Other Income", color: "#65a30d" },
+    status: "pending_review",
+    pending_reason: "sign_convention_unknown",
+  });
+
+  it("marks a held row as not counted, beside its category, so it never looks counted", () => {
+    render(<TransactionList items={[held, item({ id: "txn-2" })]} {...props} />);
+    const marks = screen.getAllByTestId("txn-held");
+    expect(marks).toHaveLength(1);
+    expect(marks[0]!.closest("[data-testid=txn-meta]")).toHaveTextContent("Other Income · Not counted yet");
+  });
+
+  it("explains a held row in its sheet and links to the question that releases it", async () => {
+    const user = userEvent.setup();
+    render(<TransactionList items={[held]} {...props} />);
+    await user.click(screen.getByRole("button", { name: "GOOGLE" }));
+    expect(screen.getByTestId("txn-held-notice")).toHaveTextContent("Not counted yet.");
+    expect(screen.getByRole("link", { name: "Check it in Connected banks" })).toHaveAttribute("href", "/connected-banks");
+  });
+
+  it("says a currency-mismatch row isn't counted without sending the user to a question that can't release it", async () => {
+    const user = userEvent.setup();
+    render(<TransactionList items={[{ ...held, pending_reason: "currency_mismatch" }]} {...props} />);
+    await user.click(screen.getByRole("button", { name: "GOOGLE" }));
+    expect(screen.getByTestId("txn-held-notice")).toHaveTextContent("different currency");
+    expect(screen.queryByTestId("txn-held-link")).toBeNull();
+  });
+
+  it("shows no notice on a counted row", async () => {
+    const user = userEvent.setup();
+    render(<TransactionList items={[item()]} {...props} />);
+    expect(screen.queryByTestId("txn-held")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Groceries" }));
+    expect(screen.queryByTestId("txn-held-notice")).toBeNull();
+  });
+});
 
 const props = {
   currency: "USD",

@@ -10,7 +10,8 @@
  * and update the shape test. Adding a field keeps the version (an older app ignores what it does not read); the shape test
  * still lists it. Added 2026-09-29 (Stage 2B): the spending cards (`suggestion`, `breakdown`, `trend`, `trendChange`) and
  * `bankConnected`, so the native Home can show everything the web Home does. Added 2026-09-30 (Phase 3): `expenseCategories`
- * (Home's chips and set-up count, so the app needs no second request).
+ * (Home's chips and set-up count, so the app needs no second request). Added 2026-10-05: `heldCount` and `recent[].held`
+ * (held rows are named, never shown as counted).
  */
 import type { BudgetState } from "@/lib/budget/types";
 import type { HomeData, HomeRecentItem } from "@/lib/home/load-home";
@@ -56,6 +57,8 @@ export type MobileHome = MobileSpendingCards & {
   bankConnected: boolean | null;
   /** The active expense categories, in the web Home's order: "Where it went"'s chips and "Get set up"'s count. */
   expenseCategories: { id: string; name: string }[];
+  /** The month's held rows the figures leave out (`loadHome`'s `heldCount`); the app names them beside Money left. */
+  heldCount: number;
 };
 
 export function mobileCategories(home: { view: Pick<HomeData["view"], "bars"> }): MobileHomeCategory[] {
@@ -95,6 +98,7 @@ export function buildMobileHome(home: HomeData): MobileHome {
       occurredAt: r.occurredAt,
       isTransfer: r.isTransfer,
       category: r.category,
+      held: r.held,
     })),
     savings:
       savings.activeCount > 0
@@ -102,6 +106,7 @@ export function buildMobileHome(home: HomeData): MobileHome {
         : null,
     bankConnected: home.bankConnected,
     expenseCategories: home.categories.filter((c) => c.kind === "expense").map((c) => ({ id: c.id, name: c.name })),
+    heldCount: home.heldCount,
     ...spendingCards(home.view, home.prevView, home.trend),
   };
 }

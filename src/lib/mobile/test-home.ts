@@ -65,9 +65,11 @@ export function testHome(over: Partial<HomeData> = {}): HomeData {
         description: "Grocer",
         isTransfer: false,
         category: { name: "Food", color: "#3FA772" },
+        held: false,
       },
     ],
     bankConnected: true,
+    heldCount: 0,
     degraded: [],
     ...over,
   };

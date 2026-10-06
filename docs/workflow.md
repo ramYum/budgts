@@ -1539,3 +1539,14 @@ implementation goes to `budgts-architect`.
   `--revoke`. Verified on staging (grant, `hasPremium` true, re-run `already_granted`, revoke, test user deleted).
   Found on staging: a bare postgres-js client double-encodes the jsonb audit payload; the tool now opens the connection
   through drizzle as the server does. **Owner action:** run the grant against production for the owner's accounts.
+- **2026-10-05** — **Held rows are named, never shown as counted** (`phase-m/held-rows-visible`). The owner reported
+  "Other Income" rows missing from Home's income. Cause: the rows sat on a newly linked account whose sign convention
+  was still `unknown`, so they were `pending_review` and counted in no total (correct), but Activity drew them exactly
+  like counted rows (it never read `status`) and Home left them out with no word; only Connected banks mentioned the
+  hold. Fix: `src/lib/budget/held.ts` (`isHeld`, `heldCount`, tested); Activity marks a held row "· Not counted yet"
+  beside its category and its sheet explains why (sign check: link to Connected banks; currency mismatch: no link,
+  nothing there can release it); Home names the month's held rows under the hero ("N transactions aren't counted yet.
+  Check them" → `/connected-banks`) and marks held rows in Recent activity. `GET /api/mobile/home` gains `heldCount` and
+  `recent[].held` (additive, version 1 kept); the native screens follow on `phase-m/phase3`. Found alongside: held rows
+  whose `plaid_accounts` row is gone (a removed bank link) have no exit; fixed separately on `phase-m/held-rows-exit`.
+  Open: `currency_mismatch` rows still have no exit in the UI (0 such rows in production on 2026-10-05).

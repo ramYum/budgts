@@ -77,7 +77,37 @@ const baseProps = {
   recent: [],
   userEmail: "alex@example.com",
   setup: { bankConnected: true },
+  heldCount: 0,
 };
+
+describe("DashboardView: held rows (2026-10-05)", () => {
+  it("names the month's held rows under the hero and links to Connected banks", () => {
+    render(<DashboardView {...baseProps} view={view} heldCount={2} />);
+    expect(screen.getByTestId("home-held")).toHaveTextContent("2 transactions aren't counted yet. Check them");
+    expect(screen.getByTestId("home-held-link")).toHaveAttribute("href", "/connected-banks");
+  });
+
+  it("uses the singular for one held row", () => {
+    render(<DashboardView {...baseProps} view={view} heldCount={1} />);
+    expect(screen.getByTestId("home-held")).toHaveTextContent("1 transaction isn't counted yet. Check it");
+  });
+
+  it("says nothing when no row is held", () => {
+    render(<DashboardView {...baseProps} view={view} />);
+    expect(screen.queryByTestId("home-held")).toBeNull();
+  });
+
+  it("marks a held row in Recent activity", () => {
+    const recent = [
+      { id: "r1", amount: 46, direction: "credit" as const, occurredAt: "2026-09-05T12:00:00Z", description: "GOOGLE", isTransfer: false, category: { name: "Other Income", color: "#65a30d" }, held: true },
+      { id: "r2", amount: 900, direction: "debit" as const, occurredAt: "2026-09-04T12:00:00Z", description: "Cafe", isTransfer: false, category: null, held: false },
+    ];
+    render(<DashboardView {...baseProps} view={view} recent={recent} />);
+    const marks = screen.getAllByTestId("home-recent-held");
+    expect(marks).toHaveLength(1);
+    expect(marks[0]!.parentElement).toHaveTextContent("Other Income · Not counted yet");
+  });
+});
 
 describe("DashboardView", () => {
   it("renders the headline figures with formatted amounts", () => {

@@ -37,6 +37,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/">) {
         recent={home.recent}
         userEmail={user.email ?? ""}
         setup={{ bankConnected: home.bankConnected }}
+        heldCount={home.heldCount}
       />
     </div>
   );

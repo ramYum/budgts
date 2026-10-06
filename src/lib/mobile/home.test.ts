@@ -16,6 +16,7 @@ describe("buildMobileHome", () => {
         "categories",
         "currency",
         "expenseCategories",
+        "heldCount",
         "income",
         "leftToSpend",
         "moneyLeft",
@@ -83,8 +84,21 @@ describe("buildMobileHome", () => {
   it("exposes recent activity without any raw row fields", () => {
     expect(home.recent).toEqual(data.recent);
     expect(Object.keys(home.recent[0]!).sort()).toEqual(
-      ["amount", "category", "description", "direction", "id", "isTransfer", "occurredAt"].sort(),
+      ["amount", "category", "description", "direction", "held", "id", "isTransfer", "occurredAt"].sort(),
     );
+  });
+
+  it("names the month's held rows and marks a held recent row, so the app never shows them as counted (added 2026-10-05)", () => {
+    const held = buildMobileHome(
+      testHome({
+        heldCount: 2,
+        recent: [{ ...data.recent[0]!, held: true }],
+      }),
+    );
+    expect(held.heldCount).toBe(2);
+    expect(held.recent[0]!.held).toBe(true);
+    expect(home.heldCount).toBe(0);
+    expect(home.recent[0]!.held).toBe(false);
   });
 });
 

@@ -43,6 +43,8 @@ export type RecentActivityItem = {
   description: string;
   isTransfer: boolean;
   category: { name: string; color: string } | null;
+  /** Held: listed, but not counted in the figures until it is released. */
+  held: boolean;
 };
 
 /** What Home's "Get set up" steps need beyond the month's figures. */
@@ -151,6 +153,7 @@ export function DashboardView({
   recent,
   userEmail,
   setup,
+  heldCount,
 }: {
   view: DV;
   prevView: DV;
@@ -164,6 +167,8 @@ export function DashboardView({
   recent: RecentActivityItem[];
   userEmail: string;
   setup: SetupState;
+  /** The month's held rows the figures leave out; named under the hero so they never vanish silently. */
+  heldCount: number;
 }) {
   const { tiles, bars } = view;
   const name = displayName(userEmail);
@@ -384,6 +389,7 @@ export function DashboardView({
                 </p>
                 <p className="truncate text-sm leading-5 text-muted">
                   {r.isTransfer ? "Transfer" : (r.category?.name ?? "Uncategorized")}
+                  {r.held ? <span className="text-warn" data-testid="home-recent-held"> · Not counted yet</span> : null}
                 </p>
               </div>
               <span
@@ -484,6 +490,21 @@ export function DashboardView({
               <Icon name="info" size={12} className="mt-1" />
               Income minus spending. Not your savings balance.
             </p>
+            {heldCount > 0 ? (
+              <p
+                className="rise mt-2 flex items-start gap-2 text-[13px] leading-5 text-warn md:text-sm"
+                style={at(820)}
+                data-testid="home-held"
+              >
+                <Icon name="pending" size={12} className="mt-1" />
+                <span>
+                  {heldCount} {heldCount === 1 ? "transaction isn't" : "transactions aren't"} counted yet.{" "}
+                  <Link href="/connected-banks" className="font-medium underline underline-offset-2" data-testid="home-held-link">
+                    Check {heldCount === 1 ? "it" : "them"}
+                  </Link>
+                </span>
+              </p>
+            ) : null}
           </div>
         </section>
       </Reveal>

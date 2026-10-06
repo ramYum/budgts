@@ -17,7 +17,8 @@ import { currentMonthKey, monthKey, todayDateKey } from "@/lib/budget/month";
 import { priorMonths, spendTrend } from "@/lib/budget/spend-trend";
 import { goalsSummary, type GoalsSummary } from "@/lib/budget/savings";
 import { loadGoalRows } from "@/lib/goals/load-goals";
-import type { BudgetTxn } from "@/lib/budget/types";
+import { heldCount, isHeld } from "@/lib/budget/held";
+import type { BudgetTxn, TxnStatus } from "@/lib/budget/types";
 import type { Database } from "@/lib/supabase/database.types";
 import { fetchAllRows, type RowCount } from "@/lib/supabase/fetch-all-rows";
 import { selectableAccounts, type SelectableAccountRow } from "@/lib/accounts/selectable-accounts";
@@ -33,6 +34,8 @@ export type HomeRecentItem = {
   description: string;
   isTransfer: boolean;
   category: { name: string; color: string } | null;
+  /** Held (`pending_review`): listed, but counted in no total until it is released. */
+  held: boolean;
 };
 
 export type HomeData = {
@@ -50,6 +53,8 @@ export type HomeData = {
   recent: HomeRecentItem[];
   /** null when Plaid is off; otherwise whether any bank connection exists. */
   bankConnected: boolean | null;
+  /** The month's rows its figures leave out because they are held (`heldCount`); Home names them, never silently. */
+  heldCount: number;
   /** The side queries that failed (empty when every read succeeded). */
   degraded: string[];
 };
@@ -133,7 +138,7 @@ export async function loadHome(supabase: SupabaseClient, input: LoadHomeInput): 
   let recentQuery = supabase
     .from("transactions")
     .select(
-      "id, amount, direction, occurred_at, description, is_transfer, category:categories(name,color)",
+      "id, amount, direction, occurred_at, description, is_transfer, status, category:categories(name,color)",
     )
     .order("occurred_at", { ascending: false })
     .order("created_at", { ascending: false })
@@ -254,6 +259,7 @@ export async function loadHome(supabase: SupabaseClient, input: LoadHomeInput): 
       description: r.description as string,
       isTransfer: r.is_transfer as boolean,
       category,
+      held: isHeld(r.status as TxnStatus),
     };
   });
 
@@ -270,6 +276,7 @@ export async function loadHome(supabase: SupabaseClient, input: LoadHomeInput): 
     savings,
     recent,
     bankConnected: plaidEnabled ? (bankCountRes.count ?? 0) > 0 : null,
+    heldCount: heldCount(txns, month),
     degraded,
   };
 }

@@ -3,10 +3,9 @@ import { Pressable, View } from "react-native";
 import Animated from "react-native-reanimated";
 import { useReducedMotion } from "../motion/reduced-motion";
 import { COLOR, ROLE } from "../../lib/brand/shared";
-import { invalidate } from "../../lib/api/invalidate";
 import { statusNeedsAttention, type BankAccount, type ConnectedBank } from "../../lib/plaid/banks-api";
 import type { BankCommands, CommandOutcome } from "../../lib/plaid/bank-commands";
-import { accountName, bankName, notImportedNote, resumesExisting, signCheckWords, splitAccounts, syncedLabel } from "../../lib/plaid/bank-view";
+import { accountName, bankName, notImportedNote, resumesExisting, splitAccounts, syncedLabel } from "../../lib/plaid/bank-view";
 import { BANK_SYNC_SUBSCRIPTION_MESSAGE, type OnSubscriptionRequired } from "../../lib/plaid/bank-sync-access";
 import { reconnectBank, type ReconnectDeps } from "../../lib/plaid/link-flow";
 import { accountLabel, suggestAccount } from "../../lib/shared";
@@ -23,6 +22,7 @@ import { SectionHead } from "../kit/section-head";
 import { AccountMappingSheet } from "./account-mapping";
 import { Overlay } from "../kit/overlay";
 import { pressStyle } from "../kit/press";
+import { changedEverything, MoneyDirection } from "./money-direction";
 
 /** What a bank card needs to act: the server commands, the Link ports and client, and the mapping choices. */
 export type BankActions = {
@@ -35,16 +35,10 @@ export type BankActions = {
 };
 
 /**
- * The web's revalidation after a Plaid action: Connected banks reloads (it follows "accounts"), and so does every
- * screen showing money, since a change here can move totals (import on, exclusion, a sync, a purge).
- */
-const changedEverything = () => invalidate("accounts", "transactions", "budgets", "home");
-
-/**
  * One connected bank (web `BankCard`, src/components/plaid/connected-banks.tsx):
  * its status and last sync, a reconnect when it needs one, the accounts it
  * imports and the ones it doesn't with their switches, the review and
- * sign-check notices, Sync now, Disconnect (a confirm sheet), and the mapping
+ * money-direction question and its exits (./money-direction.tsx), Sync now, Disconnect (a confirm sheet), and the mapping
  * sheet for accounts not set up yet.
  */
 export function BankCard({ bank, actions, now }: { bank: ConnectedBank; actions: BankActions; now: number }) {
@@ -133,7 +127,7 @@ export function BankCard({ bank, actions, now }: { bank: ConnectedBank; actions:
                     </Text>
                   </View>
                 </View>
-                {a.pendingSignCheckCount > 0 ? <SignCheckNotice count={a.pendingSignCheckCount} /> : null}
+                <MoneyDirection account={a} ask={actions.commands.answerSign} />
                 {a.needsReview || a.excludedFromCalculations ? <AccountReviewNotice account={a} actions={actions} /> : null}
               </View>
             ))}
@@ -170,7 +164,7 @@ export function BankCard({ bank, actions, now }: { bank: ConnectedBank; actions:
                       ) : null}
                     </View>
                   </View>
-                  {a.pendingSignCheckCount > 0 ? <SignCheckNotice count={a.pendingSignCheckCount} /> : null}
+                  <MoneyDirection account={a} ask={actions.commands.answerSign} />
                   {a.needsReview || a.excludedFromCalculations ? <AccountReviewNotice account={a} actions={actions} /> : null}
                 </View>
               );
@@ -415,23 +409,6 @@ function ConnectToggle({ account, plaidItemId, actions }: { account: BankAccount
       />
       <ErrorLine message={cmd.error} />
     </View>
-  );
-}
-
-/** Held transactions never vanish silently (web `SignCheckNotice`). */
-function SignCheckNotice({ count }: { count: number }) {
-  const words = signCheckWords(count);
-  return (
-    <PixelFrame frame="px-band" style={{ paddingHorizontal: 6, paddingVertical: 6, flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
-      <Icon name="pending" color={COLOR.graphite} />
-      <Text variant="small" color={ROLE.ink} style={{ flex: 1 }}>
-        {"We're checking this account's transaction format. "}
-        <Text variant="smallStrong" color={ROLE.ink}>
-          {words.count}
-        </Text>
-        {` ${words.verb} once it's verified.`}
-      </Text>
-    </PixelFrame>
   );
 }
 

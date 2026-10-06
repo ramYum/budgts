@@ -52,6 +52,9 @@ export async function runCommand(fetcher: () => Promise<Response>, m: Messages):
 
 export type BankCommands = ReturnType<typeof bankCommands>;
 
+/** The money-direction answer: "Going out" / "Coming in". */
+export type MoneyAnswer = "out" | "in";
+
 /** Every command the Connected banks screen, the mapping sheet and Connect a bank run, bound to the signed-in session. */
 export function bankCommands(session: Session | null) {
   const send = (path: string, method: "POST" | "PATCH" | "DELETE", body?: unknown) => () =>
@@ -88,6 +91,20 @@ export function bankCommands(session: Session | null) {
       runCommand(send("/api/mobile/plaid/sync", "POST", { itemId }), {
         failed: "The sync didn't finish. Try again in a moment.",
         missing: "That bank connection no longer exists.",
+      }),
+    /**
+     * "Was this money going out or coming in?" under a bank's account (web `answerSignCheckAction`, card payments §5), or
+     * `change` for "Change answer" / "Amounts on this account look reversed?" (web `changeSignAnswerAction`, §5a/§5b).
+     * A refusal (gone, a sync running, the bank still setting up) says the server's own sentence, the web's words.
+     */
+    answerSign: (plaidAccountRowId: string, transactionId: string, answer: MoneyAnswer, change: boolean) =>
+      runCommand(send(change ? "/api/mobile/plaid/sign-answer/change" : "/api/mobile/plaid/sign-answer", "POST", { plaidAccountRowId, transactionId, answer }), {
+        failed: "Something went wrong. Refresh and try again.",
+      }),
+    /** The same question about held rows a removed bank left behind (web `answerDetachedHeldAction` / `changeDetachedHeldAnswerAction`, §5c). */
+    answerRemovedHeld: (transactionId: string, answer: MoneyAnswer, change: boolean) =>
+      runCommand(send(change ? "/api/mobile/plaid/removed-held/change" : "/api/mobile/plaid/removed-held/answer", "POST", { transactionId, answer }), {
+        failed: "Something went wrong. Refresh and try again.",
       }),
     /** Disconnect (web `disconnectBank`): stops syncing; `purge` also deletes the transactions it imported. */
     disconnect: (itemId: string, purge: boolean) =>

@@ -10,7 +10,8 @@ import type { BankAccount, ConnectedBank } from "../../lib/plaid/banks-api";
 import type { BankCommands, CommandOutcome } from "../../lib/plaid/bank-commands";
 import type { PlaidLinkClient } from "../../lib/plaid/plaid-link";
 import type { BankActions } from "./bank-card";
-import { ConnectedBanksView } from "./connected-banks-view";
+import { ConnectedBanksView, REMOVED_BANKS_UNAVAILABLE } from "./connected-banks-view";
+import { PixelFrame } from "../brand/pixel-frame";
 
 const NOW = Date.parse("2026-09-30T12:00:00Z");
 const ok = async (): Promise<CommandOutcome> => ({ status: "ok" });
@@ -29,6 +30,9 @@ const acct = (over: Partial<BankAccount>): BankAccount => ({
   reviewReason: null,
   excludedFromCalculations: false,
   pendingSignCheckCount: 0,
+  signCheckSample: null,
+  signAnswer: null,
+  directionReview: null,
   ...over,
 });
 
@@ -44,7 +48,17 @@ const bank = (over: Partial<ConnectedBank> = {}): ConnectedBank => ({
 });
 
 function actions(over: Partial<BankCommands> = {}, link?: PlaidLinkClient): BankActions {
-  const commands = { mapAccounts: vi.fn(ok), setImporting: vi.fn(ok), setExcluded: vi.fn(ok), clearReview: vi.fn(ok), sync: vi.fn(ok), disconnect: vi.fn(ok), ...over };
+  const commands = {
+    mapAccounts: vi.fn(ok),
+    setImporting: vi.fn(ok),
+    setExcluded: vi.fn(ok),
+    clearReview: vi.fn(ok),
+    sync: vi.fn(ok),
+    disconnect: vi.fn(ok),
+    answerSign: vi.fn(ok),
+    answerRemovedHeld: vi.fn(ok),
+    ...over,
+  };
   return {
     commands,
     ports: { fetchLinkToken: vi.fn(async () => ({ status: "ok" as const, linkToken: "link-1" })), sync: vi.fn(async () => ({ status: "ok" as const })) },
@@ -249,7 +263,7 @@ describe("Connected banks (web /connected-banks)", () => {
       a,
     );
     const sign = r.root.findAll((n) => typeof n.type === "string" && textContent(n).startsWith("We're checking this account's transaction format."))[0]!;
-    expect(textContent(sign)).toBe("We're checking this account's transaction format. 3 transactions appear once it's verified.");
+    expect(textContent(sign)).toBe("We're checking this account's transaction format. 3 transactions count once it's verified.");
     expect(texts(r)).toContain("This feed sent the same purchase twice.");
     await press(r, "exclude-row-1");
     expect(a.commands.setExcluded).toHaveBeenCalledWith("row-1", true);
@@ -260,6 +274,107 @@ describe("Connected banks (web /connected-banks)", () => {
     const reviewed = view([bank({ accounts: [acct({ needsReview: true, reviewReason: "Odd feed." })] })], a);
     await press(reviewed, "mark-reviewed-row-1");
     expect(a.commands.clearReview).toHaveBeenCalledWith("row-1");
+  });
+
+  it("asks the money-direction question about a held transaction and sends the answer (card payments §5)", async () => {
+    const a = actions();
+    const sample = { transactionId: "t-held", description: "GOOGLE *SERVICES", occurredAt: "2026-09-05T12:00:00Z", amount: 4600, currency: "USD" };
+    const r = view([bank({ accounts: [acct({ pendingSignCheckCount: 2, signCheckSample: sample })] })], a);
+    const band = r.root.find((n) => n.type === PixelFrame && n.props.testID === "sign-check-row-1");
+    expect(band.props.frame).toBe("px-band");
+    expect(textContent(band)).toBe(
+      "We're checking this account's transaction format. 2 transactions count once it's verified." +
+        "You can verify it now. Was this money going out or coming in?" +
+        "GOOGLE *SERVICES$46.00 · Sep 5Going outComing in",
+    );
+    const before = getVersion("accounts");
+    await press(r, "sign-question-row-1-in");
+    expect(a.commands.answerSign).toHaveBeenCalledWith("row-1", "t-held", "in", false);
+    expect(getVersion("accounts")).toBe(before + 1);
+    // answered: no second answer over stale data until the reload lands
+    expect(byTestId(r, "sign-question-row-1-out").props.accessibilityState).toMatchObject({ disabled: true });
+  });
+
+  it("says why an answer was refused, in the server's words, and lets the user try again", async () => {
+    const a = actions({ answerSign: vi.fn(async () => ({ status: "error" as const, message: "This bank is syncing right now. Try again in a moment.", stale: true as const })) });
+    const sample = { transactionId: "t-held", description: "GOOGLE", occurredAt: "2026-09-05T12:00:00Z", amount: 4600, currency: "USD" };
+    const r = view([bank({ accounts: [acct({ pendingSignCheckCount: 1, signCheckSample: sample })] })], a);
+    await press(r, "sign-question-row-1-out");
+    expect(textContent(byTestId(r, "sign-question-row-1-error"))).toBe("This bank is syncing right now. Try again in a moment.");
+    expect(byTestId(r, "sign-question-row-1-out").props.accessibilityState).toMatchObject({ disabled: false });
+  });
+
+  it("with no sample to ask about, says the rows are held and asks nothing", () => {
+    const r = view([bank({ accounts: [acct({ pendingSignCheckCount: 1 })] })]);
+    expect(textContent(byTestId(r, "sign-check-row-1"))).toBe("We're checking this account's transaction format. 1 transaction counts once it's verified.");
+    expect(() => byTestId(r, "sign-question-row-1")).toThrow();
+  });
+
+  it("after an answer: Money direction set. Change answer asks again and sends a change (§5a)", async () => {
+    const a = actions();
+    const sample = { transactionId: "t-ans", description: "PAYROLL", occurredAt: "2026-09-01T12:00:00Z", amount: 250000, currency: "USD" };
+    const r = view([bank({ accounts: [acct({ signAnswer: { answeredAt: "2026-10-01T00:00:00Z", sample } })] })], a);
+    expect(textContent(byTestId(r, "sign-answered-row-1"))).toBe("Money direction set. Change answer");
+    expect(() => byTestId(r, "sign-question-row-1")).toThrow();
+    await press(r, "sign-change-row-1");
+    expect(byTestId(r, "sign-change-row-1").props.accessibilityState).toEqual({ expanded: true });
+    expect(texts(byTestId(r, "sign-question-row-1"))).toContain("Was this money going out or coming in?");
+    await press(r, "sign-question-row-1-out");
+    expect(a.commands.answerSign).toHaveBeenCalledWith("row-1", "t-ans", "out", true);
+    // the panel closes once the change lands
+    expect(() => byTestId(r, "sign-question-row-1")).toThrow();
+  });
+
+  it("an account resolved from evidence offers Amounts on this account look reversed? with its warning (§5b)", async () => {
+    const a = actions();
+    const sample = { transactionId: "t-rec", description: "COFFEE", occurredAt: "2026-09-20T12:00:00Z", amount: 450, currency: "USD" };
+    const r = view([bank({ accounts: [acct({ directionReview: { sample } })] })], a);
+    expect(textContent(byTestId(r, "direction-review-row-1"))).toBe("Amounts on this account look reversed?");
+    await press(r, "direction-review-toggle-row-1");
+    expect(texts(r)).toContain(
+      "Check one transaction to confirm. If your answer doesn't match how Budgts reads this account, every amount on it flips. You can change it back the same way.",
+    );
+    await press(r, "sign-question-row-1-in");
+    expect(a.commands.answerSign).toHaveBeenCalledWith("row-1", "t-rec", "in", true);
+  });
+
+  it("the open question wins over an answer line, as on the web", () => {
+    const sample = { transactionId: "t", description: "X", occurredAt: "2026-09-20T12:00:00Z", amount: 1, currency: "USD" };
+    const r = view([bank({ accounts: [acct({ pendingSignCheckCount: 1, signCheckSample: sample, signAnswer: { answeredAt: "x", sample }, directionReview: { sample } })] })]);
+    expect(() => byTestId(r, "sign-answered-row-1")).toThrow();
+    expect(() => byTestId(r, "direction-review-row-1")).toThrow();
+  });
+
+  it("From removed banks: asks about held rows a disconnected bank left behind, and changes an answered group (§5c)", async () => {
+    const a = actions();
+    const sample = { transactionId: "t-det", description: "ZELLE FROM SAM", occurredAt: "2026-08-30T12:00:00Z", amount: 12000, currency: "USD" };
+    const held = {
+      groups: [{ accountId: "acc-1", accountName: "Everyday checking", originRef: "o1", count: 3, sample }],
+      answered: [{ accountId: "acc-2", accountName: "Travel card", originRef: "o2", answeredAt: "2026-10-01T00:00:00Z", sample: { ...sample, transactionId: "t-ans2" } }],
+    };
+    const r = render(<ConnectedBanksView enabled banks={[]} removedBanksHeld={held} actions={a} now={NOW} onBack={() => {}} />);
+    const card = byTestId(r, "removed-banks-held");
+    expect(texts(card)).toContain("From removed banks");
+    expect(textContent(byTestId(r, "removed-held-acc-1"))).toContain(
+      "A bank you disconnected left 3 transactions here before Budgts could check its transaction format. They count once you answer.",
+    );
+    await press(r, "removed-question-acc-1-out");
+    expect(a.commands.answerRemovedHeld).toHaveBeenCalledWith("t-det", "out", false);
+    expect(textContent(byTestId(r, "removed-answered-acc-2"))).toBe("Travel card. Money direction set. Change answer");
+    await press(r, "removed-change-acc-2");
+    await press(r, "removed-question-acc-2-in");
+    expect(a.commands.answerRemovedHeld).toHaveBeenCalledWith("t-ans2", "in", true);
+    // first on the page, above the banks, where Home's "Check them" lands
+    const ids = r.root.findAll((n) => typeof n.type === "string" && typeof n.props.testID === "string").map((n) => n.props.testID);
+    expect(ids.indexOf("removed-banks-held")).toBeLessThan(ids.indexOf("connected-banks-empty"));
+  });
+
+  it("no removed-bank rows: no card; couldn't load them: says so where the card would be", () => {
+    expect(view([bank()]).root.findAll((n) => n.props.testID === "removed-banks-held")).toHaveLength(0);
+    const r = render(<ConnectedBanksView enabled banks={[bank()]} removedBanksHeld={null} actions={actions()} now={NOW} onBack={() => {}} />);
+    expect(textContent(byTestId(r, "removed-banks-unavailable"))).toBe(REMOVED_BANKS_UNAVAILABLE);
+    expect(REMOVED_BANKS_UNAVAILABLE).toBe("Couldn't load transactions from removed banks. Try again later.");
+    expect(byTestId(r, "bank-item-row-name")).toBeTruthy();
   });
 
   it("after a change lands, the switch stays disabled in its new position until the reloaded row arrives", async () => {

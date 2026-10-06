@@ -40,6 +40,7 @@ import {
 } from "./commands";
 import { changeSignConventionAnswer, resolveSignConventionFromAnswer } from "./sign-answer";
 import { changeDetachedHeldAnswer, resolveDetachedHeldFromAnswer } from "./detached-sign-answer";
+import { SIGN_ANSWER_MESSAGES } from "@/lib/plaid/sign-answer-messages";
 
 export type PlaidActionState = {
   error?: string;
@@ -144,7 +145,7 @@ export async function answerSignCheckAction(
     transactionId: String(formData.get("transactionId") ?? ""),
     answer: String(formData.get("answer") ?? ""),
   });
-  if (!parsed.success) return { error: "Something went wrong. Refresh and try again." };
+  if (!parsed.success) return { error: SIGN_ANSWER_MESSAGES.invalid };
 
   const { user } = await withUser();
   const result = await resolveSignConventionFromAnswer(
@@ -154,16 +155,13 @@ export async function answerSignCheckAction(
     parsed.data.transactionId,
     parsed.data.answer,
   );
-  if (result.outcome === "not_found") return { error: "That transaction is no longer waiting. Refresh and try again." };
-  if (result.outcome === "busy") return { error: BUSY_MESSAGE };
-  if (result.outcome === "setting_up") return { error: SETTING_UP_MESSAGE };
+  if (result.outcome === "not_found") return { error: SIGN_ANSWER_MESSAGES.answerGone };
+  if (result.outcome === "busy") return { error: SIGN_ANSWER_MESSAGES.busy };
+  if (result.outcome === "setting_up") return { error: SIGN_ANSWER_MESSAGES.settingUp };
 
   revalidateUserData();
   return { ok: true };
 }
-
-const BUSY_MESSAGE = "This bank is syncing right now. Try again in a moment.";
-const SETTING_UP_MESSAGE = "Finish choosing which accounts to import from this bank first.";
 
 /**
  * "Change answer" (design: 2026-10-01 card payments §5a), and "Amounts on this account look reversed?" for an account
@@ -180,7 +178,7 @@ export async function changeSignAnswerAction(
     transactionId: String(formData.get("transactionId") ?? ""),
     answer: String(formData.get("answer") ?? ""),
   });
-  if (!parsed.success) return { error: "Something went wrong. Refresh and try again." };
+  if (!parsed.success) return { error: SIGN_ANSWER_MESSAGES.invalid };
 
   const { user } = await withUser();
   const result = await changeSignConventionAnswer(
@@ -191,10 +189,10 @@ export async function changeSignAnswerAction(
     parsed.data.answer,
   );
   if (result.outcome === "not_found" || result.outcome === "not_answered") {
-    return { error: "This account can't change its answer. Refresh and try again." };
+    return { error: SIGN_ANSWER_MESSAGES.cantChange };
   }
-  if (result.outcome === "busy") return { error: BUSY_MESSAGE };
-  if (result.outcome === "setting_up") return { error: SETTING_UP_MESSAGE };
+  if (result.outcome === "busy") return { error: SIGN_ANSWER_MESSAGES.busy };
+  if (result.outcome === "setting_up") return { error: SIGN_ANSWER_MESSAGES.settingUp };
 
   revalidateUserData();
   return { ok: true };
@@ -210,10 +208,10 @@ export async function answerDetachedHeldAction(_prev: PlaidActionState, formData
     transactionId: String(formData.get("transactionId") ?? ""),
     answer: String(formData.get("answer") ?? ""),
   });
-  if (!parsed.success) return { error: "Something went wrong. Refresh and try again." };
+  if (!parsed.success) return { error: SIGN_ANSWER_MESSAGES.invalid };
   const { user } = await withUser();
   const result = await resolveDetachedHeldFromAnswer(db(), user.id, parsed.data.transactionId, parsed.data.answer);
-  if (result.outcome === "not_found") return { error: "That transaction is no longer waiting. Refresh and try again." };
+  if (result.outcome === "not_found") return { error: SIGN_ANSWER_MESSAGES.answerGone };
   revalidateUserData();
   return { ok: true };
 }
@@ -223,11 +221,11 @@ export async function changeDetachedHeldAnswerAction(_prev: PlaidActionState, fo
     transactionId: String(formData.get("transactionId") ?? ""),
     answer: String(formData.get("answer") ?? ""),
   });
-  if (!parsed.success) return { error: "Something went wrong. Refresh and try again." };
+  if (!parsed.success) return { error: SIGN_ANSWER_MESSAGES.invalid };
   const { user } = await withUser();
   const result = await changeDetachedHeldAnswer(db(), user.id, parsed.data.transactionId, parsed.data.answer);
   if (result.outcome === "not_found" || result.outcome === "not_answered") {
-    return { error: "These transactions can't change their answer. Refresh and try again." };
+    return { error: SIGN_ANSWER_MESSAGES.detachedCantChange };
   }
   revalidateUserData();
   return { ok: true };

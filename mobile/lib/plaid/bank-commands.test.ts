@@ -33,6 +33,25 @@ describe("bankCommands", () => {
     expect(lastCall()).toEqual({ path: "/api/plaid/item", method: "DELETE", body: { itemId: "plaid-item", purge: true } });
   });
 
+  it("sends the money-direction answers to their native routes with the web form's fields (card payments §5, §5a, §5c)", async () => {
+    api.authFetch.mockResolvedValue(json(200, { ok: true }));
+    expect(await c.answerSign("row-1", "t1", "out", false)).toEqual({ status: "ok" });
+    expect(lastCall()).toEqual({ path: "/api/mobile/plaid/sign-answer", method: "POST", body: { plaidAccountRowId: "row-1", transactionId: "t1", answer: "out" } });
+    await c.answerSign("row-1", "t1", "in", true);
+    expect(lastCall()).toEqual({ path: "/api/mobile/plaid/sign-answer/change", method: "POST", body: { plaidAccountRowId: "row-1", transactionId: "t1", answer: "in" } });
+    await c.answerRemovedHeld("t2", "in", false);
+    expect(lastCall()).toEqual({ path: "/api/mobile/plaid/removed-held/answer", method: "POST", body: { transactionId: "t2", answer: "in" } });
+    await c.answerRemovedHeld("t2", "out", true);
+    expect(lastCall()).toEqual({ path: "/api/mobile/plaid/removed-held/change", method: "POST", body: { transactionId: "t2", answer: "out" } });
+  });
+
+  it("an answer the server refuses says the server's own sentence (the web's words) and offers Refresh", async () => {
+    api.authFetch.mockResolvedValue(json(409, { error: "busy", message: "This bank is syncing right now. Try again in a moment." }));
+    expect(await c.answerSign("r", "t", "out", false)).toEqual({ status: "error", message: "This bank is syncing right now. Try again in a moment.", stale: true });
+    api.authFetch.mockResolvedValue(json(404, { error: "not_found", message: "That transaction is no longer waiting. Refresh and try again." }));
+    expect(await c.answerRemovedHeld("t", "in", false)).toEqual({ status: "error", message: "That transaction is no longer waiting. Refresh and try again.", stale: true });
+  });
+
   it("passes a success warning through: the work succeeded, a sync did not finish", async () => {
     api.authFetch.mockResolvedValue(json(200, { ok: true, warning: "Connected, but the first sync didn't finish. It'll retry shortly." }));
     expect(await c.mapAccounts("i", [])).toEqual({ status: "ok", warning: "Connected, but the first sync didn't finish. It'll retry shortly." });

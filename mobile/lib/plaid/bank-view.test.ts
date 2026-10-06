@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BankAccount } from "./banks-api";
-import { accountName, bankName, notImportedNote, resumesExisting, signCheckWords, splitAccounts, syncedLabel } from "./bank-view";
+import { accountName, bankName, notImportedNote, removedHeldWords, resumesExisting, sampleFigure, signCheckWords, splitAccounts, syncedLabel } from "./bank-view";
 
 const acct = (over: Partial<BankAccount>): BankAccount => ({
   rowId: "r",
@@ -16,6 +16,9 @@ const acct = (over: Partial<BankAccount>): BankAccount => ({
   reviewReason: null,
   excludedFromCalculations: false,
   pendingSignCheckCount: 0,
+  signCheckSample: null,
+  signAnswer: null,
+  directionReview: null,
   ...over,
 });
 
@@ -50,7 +53,16 @@ describe("bank card wording (web connected-banks.tsx)", () => {
   });
 
   it("counts held transactions in words", () => {
-    expect(signCheckWords(1)).toEqual({ count: "1 transaction", verb: "appears" });
-    expect(signCheckWords(12)).toEqual({ count: "12 transactions", verb: "appear" });
+    expect(signCheckWords(1)).toEqual({ count: "1 transaction", verb: "counts" });
+    expect(signCheckWords(12)).toEqual({ count: "12 transactions", verb: "count" });
+  });
+
+  it("words the question's transaction as the web does: unsigned amount and the stored UTC day", () => {
+    expect(sampleFigure({ amount: 4600, currency: "USD", occurredAt: "2026-09-05T23:30:00Z" })).toBe("$46.00 · Sep 5");
+  });
+
+  it("words removed banks' held rows, singular and plural", () => {
+    expect(removedHeldWords(1)).toEqual({ count: "1 transaction", tail: "It counts once you answer." });
+    expect(removedHeldWords(3)).toEqual({ count: "3 transactions", tail: "They count once you answer." });
   });
 });

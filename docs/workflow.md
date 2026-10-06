@@ -1566,3 +1566,16 @@ implementation goes to `budgts-architect`.
   already-resolved account. Spec: card payments §5c. `0028` is on staging only; production does not have `0027` yet
   (read-only check 2026-10-05: `account_bank_identities` absent), so `0027` and `0028` go together. Then the owner
   answers for SoFi Checking ••5805 (3 rows, Sep 2026): "Going out" adds $43.45 to September spend.
+- **2026-10-05** — **The money-direction question on the native app** (`phase-m/held-rows-native-exit`, on 45140f3).
+  The native Connected banks had no exit for held rows (the bank card only said they "appear once it's verified"), so
+  Home's "Check them" was a dead end. Now: on each bank account, §5's question while held rows exist ("You can verify
+  it now. Was this money going out or coming in?", Going out / Coming in), §5a's "Money direction set. Change answer",
+  §5b's "Amounts on this account look reversed?", and §5c's "From removed banks" card first on the page (above the
+  banks, so Home's and Activity's links land on it), copy identical to the web
+  (`mobile/components/banks/money-direction.tsx`). `removedBanksHeld: null` (couldn't load) shows "Couldn't load
+  transactions from removed banks. Try again later." in its place. New native routes, adapters over the web actions'
+  own functions: `POST /api/mobile/plaid/sign-answer`, `.../sign-answer/change`, `/api/mobile/plaid/removed-held/answer`,
+  `.../removed-held/change` (`src/lib/mobile/sign-answer.ts`); refusals carry the web's sentences, now shared in
+  `src/lib/plaid/sign-answer-messages.ts`. The native routes refuse with 423 while an account deletion has started.
+  **Open (web):** the web answer actions write through Drizzle, which the RLS deletion guard (0021) doesn't see, and
+  check no lock, so a web answer still lands during a started deletion.

@@ -54,6 +54,7 @@ export default function ConnectedBanksScreen() {
           enabled={state.data.enabled}
           banks={state.data.banks}
           connectionsRemovedForLapse={state.data.connectionsRemovedForLapse}
+          removedBanksHeld={state.data.removedBanksHeld}
           actions={{ commands, ports, link, choices: state.data.choices }}
           now={Date.now()}
           onBack={() => (router.canGoBack() ? router.back() : router.navigate("/more"))}

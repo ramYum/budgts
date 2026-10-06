@@ -1,5 +1,5 @@
-import { formatSyncedAgo } from "../shared";
-import type { BankAccount, ConnectedBank } from "./banks-api";
+import { formatDayShort, formatMoney, formatSyncedAgo } from "../shared";
+import type { BankAccount, ConnectedBank, SignCheckSample } from "./banks-api";
 
 /**
  * How Connected banks words a bank and its accounts: the web's own helpers in
@@ -43,8 +43,18 @@ export function notImportedNote(a: Pick<BankAccount, "linkState" | "mappedAccoun
   return a.mappedAccountName ? `paused · was ${a.mappedAccountName}` : null;
 }
 
-/** The sign-check line's counted words (web `SignCheckNotice`). */
+/** The sign-check line's counted words (web `SignCheckNotice`): "3 transactions" … "count once it's verified". */
 export const signCheckWords = (count: number): { count: string; verb: string } => ({
   count: `${count} ${count === 1 ? "transaction" : "transactions"}`,
-  verb: count === 1 ? "appears" : "appear",
+  verb: count === 1 ? "counts" : "count",
+});
+
+/** The question's transaction line, right side (web `MoneyDirectionQuestion`): "$46.00 · Sep 5", unsigned, UTC day. */
+export const sampleFigure = (s: Pick<SignCheckSample, "amount" | "currency" | "occurredAt">): string =>
+  `${formatMoney(s.amount, s.currency)} · ${formatDayShort(s.occurredAt, "en-US")}`;
+
+/** "From removed banks" (web `RemovedBanksHeld`): "A bank you disconnected left N transactions here … They count once you answer." */
+export const removedHeldWords = (count: number): { count: string; tail: string } => ({
+  count: `${count} ${count === 1 ? "transaction" : "transactions"}`,
+  tail: `${count === 1 ? "It counts" : "They count"} once you answer.`,
 });

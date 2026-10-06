@@ -3,11 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const getBearerContext = vi.fn();
 const resolveDetachedHeldFromAnswer = vi.fn();
 const changeDetachedHeldAnswer = vi.fn();
-const accountWritesLocked = vi.fn();
 const fakeDb = { __db: true };
 vi.mock("@/lib/auth/bearer-context", () => ({ getBearerContext: (...a: unknown[]) => getBearerContext(...a) }));
 vi.mock("@/lib/db", () => ({ db: () => fakeDb }));
-vi.mock("@/lib/account/write-lock", () => ({ accountWritesLocked: (...a: unknown[]) => accountWritesLocked(...a) }));
 vi.mock("@/server/plaid/detached-sign-answer", () => ({
   resolveDetachedHeldFromAnswer: (...a: unknown[]) => resolveDetachedHeldFromAnswer(...a),
   changeDetachedHeldAnswer: (...a: unknown[]) => changeDetachedHeldAnswer(...a),
@@ -31,9 +29,8 @@ const post = (body: unknown) =>
 const valid = { transactionId: TXN, answer: "in" };
 
 beforeEach(() => {
-  for (const f of [getBearerContext, resolveDetachedHeldFromAnswer, changeDetachedHeldAnswer, accountWritesLocked]) f.mockReset();
+  for (const f of [getBearerContext, resolveDetachedHeldFromAnswer, changeDetachedHeldAnswer]) f.mockReset();
   getBearerContext.mockResolvedValue({ user: { id: "user-a" }, supabase });
-  accountWritesLocked.mockResolvedValue(false);
 });
 
 describe("POST /api/mobile/plaid/removed-held/answer (card payments §5c)", () => {
@@ -42,7 +39,8 @@ describe("POST /api/mobile/plaid/removed-held/answer (card payments §5c)", () =
     const res = await ANSWER(post({ ...valid, userId: "user-b", accountId: "someone-elses" }));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true });
-    expect(resolveDetachedHeldFromAnswer).toHaveBeenCalledWith(fakeDb, "user-a", TXN, "in");
+    // the caller's own client goes along: the shared function checks a started deletion with it
+    expect(resolveDetachedHeldFromAnswer).toHaveBeenCalledWith(fakeDb, supabase, "user-a", TXN, "in");
   });
 
   it("a group already released is success", async () => {
@@ -57,14 +55,19 @@ describe("POST /api/mobile/plaid/removed-held/answer (card payments §5c)", () =
     expect(await res.json()).toEqual({ error: "not_found", message: "That transaction is no longer waiting. Refresh and try again." });
   });
 
-  it("validates with the web form's schema, refuses under a started deletion, and requires a session", async () => {
+  it("validates with the web form's schema and requires a session, before touching anything", async () => {
     expect((await ANSWER(post({ transactionId: "x", answer: "in" }))).status).toBe(422);
     expect((await ANSWER(post({ transactionId: TXN, answer: "both" }))).status).toBe(422);
-    accountWritesLocked.mockResolvedValue(true);
-    expect((await ANSWER(post(valid))).status).toBe(423);
     getBearerContext.mockResolvedValue(null);
     expect((await ANSWER(post(valid))).status).toBe(401);
     expect(resolveDetachedHeldFromAnswer).not.toHaveBeenCalled();
+  });
+
+  it("refuses while an account deletion has started (the shared function's `locked`) as 423", async () => {
+    resolveDetachedHeldFromAnswer.mockResolvedValue({ outcome: "locked" });
+    const res = await ANSWER(post(valid));
+    expect(res.status).toBe(423);
+    expect(await res.json()).toEqual({ error: "account_locked" });
   });
 });
 
@@ -72,7 +75,7 @@ describe("POST /api/mobile/plaid/removed-held/change (§5c Change answer)", () =
   it("changes for the verified user; a matching answer is success", async () => {
     changeDetachedHeldAnswer.mockResolvedValue({ outcome: "changed", convention: "inverted", changedRows: 2 });
     expect((await CHANGE(post(valid))).status).toBe(200);
-    expect(changeDetachedHeldAnswer).toHaveBeenCalledWith(fakeDb, "user-a", TXN, "in");
+    expect(changeDetachedHeldAnswer).toHaveBeenCalledWith(fakeDb, supabase, "user-a", TXN, "in");
     changeDetachedHeldAnswer.mockResolvedValue({ outcome: "unchanged" });
     expect((await CHANGE(post(valid))).status).toBe(200);
   });
@@ -84,6 +87,13 @@ describe("POST /api/mobile/plaid/removed-held/change (§5c Change answer)", () =
     expect(await missing.json()).toEqual({ error: "not_found", message: "These transactions can't change their answer. Refresh and try again." });
     changeDetachedHeldAnswer.mockResolvedValue({ outcome: "not_answered" });
     expect((await CHANGE(post(valid))).status).toBe(409);
+  });
+
+  it("refuses while an account deletion has started", async () => {
+    changeDetachedHeldAnswer.mockResolvedValue({ outcome: "locked" });
+    const res = await CHANGE(post(valid));
+    expect(res.status).toBe(423);
+    expect(await res.json()).toEqual({ error: "account_locked" });
   });
 
   it("requires a session", async () => {

@@ -230,6 +230,7 @@ async function plan(tx: Tx) {
         primary: r.plaid_category_primary,
         detailed: r.plaid_category_detailed,
         isTransfer: r.is_transfer,
+        rawAmount: typeof r.raw_amount === "number" ? r.raw_amount : null,
       })),
       convention,
       acct.type,

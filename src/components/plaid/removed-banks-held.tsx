@@ -3,8 +3,8 @@
 import { useCallback, useState } from "react";
 import { Icon } from "@/components/icon";
 import { SectionHead } from "@/components/ui";
-import type { DetachedHeldGroup } from "@/lib/plaid/detached-held";
-import type { DetachedAnsweredGroup } from "@/lib/plaid/detached-held-read";
+import { detachedGroupKey } from "@/lib/plaid/detached-held";
+import type { DetachedAnsweredGroup, DetachedHeldData } from "@/lib/plaid/detached-held-read";
 import { answerDetachedHeldAction, changeDetachedHeldAnswerAction } from "@/server/plaid/actions";
 import { MoneyDirectionQuestion } from "./connected-banks";
 
@@ -16,7 +16,16 @@ export const REMOVED_BANKS_ANCHOR = "from-removed-banks";
  * bank card above can ask about them; this asks the same plain question under the Budgts account they live in, one
  * group per original bank feed, and keeps "Change answer" for a group already answered.
  */
-export function RemovedBanksHeld({ groups, answered }: { groups: DetachedHeldGroup[]; answered: DetachedAnsweredGroup[] }) {
+export function RemovedBanksHeld({ data }: { data: DetachedHeldData | null }) {
+  // The read failed: say so in the card's place; the rest of Connected banks (and §5's question) still works.
+  if (!data) {
+    return (
+      <p id={REMOVED_BANKS_ANCHOR} className="text-sm leading-5 text-muted" role="status" data-testid="removed-banks-held-error">
+        Couldn&apos;t load transactions from removed banks. Try again later.
+      </p>
+    );
+  }
+  const { groups, answered } = data;
   if (groups.length === 0 && answered.length === 0) return null;
   return (
     <section id={REMOVED_BANKS_ANCHOR} className="px-card-raised scroll-mt-6 space-y-4 p-2 md:p-6" data-testid="removed-banks-held">
@@ -26,7 +35,7 @@ export function RemovedBanksHeld({ groups, answered }: { groups: DetachedHeldGro
           <li
             key={`${g.accountId}|${g.originRef}`}
             className="space-y-2 py-4 first:pt-2 last:pb-0"
-            data-testid={`removed-held-${g.accountId}`}
+            data-testid={`removed-held-${detachedGroupKey(g.accountId, g.originRef)}`}
           >
             <p className="truncate text-[15px] font-medium leading-6 text-ink">{g.accountName}</p>
             <div className="px-band space-y-2 px-1.5 py-1.5 text-sm leading-5 text-ink md:px-2 md:py-2 md:text-[15px] md:leading-6">
@@ -57,7 +66,7 @@ function AnsweredLine({ group }: { group: DetachedAnsweredGroup }) {
   const [asking, setAsking] = useState(false);
   const close = useCallback(() => setAsking(false), []);
   return (
-    <li className="space-y-2 py-4 text-sm leading-5 text-muted first:pt-2 last:pb-0" data-testid={`removed-answered-${group.accountId}`}>
+    <li className="space-y-2 py-4 text-sm leading-5 text-muted first:pt-2 last:pb-0" data-testid={`removed-answered-${detachedGroupKey(group.accountId, group.originRef)}`}>
       <p>
         <span className="font-medium text-ink">{group.accountName}</span>. Money direction set.{" "}
         <button

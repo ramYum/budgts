@@ -3,11 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const getBearerContext = vi.fn();
 const resolveSignConventionFromAnswer = vi.fn();
 const changeSignConventionAnswer = vi.fn();
-const accountWritesLocked = vi.fn();
 const fakeDb = { __db: true };
 vi.mock("@/lib/auth/bearer-context", () => ({ getBearerContext: (...a: unknown[]) => getBearerContext(...a) }));
 vi.mock("@/lib/db", () => ({ db: () => fakeDb }));
-vi.mock("@/lib/account/write-lock", () => ({ accountWritesLocked: (...a: unknown[]) => accountWritesLocked(...a) }));
 vi.mock("@/server/plaid/sign-answer", () => ({
   resolveSignConventionFromAnswer: (...a: unknown[]) => resolveSignConventionFromAnswer(...a),
   changeSignConventionAnswer: (...a: unknown[]) => changeSignConventionAnswer(...a),
@@ -32,9 +30,8 @@ const post = (body: unknown, raw = false) =>
 const valid = { plaidAccountRowId: ROW, transactionId: TXN, answer: "out" };
 
 beforeEach(() => {
-  for (const f of [getBearerContext, resolveSignConventionFromAnswer, changeSignConventionAnswer, accountWritesLocked]) f.mockReset();
+  for (const f of [getBearerContext, resolveSignConventionFromAnswer, changeSignConventionAnswer]) f.mockReset();
   getBearerContext.mockResolvedValue({ user: { id: "user-a" }, supabase });
-  accountWritesLocked.mockResolvedValue(false);
 });
 
 describe("POST /api/mobile/plaid/sign-answer (card payments §5)", () => {
@@ -43,7 +40,8 @@ describe("POST /api/mobile/plaid/sign-answer (card payments §5)", () => {
     const res = await ANSWER(post({ ...valid, userId: "user-b" }));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true });
-    expect(resolveSignConventionFromAnswer).toHaveBeenCalledWith(fakeDb, "user-a", ROW, TXN, "out");
+    // the caller's own client goes along: the shared function checks a started deletion with it
+    expect(resolveSignConventionFromAnswer).toHaveBeenCalledWith(fakeDb, supabase, "user-a", ROW, TXN, "out");
     expect(res.headers.get("cache-control")).toBe("private, no-store");
   });
 
@@ -82,13 +80,11 @@ describe("POST /api/mobile/plaid/sign-answer (card payments §5)", () => {
     expect(resolveSignConventionFromAnswer).not.toHaveBeenCalled();
   });
 
-  it("refuses while an account deletion has started (the Drizzle write would bypass the RLS guard)", async () => {
-    accountWritesLocked.mockResolvedValue(true);
+  it("refuses while an account deletion has started (the shared function's `locked`) as 423", async () => {
+    resolveSignConventionFromAnswer.mockResolvedValue({ outcome: "locked" });
     const res = await ANSWER(post(valid));
     expect(res.status).toBe(423);
     expect(await res.json()).toEqual({ error: "account_locked" });
-    expect(accountWritesLocked).toHaveBeenCalledWith(supabase);
-    expect(resolveSignConventionFromAnswer).not.toHaveBeenCalled();
   });
 
   it("requires a valid Bearer session: missing or invalid credentials are 401 and nothing runs", async () => {
@@ -113,7 +109,7 @@ describe("POST /api/mobile/plaid/sign-answer/change (§5a, §5b)", () => {
     changeSignConventionAnswer.mockResolvedValue({ outcome: "changed", convention: "standard", changedRows: 4 });
     const res = await CHANGE(post({ ...valid, answer: "in", userId: "user-b" }));
     expect(res.status).toBe(200);
-    expect(changeSignConventionAnswer).toHaveBeenCalledWith(fakeDb, "user-a", ROW, TXN, "in");
+    expect(changeSignConventionAnswer).toHaveBeenCalledWith(fakeDb, supabase, "user-a", ROW, TXN, "in");
     changeSignConventionAnswer.mockResolvedValue({ outcome: "unchanged" });
     expect((await CHANGE(post(valid))).status).toBe(200);
   });
@@ -138,8 +134,10 @@ describe("POST /api/mobile/plaid/sign-answer/change (§5a, §5b)", () => {
 
   it("validates, and refuses while an account deletion has started", async () => {
     expect((await CHANGE(post({ ...valid, transactionId: "x" }))).status).toBe(422);
-    accountWritesLocked.mockResolvedValue(true);
-    expect((await CHANGE(post(valid))).status).toBe(423);
     expect(changeSignConventionAnswer).not.toHaveBeenCalled();
+    changeSignConventionAnswer.mockResolvedValue({ outcome: "locked" });
+    const res = await CHANGE(post(valid));
+    expect(res.status).toBe(423);
+    expect(await res.json()).toEqual({ error: "account_locked" });
   });
 });

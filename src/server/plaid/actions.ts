@@ -13,6 +13,7 @@
  * native `/api/mobile/plaid/*` routes; these actions adapt them to forms.
  */
 import { revalidateUserData } from "@/server/revalidate";
+import { LOCKED_MESSAGE } from "@/lib/ownership";
 import { redirect } from "next/navigation";
 import { createClient, getSessionUser } from "@/lib/supabase/server";
 import {
@@ -147,14 +148,16 @@ export async function answerSignCheckAction(
   });
   if (!parsed.success) return { error: SIGN_ANSWER_MESSAGES.invalid };
 
-  const { user } = await withUser();
+  const { user, supabase } = await withUser();
   const result = await resolveSignConventionFromAnswer(
     db(),
+    supabase,
     user.id,
     parsed.data.plaidAccountRowId,
     parsed.data.transactionId,
     parsed.data.answer,
   );
+  if (result.outcome === "locked") return { error: LOCKED_MESSAGE };
   if (result.outcome === "not_found") return { error: SIGN_ANSWER_MESSAGES.answerGone };
   if (result.outcome === "busy") return { error: SIGN_ANSWER_MESSAGES.busy };
   if (result.outcome === "setting_up") return { error: SIGN_ANSWER_MESSAGES.settingUp };
@@ -180,14 +183,16 @@ export async function changeSignAnswerAction(
   });
   if (!parsed.success) return { error: SIGN_ANSWER_MESSAGES.invalid };
 
-  const { user } = await withUser();
+  const { user, supabase } = await withUser();
   const result = await changeSignConventionAnswer(
     db(),
+    supabase,
     user.id,
     parsed.data.plaidAccountRowId,
     parsed.data.transactionId,
     parsed.data.answer,
   );
+  if (result.outcome === "locked") return { error: LOCKED_MESSAGE };
   if (result.outcome === "not_found" || result.outcome === "not_answered") {
     return { error: SIGN_ANSWER_MESSAGES.cantChange };
   }
@@ -209,8 +214,9 @@ export async function answerDetachedHeldAction(_prev: PlaidActionState, formData
     answer: String(formData.get("answer") ?? ""),
   });
   if (!parsed.success) return { error: SIGN_ANSWER_MESSAGES.invalid };
-  const { user } = await withUser();
-  const result = await resolveDetachedHeldFromAnswer(db(), user.id, parsed.data.transactionId, parsed.data.answer);
+  const { user, supabase } = await withUser();
+  const result = await resolveDetachedHeldFromAnswer(db(), supabase, user.id, parsed.data.transactionId, parsed.data.answer);
+  if (result.outcome === "locked") return { error: LOCKED_MESSAGE };
   if (result.outcome === "not_found") return { error: SIGN_ANSWER_MESSAGES.answerGone };
   revalidateUserData();
   return { ok: true };
@@ -222,8 +228,9 @@ export async function changeDetachedHeldAnswerAction(_prev: PlaidActionState, fo
     answer: String(formData.get("answer") ?? ""),
   });
   if (!parsed.success) return { error: SIGN_ANSWER_MESSAGES.invalid };
-  const { user } = await withUser();
-  const result = await changeDetachedHeldAnswer(db(), user.id, parsed.data.transactionId, parsed.data.answer);
+  const { user, supabase } = await withUser();
+  const result = await changeDetachedHeldAnswer(db(), supabase, user.id, parsed.data.transactionId, parsed.data.answer);
+  if (result.outcome === "locked") return { error: LOCKED_MESSAGE };
   if (result.outcome === "not_found" || result.outcome === "not_answered") {
     return { error: SIGN_ANSWER_MESSAGES.detachedCantChange };
   }

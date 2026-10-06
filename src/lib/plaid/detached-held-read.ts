@@ -7,7 +7,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchAllRows } from "@/lib/supabase/fetch-all-rows";
 import type { SignCheckSample } from "./connected-banks-read";
+import { pickQuestionSample } from "./held-rows";
 import {
+  ROW_GROUP_PREFIX,
   detachedGroupKey,
   groupDetachedHeld,
   latestDetachedAnswers,
@@ -34,10 +36,12 @@ type Row = {
   amount: number;
   origin: string | null;
   currency: string | null;
+  raw_amount: unknown;
   account: { name: string } | { name: string }[] | null;
 };
 
-const COLUMNS = "id, account_id, description, occurred_at, amount, origin:raw->>account_id, currency:raw->>iso_currency_code, account:accounts(name)";
+const COLUMNS =
+  "id, account_id, description, occurred_at, amount, origin:raw->>account_id, currency:raw->>iso_currency_code, raw_amount:raw->amount, account:accounts(name)";
 
 const nameOf = (r: Row) => (Array.isArray(r.account) ? r.account[0]?.name : r.account?.name) ?? "Account";
 
@@ -50,9 +54,24 @@ const toRow = (r: Row): DetachedHeldRow => ({
   occurredAt: r.occurred_at,
   amount: Number(r.amount),
   currency: r.currency ?? "USD",
+  rawAmount: typeof r.raw_amount === "number" ? r.raw_amount : null,
 });
 
-export async function loadDetachedHeld(supabase: SupabaseClient): Promise<DetachedHeldData> {
+/**
+ * Null when the read failed: the caller shows that it couldn't load this part (web: one line in the card's place;
+ * native: `removedBanksHeld: null`) and keeps the rest of Connected banks, including §5's question, working.
+ */
+export async function loadDetachedHeld(supabase: SupabaseClient): Promise<DetachedHeldData | null> {
+  try {
+    return await read(supabase);
+  } catch {
+    // No error payload in the log (it can carry row data); the user sees the "couldn't load" line.
+    console.error("[plaid] removed-bank held rows: read failed");
+    return null;
+  }
+}
+
+async function read(supabase: SupabaseClient): Promise<DetachedHeldData> {
   const [heldRows, { data: answerData, error: answerErr }] = await Promise.all([
     // Every held, live, detached bank row (fetchAllRows: a heavy feed disconnected mid-check can leave thousands).
     fetchAllRows<Row>((from, to, count) =>
@@ -83,26 +102,32 @@ export async function loadDetachedHeld(supabase: SupabaseClient): Promise<Detach
   // One or two bounded reads per answered group (a handful at most): its transaction to re-ask about, still detached.
   const answered = await Promise.all(
     latest.map(async (a): Promise<DetachedAnsweredGroup | null> => {
-      const inGroup = () =>
-        supabase
+      const inGroup = () => {
+        const q = supabase
           .from("transactions")
           .select(COLUMNS)
           .eq("account_id", a.accountId)
           .eq("source", "bank")
           .is("plaid_account_id", null)
-          .is("removed_at", null)
-          .eq("raw->>account_id", a.originRef);
-      let row: Row | undefined;
+          .is("removed_at", null);
+        // A `row:<id>` group is that one row (its payload names no feed).
+        return a.originRef.startsWith(ROW_GROUP_PREFIX)
+          ? q.eq("id", a.originRef.slice(ROW_GROUP_PREFIX.length))
+          : q.eq("raw->>account_id", a.originRef);
+      };
+      let row: DetachedHeldRow | null = null;
       if (a.sampleTransactionId) {
         const { data } = await inGroup().eq("id", a.sampleTransactionId).limit(1);
-        row = ((data ?? []) as Row[])[0];
+        const found = ((data ?? []) as Row[])[0];
+        row = found?.id ? toRow(found) : null;
       }
-      if (!row?.id) {
-        const { data } = await inGroup().order("occurred_at", { ascending: false }).order("id").limit(1);
-        row = ((data ?? []) as Row[])[0];
+      if (!row) {
+        // Bounded: the most recent rows, then the question's own pick (a usable raw sign first).
+        const { data } = await inGroup().order("occurred_at", { ascending: false }).order("id").limit(25);
+        row = pickQuestionSample(((data ?? []) as Row[]).filter((x) => x?.id).map(toRow));
       }
-      if (!row?.id) return null;
-      const r = toRow(row);
+      if (!row) return null;
+      const r = row;
       return {
         accountId: a.accountId,
         accountName: r.accountName,

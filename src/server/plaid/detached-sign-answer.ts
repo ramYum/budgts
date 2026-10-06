@@ -1,9 +1,12 @@
 import "server-only";
 import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
-import { accounts, detachedSignAnswers, transactions } from "@/lib/db/schema";
-import { planHeldRowRelease } from "@/lib/plaid/held-rows";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { accountWritesLocked } from "@/lib/account/write-lock";
+import { accountBankIdentities, accounts, detachedSignAnswers, transactions } from "@/lib/db/schema";
+import { detachedGroupRef } from "@/lib/plaid/detached-held";
+import { planHeldRowRelease, usableRawAmount } from "@/lib/plaid/held-rows";
 import { conventionFromAnswer, type MoneyFlowAnswer } from "@/lib/plaid/sign-convention";
-import { writeDirectionAndRole, type PlaidDb, type PlaidTx } from "@/lib/plaid/sync-store";
+import { rawAmountSql, withRawNumber, writeDirectionAndRole, type PlaidDb, type PlaidTx } from "@/lib/plaid/sync-store";
 import { conventionChangeColumns, reevaluateUnderConvention } from "./sign-answer";
 
 /**
@@ -24,14 +27,24 @@ import { conventionChangeColumns, reevaluateUnderConvention } from "./sign-answe
  * still detached) and an answer can't both write it. Every write is recorded in `detached_sign_answers` (migration
  * 0028) with the changed rows' old values.
  *
- * The account type for the event-role resolver is the Budgts account's: its only use is recognising a card
- * ("credit"), which the Budgts enum spells the same way as Plaid.
+ * The event-role resolver takes the Plaid account type, as the live adapter does (row 1b, a card's incoming payment,
+ * depends on it). The Plaid account is gone, so it comes from `account_bank_identities` (migration 0027): the type when
+ * every identity recorded on the Budgts account has that one type, otherwise null (never guesses a card).
+ *
+ * Refused while an account deletion holds the write lock (migration 0021): these writes go through Drizzle as the DB
+ * owner, which the database guard doesn't see, so the lock is checked here first (`accountWritesLocked`, the guard's
+ * own function, through the user's client).
  */
+
+/** The caller's own Supabase client, used only to ask the deletion write lock (`accountWritesLocked`). */
+export type WriteLockClient = Pick<SupabaseClient, "rpc">;
 
 export type DetachedAnswerOutcome =
   | { outcome: "resolved"; convention: "standard" | "inverted"; released: number }
   /** No held rows left in the group (a racing answer, or a reconnect adopted them): nothing written. */
   | { outcome: "already_resolved" }
+  /** An account deletion has started: nothing written. */
+  | { outcome: "locked" }
   | { outcome: "not_found" };
 
 export type DetachedChangeOutcome =
@@ -39,9 +52,20 @@ export type DetachedChangeOutcome =
   | { outcome: "unchanged" }
   /** The group still has held rows, or was never answered: it takes the first answer instead. */
   | { outcome: "not_answered" }
+  | { outcome: "locked" }
   | { outcome: "not_found" };
 
-type Sample = { accountId: string; originRef: string; rawAmount: number; accountType: string };
+/** `originRef` is the group ref (detached-held.ts): Plaid's `account_id`, or `row:<id>` for a row naming no feed. */
+type Sample = { accountId: string; originRef: string; rowOnly: string | null; rawAmount: number; accountType: string | null };
+
+/** The Plaid type the Budgts account's recorded bank identities agree on, or null (none, mixed, or blank). */
+async function identityType(db: PlaidDb, userId: string, accountId: string): Promise<string | null> {
+  const rows = await db
+    .selectDistinct({ type: accountBankIdentities.type })
+    .from(accountBankIdentities)
+    .where(and(eq(accountBankIdentities.userId, userId), eq(accountBankIdentities.accountId, accountId)));
+  return rows.length === 1 && rows[0]!.type !== "" ? rows[0]!.type : null;
+}
 
 /** The transaction asked about, only if it is `userId`'s own live, detached bank row with a usable raw sign. */
 async function ownedDetachedSample(db: PlaidDb, userId: string, transactionId: string, heldOnly: boolean): Promise<Sample | null> {
@@ -49,9 +73,7 @@ async function ownedDetachedSample(db: PlaidDb, userId: string, transactionId: s
     .select({
       accountId: transactions.accountId,
       originRef: sql<string | null>`${transactions.raw}->>'account_id'`,
-      rawAmount: sql<number | null>`case when jsonb_typeof(${transactions.raw}->'amount') = 'number'
-        then (${transactions.raw}->>'amount')::float8 end`,
-      accountType: accounts.type,
+      rawAmount: rawAmountSql,
     })
     .from(transactions)
     .innerJoin(accounts, and(eq(accounts.id, transactions.accountId), eq(accounts.userId, userId)))
@@ -67,10 +89,16 @@ async function ownedDetachedSample(db: PlaidDb, userId: string, transactionId: s
       ),
     )
     .limit(1);
-  if (!row?.originRef) return null;
+  if (!row) return null;
   const raw = row.rawAmount == null ? null : Number(row.rawAmount);
-  if (raw == null || !Number.isFinite(raw) || raw === 0) return null;
-  return { accountId: row.accountId, originRef: row.originRef, rawAmount: raw, accountType: row.accountType };
+  if (!usableRawAmount(raw)) return null;
+  return {
+    accountId: row.accountId,
+    originRef: detachedGroupRef(row.originRef, transactionId),
+    rowOnly: row.originRef ? null : transactionId,
+    rawAmount: raw,
+    accountType: await identityType(db, userId, row.accountId),
+  };
 }
 
 /** Serializes every write to one group for the rest of the caller's transaction. */
@@ -78,14 +106,16 @@ async function lockGroup(tx: PlaidTx, userId: string, s: Sample): Promise<void> 
   await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`detached-sign:${userId}:${s.accountId}:${s.originRef}`}, 0))`);
 }
 
-/** The group's rows: this user's detached bank rows on the account, from the same original feed. */
+/** The group's rows: this user's detached bank rows on the account, from the same original feed (or the one row). */
 const inGroup = (userId: string, s: Sample) =>
   and(
     eq(transactions.userId, userId),
     eq(transactions.accountId, s.accountId),
     eq(transactions.source, "bank"),
     isNull(transactions.plaidAccountId),
-    sql`${transactions.raw}->>'account_id' = ${s.originRef}`,
+    s.rowOnly
+      ? and(eq(transactions.id, s.rowOnly), sql`${transactions.raw}->>'account_id' is null`)
+      : sql`${transactions.raw}->>'account_id' = ${s.originRef}`,
   );
 
 const heldInGroup = (userId: string, s: Sample) =>
@@ -93,10 +123,12 @@ const heldInGroup = (userId: string, s: Sample) =>
 
 export async function resolveDetachedHeldFromAnswer(
   db: PlaidDb,
+  writeLock: WriteLockClient,
   userId: string,
   transactionId: string,
   answer: MoneyFlowAnswer,
 ): Promise<DetachedAnswerOutcome> {
+  if (await accountWritesLocked(writeLock)) return { outcome: "locked" };
   const sample = await ownedDetachedSample(db, userId, transactionId, true);
   if (!sample) return { outcome: "not_found" };
   const convention = conventionFromAnswer(sample.rawAmount, answer);
@@ -114,6 +146,7 @@ export async function resolveDetachedHeldFromAnswer(
         primary: transactions.plaidCategoryPrimary,
         detailed: transactions.plaidCategoryDetailed,
         isTransfer: transactions.isTransfer,
+        rawAmount: rawAmountSql,
       })
       .from(transactions)
       .where(heldInGroup(userId, sample))
@@ -121,7 +154,7 @@ export async function resolveDetachedHeldFromAnswer(
       .for("update");
     if (held.length === 0) return { outcome: "already_resolved" } as const;
 
-    await writeDirectionAndRole(tx, planHeldRowRelease(held, convention, sample.accountType), true);
+    await writeDirectionAndRole(tx, planHeldRowRelease(held.map(withRawNumber), convention, sample.accountType), true);
     await tx.insert(detachedSignAnswers).values({
       userId,
       accountId: sample.accountId,
@@ -145,10 +178,12 @@ export async function resolveDetachedHeldFromAnswer(
 
 export async function changeDetachedHeldAnswer(
   db: PlaidDb,
+  writeLock: WriteLockClient,
   userId: string,
   transactionId: string,
   answer: MoneyFlowAnswer,
 ): Promise<DetachedChangeOutcome> {
+  if (await accountWritesLocked(writeLock)) return { outcome: "locked" };
   const sample = await ownedDetachedSample(db, userId, transactionId, false);
   if (!sample) return { outcome: "not_found" };
   const to = conventionFromAnswer(sample.rawAmount, answer);

@@ -22,7 +22,7 @@ import { findTransferPairs } from "@/lib/plaid/transfer-pairing";
 import { rollup } from "@/lib/budget/rollup";
 import { claimItemForSync, releaseSyncClaim } from "@/lib/plaid/item-store";
 import { changeSignConventionAnswer, resolveSignConventionFromAnswer } from "@/server/plaid/sign-answer";
-import { cleanupUser, client, createAccount, db, insertBankTxn, mainAccountId, seedUser } from "./_db";
+import { cleanupUser, client, createAccount, db, insertBankTxn, mainAccountId, seedUser, unlocked } from "./_db";
 
 const store = createPlaidSyncStore(db);
 
@@ -106,9 +106,9 @@ describe("finalizeSignConvention on a card", () => {
 describe("resolveSignConventionFromAnswer", () => {
   it("refuses another user's account and a transaction that isn't held", async () => {
     const id = await heldPayment(-250);
-    expect(await resolveSignConventionFromAnswer(db, otherUserId, cardFeed, id, "in")).toEqual({ outcome: "not_found" });
+    expect(await resolveSignConventionFromAnswer(db, unlocked, otherUserId, cardFeed, id, "in")).toEqual({ outcome: "not_found" });
     const confirmed = await insertBankTxn(userId, cardId, { plaidAccountId: cardFeed, raw: { amount: 5 } });
-    expect(await resolveSignConventionFromAnswer(db, userId, cardFeed, confirmed, "out")).toEqual({ outcome: "not_found" });
+    expect(await resolveSignConventionFromAnswer(db, unlocked, userId, cardFeed, confirmed, "out")).toEqual({ outcome: "not_found" });
     expect(await row(id)).toMatchObject({ status: "pending_review" });
   });
 
@@ -127,7 +127,7 @@ describe("resolveSignConventionFromAnswer", () => {
     });
 
     // The user says the purchase was money going out: raw > 0 agrees, so the card is standard.
-    expect(await resolveSignConventionFromAnswer(db, userId, cardFeed, purchase, "out")).toEqual({
+    expect(await resolveSignConventionFromAnswer(db, unlocked, userId, cardFeed, purchase, "out")).toEqual({
       outcome: "resolved",
       convention: "standard",
     });
@@ -136,13 +136,13 @@ describe("resolveSignConventionFromAnswer", () => {
     const [pa] = await client<{ needs_review: boolean }[]>`select needs_review from public.plaid_accounts where id = ${cardFeed}`;
     expect(pa.needs_review).toBe(false);
 
-    expect(await resolveSignConventionFromAnswer(db, userId, cardFeed, purchase, "in")).toEqual({ outcome: "already_resolved" });
+    expect(await resolveSignConventionFromAnswer(db, unlocked, userId, cardFeed, purchase, "in")).toEqual({ outcome: "already_resolved" });
   });
 
   it("leaves an unrelated review flag alone", async () => {
     await client`update public.plaid_accounts set needs_review = true, review_reason = 'Suspicious repetition detected.' where id = ${cardFeed}`;
     const id = await heldPayment(-40);
-    await resolveSignConventionFromAnswer(db, userId, cardFeed, id, "in");
+    await resolveSignConventionFromAnswer(db, unlocked, userId, cardFeed, id, "in");
     const [pa] = await client<{ needs_review: boolean }[]>`select needs_review from public.plaid_accounts where id = ${cardFeed}`;
     expect(pa.needs_review).toBe(true);
   });
@@ -351,7 +351,7 @@ describe("changeSignConventionAnswer (design: 2026-10-01 card payments §5a)", (
     const purchase = await heldPurchase();
     const payment = await heldCardPayment();
     // Wrong: the user says the grocery run was money coming in, so the card resolves inverted.
-    expect(await resolveSignConventionFromAnswer(db, userId, cardFeed, purchase, "in")).toEqual({ outcome: "resolved", convention: "inverted" });
+    expect(await resolveSignConventionFromAnswer(db, unlocked, userId, cardFeed, purchase, "in")).toEqual({ outcome: "resolved", convention: "inverted" });
     expect(await row(purchase)).toMatchObject({ direction: "credit", event_role: "REFUND" });
     expect(await row(payment)).toMatchObject({ direction: "debit", event_role: null });
     expect(await cardSpend()).toBe(-4000 + 10000); // the purchase reads as a refund and the payment as new spend
@@ -366,7 +366,7 @@ describe("changeSignConventionAnswer (design: 2026-10-01 card payments §5a)", (
       raw: { amount: 5 }, occurredAt: "2026-09-21T00:00:00.000Z",
     });
 
-    expect(await changeSignConventionAnswer(db, userId, cardFeed, purchase, "out")).toEqual({
+    expect(await changeSignConventionAnswer(db, unlocked, userId, cardFeed, purchase, "out")).toEqual({
       outcome: "changed",
       convention: "standard",
       changedRows: 3,
@@ -390,16 +390,16 @@ describe("changeSignConventionAnswer (design: 2026-10-01 card payments §5a)", (
     expect(old.has(edited)).toBe(false);
 
     // Idempotent: the same answer again changes nothing and records nothing.
-    expect(await changeSignConventionAnswer(db, userId, cardFeed, purchase, "out")).toEqual({ outcome: "unchanged" });
+    expect(await changeSignConventionAnswer(db, unlocked, userId, cardFeed, purchase, "out")).toEqual({ outcome: "unchanged" });
     const [{ n }] = await client<{ n: number }[]>`select count(*)::int n from public.plaid_sign_answers where plaid_account_id = ${cardFeed}`;
     expect(n).toBe(2);
   });
 
   it("refuses another user's account, and an account still being checked", async () => {
     const purchase = await heldPurchase();
-    expect(await changeSignConventionAnswer(db, userId, cardFeed, purchase, "in")).toEqual({ outcome: "not_answered" });
-    await resolveSignConventionFromAnswer(db, userId, cardFeed, purchase, "out");
-    expect(await changeSignConventionAnswer(db, otherUserId, cardFeed, purchase, "in")).toEqual({ outcome: "not_found" });
+    expect(await changeSignConventionAnswer(db, unlocked, userId, cardFeed, purchase, "in")).toEqual({ outcome: "not_answered" });
+    await resolveSignConventionFromAnswer(db, unlocked, userId, cardFeed, purchase, "out");
+    expect(await changeSignConventionAnswer(db, unlocked, otherUserId, cardFeed, purchase, "in")).toEqual({ outcome: "not_found" });
     expect((await row(purchase)).direction).toBe("debit");
   });
 
@@ -407,13 +407,13 @@ describe("changeSignConventionAnswer (design: 2026-10-01 card payments §5a)", (
     const coffee = await insertBankTxn(userId, checkingId, {
       plaidAccountId: checkingFeed, direction: "debit", primary: "FOOD_AND_DRINK", eventRole: "PURCHASE", raw: { amount: 5 }, amount: 500,
     });
-    expect(await changeSignConventionAnswer(db, userId, checkingFeed, coffee, "in")).toEqual({
+    expect(await changeSignConventionAnswer(db, unlocked, userId, checkingFeed, coffee, "in")).toEqual({
       outcome: "changed",
       convention: "inverted",
       changedRows: 1,
     });
     expect(await row(coffee)).toMatchObject({ direction: "credit", event_role: "REFUND" });
-    expect(await changeSignConventionAnswer(db, userId, checkingFeed, coffee, "out")).toMatchObject({ outcome: "changed", convention: "standard" });
+    expect(await changeSignConventionAnswer(db, unlocked, userId, checkingFeed, coffee, "out")).toMatchObject({ outcome: "changed", convention: "standard" });
     expect(await row(coffee)).toMatchObject({ direction: "debit", event_role: "PURCHASE" });
     const audit = await client<{ kind: string; from_convention: string; to_convention: string }[]>`
       select kind, from_convention, to_convention from public.plaid_sign_answers where plaid_account_id = ${checkingFeed} order by created_at`;
@@ -428,25 +428,25 @@ describe("changeSignConventionAnswer (design: 2026-10-01 card payments §5a)", (
     const [item] = await client<{ plaid_item_id: string }[]>`select plaid_item_id from public.plaid_accounts where id = ${cardFeed}`;
     await client`insert into public.plaid_accounts (user_id, plaid_item_id, plaid_account_id, link_state, name)
       values (${userId}, ${item.plaid_item_id}, ${`itest-unmapped-${Date.now()}`}, 'unmapped', 'New')`;
-    expect(await resolveSignConventionFromAnswer(db, userId, cardFeed, purchase, "out")).toEqual({ outcome: "setting_up" });
+    expect(await resolveSignConventionFromAnswer(db, unlocked, userId, cardFeed, purchase, "out")).toEqual({ outcome: "setting_up" });
     expect(await row(purchase)).toMatchObject({ status: "pending_review" });
   });
 
   it("is refused while a sync holds the bank, and of two racing changes exactly one applies", async () => {
     const purchase = await heldPurchase();
-    await resolveSignConventionFromAnswer(db, userId, cardFeed, purchase, "in"); // inverted
+    await resolveSignConventionFromAnswer(db, unlocked, userId, cardFeed, purchase, "in"); // inverted
 
     const [item] = await client<{ item_id: string }[]>`
       select pi.item_id from public.plaid_items pi join public.plaid_accounts pa on pa.plaid_item_id = pi.id where pa.id = ${cardFeed}`;
     const claim = await claimItemForSync(db, item.item_id, { kind: "requested" });
     expect(claim).not.toBeNull();
-    expect(await changeSignConventionAnswer(db, userId, cardFeed, purchase, "out")).toEqual({ outcome: "busy" });
+    expect(await changeSignConventionAnswer(db, unlocked, userId, cardFeed, purchase, "out")).toEqual({ outcome: "busy" });
     expect((await row(purchase)).direction).toBe("credit");
     await releaseSyncClaim(db, item.item_id, claim!.token, false);
 
     const results = await Promise.all([
-      changeSignConventionAnswer(db, userId, cardFeed, purchase, "out"),
-      changeSignConventionAnswer(db, userId, cardFeed, purchase, "out"),
+      changeSignConventionAnswer(db, unlocked, userId, cardFeed, purchase, "out"),
+      changeSignConventionAnswer(db, unlocked, userId, cardFeed, purchase, "out"),
     ]);
     expect(results.filter((r) => r.outcome === "changed")).toHaveLength(1);
     expect(results.every((r) => ["changed", "busy", "unchanged"].includes(r.outcome))).toBe(true);
@@ -457,7 +457,7 @@ describe("changeSignConventionAnswer (design: 2026-10-01 card payments §5a)", (
 
   it("unlinks a transfer pair whose leg it re-evaluates, and undoes a pairing-only transfer on the partner", async () => {
     const purchase = await heldPurchase();
-    await resolveSignConventionFromAnswer(db, userId, cardFeed, purchase, "in"); // inverted
+    await resolveSignConventionFromAnswer(db, unlocked, userId, cardFeed, purchase, "in"); // inverted
     const leg = await insertBankTxn(userId, cardId, {
       plaidAccountId: cardFeed, direction: "credit", primary: "TRANSFER_IN", isTransfer: true, eventRole: "TRANSFER",
       raw: { amount: 25 }, amount: 2500,
@@ -470,7 +470,7 @@ describe("changeSignConventionAnswer (design: 2026-10-01 card payments §5a)", (
     await client`update public.transactions set transfer_pair_id = ${partner} where id = ${leg}`;
     await client`update public.transactions set transfer_pair_id = ${leg} where id = ${partner}`;
 
-    await changeSignConventionAnswer(db, userId, cardFeed, purchase, "out");
+    await changeSignConventionAnswer(db, unlocked, userId, cardFeed, purchase, "out");
     // the Plaid-labelled transfer leg stays a transfer; only its link and direction change
     expect(await row(leg)).toMatchObject({ direction: "debit", transfer_pair_id: null, event_role: "TRANSFER", is_transfer: true });
     // the partner keeps its direction, loses the link, and returns to its own signal
@@ -528,20 +528,20 @@ describe("the sync lease taken by an answer or a change keeps a pending sync pen
   it("a webhook-requested sync before the answer is still pending after it", async () => {
     const purchase = await heldPurchase();
     await setNeedsSync(true);
-    expect(await resolveSignConventionFromAnswer(db, userId, cardFeed, purchase, "out")).toMatchObject({ outcome: "resolved" });
+    expect(await resolveSignConventionFromAnswer(db, unlocked, userId, cardFeed, purchase, "out")).toMatchObject({ outcome: "resolved" });
     expect(await needsSync()).toBe(true);
   });
 
   it("with no prior request, an answer leaves none behind", async () => {
     const purchase = await heldPurchase();
     await setNeedsSync(false);
-    await resolveSignConventionFromAnswer(db, userId, cardFeed, purchase, "out");
+    await resolveSignConventionFromAnswer(db, unlocked, userId, cardFeed, purchase, "out");
     expect(await needsSync()).toBe(false);
   });
 
   it("a webhook flag committed while the claim waits on its row lock is not lost (two connections)", async () => {
     const purchase = await heldPurchase();
-    await resolveSignConventionFromAnswer(db, userId, cardFeed, purchase, "in");
+    await resolveSignConventionFromAnswer(db, unlocked, userId, cardFeed, purchase, "in");
     await setNeedsSync(false);
     const [item] = await client<{ item_id: string }[]>`
       select pi.item_id from public.plaid_items pi join public.plaid_accounts pa on pa.plaid_item_id = pi.id where pa.id = ${cardFeed}`;
@@ -551,7 +551,7 @@ describe("the sync lease taken by an answer or a change keeps a pending sync pen
     try {
       await webhook`begin`;
       await webhook`update public.plaid_items set needs_sync = true, last_webhook_at = now() where item_id = ${item.item_id}`;
-      const change = changeSignConventionAnswer(db, userId, cardFeed, purchase, "out");
+      const change = changeSignConventionAnswer(db, unlocked, userId, cardFeed, purchase, "out");
       await new Promise((r) => setTimeout(r, 750)); // the claim is now waiting on the webhook's row lock
       await webhook`commit`;
       expect(await change).toMatchObject({ outcome: "changed" });
@@ -563,12 +563,12 @@ describe("the sync lease taken by an answer or a change keeps a pending sync pen
 
   it("the same holds for a change", async () => {
     const purchase = await heldPurchase();
-    await resolveSignConventionFromAnswer(db, userId, cardFeed, purchase, "in");
+    await resolveSignConventionFromAnswer(db, unlocked, userId, cardFeed, purchase, "in");
     await setNeedsSync(true);
-    expect(await changeSignConventionAnswer(db, userId, cardFeed, purchase, "out")).toMatchObject({ outcome: "changed" });
+    expect(await changeSignConventionAnswer(db, unlocked, userId, cardFeed, purchase, "out")).toMatchObject({ outcome: "changed" });
     expect(await needsSync()).toBe(true);
     await setNeedsSync(false);
-    expect(await changeSignConventionAnswer(db, userId, cardFeed, purchase, "in")).toMatchObject({ outcome: "changed" });
+    expect(await changeSignConventionAnswer(db, unlocked, userId, cardFeed, purchase, "in")).toMatchObject({ outcome: "changed" });
     expect(await needsSync()).toBe(false);
   });
 });

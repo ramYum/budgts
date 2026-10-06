@@ -40,6 +40,14 @@ describe("GET /api/mobile/plaid/banks", () => {
     expect(loadDetachedHeld).toHaveBeenCalledWith(supabase);
   });
 
+  it("keeps the banks when the removed-bank read fails, sending removedBanksHeld: null (couldn't load)", async () => {
+    loadConnectedBanks.mockResolvedValue({ banks: [{ id: "item-1" }], budgtsAccounts: [], connectionsRemovedForLapse: false });
+    loadDetachedHeld.mockResolvedValue(null);
+    const res = await GET(req());
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ enabled: true, banks: [{ id: "item-1" }], removedBanksHeld: null });
+  });
+
   it("says when the caller's banks were removed because their subscription ended", async () => {
     loadConnectedBanks.mockResolvedValue({ banks: [], budgtsAccounts: [], connectionsRemovedForLapse: true });
     expect(await (await GET(req())).json()).toMatchObject({ enabled: true, banks: [], connectionsRemovedForLapse: true });

@@ -10,6 +10,7 @@ const row = (over: Partial<DetachedHeldRow> = {}): DetachedHeldRow => ({
   occurredAt: "2026-09-14T00:00:00Z",
   amount: 848,
   currency: "USD",
+  rawAmount: 8.48,
   ...over,
 });
 
@@ -38,8 +39,21 @@ describe("groupDetachedHeld", () => {
     expect(new Set(groups.map((g) => g.sample.transactionId))).toEqual(new Set(["a", "b"]));
   });
 
-  it("leaves out rows with no original feed (they cannot be grouped or answered safely)", () => {
-    expect(groupDetachedHeld([row({ originRef: null })])).toEqual([]);
+  it("gives each row with no original feed its own group (its own question, never pooled, never dropped)", () => {
+    const groups = groupDetachedHeld([row({ id: "a", originRef: null }), row({ id: "b", originRef: null })]);
+    expect(groups.map((g) => [g.originRef, g.count, g.sample.transactionId])).toEqual([
+      ["row:a", 1, "a"],
+      ["row:b", 1, "b"],
+    ]);
+  });
+
+  it("never asks about a row whose raw sign is unusable when the group has a usable one", () => {
+    const groups = groupDetachedHeld([
+      row({ id: "new", occurredAt: "2026-09-20T00:00:00Z", rawAmount: 0 }),
+      row({ id: "old", occurredAt: "2026-09-10T00:00:00Z", rawAmount: 5 }),
+    ]);
+    expect(groups[0]!.sample.transactionId).toBe("old");
+    expect(groups[0]!.count).toBe(2);
   });
 
   it("orders groups by account name, then feed, deterministically", () => {

@@ -32,7 +32,7 @@ export async function BankConnections() {
       <div className="space-y-6 md:max-w-[720px]">
         {connectionsRemovedForLapse ? <LapseRemovalNotice /> : null}
         {/* Held rows a disconnected bank left behind: their only exit (card payments §5c). */}
-        <RemovedBanksHeld groups={detached.groups} answered={detached.answered} />
+        <RemovedBanksHeld data={detached} />
         {banks.length === 0 ? (
           <div className="px-card-raised flex flex-col items-start gap-4 p-2 md:p-6" data-testid="connected-banks-empty">
             <IconTile name="bank" />

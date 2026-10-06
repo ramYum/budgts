@@ -8,9 +8,12 @@
  *
  * A group is one Budgts account AND one original bank feed (Plaid's `account_id` in the immutable raw payload). Two
  * feeds mapped into one Budgts account are never pooled: each bank may report signs its own way (the same reason the
- * sync keys conventions on the Plaid account, never the Budgts account). Pure.
+ * sync keys conventions on the Plaid account, never the Budgts account). A row whose payload lacks Plaid's
+ * `account_id` is its own group, ref `row:<transaction id>` (never pooled, never dropped; Plaid account ids contain no
+ * colon, so the two kinds of ref can't collide). Pure.
  */
 import type { SignCheckSample } from "./connected-banks-read";
+import { pickQuestionSample } from "./held-rows";
 
 /** A held, detached, live bank row as read for the question. */
 export interface DetachedHeldRow {
@@ -24,42 +27,44 @@ export interface DetachedHeldRow {
   /** Minor units, unsigned. */
   amount: number;
   currency: string;
+  /** The immutable Plaid payload amount (`raw.amount`); null when absent or not a number. */
+  rawAmount: number | null;
 }
 
 export interface DetachedHeldGroup {
   accountId: string;
   accountName: string;
+  /** The group's feed ref: Plaid's `account_id`, or `row:<id>` for a row whose payload lacks it. */
   originRef: string;
   count: number;
-  /** The most recent held row: the transaction the question asks about. */
+  /** The transaction the question asks about (`pickQuestionSample`). */
   sample: SignCheckSample;
 }
+
+export const ROW_GROUP_PREFIX = "row:";
+
+/** A row's group ref: its original feed, or the row itself when the payload doesn't say. */
+export const detachedGroupRef = (originRef: string | null, transactionId: string) => originRef ?? `${ROW_GROUP_PREFIX}${transactionId}`;
 
 export const detachedGroupKey = (accountId: string, originRef: string) => `${accountId}|${originRef}`;
 
 export function groupDetachedHeld(rows: readonly DetachedHeldRow[]): DetachedHeldGroup[] {
-  const groups = new Map<string, { group: DetachedHeldGroup; sampleRow: DetachedHeldRow }>();
+  const groups = new Map<string, { accountId: string; accountName: string; originRef: string; rows: DetachedHeldRow[] }>();
   for (const r of rows) {
-    if (!r.originRef) continue;
-    const key = detachedGroupKey(r.accountId, r.originRef);
+    const ref = detachedGroupRef(r.originRef, r.id);
+    const key = detachedGroupKey(r.accountId, ref);
     const g = groups.get(key);
-    if (!g) {
-      groups.set(key, {
-        group: { accountId: r.accountId, accountName: r.accountName, originRef: r.originRef, count: 1, sample: toSample(r) },
-        sampleRow: r,
-      });
-      continue;
-    }
-    g.group.count++;
-    // Most recent first; ties by id ascending (the live question's order).
-    const s = g.sampleRow;
-    if (r.occurredAt > s.occurredAt || (r.occurredAt === s.occurredAt && r.id < s.id)) {
-      g.sampleRow = r;
-      g.group.sample = toSample(r);
-    }
+    if (g) g.rows.push(r);
+    else groups.set(key, { accountId: r.accountId, accountName: r.accountName, originRef: ref, rows: [r] });
   }
   return [...groups.values()]
-    .map((g) => g.group)
+    .map((g) => ({
+      accountId: g.accountId,
+      accountName: g.accountName,
+      originRef: g.originRef,
+      count: g.rows.length,
+      sample: toSample(pickQuestionSample(g.rows)!),
+    }))
     .sort((a, b) => a.accountName.localeCompare(b.accountName) || a.accountId.localeCompare(b.accountId) || a.originRef.localeCompare(b.originRef));
 }
 

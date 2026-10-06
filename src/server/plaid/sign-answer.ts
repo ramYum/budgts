@@ -1,5 +1,7 @@
 import "server-only";
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { accountWritesLocked } from "@/lib/account/write-lock";
 import { plaidAccounts, plaidItems, plaidSignAnswers, transactions } from "@/lib/db/schema";
 import { planConventionChange } from "@/lib/plaid/held-rows";
 import { undoTierBClassification } from "@/lib/plaid/transfer-pairing";
@@ -20,6 +22,8 @@ export type SignAnswerOutcome =
   | { outcome: "resolved"; convention: "standard" | "inverted" }
   | { outcome: "already_resolved" }
   | LeaseMiss
+  /** An account deletion has started (migration 0021 write lock): nothing written. */
+  | { outcome: "locked" }
   | { outcome: "not_found" };
 
 export type ChangeAnswerOutcome =
@@ -29,6 +33,8 @@ export type ChangeAnswerOutcome =
   /** The account is still being checked: it takes the first answer, not a change. */
   | { outcome: "not_answered" }
   | LeaseMiss
+  /** An account deletion has started (migration 0021 write lock): nothing written. */
+  | { outcome: "locked" }
   | { outcome: "not_found" };
 
 type Owned = { signConvention: "unknown" | "standard" | "inverted"; accountId: string | null; itemId: string };
@@ -111,11 +117,14 @@ async function underSyncLease<T>(
  */
 export async function resolveSignConventionFromAnswer(
   db: PlaidDb,
+  writeLock: Pick<SupabaseClient, "rpc">,
   userId: string,
   plaidAccountRowId: string,
   transactionId: string,
   answer: MoneyFlowAnswer,
 ): Promise<SignAnswerOutcome> {
+  // Drizzle writes as the DB owner, unseen by the database's deletion guard: ask the guard's own function first.
+  if (await accountWritesLocked(writeLock)) return { outcome: "locked" };
   const account = await ownedAccount(db, userId, plaidAccountRowId);
   if (!account) return { outcome: "not_found" };
   if (account.signConvention !== "unknown") return { outcome: "already_resolved" };
@@ -166,11 +175,14 @@ export async function resolveSignConventionFromAnswer(
  */
 export async function changeSignConventionAnswer(
   db: PlaidDb,
+  writeLock: Pick<SupabaseClient, "rpc">,
   userId: string,
   plaidAccountRowId: string,
   transactionId: string,
   answer: MoneyFlowAnswer,
 ): Promise<ChangeAnswerOutcome> {
+  // Drizzle writes as the DB owner, unseen by the database's deletion guard: ask the guard's own function first.
+  if (await accountWritesLocked(writeLock)) return { outcome: "locked" };
   const account = await ownedAccount(db, userId, plaidAccountRowId);
   if (!account) return { outcome: "not_found" };
   if (account.signConvention === "unknown") return { outcome: "not_answered" };

@@ -40,6 +40,7 @@ const held = (over: Record<string, unknown> = {}) => ({
   amount: 848,
   origin: "feed-old",
   currency: "USD",
+  raw_amount: 8.48,
   account: { name: "SoFi Checking ••5805" },
   ...over,
 });
@@ -51,7 +52,7 @@ describe("loadDetachedHeld", () => {
       detached_sign_answers: [{ data: [] }],
     });
     const out = await loadDetachedHeld(supabase);
-    expect(out.groups).toEqual([
+    expect(out!.groups).toEqual([
       {
         accountId: "acct-1",
         accountName: "SoFi Checking ••5805",
@@ -66,7 +67,7 @@ describe("loadDetachedHeld", () => {
     expect(q).toContainEqual(["eq", "status", "pending_review"]);
     expect(q).toContainEqual(["eq", "pending_reason", "sign_convention_unknown"]);
     expect(q).toContainEqual(["is", "removed_at", null]);
-    expect(out.answered).toEqual([]);
+    expect(out!.answered).toEqual([]);
   });
 
   it("offers Change answer for an answered group with nothing left held, asking about the answered transaction", async () => {
@@ -80,8 +81,8 @@ describe("loadDetachedHeld", () => {
       ],
     });
     const out = await loadDetachedHeld(supabase);
-    expect(out.groups).toEqual([]);
-    expect(out.answered).toEqual([
+    expect(out!.groups).toEqual([]);
+    expect(out!.answered).toEqual([
       {
         accountId: "acct-1",
         accountName: "SoFi Checking ••5805",
@@ -99,7 +100,27 @@ describe("loadDetachedHeld", () => {
         { data: [{ account_id: "acct-1", origin_account_ref: "feed-old", sample_transaction_id: "s1", created_at: "2026-10-05T00:00:00Z" }] },
       ],
     });
-    expect((await loadDetachedHeld(supabase)).answered).toEqual([]);
+    expect((await loadDetachedHeld(supabase))!.answered).toEqual([]);
+  });
+
+  it("returns null (couldn't load) instead of throwing when the held-row read fails", async () => {
+    const { supabase } = fakeSupabase({
+      transactions: [{ data: null, error: { message: "statement timeout" } }],
+      detached_sign_answers: [{ data: [] }],
+    });
+    expect(await loadDetachedHeld(supabase)).toBeNull();
+  });
+
+  it("re-asks a row-only group (no feed in its payload) about that row", async () => {
+    const { supabase, calls } = fakeSupabase({
+      transactions: [{ data: [] }, { data: [held({ id: "s1", origin: null })] }],
+      detached_sign_answers: [
+        { data: [{ account_id: "acct-1", origin_account_ref: "row:s1", sample_transaction_id: "s1", created_at: "2026-10-05T00:00:00Z" }] },
+      ],
+    });
+    const out = await loadDetachedHeld(supabase);
+    expect(out?.answered.map((a) => [a.originRef, a.sample.transactionId])).toEqual([["row:s1", "s1"]]);
+    expect(calls.transactions![1]).not.toContainEqual(["eq", "raw->>account_id", "row:s1"]);
   });
 
   it("reads as nothing answered where migration 0028 has not run", async () => {
@@ -108,7 +129,7 @@ describe("loadDetachedHeld", () => {
       detached_sign_answers: [{ data: null, error: { message: 'relation "detached_sign_answers" does not exist' } }],
     });
     const out = await loadDetachedHeld(supabase);
-    expect(out.groups).toHaveLength(1);
-    expect(out.answered).toEqual([]);
+    expect(out!.groups).toHaveLength(1);
+    expect(out!.answered).toEqual([]);
   });
 });

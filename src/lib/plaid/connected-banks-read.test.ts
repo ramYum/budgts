@@ -7,8 +7,8 @@ function fakeSupabase(tables: Record<string, Answer>) {
   const calls: Record<string, unknown[][]> = {};
   const supabase = {
     from: (t: string) => {
-      const c: unknown[][] = [];
-      calls[t] = c;
+      // Every query's calls on one table, in order (a load reads `transactions` several times).
+      const c: unknown[][] = (calls[t] ??= []);
       const q: unknown = new Proxy(
         {},
         {
@@ -136,7 +136,7 @@ describe("loadConnectedBanks", () => {
   });
 
   it("gives an account still being checked its most recent held transaction to ask about (design: 2026-10-01 card payments §5)", async () => {
-    const held = { plaid_account_id: "pa-row-1", id: "t-1", description: "Trader Joe's", occurred_at: "2026-09-16T00:00:00Z", amount: 4210 };
+    const held = { plaid_account_id: "pa-row-1", id: "t-1", description: "Trader Joe's", occurred_at: "2026-09-16T00:00:00Z", amount: 4210, raw_amount: 42.1 };
     const { supabase, calls } = fakeSupabase({
       plaid_items: { data: [{ id: "item-1", item_id: "plaid-item-1", institution_name: null, status: "active", last_synced_at: null }] },
       plaid_accounts: { data: [accountRow({ iso_currency_code: "CAD" })] },
@@ -152,13 +152,24 @@ describe("loadConnectedBanks", () => {
       amount: 4210,
       currency: "CAD",
     });
-    expect(calls.transactions).toEqual(
-      expect.arrayContaining([
-        ["eq", "plaid_account_id", "pa-row-1"],
-        ["order", "occurred_at", { ascending: false }],
-        ["limit", 1],
-      ]),
-    );
+    // One detail read for every account's chosen sample.
+    expect(calls.transactions).toEqual(expect.arrayContaining([["in", "id", ["t-1"]]]));
+  });
+
+  it("never asks about a held row whose raw sign is unusable when the account has a usable one", async () => {
+    const rows = [
+      { plaid_account_id: "pa-row-1", id: "t-new", description: "Zero", occurred_at: "2026-09-20T00:00:00Z", amount: 1, raw_amount: 0 },
+      { plaid_account_id: "pa-row-1", id: "t-old", description: "Coffee", occurred_at: "2026-09-10T00:00:00Z", amount: 450, raw_amount: 4.5 },
+    ];
+    const { supabase } = fakeSupabase({
+      plaid_items: { data: [{ id: "item-1", item_id: "plaid-item-1", institution_name: null, status: "active", last_synced_at: null }] },
+      plaid_accounts: { data: [accountRow({ sign_convention: "unknown" })] },
+      accounts: { data: [] },
+      transactions: { data: rows, count: 2 },
+    });
+    const data = await loadConnectedBanks(supabase);
+    expect(data?.banks[0]!.accounts[0]!.pendingSignCheckCount).toBe(2);
+    expect(data?.banks[0]!.accounts[0]!.signCheckSample?.transactionId).toBe("t-old");
   });
 
   it("offers Change answer for an account the user resolved by answering, re-asking about the answered transaction (design: 2026-10-01 card payments §5a)", async () => {

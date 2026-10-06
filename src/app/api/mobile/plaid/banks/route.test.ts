@@ -2,9 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getBearerContext = vi.fn();
 const loadConnectedBanks = vi.fn();
+const loadDetachedHeld = vi.fn();
 let plaidOn = true;
 vi.mock("@/lib/auth/bearer-context", () => ({ getBearerContext: (...a: unknown[]) => getBearerContext(...a) }));
 vi.mock("@/lib/plaid/connected-banks-read", () => ({ loadConnectedBanks: (...a: unknown[]) => loadConnectedBanks(...a) }));
+vi.mock("@/lib/plaid/detached-held-read", () => ({ loadDetachedHeld: (...a: unknown[]) => loadDetachedHeld(...a) }));
 vi.mock("@/lib/plaid/ui-flag", () => ({ plaidUiEnabled: () => plaidOn }));
 
 import { GET } from "./route";
@@ -16,6 +18,8 @@ beforeEach(() => {
   plaidOn = true;
   getBearerContext.mockReset();
   loadConnectedBanks.mockReset();
+  loadDetachedHeld.mockReset();
+  loadDetachedHeld.mockResolvedValue({ groups: [], answered: [] });
   getBearerContext.mockResolvedValue({ user: { id: "user-a" }, supabase });
 });
 
@@ -30,8 +34,10 @@ describe("GET /api/mobile/plaid/banks", () => {
       banks: [{ id: "item-1" }],
       budgtsAccounts: [{ id: "a1", name: "Wallet" }],
       connectionsRemovedForLapse: false,
+      removedBanksHeld: { groups: [], answered: [] },
     });
     expect(loadConnectedBanks).toHaveBeenCalledWith(supabase);
+    expect(loadDetachedHeld).toHaveBeenCalledWith(supabase);
   });
 
   it("says when the caller's banks were removed because their subscription ended", async () => {

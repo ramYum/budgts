@@ -27,7 +27,7 @@ describe("migration chain from an empty database", () => {
     const [{ n }] = (await pg.query<{ n: number }>(`select count(*)::int n from drizzle.__drizzle_migrations`)).rows;
     expect(n).toBe(journal.length);
     journal.forEach((e, i) => expect(e.idx, e.tag).toBe(i));
-    expect(journal.at(-1)?.tag).toBe("0027_account_bank_identities");
+    expect(journal.at(-1)?.tag).toBe("0028_detached_sign_answers");
     // main's 0017 (sync lease) and 0018 (time zone) stay where production has them; the ported work follows.
     expect(journal.slice(17).map((e) => e.tag)).toEqual([
       "0017_thin_goblin_queen",
@@ -41,6 +41,7 @@ describe("migration chain from an empty database", () => {
       "0025_plaid_sign_answers",
       "0026_entitlements_bank_connections_removed",
       "0027_account_bank_identities",
+      "0028_detached_sign_answers",
     ]);
   });
 
@@ -117,6 +118,32 @@ describe("migration chain from an empty database", () => {
         "plaid_sign_answers_plaid_account_id_plaid_accounts_id_fk",
       ]),
     );
+  });
+
+  it("0028: detached_sign_answers is owner-readable, never client-writable, and goes with its account", async () => {
+    const [rls] = (await pg.query<{ relrowsecurity: boolean }>(
+      `select relrowsecurity from pg_class where relname = 'detached_sign_answers' and relkind = 'r'`,
+    )).rows;
+    expect(rls.relrowsecurity).toBe(true);
+    const pol = (await pg.query<{ cmd: string }>(
+      `select cmd from pg_policies where schemaname='public' and tablename='detached_sign_answers'`,
+    )).rows.map((r) => r.cmd);
+    expect(pol).toEqual(["SELECT"]);
+    const id = await createAuthUser(pg);
+    const [{ acct }] = (await pg.query<{ acct: string }>(
+      `insert into accounts (user_id, name, type) values ($1, 'Checking', 'checking') returning id acct`,
+      [id],
+    )).rows;
+    const ins = (to: string) =>
+      pg.query(
+        `insert into detached_sign_answers (user_id, account_id, origin_account_ref, kind, answer, from_convention, to_convention)
+         values ($1, $2, 'feed-1', 'answer', 'out', 'unknown', $3)`,
+        [id, acct, to],
+      );
+    await expect(ins("unknown")).rejects.toThrow(/detached_sign_answers_resolves/);
+    await ins("inverted");
+    await pg.query(`delete from accounts where id = $1`, [acct]);
+    expect((await pg.query(`select 1 from detached_sign_answers where user_id = $1`, [id])).rows).toHaveLength(0);
   });
 
   describe("the trial-only vs paid deletion boundary (why the entitlement is not a ledger row)", () => {

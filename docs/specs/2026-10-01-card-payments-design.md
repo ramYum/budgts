@@ -118,6 +118,46 @@ can change it back the same way." and the same question about the account's most
 same `changeSignConventionAnswer`: `kind = 'change'`, `from` = the evidence verdict, the same audit, and changing back
 is the undo. The internal term is never shown. Web only for now.
 
+## 5c. Held rows a removed bank left behind (owner-approved bug fix, 2026-10-05)
+
+**What was wrong.** Disconnecting a bank deletes its `plaid_items` row (`src/server/plaid/disconnect.ts`), which
+cascades its `plaid_accounts`; `transactions.plaid_account_id` is `ON DELETE SET NULL` (migration `0004`), so every row
+is kept, detached (design §24). A row still held for `sign_convention_unknown` stayed held, but §5's question and
+`finalizeSignConvention` are keyed on the Plaid account, which no longer exists: no screen listed it and nothing could
+release it. Found in production: three of the owner's SoFi Checking ••5805 rows (Sep 14–15) held since the SoFi link
+was replaced on 2026-09-15; the new link's ••5805 account was never imported, so reconnect adoption never reached them.
+
+**The exit.** Connected banks gets a "From removed banks" card (anchor `#from-removed-banks`, shown only when there is
+something to ask) that asks §5's question under the Budgts account the rows live in. A group is one Budgts account
+**and** one original bank feed: Plaid's `account_id` in the immutable raw payload. Two feeds mapped into one Budgts
+account are never pooled, for the same reason conventions are keyed on the Plaid account (each bank may report signs
+its own way). The answer, compared with the asked-about row's raw sign (`conventionFromAnswer`), gives that feed's
+convention, and every held row of the group, removed copies included, is released by `planHeldRowRelease`, exactly as
+§5 does. "Change answer" (§5a) re-evaluates **only the rows the answer released** (never the account's other
+history, such as rows confirmed before conventions existed), through the same `reevaluateUnderConvention` as §5a;
+changing back is the undo. Rules (`src/server/plaid/detached-sign-answer.ts`): the user comes from the session; the
+row must be theirs, a live detached bank row (held, for a first answer); the group is derived from that row, never from
+the client. Writes for one group serialize on a transaction-scoped advisory lock and read rows `FOR UPDATE`, so a
+reconnect adopting one of them (it claims only a still-detached row) and an answer cannot both write it. Every answer
+and change is recorded in `detached_sign_answers` (migration `0028`, owner read only, cascades with the account or the
+user) with the changed rows' old values; `plaid_sign_answers` cannot hold them (its Plaid account is gone). The event
+role resolver gets the Budgts account type, whose only use there is recognising a card (`credit`, spelled the same).
+
+**Not chosen: inferring the answer.** Releasing the rows from a resolved Plaid account now mapped into the same Budgts
+account would guess: nothing proves that account is the same bank feed (one Budgts account may take several banks).
+The question is the only source of a direction here.
+
+**Prevention.** New orphans now land in the "From removed banks" card the moment the bank is disconnected, so none is
+left without an exit. Separately, reconnect adoption (`applyPlan`'s rekey) could attach a held kept row to an account
+that is already resolved, where no question is asked; it now takes the new account's reading for such a row (same raw
+date and amount from the same bank account, so the raw sign means the same thing), and leaves every other row as
+before.
+
+**Visibility.** Activity hides rows from a disconnected bank (§24). Released detached rows count, like the rest of that
+bank's kept history. `GET /api/mobile/plaid/banks` carries `removedBanksHeld: { groups, answered }` (version 1,
+additive): `groups[]` = `{ accountId, accountName, originRef, count, sample }`, `answered[]` = `{ accountId,
+accountName, originRef, answeredAt, sample }`. Native POST routes will take `{ transactionId, answer }`.
+
 ### Native API contract (`GET /api/mobile/plaid/banks`, version 1)
 
 Each account carries, beside the existing fields (the native UI and POST routes are a later Phase 3 branch):

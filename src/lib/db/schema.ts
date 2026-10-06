@@ -478,6 +478,38 @@ export const plaidSignAnswers = pgTable(
 );
 
 /**
+ * The user's answers about held rows a removed bank left behind (migration 0028; design:
+ * docs/specs/2026-10-01-card-payments-design.md §5c). Disconnecting deletes the Plaid account, so the answer can't hang
+ * off `plaid_sign_answers.plaid_account_id`; a group is identified by the Budgts account and the original bank feed
+ * (Plaid's `account_id` in the rows' raw payload). Written only by the server
+ * (src/server/plaid/detached-sign-answer.ts), never updated; the owner may read their own.
+ */
+export const detachedSignAnswers = pgTable(
+  "detached_sign_answers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull(),
+    accountId: uuid("account_id")
+      .notNull()
+      .references(() => accounts.id, { onDelete: "cascade" }),
+    originAccountRef: text("origin_account_ref").notNull(),
+    kind: text("kind").notNull(),
+    answer: text("answer").notNull(),
+    sampleTransactionId: uuid("sample_transaction_id").references(() => transactions.id, { onDelete: "set null" }),
+    fromConvention: plaidSignConvention("from_convention").notNull(),
+    toConvention: plaidSignConvention("to_convention").notNull(),
+    changedRows: jsonb("changed_rows").notNull().default(sql`'[]'::jsonb`),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("detached_sign_answers_group_idx").on(t.userId, t.accountId, t.originAccountRef, t.createdAt),
+    check("detached_sign_answers_kind_valid", sql`${t.kind} in ('answer','change')`),
+    check("detached_sign_answers_answer_valid", sql`${t.answer} in ('out','in')`),
+    check("detached_sign_answers_resolves", sql`${t.toConvention} <> 'unknown' and ${t.fromConvention} <> ${t.toConvention}`),
+  ],
+);
+
+/**
  * Which bank accounts have fed a Budgts account (migration 0027, owner decision 2026-10-02): the Plaid identity
  * (institution, last 4, type, subtype) of every Plaid account ever mapped onto it. Disconnecting a bank deletes its
  * `plaid_accounts` rows, so this is what survives to recognise the same bank account when it is connected again: the

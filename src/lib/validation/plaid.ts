@@ -101,5 +101,11 @@ export const answerSignCheckSchema = z.object({
   answer: z.enum(["out", "in"]),
 });
 
+/** The same question about held rows a removed bank left behind (§5c): the server derives the group from the row. */
+export const answerDetachedHeldSchema = z.object({
+  transactionId: z.string().uuid(),
+  answer: z.enum(["out", "in"]),
+});
+
 export type AccountMapEntryInput = z.infer<typeof accountMapEntrySchema>;
 export type MapAccountsInput = z.infer<typeof mapAccountsSchema>;

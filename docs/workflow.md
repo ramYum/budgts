@@ -1557,3 +1557,12 @@ implementation goes to `budgts-architect`.
   its Transaction sheet shows the web's `HeldNotice` (sign check links to Connected banks; currency mismatch has no
   link). Both native contracts require the new fields, so **the server must deploy before an app build that carries
   this** (against an older server, Home and the ledger would fail to parse). Parity captures for these states not yet run.
+- **2026-10-05 — Held rows from a removed bank get their exit** (`phase-m/held-rows-exit`, owner-approved bug fix).
+  Disconnect detaches rows (`plaid_account_id` SET NULL), and a row still held for the sign check had no exit: §5's
+  question is per Plaid account. Connected banks now has "From removed banks" (`#from-removed-banks`): the same
+  question per Budgts account and original bank feed (`raw.account_id`), releasing that group with
+  `planHeldRowRelease`; "Change answer" flips only the rows the answer released. Audited in `detached_sign_answers`
+  (migration `0028`, owner read only). Prevention: reconnect adoption releases a held kept row it attaches to an
+  already-resolved account. Spec: card payments §5c. `0028` is on staging only; production does not have `0027` yet
+  (read-only check 2026-10-05: `account_bank_identities` absent), so `0027` and `0028` go together. Then the owner
+  answers for SoFi Checking ••5805 (3 rows, Sep 2026): "Going out" adds $43.45 to September spend.

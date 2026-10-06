@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { Pressable, View } from "react-native";
 import { COLOR, ROLE } from "../../lib/brand/shared";
-import { dayLabel, groupByDay, rowAmount, rowMeta, rowTitle, signedTotal } from "../../lib/transactions/activity-view";
+import { HELD_MARK, dayLabel, groupByDay, rowAmount, rowMeta, rowTitle, signedTotal } from "../../lib/transactions/activity-view";
 import type { MobileTransaction } from "../../lib/transactions/transactions-api";
 import { Text } from "../brand/text";
 import { CategoryIcon } from "../kit/tiles";
@@ -27,7 +27,7 @@ function TransactionRow({
     <Pressable
       testID="txn-row"
       accessibilityRole="button"
-      accessibilityLabel={[title, meta.text, amount].filter(Boolean).join(", ")}
+      accessibilityLabel={[title, meta.text, meta.held ? "Not counted yet" : "", amount].filter(Boolean).join(", ")}
       onPress={() => onOpen(t)}
       style={({ pressed }) => [{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12 }, pressStyle(pressed)]}
     >
@@ -46,6 +46,11 @@ function TransactionRow({
             </Text>
             <Text testID="txn-meta" variant="small" color={meta.warn ? ROLE.warn : ROLE.muted} numberOfLines={1}>
               {meta.text}
+              {meta.held ? (
+                <Text testID="txn-held" variant="small" color={ROLE.warn}>
+                  {HELD_MARK}
+                </Text>
+              ) : null}
             </Text>
           </View>
           <Text testID="txn-amount" variant="bodyStrong" color={t.direction === "credit" ? ROLE.pos : ROLE.ink} style={[TNUM, { flexShrink: 0 }]}>

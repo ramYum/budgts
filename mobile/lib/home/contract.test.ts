@@ -33,6 +33,7 @@ const valid = {
       occurredAt: "2026-09-16T12:00:00.000Z",
       isTransfer: false,
       category: { name: "Food / Groceries", color: "#3FA772" },
+      held: false,
     },
   ],
   savings: { activeCount: 1, totalSaved: 42000, totalTarget: 100000 },
@@ -45,6 +46,7 @@ const valid = {
   ],
   trendChange: { total: 174854, delta: 24854, previousMonth: "2026-08" },
   expenseCategories: [{ id: "c1", name: "Food / Groceries" }],
+  heldCount: 0,
 };
 
 describe("parseMobileHome", () => {
@@ -79,6 +81,12 @@ describe("parseMobileHome", () => {
     expect(home.breakdown).toEqual([]);
   });
 
+  it("reads the month's held rows and a held recent row (added 2026-10-05)", () => {
+    const home = parseMobileHome({ ...valid, heldCount: 2, recent: [{ ...valid.recent[0], held: true }] });
+    expect(home.heldCount).toBe(2);
+    expect(home.recent[0]!.held).toBe(true);
+  });
+
   it("rejects an unknown version so an old app never mis-renders a newer contract", () => {
     expect(() => parseMobileHome({ ...valid, version: 2 })).toThrow(HomeContractError);
   });
@@ -110,6 +118,9 @@ describe("parseMobileHome", () => {
     ["missing trendChange", { ...valid, trendChange: undefined }],
     ["missing expenseCategories", { ...valid, expenseCategories: undefined }],
     ["expense category without a name", { ...valid, expenseCategories: [{ id: "c1" }] }],
+    ["missing heldCount", { ...valid, heldCount: undefined }],
+    ["fractional heldCount", { ...valid, heldCount: 1.5 }],
+    ["a recent row without held", { ...valid, recent: [{ ...valid.recent[0], held: undefined }] }],
     ["bankConnected not a boolean", { ...valid, bankConnected: "yes" }],
     ["unknown suggestion kind", { ...valid, suggestion: { ...valid.suggestion, kind: "other" } }],
     ["fractional suggestion amount", { ...valid, suggestion: { ...valid.suggestion, amount: 1.5 } }],

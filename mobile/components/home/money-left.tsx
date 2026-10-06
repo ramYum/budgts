@@ -54,10 +54,39 @@ function HeroLine({ home }: { home: MobileHome }) {
 }
 
 /**
+ * The month's held rows, under the note (web `home-held`): they count toward no figure until released, so the card says
+ * so and links to Connected banks, where the account's money-direction check releases them. Absent when none is held.
+ */
+function HeldLine({ count, onCheck }: { count: number; onCheck: () => void }) {
+  if (count <= 0) return null;
+  return (
+    <Rise testID="home-held" at={820} style={{ marginTop: 8, flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
+      <View style={{ marginTop: 4 }}>
+        <Icon name="pending" size={12} color={ROLE.warn} />
+      </View>
+      <Text variant="meta" color={ROLE.warn} style={{ flex: 1 }}>
+        {`${count} ${count === 1 ? "transaction isn't" : "transactions aren't"} counted yet. `}
+        <Text
+          testID="home-held-link"
+          variant="metaStrong"
+          color={ROLE.warn}
+          accessibilityRole="link"
+          onPress={onCheck}
+          style={{ textDecorationLine: "underline" }}
+        >
+          {count === 1 ? "Check it" : "Check them"}
+        </Text>
+      </Text>
+    </Rise>
+  );
+}
+
+/**
  * The hero (web dashboard-view.tsx, the `home-money-left` section at phone
  * width): Money left as one rolling figure that steps down a size when it is
  * long, the sentence and cells for what was kept, then Came in (with the add
- * income plus) and Went out side by side, and the note on what the figure is.
+ * income plus) and Went out side by side, the note on what the figure is,
+ * and the month's held rows when there are any.
  * Crystal perches on its top edge, in the 48px Home leaves above it.
  */
 export function MoneyLeftCard({
@@ -66,6 +95,7 @@ export function MoneyLeftCard({
   awake,
   layoutKey,
   onAddIncome,
+  onCheckHeld,
 }: {
   home: MobileHome;
   name: string;
@@ -74,6 +104,8 @@ export function MoneyLeftCard({
   /** what sits above the card right now (Crystal re-measures her place when it changes) */
   layoutKey: string;
   onAddIncome: () => void;
+  /** "Check them": opens Connected banks */
+  onCheckHeld: () => void;
 }) {
   const { currency } = home;
   const negative = home.moneyLeft < 0;
@@ -148,6 +180,7 @@ export function MoneyLeftCard({
             Income minus spending. Not your savings balance.
           </Text>
         </Rise>
+        <HeldLine count={home.heldCount} onCheck={onCheckHeld} />
       </PixelFrame>
       {/* Crystal perches on the card's top edge; drawn after it so she stands in front */}
       <CrystalPerch name={name} savingsRate={home.savingsRate} awake={awake} layoutKey={layoutKey} />

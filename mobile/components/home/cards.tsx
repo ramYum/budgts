@@ -158,7 +158,7 @@ export function RecentActivity({
                 <View
                   testID="home-recent-row"
                   accessible
-                  accessibilityLabel={`${title}, ${kind}, ${amount}`}
+                  accessibilityLabel={`${title}, ${kind}${r.held ? ", Not counted yet" : ""}, ${amount}`}
                   style={{ flexDirection: "row", alignItems: "center", gap: 12 }}
                 >
                   <CategoryIcon name={r.isTransfer ? "Transfer" : (r.category?.name ?? "")} />
@@ -168,6 +168,12 @@ export function RecentActivity({
                     </Text>
                     <Text variant="small" color={ROLE.muted} numberOfLines={1}>
                       {kind}
+                      {r.held ? (
+                        // held: listed, but in no figure until released (web `home-recent-held`)
+                        <Text testID="home-recent-held" variant="small" color={ROLE.warn}>
+                          {" · Not counted yet"}
+                        </Text>
+                      ) : null}
                     </Text>
                   </View>
                   <Text variant="bodyStrong" color={credit ? ROLE.pos : ROLE.ink} style={[TNUM, { flexShrink: 0 }]}>

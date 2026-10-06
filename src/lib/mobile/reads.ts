@@ -10,6 +10,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { selectableAccounts, type SelectableAccountRow } from "@/lib/accounts/selectable-accounts";
 import type { AllTimeRow, BudgetsAllTimeData, BudgetsMonthData } from "@/lib/budgets/load-budgets";
+import { isHeld } from "@/lib/budget/held";
+import type { TxnStatus } from "@/lib/budget/types";
 import { budgetProgress } from "@/lib/insights/figures";
 import { pickSuggestion, type Suggestion } from "@/lib/insights/suggestion";
 import { mobileCategories, type MobileHomeCategory } from "@/lib/mobile/home";
@@ -160,6 +162,10 @@ export type MobileTransaction = {
   source: "manual" | "bank" | "email" | "receipt";
   /** No category and not a transfer — the "needs a category" prompt. */
   uncategorized: boolean;
+  /** Held (`pending_review`): listed, but counted in no total until it is released (added 2026-10-05). */
+  held: boolean;
+  /** Why a held row is held (`sign_convention_unknown` / `currency_mismatch`); null on every row that is not held. */
+  heldReason: string | null;
 };
 
 export type TransactionsPage = { items: MobileTransaction[]; nextCursor: string | null };
@@ -214,6 +220,8 @@ type Row = {
   description: string;
   note: string | null;
   is_transfer: boolean;
+  status: TxnStatus;
+  pending_reason: string | null;
   category: { id: string; name: string; color: string } | null;
   account: { id: string; name: string };
 };
@@ -224,7 +232,7 @@ export async function loadTransactionsPage(supabase: SupabaseClient, q: Transact
   let query = supabase
     .from("transactions")
     .select(
-      "id, amount, direction, occurred_at, created_at, source, description, note, is_transfer, category:categories(id,name,color), account:accounts!inner(id,name,is_archived)",
+      "id, amount, direction, occurred_at, created_at, source, description, note, is_transfer, status, pending_reason, category:categories(id,name,color), account:accounts!inner(id,name,is_archived)",
     )
     .gte("occurred_at", start)
     .lt("occurred_at", end)
@@ -269,6 +277,8 @@ export async function loadTransactionsPage(supabase: SupabaseClient, q: Transact
       account: { id: r.account.id, name: r.account.name },
       source: r.source,
       uncategorized: r.category === null && !r.is_transfer,
+      held: isHeld(r.status),
+      heldReason: isHeld(r.status) ? r.pending_reason : null,
     })),
     nextCursor: rows.length > q.limit && last ? encodeCursor({ occurredAt: last.occurred_at, createdAt: last.created_at, id: last.id }) : null,
   };

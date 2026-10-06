@@ -32,6 +32,8 @@ export type HomeActivity = {
   occurredAt: string;
   isTransfer: boolean;
   category: { name: string; color: string } | null;
+  /** Held: listed, but counted in no figure until it is released (added 2026-10-05). */
+  held: boolean;
 };
 
 /** The one change worth suggesting this month (server: `src/lib/insights/suggestion.ts`); `share` is a whole percent. */
@@ -66,6 +68,8 @@ export type MobileHome = {
   trendChange: { total: number; delta: number | null; previousMonth: string | null };
   /** The active expense categories, in the web Home's order: the chips of a month with no spending, the set-up count. */
   expenseCategories: { id: string; name: string }[];
+  /** The month's held rows the figures leave out (added 2026-10-05); Home names them under Money left. */
+  heldCount: number;
 };
 
 export class HomeContractError extends Error {
@@ -124,6 +128,7 @@ function parseActivity(v: unknown): HomeActivity {
     category = { name: str(cat, "name"), color: str(cat, "color") };
   }
   if (typeof v.isTransfer !== "boolean") return fail("activity.isTransfer");
+  if (typeof v.held !== "boolean") return fail("activity.held");
   return {
     id: str(v, "id"),
     description: str(v, "description"),
@@ -132,6 +137,7 @@ function parseActivity(v: unknown): HomeActivity {
     occurredAt: str(v, "occurredAt"),
     isTransfer: v.isTransfer,
     category,
+    held: v.held,
   };
 }
 
@@ -206,5 +212,6 @@ export function parseMobileHome(input: unknown): MobileHome {
     expenseCategories: Array.isArray(input.expenseCategories)
       ? input.expenseCategories.map((c) => (isObj(c) ? { id: str(c, "id"), name: str(c, "name") } : fail("expenseCategories")))
       : fail("expenseCategories is not an array"),
+    heldCount: int(input, "heldCount"),
   };
 }

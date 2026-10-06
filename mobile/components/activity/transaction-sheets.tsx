@@ -10,6 +10,7 @@ import { rowAmount, rowTitle } from "../../lib/transactions/activity-view";
 import type { MobileTransaction } from "../../lib/transactions/transactions-api";
 import type { TransactionCommands } from "../../lib/transactions/use-transaction-commands";
 import { Button } from "../brand/controls";
+import { Icon } from "../brand/icon";
 import { PixelFrame } from "../brand/pixel-frame";
 import { Text } from "../brand/text";
 import { Skeleton } from "../feedback/skeleton";
@@ -47,8 +48,49 @@ function Detail({ label, children, first, last }: { label: string; children: Rea
 }
 
 /**
+ * Why a held row isn't counted, and where to clear it (web `HeldNotice`): a currency mismatch has nothing to check, so only
+ * the money-direction hold links to Connected banks.
+ */
+function HeldNotice({ reason, onCheckBanks }: { reason: string | null; onCheckBanks: () => void }) {
+  return (
+    <PixelFrame
+      testID="txn-held-notice"
+      frame="px-band"
+      style={{ marginTop: 16, paddingHorizontal: 8, paddingVertical: 8, flexDirection: "row", alignItems: "flex-start", gap: 8 }}
+    >
+      <View style={{ marginTop: 2 }}>
+        <Icon name="pending" color={ROLE.warn} />
+      </View>
+      <Text variant="small" color={ROLE.ink} style={{ flex: 1 }}>
+        <Text variant="smallStrong" color={ROLE.ink}>
+          Not counted yet.
+        </Text>
+        {reason === "currency_mismatch" ? (
+          " It's in a different currency from yours, so it isn't added to your totals."
+        ) : (
+          <>
+            {" Budgts is still checking how this bank account records money in and out. "}
+            <Text
+              testID="txn-held-link"
+              variant="formLabel"
+              color={ROLE.ink}
+              accessibilityRole="link"
+              onPress={onCheckBanks}
+              style={{ textDecorationLine: "underline" }}
+            >
+              Check it in Connected banks
+            </Text>
+          </>
+        )}
+      </Text>
+    </PixelFrame>
+  );
+}
+
+/**
  * "Transaction" (the web list's detail sheet): the row's icon, name and note, then Date, Category, Account and Amount, and
  * two actions: Edit, and a one-tap Mark as transfer / Remove transfer that re-sends the row with only that flag flipped.
+ * A held row adds `HeldNotice` under the facts.
  */
 export function TransactionDetailSheet({
   transaction,
@@ -56,6 +98,7 @@ export function TransactionDetailSheet({
   onClose,
   onEdit,
   onToggleTransfer,
+  onCheckBanks,
   alreadySaved = false,
 }: {
   transaction: MobileTransaction;
@@ -65,6 +108,8 @@ export function TransactionDetailSheet({
   onClose: () => void;
   onEdit: (t: MobileTransaction) => void;
   onToggleTransfer: (t: MobileTransaction) => Promise<MutationOutcome>;
+  /** the held notice's "Check it in Connected banks" */
+  onCheckBanks: () => void;
 }) {
   const [t, setT] = useState(transaction);
   const [pending, setPending] = useState(false);
@@ -120,6 +165,7 @@ export function TransactionDetailSheet({
           </Detail>
         ))}
       </PixelFrame>
+      {t.held ? <HeldNotice reason={t.heldReason} onCheckBanks={onCheckBanks} /> : null}
       {error ? (
         <View style={{ marginTop: 8 }}>
           <FieldError testID="txn-detail-error">{error}</FieldError>

@@ -72,15 +72,22 @@ export function rowTitle(t: MobileTransaction): string {
   return t.description || t.category?.name || "Transaction";
 }
 
+/** The held marker the row's second line ends with, in the warn tone (web `txn-held`). */
+export const HELD_MARK = " · Not counted yet";
+
 /**
  * The row's second line: "Transfer", "Needs a category" (warn tone), or the category, with " · Refund" when money came back
- * into a spending category. `kinds` maps a category id to its kind (from the user's categories).
+ * into a spending category. `kinds` maps a category id to its kind (from the user's categories). `held` says the line ends
+ * with `HELD_MARK` (always warn), so a held row never looks counted.
  */
-export function rowMeta(t: MobileTransaction, kinds: Map<string, "expense" | "income">): { text: string; warn: boolean } {
+export function rowMeta(
+  t: MobileTransaction,
+  kinds: Map<string, "expense" | "income">,
+): { text: string; warn: boolean; held: boolean } {
   const needsCategory = !t.isTransfer && !t.category;
   const refund = !t.isTransfer && t.direction === "credit" && !!t.category && kinds.get(t.category.id) === "expense";
   const base = t.isTransfer ? "Transfer" : needsCategory ? "Needs a category" : (t.category?.name ?? "");
-  return { text: `${base}${refund ? " · Refund" : ""}`, warn: needsCategory };
+  return { text: `${base}${refund ? " · Refund" : ""}`, warn: needsCategory, held: t.held };
 }
 
 /** "−$12.34" / "+$12.34". */

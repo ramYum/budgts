@@ -43,6 +43,7 @@ const home = (over: Partial<MobileHome> = {}): MobileHome => ({
     { id: "a", name: "Groceries" },
     { id: "c", name: "Dining" },
   ],
+  heldCount: 0,
   ...over,
 });
 

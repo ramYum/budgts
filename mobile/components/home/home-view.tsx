@@ -115,6 +115,7 @@ export function HomeView({
           awake={awake}
           layoutKey={`${alert ? "alert" : ""}:${noticeShown ? "notice" : ""}`}
           onAddIncome={onAddIncome}
+          onCheckHeld={() => go({ pathname: "/connected-banks" })}
         />
       </Reveal>
 

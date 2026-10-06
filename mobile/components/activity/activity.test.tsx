@@ -35,6 +35,8 @@ const txn = (id: string, over: Partial<MobileTransaction> = {}): MobileTransacti
   account: { id: "a1", name: "Everyday checking" },
   source: "manual",
   uncategorized: false,
+  held: false,
+  heldReason: null,
   ...over,
 });
 
@@ -140,6 +142,17 @@ describe("the list (web transaction-list.tsx)", () => {
     const amounts = r.root.findAll((n) => typeof n.type === "string" && n.props.testID === "txn-amount");
     expect(amounts.map(textContent)).toEqual(["−$5.00", "+$20.00", "−$12.50", "−$12.50"]);
     expect(flat(amounts[1]!.props.style).color).toBe(ROLE.pos);
+  });
+
+  it("marks a held row beside its category in the warn tone, and says so to a screen reader (web 2026-10-05)", () => {
+    const { r } = view({ ledger: ready([txn("a", { held: true, heldReason: "sign_convention_unknown" }), txn("b")]) });
+    const marks = r.root.findAll((n) => typeof n.type === "string" && n.props.testID === "txn-held");
+    expect(marks).toHaveLength(1);
+    expect(flat(marks[0]!.props.style).color).toBe(ROLE.warn);
+    const metas = r.root.findAll((n) => typeof n.type === "string" && n.props.testID === "txn-meta");
+    expect(metas.map(textContent)).toEqual(["Groceries · Not counted yet", "Groceries"]);
+    const rows = r.root.findAll((n) => typeof n.type === "string" && n.props.testID === "txn-row");
+    expect(rows[0]!.props.accessibilityLabel).toBe("Shop a, Groceries, Not counted yet, −$12.50");
   });
 
   it("opens a row on tap", () => {

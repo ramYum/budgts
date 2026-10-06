@@ -100,6 +100,10 @@ export default function ActivityScreen() {
         onClose={() => setSheet(null)}
         onEdit={(t) => setSheet({ kind: "edit", t })}
         onToggleTransfer={(t) => commands.update(t.id, transferToggleDraft(t))}
+        onCheckBanks={() => {
+          setSheet(null);
+          router.navigate("/connected-banks");
+        }}
       />
     ) : sheet?.kind === "edit" ? (
       <EditTransactionSheet transaction={sheet.t} data={formData} commands={commands} onClose={() => setSheet(null)} />

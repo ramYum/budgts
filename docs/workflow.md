@@ -1550,3 +1550,10 @@ implementation goes to `budgts-architect`.
   `recent[].held` (additive, version 1 kept); the native screens follow on `phase-m/phase3`. Found alongside: held rows
   whose `plaid_accounts` row is gone (a removed bank link) have no exit; fixed separately on `phase-m/held-rows-exit`.
   Open: `currency_mismatch` rows still have no exit in the UI (0 such rows in production on 2026-10-05).
+- **2026-10-05** — **Held rows on the native app** (`phase-m/held-rows-native`, on top of `phase-m/held-rows-visible`).
+  Native Home reads `heldCount` / `recent[].held` and draws the web's warn line under the hero ("Check them" →
+  `/connected-banks`) and the " · Not counted yet" mark in Recent activity. `GET /api/mobile/transactions` gains `held`
+  and `heldReason` per row (`src/lib/mobile/reads.ts`; additive, version 1 kept); native Activity marks held rows and
+  its Transaction sheet shows the web's `HeldNotice` (sign check links to Connected banks; currency mismatch has no
+  link). Both native contracts require the new fields, so **the server must deploy before an app build that carries
+  this** (against an older server, Home and the ledger would fail to parse). Parity captures for these states not yet run.

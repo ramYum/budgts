@@ -36,9 +36,9 @@ const full = (over: Partial<MobileHome> = {}): MobileHome => ({
     cat({}),
   ],
   recent: [
-    { id: "t1", description: "Whole Foods Market", amount: 3980, direction: "debit", occurredAt: "2026-09-16T12:00:00.000Z", isTransfer: false, category: { name: "Groceries", color: "#3FA772" } },
-    { id: "t2", description: "", amount: 320000, direction: "credit", occurredAt: "2026-09-15T12:00:00.000Z", isTransfer: false, category: null },
-    { id: "t3", description: "To savings", amount: 5000, direction: "debit", occurredAt: "2026-09-14T12:00:00.000Z", isTransfer: true, category: null },
+    { id: "t1", description: "Whole Foods Market", amount: 3980, direction: "debit", occurredAt: "2026-09-16T12:00:00.000Z", isTransfer: false, category: { name: "Groceries", color: "#3FA772" }, held: false },
+    { id: "t2", description: "", amount: 320000, direction: "credit", occurredAt: "2026-09-15T12:00:00.000Z", isTransfer: false, category: null, held: false },
+    { id: "t3", description: "To savings", amount: 5000, direction: "debit", occurredAt: "2026-09-14T12:00:00.000Z", isTransfer: true, category: null, held: false },
   ],
   savings: { activeCount: 2, totalSaved: 42000, totalTarget: 100000 },
   bankConnected: true,
@@ -60,6 +60,7 @@ const full = (over: Partial<MobileHome> = {}): MobileHome => ({
     { id: "a", name: "Groceries" },
     { id: "c", name: "Dining" },
   ],
+  heldCount: 0,
   ...over,
 });
 
@@ -260,6 +261,36 @@ describe("Savings", () => {
 
   it("is absent without goals", () => {
     expect(view(full({ savings: null })).r.root.findAll((n) => n.props.testID === "home-savings")).toHaveLength(0);
+  });
+});
+
+describe("Held rows (web 2026-10-05)", () => {
+  it("names the month's held rows under the hero, in the warn tone, and Check them opens Connected banks", () => {
+    const { r, props } = view(full({ heldCount: 2 }));
+    const line = byTestId(r, "home-held");
+    expect(textContent(line)).toBe("2 transactions aren't counted yet. Check them");
+    const link = byTestId(r, "home-held-link");
+    expect(link.props.accessibilityRole).toBe("link");
+    act(() => link.props.onPress());
+    expect(props.go).toHaveBeenCalledWith({ pathname: "/connected-banks" });
+  });
+
+  it("uses the singular for one held row", () => {
+    expect(textContent(byTestId(view(full({ heldCount: 1 })).r, "home-held"))).toBe("1 transaction isn't counted yet. Check it");
+  });
+
+  it("says nothing when no row is held", () => {
+    expect(view(full()).r.root.findAll((n) => n.props.testID === "home-held")).toHaveLength(0);
+  });
+
+  it("marks a held row in Recent activity, in the warn tone, and says so to a screen reader", () => {
+    const recent = full().recent.map((t, i) => (i === 0 ? { ...t, held: true } : t));
+    const { r } = view(full({ recent }));
+    const marks = r.root.findAll((n) => typeof n.type === "string" && n.props.testID === "home-recent-held");
+    expect(marks).toHaveLength(1);
+    const rows = r.root.findAll((n) => typeof n.type === "string" && n.props.testID === "home-recent-row");
+    expect(textContent(rows[0]!)).toContain("Groceries · Not counted yet");
+    expect(rows[0]!.props.accessibilityLabel).toBe("Whole Foods Market, Groceries, Not counted yet, −$39.80");
   });
 });
 

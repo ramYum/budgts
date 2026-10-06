@@ -13,10 +13,31 @@ const txn = (id: string, over: Record<string, unknown> = {}) => ({
   account: { id: "a1", name: "Wallet" },
   source: "manual",
   uncategorized: false,
+  held: false,
+  heldReason: null,
   ...over,
 });
 
 describe("parseTransactionsPage", () => {
+  it("reads a held row and why it is held (added 2026-10-05)", () => {
+    const page = parseTransactionsPage({
+      version: 1,
+      month: "2026-09",
+      items: [txn("t1", { held: true, heldReason: "sign_convention_unknown" }), txn("t2")],
+      nextCursor: null,
+    });
+    expect(page.items.map((t) => [t.held, t.heldReason])).toEqual([
+      [true, "sign_convention_unknown"],
+      [false, null],
+    ]);
+  });
+
+  it("refuses a row without held, so a held row is never shown as counted", () => {
+    const rest: Record<string, unknown> = txn("t1");
+    delete rest.held;
+    expect(() => parseTransactionsPage({ version: 1, month: "2026-09", items: [rest], nextCursor: null })).toThrow();
+  });
+
   it("accepts the server contract, tolerating fields it does not know (older apps must survive additive changes)", () => {
     const page = parseTransactionsPage({ version: 1, month: "2026-09", items: [{ ...txn("t1"), somethingNew: true }], nextCursor: null, extra: 1 });
     expect(page).toEqual({ month: "2026-09", items: [txn("t1")], nextCursor: null });

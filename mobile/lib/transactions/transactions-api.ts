@@ -22,6 +22,10 @@ export type MobileTransaction = {
   source: TransactionSource;
   /** No category and not a transfer — the "needs a category" prompt. */
   uncategorized: boolean;
+  /** Held: listed, but counted in no total until it is released (added 2026-10-05). */
+  held: boolean;
+  /** Why a held row is held (`sign_convention_unknown` / `currency_mismatch`); null on a row that is not held. */
+  heldReason: string | null;
 };
 
 export type TransactionSource = "manual" | "bank" | "email" | "receipt";
@@ -44,6 +48,8 @@ function parseTransaction(v: unknown, i: number): MobileTransaction {
     account: { id: str(account.id, "account.id"), name: str(account.name, "account.name") },
     source: oneOf(t.source, "source", ["manual", "bank", "email", "receipt"] as const),
     uncategorized: bool(t.uncategorized, "uncategorized"),
+    held: bool(t.held, "held"),
+    heldReason: optStr(t.heldReason, "heldReason"),
   };
 }
 

@@ -84,6 +84,8 @@ describe("draftFromTransaction", () => {
       account: { id: ACCOUNT, name: "Wallet" },
       source: "manual",
       uncategorized: false,
+      held: false,
+      heldReason: null,
     };
     expect(draftFromTransaction(t)).toEqual({
       accountId: ACCOUNT,

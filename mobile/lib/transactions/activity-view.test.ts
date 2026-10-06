@@ -25,6 +25,8 @@ const txn = (id: string, over: Partial<MobileTransaction> = {}): MobileTransacti
   account: { id: "a1", name: "Everyday checking" },
   source: "manual",
   uncategorized: false,
+  held: false,
+  heldReason: null,
   ...over,
 });
 
@@ -93,11 +95,16 @@ describe("a row", () => {
   ]);
 
   it("reads Transfer, Needs a category (warn), or the category, marking money back into spending as a refund", () => {
-    expect(rowMeta(rows[0]!, kinds)).toEqual({ text: "Groceries", warn: false });
-    expect(rowMeta(rows[1]!, kinds)).toEqual({ text: "Salary", warn: false });
-    expect(rowMeta(rows[2]!, kinds)).toEqual({ text: "Transfer", warn: false });
-    expect(rowMeta(rows[3]!, kinds)).toEqual({ text: "Groceries · Refund", warn: false });
-    expect(rowMeta(rows[4]!, kinds)).toEqual({ text: "Needs a category", warn: true });
+    expect(rowMeta(rows[0]!, kinds)).toEqual({ text: "Groceries", warn: false, held: false });
+    expect(rowMeta(rows[1]!, kinds)).toEqual({ text: "Salary", warn: false, held: false });
+    expect(rowMeta(rows[2]!, kinds)).toEqual({ text: "Transfer", warn: false, held: false });
+    expect(rowMeta(rows[3]!, kinds)).toEqual({ text: "Groceries · Refund", warn: false, held: false });
+    expect(rowMeta(rows[4]!, kinds)).toEqual({ text: "Needs a category", warn: true, held: false });
+  });
+
+  it("flags a held row, whatever its category, so its line ends with the warn-toned held mark (web 2026-10-05)", () => {
+    expect(rowMeta({ ...rows[1]!, held: true, heldReason: "sign_convention_unknown" }, kinds)).toEqual({ text: "Salary", warn: false, held: true });
+    expect(rowMeta({ ...rows[4]!, held: true, heldReason: "sign_convention_unknown" }, kinds)).toEqual({ text: "Needs a category", warn: true, held: true });
   });
 
   it("titles itself by description, then category, then 'Transaction'", () => {

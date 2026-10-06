@@ -54,6 +54,8 @@ const base: MobileHome = {
   trend: [{ month: "2026-09", spend: 105000 }],
   trendChange: { total: 105000, delta: null, previousMonth: null },
   expenseCategories: [{ id: "a", name: "Dining" }],
+  // a held row, so the hero's "Check them" link is tapped too
+  heldCount: 1,
 };
 
 function tapEverything(home: MobileHome): Href[] {

@@ -37,6 +37,8 @@ const txn = (over: Partial<MobileTransaction> = {}): MobileTransaction => ({
   account: { id: "a2", name: "Travel card" },
   source: "manual",
   uncategorized: false,
+  held: false,
+  heldReason: null,
   ...over,
 });
 
@@ -248,7 +250,7 @@ describe("AddIncomeSheet (web income-tile.tsx)", () => {
 
 describe("the Transaction sheet (web list detail)", () => {
   it("opened for a replayed create, says what happened above the facts", () => {
-    const r = render(<TransactionDetailSheet transaction={txn()} currency="USD" alreadySaved onClose={vi.fn()} onEdit={vi.fn()} onToggleTransfer={vi.fn()} />);
+    const r = render(<TransactionDetailSheet onCheckBanks={vi.fn()} transaction={txn()} currency="USD" alreadySaved onClose={vi.fn()} onEdit={vi.fn()} onToggleTransfer={vi.fn()} />);
     expect(textContent(find(r, "txn-detail-replayed"))).toBe("This was already saved. Changes made after that weren't applied.");
     // above the facts, in reading order
     const ids = r.root.findAll((n) => typeof n.type === "string" && typeof n.props.testID === "string").map((n) => n.props.testID);
@@ -256,14 +258,14 @@ describe("the Transaction sheet (web list detail)", () => {
   });
 
   it("opened from the list, no such line", () => {
-    const r = render(<TransactionDetailSheet transaction={txn()} currency="USD" onClose={vi.fn()} onEdit={vi.fn()} onToggleTransfer={vi.fn()} />);
+    const r = render(<TransactionDetailSheet onCheckBanks={vi.fn()} transaction={txn()} currency="USD" onClose={vi.fn()} onEdit={vi.fn()} onToggleTransfer={vi.fn()} />);
     expect(() => find(r, "txn-detail-replayed")).toThrow();
   });
 
   it("shows the row's facts and flips transfer with the row otherwise unchanged", async () => {
     const onToggle = vi.fn(async (): Promise<MutationOutcome> => ({ status: "ok" }));
     const onEdit = vi.fn();
-    const r = render(<TransactionDetailSheet transaction={txn()} currency="USD" onClose={vi.fn()} onEdit={onEdit} onToggleTransfer={onToggle} />);
+    const r = render(<TransactionDetailSheet onCheckBanks={vi.fn()} transaction={txn()} currency="USD" onClose={vi.fn()} onEdit={onEdit} onToggleTransfer={onToggle} />);
     const facts = textContent(find(r, "txn-detail-facts"));
     for (const s of ["Date", "Tuesday, September 29, 2026", "Category", "Groceries", "Account", "Travel card", "Amount", "−$12.34"]) expect(facts).toContain(s);
     expect(texts(r.root).join(" ")).toContain("weekly shop");
@@ -279,10 +281,48 @@ describe("the Transaction sheet (web list detail)", () => {
 
   it("says why when the flip fails and keeps the row as it was", async () => {
     const onToggle = vi.fn(async (): Promise<MutationOutcome> => ({ status: "error", kind: "unavailable", message: "Something went wrong. Please try again." }));
-    const r = render(<TransactionDetailSheet transaction={txn()} currency="USD" onClose={vi.fn()} onEdit={vi.fn()} onToggleTransfer={onToggle} />);
+    const r = render(<TransactionDetailSheet onCheckBanks={vi.fn()} transaction={txn()} currency="USD" onClose={vi.fn()} onEdit={vi.fn()} onToggleTransfer={onToggle} />);
     await press(r, "txn-detail-transfer");
     expect(textContent(find(r, "txn-detail-error"))).toBe("Something went wrong. Please try again.");
     expect(find(r, "txn-detail-transfer").props.accessibilityLabel).toBe("Mark as transfer");
+  });
+
+  it("explains a held row under the facts and links to Connected banks (web HeldNotice, 2026-10-05)", () => {
+    const onCheckBanks = vi.fn();
+    const r = render(
+      <TransactionDetailSheet
+        transaction={txn({ held: true, heldReason: "sign_convention_unknown" })}
+        currency="USD"
+        onClose={vi.fn()}
+        onEdit={vi.fn()}
+        onToggleTransfer={vi.fn()}
+        onCheckBanks={onCheckBanks}
+      />,
+    );
+    const notice = find(r, "txn-held-notice");
+    expect(r.root.find((n) => n.type === PixelFrame && n.props.testID === "txn-held-notice").props.frame).toBe("px-band");
+    expect(textContent(notice)).toBe(
+      "Not counted yet. Budgts is still checking how this bank account records money in and out. Check it in Connected banks",
+    );
+    const ids = r.root.findAll((n) => typeof n.type === "string" && typeof n.props.testID === "string").map((n) => n.props.testID);
+    expect(ids.indexOf("txn-detail-facts")).toBeLessThan(ids.indexOf("txn-held-notice"));
+    const link = find(r, "txn-held-link");
+    expect(link.props.accessibilityRole).toBe("link");
+    act(() => link.props.onPress());
+    expect(onCheckBanks).toHaveBeenCalledOnce();
+  });
+
+  it("says a currency-mismatch row isn't counted without sending the user to a check that can't release it", () => {
+    const r = render(
+      <TransactionDetailSheet onCheckBanks={vi.fn()} transaction={txn({ held: true, heldReason: "currency_mismatch" })} currency="USD" onClose={vi.fn()} onEdit={vi.fn()} onToggleTransfer={vi.fn()} />,
+    );
+    expect(textContent(find(r, "txn-held-notice"))).toBe("Not counted yet. It's in a different currency from yours, so it isn't added to your totals.");
+    expect(() => find(r, "txn-held-link")).toThrow();
+  });
+
+  it("shows no held notice on a counted row", () => {
+    const r = render(<TransactionDetailSheet onCheckBanks={vi.fn()} transaction={txn()} currency="USD" onClose={vi.fn()} onEdit={vi.fn()} onToggleTransfer={vi.fn()} />);
+    expect(() => find(r, "txn-held-notice")).toThrow();
   });
 
   it("a transfer toggle re-sends the row with only isTransfer flipped (web toggleTransfer)", () => {

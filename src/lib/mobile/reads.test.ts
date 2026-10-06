@@ -159,6 +159,8 @@ describe("loadTransactionsPage", () => {
     category: { id: UUID, name: "Groceries", color: "#0f0" },
     account: { id: "a1", name: "Wallet", is_archived: false },
     source: "manual",
+    status: "confirmed",
+    pending_reason: null,
     ...over,
   });
 
@@ -245,9 +247,34 @@ describe("loadTransactionsPage", () => {
       account: { id: "a1", name: "Wallet" },
       source: "manual",
       uncategorized: false,
+      held: false,
+      heldReason: null,
     });
     expect(items[1].uncategorized).toBe(true);
     expect(items[2].uncategorized).toBe(false); // a transfer needs no category
+  });
+
+  it("marks a held row and why it is held, so the app never shows it as counted (added 2026-10-05)", async () => {
+    const { supabase, calls } = fakeSupabase({
+      transactions: {
+        data: [
+          row(1, { status: "pending_review", pending_reason: "sign_convention_unknown" }),
+          row(2, { status: "pending_review", pending_reason: "currency_mismatch" }),
+          row(3),
+          row(4, { pending_reason: "stale_reason_on_a_confirmed_row" }),
+        ],
+      },
+    });
+    const { items } = await loadTransactionsPage(supabase, { month: "2026-09", plaidOn: false, limit: 10 });
+    const select = String(calls.transactions.find((c) => c[0] === "select")?.[1]);
+    expect(select).toContain("status");
+    expect(select).toContain("pending_reason");
+    expect(items.map((t) => [t.held, t.heldReason])).toEqual([
+      [true, "sign_convention_unknown"],
+      [true, "currency_mismatch"],
+      [false, null],
+      [false, null], // only a held row carries a reason
+    ]);
   });
 
   it("throws rather than serving a partial list", async () => {

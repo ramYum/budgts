@@ -177,8 +177,9 @@ adopting account still unknown leaves the row held, where §5 asks. Every other 
 **Follow-up (not built):** gate adoption, and this release, on a matching bank identity (institution and last 4)
 rather than Budgts account, date and signed amount alone.
 
-**Visibility.** Activity hides rows from a disconnected bank (§24). Released detached rows count, like the rest of that
-bank's kept history. `GET /api/mobile/plaid/banks` carries `removedBanksHeld: { groups, answered }` (version 1,
+**Visibility.** Activity lists the rows a disconnected bank left behind (owner decision 2026-10-05, superseding §24's
+hidden ledger rows): they count in every total, so the ledger must show them, and a held one carries "Not counted yet".
+Released detached rows count, like the rest of that bank's kept history. `GET /api/mobile/plaid/banks` carries `removedBanksHeld: { groups, answered }` (version 1,
 additive): `groups[]` = `{ accountId, accountName, originRef, count, sample }`, `answered[]` = `{ accountId,
 accountName, originRef, answeredAt, sample }`. `removedBanksHeld: null` means it couldn't be loaded: the rest of the
 payload is good, and the app shows a short "couldn't load" line in the card's place. The web does the same ("Couldn't

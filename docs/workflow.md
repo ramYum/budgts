@@ -1579,3 +1579,16 @@ implementation goes to `budgts-architect`.
   `src/lib/plaid/sign-answer-messages.ts`. The native routes refuse with 423 while an account deletion has started.
   **Open (web):** the web answer actions write through Drizzle, which the RLS deletion guard (0021) doesn't see, and
   check no lock, so a web answer still lands during a started deletion.
+- **2026-10-05** — **Review round for held rows, and removed-bank rows listed in Activity** (`phase-m/held-rows-visible`,
+  which merges `held-rows-native`, `held-rows-exit` and `held-rows-native-exit`). An independent architect review of
+  the §5c exit found no 🔴 and four 🟡, all fixed (`c93ebb4`): reconnect adoption no longer overwrites a user's own
+  direction or transfer choice on a held row; the detached release takes the account type from
+  `account_bank_identities` (null when mixed or unknown, never guessing CARD_PAYMENT); `planHeldRowRelease` keeps a
+  user-edited direction for every caller; the question's sample is a row with a usable raw amount; rows without
+  `raw.account_id` get their own group; a currency-mismatch adoption moves to that hold. Also (from the native work)
+  the four answer functions now refuse once account deletion has started (`accountWritesLocked`, one check shared by
+  the web actions and the native routes, which map it to 423), and a failed removed-banks read degrades instead of
+  taking Connected banks down. **Owner decision:** Activity (web and `GET /api/mobile/transactions`) now lists the
+  rows a disconnected bank left behind, because they count in every total; the "Needs a category" panel already did.
+  Release: production migrations `0026`–`0028` (owner-approved), then push to main. Native parity captures for these
+  screens are still to run before the next app build.
